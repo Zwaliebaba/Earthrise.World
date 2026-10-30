@@ -1,6 +1,6 @@
 # ADR-004 — Destruction is resolved by rules in the simulation; debris is cosmetic
 
-**Status:** Proposed, 2026-10-30. Awaiting the owner's acceptance. Nothing implements it yet.
+**Status:** Proposed, 2026-10-30, revised the same day after a design review (decisions 2, 3, 4 and 6). Awaiting the owner's acceptance. Nothing implements it yet.
 
 ## Context
 
@@ -14,18 +14,18 @@ Destruction is the reason the world is made of voxels, and Teardown is the refer
 ## Decision
 
 1. **Removing voxels is an edit** (ADR-003), and only the simulation makes it.
-2. **After an edit, the simulation finds what lost support.** A piece of a structure that no longer connects, through solid voxels, to its anchor (the ground or its foundation) is unsupported. The search is bounded to the structure that was edited, never the whole world.
-3. **An unsupported piece collapses through a rule, the collapse resolver.** The resolver takes the piece and the world around it. It decides where the piece ends up as rubble and which voxels and units it damages on the way, and nothing else. Its result is ordinary edits and ordinary damage. It runs in the simulation, so it is authoritative, and it is a rule, so its outcome is predictable and cheap. The rules themselves are design (GameDesign.md).
-4. **A collapse takes time.** It is a simulation entity: it starts on the tick the piece loses support, lasts a number of ticks, and applies its edits and damage as the fall progresses, not all at once. Under the rule the fall is scripted, but it is still state that lives across ticks. Saves (ADR-003) and state updates (ADR-002) therefore carry a collapse in progress from the start. A resolver that decided everything on the tick support is lost would be simpler today, and it is the one shape a physics resolver could not sit behind.
+2. **After an edit, the simulation finds what lost support.** A voxel's support distance is the fewest horizontal steps on any path from it to an anchor that moves only down or sideways through solid voxels. A voxel is supported if its support distance is no more than its material's span (GameDesign.md); a piece made of voxels that are not supported is unsupported. An anchor is a voxel of bedrock material, or any voxel below a depth the generator fixes. Ordinary terrain is not an anchor, because it can be dug away. Connectivity alone would not do: a wall dug out from underneath stays connected to the ground at both ends of the dig and would stand as a bridge, so undermining (GameDesign.md, pillar 2) would never work. The span also bounds the search. An edit can change support only for voxels at or above it and within the longest span of any material horizontally, and the search covers that region, never a whole structure or the world.
+3. **An unsupported piece collapses through a rule, the collapse resolver.** The resolver takes the piece and the world around it. It decides where the piece ends up as rubble and which voxels and units it damages on the way, and nothing else. Its result is ordinary edits and ordinary damage. The piece never rotates in the simulation: the resolver lays it down as rubble, so nothing resamples a rotated body. If the damage leaves another piece unsupported, that piece's collapse starts on the next tick, and collapses that start on the same tick are processed in entity-id order, so a cascade is bounded per tick and replays the same way. It runs in the simulation, so it is authoritative, and it is a rule, so its outcome is predictable and cheap. The rules themselves are design (GameDesign.md).
+4. **A collapse takes time.** It is a simulation entity: it starts on the tick the piece loses support, lasts a number of ticks, and applies its edits and damage as the fall progresses, not all at once. Under the rule the fall is scripted, but it is still state that lives across ticks. Saves (ADR-003) and state updates (ADR-002) therefore carry a collapse in progress from the start. A resolver that decided everything on the tick support is lost would be simpler today, and it is the one shape a physics resolver could not sit behind. The time a collapse takes is also a warning a player can act on: they see the fall begin and can pull units out of its path before the damage lands.
 5. **Nothing outside the resolver predicts a collapse.** The AI planning a breach, and any interface that previews where something will fall, ask the resolver. Neither carries its own copy of the rule.
-6. **Units are not physics bodies, under any resolver.** A collapse affects a unit through damage, not by moving it. Unit movement belongs to navigation; a resolver that could push units would turn a change of resolver into a change of the unit model.
+6. **Units are not physics bodies, under any resolver.** A collapse affects a unit through damage, not by moving it. Unit movement belongs to navigation; a resolver that could push units would turn a change of resolver into a change of the unit model. A unit whose ground is dug away or buried is moved by navigation, under a rule in the design (GameDesign.md), never by the resolver.
 7. **The client shows a collapse but never computes one.** It draws the falling piece from the simulation's state updates and adds debris, dust and smoke simulated locally. That debris never affects gameplay and never becomes world state: it settles or fades, and what remains is the rubble the simulation placed. Two clients may show different debris.
 8. **No physics engine is added; R14 stands.** A physics-based resolver can later replace the rule's implementation without changing decisions 1–7: its moving bodies become a collapse's in-flight state. It would not need to give the same result on every machine, because the simulation is authoritative (ADR-002). It would still have to meet ADR-002's rule that one build replays the same commands to the same result, and that narrows which engines qualify. The replacement is a new ADR, and reopening R14 for it is the owner's decision.
 
 ## Consequences for the code
 
 - The collapse resolver is one interface with one implementation. Nothing else in the simulation knows how a collapse is computed.
-- The support search covers structures. Terrain is not searched as one connected structure: what undercut terrain does is a material rule (GameDesign.md).
+- The support search covers structures and stone terrain, and only the region an edit can affect (decision 2). Nothing searches the world as one connected structure. Earth and rubble carry support but are not judged by span: they follow the slump rule, a material rule (GameDesign.md).
 - Navigation updates from edits, rubble included.
 - Cosmetic debris lives entirely in the client and is excluded from saves, replays and network traffic.
 - A later physics resolver has to put bodies that come to rest back into the voxel grid, because loose bodies do not persist (ADR-003). A body at rest is generally rotated, so that is a resampling step the rule never needs, and it changes the rubble's shape.
@@ -38,10 +38,10 @@ Destruction is the reason the world is made of voxels, and Teardown is the refer
 - A collapse decided entirely on the tick support is lost.
 - Units moved by physics.
 - A third-party physics engine, unless a later ADR and the owner reopen R14.
+- Support decided by connectivity alone.
 
 ## Left open
 
-- The resolver's rules: the direction of a fall, how rubble settles, and what it damages.
-- Whether support is connectivity only, or also considers load.
-- Whether rubble blocks movement, slows it, or can be cleared and recycled.
+- The resolver's rules: the direction of a fall, how rubble settles and whether it blocks movement, and what a fall damages. GameDesign.md proposes them.
+- Each material's span. It is tuning, and it is counted in voxels, so it waits on the simulation voxel size.
 - How cosmetic debris is simulated and drawn, including whether it uses ADR-001's oriented voxels.
