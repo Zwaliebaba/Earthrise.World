@@ -6,7 +6,7 @@ This document says what the game is. [AGENTS.md](../AGENTS.md) says how its code
 
 ## The game in one paragraph
 
-Earthrise.World is a real-time strategy game set in a destructible voxel world. It plays like a classic historical RTS: workers gather, a settlement grows, technology advances, and armies built around counters fight. Every structure and every hillside in it is made of voxels that can be dug, quarried, built and knocked down. The long-term goal is a shared, persistent online world. The first playable version is single-player against AI factions on one generated map.
+Earthrise.World is a real-time strategy game set in a destructible, medieval voxel world. It plays like a classic historical RTS: workers gather, a settlement grows, technology advances, and armies built around counters fight. Every structure and every hillside in it is made of voxels that can be dug, quarried, built and knocked down. The long-term goal is a shared, persistent online world. The first playable version is single-player against AI factions on one generated map.
 
 ## Decided by the owner (2026-10-30)
 
@@ -15,6 +15,7 @@ Earthrise.World is a real-time strategy game set in a destructible voxel world. 
 3. **The real goal is a shared, persistent online world.** It is not part of the MVP.
 4. **The MVP has one human player.** AI factions fill the other seats.
 5. **Camera and voxel size are settled by a renderer spike** that shows and measures them, not on paper. The owner prefers an isometric view and is open to alternatives.
+6. **The setting is medieval.**
 
 ## Pillars (Proposed)
 
@@ -80,7 +81,7 @@ Its output is an ADR on voxel size and camera, with measured figures. If questio
 ## Open questions
 
 - The persistence model (above).
-- Setting and era. The Age of Empires II reference implies medieval, but that has not been decided.
+- Which part of the medieval period, and whether it includes gunpowder. Bombards would be the strongest destruction tool in the game and would change what a wall is worth.
 - The shape of technology progression.
 - The number of AI factions and the map size for the MVP.
 - Whether support is connectivity only, or also load.
