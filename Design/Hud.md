@@ -229,7 +229,7 @@ Hovering a cell shows the tooltip: hotkey, label and a one-line rule.
   - 25 command icons of 9 × 9 at U+E000–U+E018.
   
   A test checks that every string the HUD can draw has its glyphs (Proposed).
-- **The source is `GameData/Client/Fonts/EarthriseMason-glyphs.json`.** Each glyph's `rows` are its bitmap as text, and the atlases beside it are previews. The package's `earthrise-font.js` and `.otf` stay in Reference/HudPrototype/ as its own editing tools. Its JavaScript and its JSON agree glyph for glyph, and its three atlases match the rows pixel for pixel; both were checked on import.
+- **The source is `GameData/Client/Fonts/EarthriseMason-glyphs.json`.** Each glyph's `rows` are its bitmap as text, and its atlases, in [Previews/](Previews/), are previews. The package's `earthrise-font.js` and `.otf` stay in Reference/HudPrototype/ as its own editing tools. Its JavaScript and its JSON agree glyph for glyph, and its three atlases match the rows pixel for pixel; both were checked on import.
 - **It reaches the game the way voxel content does:** a tool under `Tools/` bakes the rows into the `Content` library, and nothing is loaded at runtime ([ADR-005](ADR/ADR-005-content-formats.md)). The text ADR in M3 settles the baked form.
 - **Drawing:** the renderer draws glyphs only at whole multiples, 2 to 6 screen px per font pixel, with no filtering.
 
