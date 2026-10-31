@@ -304,10 +304,10 @@
     "y": 3,
     "z": 6
    },
-   "voxelCount": 43,
+   "voxelCount": 52,
    "costM3": {
     "stone": 0,
-    "timber": 32,
+    "timber": 41,
     "foundation": 0
    },
    "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
@@ -317,7 +317,7 @@
    },
    "kind": "template",
    "knownIssues": [
-    "The shed's roof stands only on the stone stack, which is stock, and a 2-voxel timber post beside it touches nothing: the conversion to 1 m dropped the 0.5 m posts. Hauling the stock away would leave the roof, the critical part, unsupported (ADR-004). To be redrawn before M6.",
+    "Posts added on 2026-10-31: four 2 m timber posts at the corners of the shed, whose roof had stood only on the stone stack, which is stock; and one voxel under the 2 m timber post beside it, which the conversion left of the 0.5 m drawing's lifting frame, so that it stands on the ground. Every structure voxel now reaches the ground through structure (ADR-005). The .png preview predates them.",
     "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before M6, where the Hold trial first uses it."
    ]
   },
@@ -340,10 +340,10 @@
     "y": 3,
     "z": 6
    },
-   "voxelCount": 42,
+   "voxelCount": 50,
    "costM3": {
     "stone": 0,
-    "timber": 30,
+    "timber": 38,
     "foundation": 0
    },
    "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
@@ -353,7 +353,7 @@
    },
    "kind": "template",
    "knownIssues": [
-    "The shed's roof touches nothing below it: the conversion to 1 m dropped the 0.5 m posts, so the critical part is unsupported the moment it is placed (ADR-004). To be redrawn before M6.",
+    "Posts added on 2026-10-31: four 2 m timber posts at the corners of the shed, as in the 0.5 m drawing, whose roof had touched nothing below it. The roof now reaches the ground through structure (ADR-005). The .png preview predates them.",
     "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before M6, where the Hold trial first uses it."
    ]
   },
