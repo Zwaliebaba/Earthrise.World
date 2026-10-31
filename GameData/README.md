@@ -40,7 +40,7 @@ These files come from the owner's second package, kept unchanged in [`Design/Ref
   - **Seven indices are marked `both`** where the package said `world` or `models`: masonry, timber and the three rubbles (6, 7, 8, 25, 26), because engines and debris are drawn in them; iron (18), because templates carry iron fittings; and opening (20), because S1's wheels are drawn in it. The first six follow the package's own look spec over its `palette.json`. Both of the package's files mark opening `world`; the owner marked it `both` on 2026-10-31, when the asset check found S1's wheels in it.
 - **Known issues** are recorded on the entries they concern, in `knownIssues`:
   - every world asset is an automatic conversion, to be redrawn natively at 1 m;
-  - T8's and T9's sheds gained posts on 2026-10-31, which their `.png` previews predate;
+  - T8's and T9's sheds gained posts on 2026-10-31, which their previews in `Design/Previews/` predate;
   - E1's rampart holds 48 m³ against 32 m³ dug, and is topped with grass;
   - T7's grid has 1 m of empty padding in front, which the baker trims.
 - **The package's `.vox` copies were dropped** when the `.json` became the only committed source (ADR-008). `Tools/ExportVox.py` reproduces their voxels; the package keeps the originals.

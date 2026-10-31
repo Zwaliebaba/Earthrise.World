@@ -309,7 +309,7 @@
    },
    "kind": "template",
    "knownIssues": [
-    "Posts added on 2026-10-31: four 2 m timber posts at the corners of the shed, whose roof had stood only on the stone stack, which is stock; and one voxel under the 2 m timber post beside it, which the conversion left of the 0.5 m drawing's lifting frame, so that it stands on the ground. Every structure voxel now reaches the ground through structure (ADR-005). The .png preview predates them.",
+    "Posts added on 2026-10-31: four 2 m timber posts at the corners of the shed, whose roof had stood only on the stone stack, which is stock; and one voxel under the 2 m timber post beside it, which the conversion left of the 0.5 m drawing's lifting frame, so that it stands on the ground. Every structure voxel now reaches the ground through structure (ADR-005). Its preview in Design/Previews/ predates them.",
     "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before M6, where the Hold trial first uses it."
    ]
   },
@@ -344,7 +344,7 @@
    },
    "kind": "template",
    "knownIssues": [
-    "Posts added on 2026-10-31: four 2 m timber posts at the corners of the shed, as in the 0.5 m drawing, whose roof had touched nothing below it. The roof now reaches the ground through structure (ADR-005). The .png preview predates them.",
+    "Posts added on 2026-10-31: four 2 m timber posts at the corners of the shed, as in the 0.5 m drawing, whose roof had touched nothing below it. The roof now reaches the ground through structure (ADR-005). Its preview in Design/Previews/ predates them.",
     "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before M6, where the Hold trial first uses it."
    ]
   },
