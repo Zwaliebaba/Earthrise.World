@@ -41,19 +41,31 @@
     </ClCompile>
     <ClInclude Include="Palette.h" />
     <ClCompile Include="Palette.cpp" />
+    <ClInclude Include="VoxelGrid.h" />
+    <ClInclude Include="Catalog.h" />
+    <ClCompile Include="Catalog.cpp" />
+    <ClInclude Include="SharedHash.h" />
+    <ClCompile Include="SharedHash.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
       <Project>{F55F6479-8894-56EA-BBBD-E1F4C2812B37}</Project>
     </ProjectReference>
   </ItemGroup>
-  <!-- The client half of the bake (ADR-008, ADR-010 decision 7): GameData to generated headers. -->
+  <!-- The client half of the bake (ADR-008, ADR-010 decision 7): GameData to generated headers. The inputs are
+       everything the bake reads: the palette, every layer file in the two folders it bakes, the script and the
+       modules it imports. The outputs are every header it writes. It rewrites only a header whose text changed,
+       so an edit that leaves one header as it was reruns the bake on later builds, but recompiles nothing. -->
   <ItemGroup>
     <BakeInput Include="$(SolutionDir)GameData\Server\Palette.json" />
+    <BakeInput Include="$(SolutionDir)GameData\Server\Templates\*.json" />
+    <BakeInput Include="$(SolutionDir)GameData\Client\Models\*.json" />
     <BakeInput Include="$(SolutionDir)Tools\BakeContent.py" />
+    <BakeInput Include="$(SolutionDir)Tools\CheckAssets.py" />
+    <BakeInput Include="$(SolutionDir)Tools\VoxFile.py" />
   </ItemGroup>
-  <Target Name="BakeClientContent" BeforeTargets="ClCompile" Inputs="@(BakeInput)" Outputs="$(IntDir)Generated\PaletteTable.h">
-    <Exec Command="python &quot;$(SolutionDir)Tools\BakeContent.py&quot; --client &quot;$(IntDir)Generated&quot; || (echo error: the content bake needs Python 3.12 or later on PATH, ADR-010 &amp;&amp; exit 1)" />
+  <Target Name="BakeClientContent" BeforeTargets="ClCompile" Inputs="@(BakeInput)" Outputs="$(IntDir)Generated\PaletteTable.h;$(IntDir)Generated\TemplateTable.h;$(IntDir)Generated\ModelTable.h;$(IntDir)Generated\SharedHashValue.h">
+    <Exec Command="python &quot;$(SolutionDir)Tools\BakeContent.py&quot; --client &quot;$(IntDir)Generated&quot; || (echo error: the content bake failed, see its output above; it needs Python 3.12 or later on PATH, ADR-010 &amp;&amp; exit 1)" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

@@ -7,6 +7,12 @@
     <Filter Include="Palette">
       <UniqueIdentifier>{370A2EC7-3C31-5107-AB3A-648B12D672DD}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Catalog">
+      <UniqueIdentifier>{357950E8-37FF-506F-B0C0-9B2B6325E2C8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SharedHash">
+      <UniqueIdentifier>{5178E987-0338-5294-B7F5-F6CFE87D531B}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -20,6 +26,21 @@
     </ClInclude>
     <ClCompile Include="Palette.cpp">
       <Filter>Palette</Filter>
+    </ClCompile>
+    <ClInclude Include="VoxelGrid.h">
+      <Filter>Catalog</Filter>
+    </ClInclude>
+    <ClInclude Include="Catalog.h">
+      <Filter>Catalog</Filter>
+    </ClInclude>
+    <ClCompile Include="Catalog.cpp">
+      <Filter>Catalog</Filter>
+    </ClCompile>
+    <ClInclude Include="SharedHash.h">
+      <Filter>SharedHash</Filter>
+    </ClInclude>
+    <ClCompile Include="SharedHash.cpp">
+      <Filter>SharedHash</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

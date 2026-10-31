@@ -21,8 +21,8 @@ Buildings, used by both the simulation and the client. The costs are counted und
 | T5 | Gatehouse | 9 × 12 × 7 | 585 m³ stone + 12 m³ timber | Gate | The gate is 3 m wide and 4 m high. The garrison fires down into the passage. |
 | T6 | Palisade | 8 × 4 × 2 | 35 m³ timber | None | |
 | T7 | Palisade gate | 8 × 5 × 1 | 32 m³ timber | Gate | Its iron fittings cost as timber. The grid has 1 m of padding in front, which the baker trims. |
-| T8 | Quarry yard | 7 × 3 × 6 | 32 m³ timber | Shed | The stone drop site. Its stone stack is stock. The shed has no posts (Known issues). |
-| T9 | Lumber camp | 7 × 3 × 6 | 30 m³ timber | Shed | The timber drop site. Its log stack is stock. The shed has no posts (Known issues). |
+| T8 | Quarry yard | 7 × 3 × 6 | 41 m³ timber | Shed | The stone drop site. Its stone stack is stock. The shed stands on four corner posts. |
+| T9 | Lumber camp | 7 × 3 × 6 | 38 m³ timber | Shed | The timber drop site. Its log stack is stock. The shed stands on four corner posts. |
 
 ## Models
 
@@ -64,10 +64,7 @@ The packages made choices the design documents had not fixed. The owner adopted 
 ## Known issues
 
 - **The world assets are automatic conversions.** The package made each 1 m voxel from the majority of 2 × 2 × 2 voxels of the 0.5 m drawing. T1–T7 are to be redrawn natively at 1 m before the M4 Siege castle is final, and T8 and T9 before M6.
-- **T8's and T9's sheds have no posts.** The conversion dropped the 0.5 m posts:
-  - T9's roof touches nothing below it, so the critical part is unsupported the moment it is placed ([ADR-004](ADR/ADR-004-rule-based-destruction.md)).
-  - T8's roof stands only on the stone stack, which is stock, and a 2 m timber post beside it touches nothing. Hauling the stone away would bring the roof down.
-  - The asset check now tests for this (ADR-005).
+- **T8's and T9's sheds had no posts** (fixed 2026-10-31, the owner's decision). The conversion dropped the 0.5 m posts, so T9's roof touched nothing and T8's stood only on its stone stack, which is stock ([ADR-004](ADR/ADR-004-rule-based-destruction.md)). Each now stands on four timber corner posts 2 m tall, and T8's stray post, all that the conversion left of its lifting frame, is joined to the ground by one voxel. The asset check tests for this (ADR-005). Their previews in `Design/Previews/` predate the posts.
 - **E1 does not hold its own spoil.** The rampart holds 48 m³ against 32 m³ dug, and the spoil and the rampart must be equal (GameDescription.md). The conversion flattened the ditch to 3 m wide and 1 m deep, with a 1 m slot 2 m deep. Redrawing the ditch at the decided profile digs exactly 48 m³ for its 8 m, which fixes both without touching the rampart.
 - **E1's new rampart is topped with grass.** Only the generator places grass (RendererLook.md), so a fresh rampart is bare earth. E1 is an illustration, so this affects nothing that is baked.
 - **T2's banner was removed.** The conversion dropped its pole and left two faction voxels floating. Banners are 0.5 m models (ADR-006). T2's preview still shows the banner.

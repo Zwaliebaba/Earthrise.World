@@ -302,8 +302,13 @@ jobs:
       - name: Test the checkers
         run: python3 Build/TestCheckers.py -v
 
+      # The asset check's own tests, for the same reason: the repository passes, and each broken copy
+      # of GameData/, or of the client bake, fails for its reason.
+      - name: Test the asset check
+        run: python3 Tools/TestCheckAssets.py -v
+
       # The asset check is Python over GameData/ and needs no Windows, so it runs here, where it
-      # takes seconds. It lands with the client half of the bake in M1 (ADR-005, ADR-008).
+      # takes seconds. It runs the client bake too, to see that nothing server-only reaches the
+      # client's tables (ADR-005, ADR-008).
       - name: Check the assets
-        if: hashFiles('Tools/CheckAssets.py') != ''
         run: python3 Tools/CheckAssets.py

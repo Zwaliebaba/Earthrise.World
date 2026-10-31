@@ -57,7 +57,7 @@ Colours are authored in sRGB and converted to linear before lighting. The output
 | 16 | Faction (red example; blue #2f5d93) | #b23a2e | 0.05 | models | Models only, banners included; never on structures |
 | 18 | Iron | #9aa0a6 | 0.05 | both | A decoration in a template (gate fittings) |
 | 19 | Laborer cloth | #c79a6b | 0.05 | models | Models only |
-| 20 | Opening (slits, doors, windows) | #2e2a27 | 0.05 | world | A decoration: the material around it. Nothing passes through it. |
+| 20 | Opening (slits, doors, windows) | #2e2a27 | 0.05 | both | A decoration: the material around it. Nothing passes through it. S1's wheels are drawn in it, so models use it too (owner, 2026-10-31). |
 | 21 | Counterweight | #5b5650 | 0.05 | models | Models only |
 | 22 | Skin | #d9a57f | 0.05 | models | Models only |
 | 23 | Cloth (legs) | #3d3530 | 0.05 | models | Models only |
