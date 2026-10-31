@@ -126,13 +126,13 @@ At 20 hours a week that puts the Trials verdict 5–9 years out. The spike's own
 
 ## MVP (Decided: the stages, the hypotheses and the control; Proposed: the rest)
 
-The MVP exists to prove that pillars 1 and 2 are fun. It does not try to prove persistence or networking, only to keep both possible. The simulation sits behind a server boundary ([ADR-002](ADR/ADR-002-authoritative-simulation.md)), and the world is a seed plus edits ([ADR-003](ADR/ADR-003-world-as-seed-plus-edits.md)). It is built in stages (below), so the test of the pillars does not wait for an AI that plays the whole game.
+The MVP exists to prove that pillars 1 and 2 are fun. It does not try to prove persistence or networking, only to keep both possible. The simulation sits behind a server boundary ([ADR-002](ADR/ADR-002-authoritative-simulation.md)), and the world is a seed plus edits ([ADR-003](ADR/ADR-003-world-as-seed-plus-edits.md)). It is built in stages (below), so the test of the pillars does not wait for an AI that plays the whole game. [MvpPlan.md](MvpPlan.md) plans the build up to the verdict on stages 1 and 2 (Proposed).
 
 **In:**
 
 - One map, 512 m × 512 m, generated from a seed and held entirely in memory.
 - One human player. Stages 1 and 2 have one AI faction; the skirmish has one or two.
-- One faction type shared by everyone. Its roster is workers, a small military roster built around counters, the ram and at least one lobbed engine. The period is the high medieval, before gunpowder.
+- One faction type shared by everyone. Its roster is workers, a small military roster built around counters, the ram and at least one lobbed engine. The period is the high medieval, before gunpowder. Proposed: the military roster is spearmen, archers, outriders and men-at-arms; the siege roster is the ram, sappers and the trebuchet; and each trial gives the player a fixed army, so the Trials need no unit training, provisions or iron.
 - Gathering by excavation, construction and repair from templates, and rule-based collapse.
 - Fog of war as a vision radius, enforced by the simulation ([ADR-002](ADR/ADR-002-authoritative-simulation.md), decision 4). A fogged area shows what the player last saw.
 - A win condition for each stage.
@@ -147,6 +147,7 @@ The MVP exists to prove that pillars 1 and 2 are fun. It does not try to prove p
 - Worlds larger than memory, and streaming.
 - Technology progression beyond what the MVP roster needs.
 - AI factions that plan undermining. They shoot sappers and repair, and the Hold trial's scripted sapper wave is the one exception.
+- In the Trials: provisions, iron, unit training, the mangonel, the mantlet, crossbowmen, knights and thick walls (Proposed; they come with Skirmish).
 
 ### Hypotheses (Decided)
 
@@ -158,7 +159,7 @@ Each pillar is stated as a claim a playtest can refute.
 The control is the same stages with walls built of segments that have health bars, and resources gathered from nodes that run out. It swaps the collapse resolver ([ADR-004](ADR/ADR-004-rule-based-destruction.md), decision 3) and the gathering rule and leaves the rest of the game unchanged. Both versions keep every cosmetic, so only the rules differ, and the integrity view is on by default, as the health bars are.
 
 **The playtest (Proposed).**
-- **Who plays.** 8 to 10 people who play RTS games, each playing both stages in both versions, with half of them playing the voxel version first.
+- **Who plays.** 8 to 10 people who play RTS games, in two rounds: the Siege trial first, for H2, and then the Hold trial, for H1. Each person plays the stage in both versions, with half of them playing the voxel version first.
 - **What is recorded.** Their reasons are recorded before anyone explains the rules.
 - **Pass marks.** Preference passes at 7 of 8 or better, scaled to the final number. Prediction questions are split evenly between sections that will open and sections that will not, and pass at a median player accuracy of 0.65 or more.
 - **Learnability.** Two or three people who do not play RTS games also play, reported separately as a check on how learnable the game is.
