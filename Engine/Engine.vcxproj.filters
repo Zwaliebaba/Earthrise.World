@@ -114,5 +114,23 @@
     <None Include="Shader\VoxelCommon.hlsli">
       <Filter>Shader</Filter>
     </None>
+    <ClInclude Include="VoxelGridView.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="VoxelGridView.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClInclude Include="StaticBuffer.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="StaticBuffer.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClInclude Include="DepthTarget.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="DepthTarget.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

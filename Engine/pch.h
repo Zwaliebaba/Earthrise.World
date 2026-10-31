@@ -14,7 +14,9 @@
 #include <climits>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <deque>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <span>
