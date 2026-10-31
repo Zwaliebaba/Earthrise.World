@@ -12,6 +12,7 @@
 
 #include "CppUnitTest.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>

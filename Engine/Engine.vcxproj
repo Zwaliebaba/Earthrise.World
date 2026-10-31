@@ -75,6 +75,10 @@
     <ClCompile Include="OrthographicCamera.cpp" />
     <ClInclude Include="KeyboardInput.h" />
     <ClCompile Include="KeyboardInput.cpp" />
+    <ClInclude Include="ColorTarget.h" />
+    <ClCompile Include="ColorTarget.cpp" />
+    <ClInclude Include="UpscalePass.h" />
+    <ClCompile Include="UpscalePass.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FXCompile Include="Shader\VoxelVS.hlsl">
@@ -84,6 +88,13 @@
       <ShaderType>Pixel</ShaderType>
     </FXCompile>
     <None Include="Shader\VoxelCommon.hlsli" />
+    <FXCompile Include="Shader\UpscaleVS.hlsl">
+      <ShaderType>Vertex</ShaderType>
+    </FXCompile>
+    <FXCompile Include="Shader\UpscalePS.hlsl">
+      <ShaderType>Pixel</ShaderType>
+    </FXCompile>
+    <None Include="Shader\UpscaleCommon.hlsli" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

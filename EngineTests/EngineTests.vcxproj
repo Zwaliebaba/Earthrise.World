@@ -48,6 +48,7 @@
     <ClCompile Include="VoxelPassTests.cpp" />
     <ClCompile Include="VoxelGridViewTests.cpp" />
     <ClCompile Include="CameraTests.cpp" />
+    <ClCompile Include="UpscalePassTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
