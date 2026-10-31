@@ -15,8 +15,9 @@ name: Build
 # add one to get past a red build.
 #
 # Nothing is discovered by name. The solution is whatever single .slnx/.sln sits at the root, and
-# the test suites are whatever *Tests.vcxproj the tree contains -- so adding a project does not
-# mean remembering to edit this file.
+# the test suites are whatever *Tests.vcxproj that solution lists -- so adding a project does not
+# mean remembering to edit this file. The solution, not the tree: Build/Fixtures holds test
+# projects that exist to be checked, not built.
 #
 # ── What this builds, and what it deliberately does not ────────────────────────────────────
 #
@@ -167,20 +168,24 @@ jobs:
             /m /nologo /v:minimal /warnaserror `
             /flp:LogFile=build.log`;Verbosity=normal
 
-      # One suite per *Tests.vcxproj in the tree, and every one of them must have produced a DLL:
+      # One suite per *Tests.vcxproj in the solution, and every one of them must have produced a DLL:
       # vstest reports "no tests found" as a pass, so a suite that did not build is not a suite
       # that passed. No suites at all is a state this repository is still legitimately in.
       - name: Run the tests
         if: steps.solution.outputs.path != ''
         shell: pwsh
+        env:
+          SOLUTION: ${{ steps.solution.outputs.path }}
         run: |
-          $projects = @(Get-ChildItem -Path . -Recurse -Filter '*Tests.vcxproj' -File)
+          $solution = [xml](Get-Content -Raw -LiteralPath $env:SOLUTION)
+          $projects = @($solution.SelectNodes('//Project') | ForEach-Object { $_.Path } |
+            Where-Object { [IO.Path]::GetFileNameWithoutExtension($_) -like '*Tests' })
           if ($projects.Count -eq 0) {
-            Write-Output "::notice::No *Tests.vcxproj in the tree yet. Nothing to run."
+            Write-Output "::notice::No *Tests.vcxproj in the solution yet. Nothing to run."
             exit 0
           }
           $suites = foreach ($project in $projects) {
-            $dll = "x64\$env:CONFIGURATION\$($project.BaseName).dll"
+            $dll = "x64\$env:CONFIGURATION\$([IO.Path]::GetFileNameWithoutExtension($project)).dll"
             if (-not (Test-Path $dll)) { throw "$dll was not built. A suite that does not exist is not a suite that passed." }
             $dll
           }
