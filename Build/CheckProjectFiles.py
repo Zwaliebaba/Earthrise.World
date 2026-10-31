@@ -39,6 +39,7 @@ MANDATED = {
   ("ClCompile", "WarningLevel"): "Level4",
   ("ClCompile", "TreatWarningAsError"): "true",
   ("ClCompile", "FloatingPointModel"): "Precise",
+  ("ClCompile", "DebugInformationFormat"): "ProgramDatabase",
   ("ClCompile", "PrecompiledHeader"): "Use",
   ("ClCompile", "PrecompiledHeaderFile"): "pch.h",
   ("FXCompile", "ShaderModel"): "6.0",
