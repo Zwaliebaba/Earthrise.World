@@ -20,9 +20,10 @@ struct VoxelGridView
   std::uint32_t zVoxels;
 };
 
-/// Says whether the cell at (x, y, z), just outside the grid, is solid. A chunk asks its neighbours;
-/// a model answers no.
-using SolidOutside = std::function<bool(std::int32_t _xVoxels, std::int32_t _yVoxels, std::int32_t _zVoxels)>;
+/// Says whether the cell at (x, y, z), in voxels from the grid's origin and just outside it, is
+/// solid. A chunk asks its neighbours; a model answers no. The parameters are unnamed: a function
+/// type's names would be reserved identifiers (R1).
+using SolidOutside = std::function<bool(std::int32_t, std::int32_t, std::int32_t)>;
 
 /// A record for every solid cell with at least one empty face neighbour, in storage order: the
 /// visible voxels ADR-011, decision 6 draws. Buried cells are left out. Throws
