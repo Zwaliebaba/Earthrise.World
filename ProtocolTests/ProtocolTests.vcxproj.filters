@@ -18,5 +18,8 @@
     <ClCompile Include="ChunkCoordinateTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="ChunkTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

@@ -2,7 +2,7 @@
 
 #include "Chunk.h"
 
-namespace Simulation
+namespace Protocol
 {
 
 std::uint8_t Chunk::At(std::int32_t _xVoxels, std::int32_t _yVoxels, std::int32_t _zVoxels) const
@@ -40,4 +40,4 @@ std::size_t Chunk::IndexOf(std::int32_t _xVoxels, std::int32_t _yVoxels, std::in
          static_cast<std::size_t>(_xVoxels);
 }
 
-} // namespace Simulation
+} // namespace Protocol

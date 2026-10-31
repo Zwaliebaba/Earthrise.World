@@ -15,10 +15,10 @@
     <ClCompile Include="pch.cpp">
       <Filter>Build</Filter>
     </ClCompile>
-    <ClInclude Include="Chunk.h">
+    <ClInclude Include="ChunkStore.h">
       <Filter>World</Filter>
     </ClInclude>
-    <ClCompile Include="Chunk.cpp">
+    <ClCompile Include="ChunkStore.cpp">
       <Filter>World</Filter>
     </ClCompile>
   </ItemGroup>
