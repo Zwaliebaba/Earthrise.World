@@ -17,7 +17,7 @@ The MVP ends at the verdict on stages 1 and 2 (GameDesign.md, decided 2026-10-31
 - **One map**, 512 m × 512 m, generated from its seeds by the integer-only generator and held in memory. The Siege castle and the Hold maps are scenarios, which means saves of seeds, edits and entities.
 - **Materials:** earth, common rock, building stone, bedrock, timber, and rubble that keeps the material it fell from.
 - **Economy, used by Hold only:** stone and timber, counted by volume. Six designations: quarry, pit, ditch, trench, felling and clearance. Two drop sites, the quarry yard and the lumber camp, with laborers hauling to them.
-- **Templates:** hall and keep, palisade and palisade gate, standard stone wall, tower, gatehouse with its passage attack, quarry yard and lumber camp. These are T1–T9 in `Assets/Templates/`, catalogued in [MvpAssets.md](MvpAssets.md). Ditch and rampart as earthworks. Deep foundations, priced by their volume.
+- **Templates:** hall and keep, palisade and palisade gate, standard stone wall, tower, gatehouse with its passage attack, quarry yard and lumber camp. These are T1–T9 in `GameData/Server/Templates/`, catalogued in [MvpAssets.md](MvpAssets.md). Ditch and rampart as earthworks. Deep foundations, priced by their volume.
 - **Construction and repair:** construction voxel by voxel, after the footprint is levelled. Repair at a fixed rate per section with the ten-second lock. Critical parts with thresholds.
 - **Destruction:**
   - craters for the ram and the trebuchet in timber, earth and stone;
@@ -72,7 +72,8 @@ The MVP ends at the verdict on stages 1 and 2 (GameDesign.md, decided 2026-10-31
 2. **The roster and the fixed armies** as listed above, which fix what M4 builds.
 3. **Own content only.** Every font, sound and piece of art is made for the project or is in the public domain. Text therefore needs a bitmap font drawn for the project, or one in the public domain.
 4. **Platforms and squads** (ADR-007, GameDesign.md): x64 and ARM64 from the first project, mouse and keyboard in the MVP, the Surface measured from M1, and squads as what the player commands.
-5. **The HUD** ([Hud.md](Hud.md)), from the owner's HUD package, with the bitmap font Earthrise Mason in `Assets/Fonts/`.
+5. **The HUD** ([Hud.md](Hud.md)), from the owner's HUD package, with the bitmap font Earthrise Mason in `GameData/Client/Fonts/`.
+6. **Game data** ([ADR-008](ADR/ADR-008-server-and-client-game-data.md)): sources split into `GameData/Server/` and `GameData/Client/`; the client has everything compiled in, and the server reads baked files from `<outputdir>\ServerData`.
 
 ## Architecture
 
@@ -83,11 +84,11 @@ The MVP ends at the verdict on stages 1 and 2 (GameDesign.md, decided 2026-10-31
 | `Core` | static library | `Core` | (none) | Integer and fixed-point math, the pinned PRNG, hashing, byte encoding, containers, logging, asserts |
 | `Engine` | static library | `Engine` | Core | Win32 window, pointer input (mouse, touch and pen) and timing; the Direct3D 12 device, frames in flight and the upload ring; pipeline states from embedded shaders; the voxel renderer of ADR-001; text; XAudio2 |
 | `Protocol` | static library | `Protocol` | Core | Command types and their byte encoding, state-update value types, handles to chunk snapshots |
-| `Content` | static library | `Content` | Core | The palette, templates and models baked from `Assets/` (ADR-005): data and accessors, no rules |
-| `Simulation` | static library | `Simulation` | Core, Protocol, Content | The world, generator, edits, support search and resolver, slump, navigation, units, combat, designations and jobs, templates, repair, AI, the fog filter, saves, replays and the tick loop |
+| `Content` | static library | `Content` | Core | The client's content, compiled in: palette colours, the client view of the templates, the models and the font, baked from `GameData/` (ADR-005, ADR-008). Data and accessors, no rules |
+| `Simulation` | static library | `Simulation` | Core, Protocol | Reading `<outputdir>\ServerData` at startup (ADR-008); the world, generator, edits, support search and resolver, slump, navigation, units, combat, designations and jobs, templates, repair, AI, the fog filter, saves, replays and the tick loop |
 | `Client` | static library | `Client` | Core, Engine, Protocol, Content | Camera, the command layer and the mouse-and-keyboard scheme that feeds it, squad selection and orders, interface and overlays, presentation of state updates, cosmetic debris |
 | `Earthrise` | executable | (none) | all libraries | `wWinMain`, which joins the client and the simulation through an in-process transport |
-| `RendererSpike` | executable | `RendererSpike` | Core, Engine, Content, Simulation | The spike's scenes and measurements, kept afterwards as a rendering benchmark |
+| `RendererSpike` | executable | `RendererSpike` | Core, Engine, Content, Simulation, Protocol | The spike's scenes and measurements, kept afterwards as a rendering benchmark |
 | `SimulationBench` | console executable | `SimulationBench` | Core, Protocol, Simulation | Headless measurements: spike question 6, the synthetic 2 km world, regression timing |
 | `CoreTests`, `ProtocolTests`, `SimulationTests` | test projects | `<Project>Tests` | their library | Unit tests, run by vstest, each starting with `SuiteSmoke` |
 
@@ -95,6 +96,7 @@ The edges run one way:
 - `Simulation` includes nothing from `Engine` or Direct3D, so it builds headless.
 - `Client` includes nothing from `Simulation`. It sees only `Protocol` (ADR-002, decision 3).
 - `Engine` knows voxels, not the game. Materials reach it as palette indices (R9).
+- `Simulation` reads only `ServerData`, and `Client` only the compiled-in `Content`. The executable checks at startup that both were baked from the same shared sources (ADR-008, decision 5).
 - Windows and Direct3D stay inside `Engine` and the executables. `Core`, `Protocol`, `Content` and `Simulation` include no Windows or Direct3D header (ADR-007).
 - Every project has x64 and ARM64 platforms (ADR-007).
 - Each project gets its own folder, flat, and is added to `.clang-tidy`'s `HeaderFilterRegex` in the commit that creates it.
@@ -109,9 +111,9 @@ The edges run one way:
 | Tick rate and number representation | Start of M2 | 20 ticks a second; integer voxel coordinates; fixed-point positions for units and shots |
 | Chunk dimensions and edit encoding | M2 | 32³ voxels; a sparse list of edits, replaced by a full copy past a threshold |
 | Navigation model | M2 | A height field of 2.5D tiles, a clearance grid for each class (foot, cavalry, machines), and a dirty tile rebuilt at most once a tick |
-| Content formats | Decided | [ADR-005](ADR/ADR-005-content-formats.md): JSON layer files with MagicaVoxel copies, baked into `Content` |
+| Content formats | Decided | [ADR-005](ADR/ADR-005-content-formats.md): JSON layer files, baked. [ADR-008](ADR/ADR-008-server-and-client-game-data.md): client content compiled into `Content`, server data baked into files in `<outputdir>\ServerData`, `.vox` written on demand for MagicaVoxel |
 | Platforms and input | Decided | [ADR-007](ADR/ADR-007-platforms-and-input.md): Windows on x64 and ARM64; two input schemes over one command layer, touch after the verdict |
-| Text rendering | M3 | Earthrise Mason ([Hud.md](Hud.md) §9): its glyph rows in `Assets/Fonts/`, baked into `Content` by a tool, drawn only at whole multiples of a font pixel |
+| Text rendering | M3 | Earthrise Mason ([Hud.md](Hud.md) §9): its glyph rows in `GameData/Client/Fonts/`, baked into `Content` by a tool, drawn only at whole multiples of a font pixel |
 | How units are drawn | M4 | Units are 0.5 m models of 1 × 1 × 4 voxels, axis-aligned and rotated in 90° steps. Engine poses are baked; debris is oriented voxels. |
 
 ### One simulation tick, in order
@@ -185,7 +187,7 @@ Each CI guard is removed once its input is there.
 - **The test scene:** the key scene, "The Breach at the West Wall".
   - **Its layout** comes from [Siege Scene Prompt.md](Reference/SiegePrototype/Siege%20Scene%20Prompt.md). **Its target look** is the v5 scene in [Reference/SiegePrototypeV2/](Reference/SiegePrototypeV2/), matched by eye, not pixel for pixel.
   - **What it holds:** a 128 m holding, forest, a walled castle with a breach and its rubble ramp, a ditch and rampart, a terraced quarry, trebuchets, and about 95 units as 0.5 m models.
-  - **What it is built from:** the templates and models in `Assets/`, where they exist. Where the prompt's sizes differ from them, the templates win: it gives walls 1.5 m thick, and T3 is 2 m.
+  - **What it is built from:** the templates and models in `GameData/`, where they exist. Where the prompt's sizes differ from them, the templates win: it gives walls 1.5 m thick, and T3 is 2 m.
   - **What is left out:** the prompt's overlay of title, markers and legend, which uses licensed fonts, because the MVP uses only its own content.
 - **Scripted edits:** quarrying at the peak rate back-solved from the tempo, and one wall collapse.
 - **A render resolution of its own,** scaled to the display, so the Surface can be measured below its panel's resolution (ADR-007).
@@ -239,7 +241,7 @@ Run it with six people (F-48).
 - units, stats and combat, physical shots, elevation, garrisons and the gatehouse's passage attack;
 - drawing units and buildings;
 - fog with the visibility filter and last-seen land;
-- the content baker and the asset check (ADR-005), the world templates T1–T9 redrawn natively at 1 m, and the Siege castle built from them;
+- the content baker, writing the client's tables into `Content` and the server's data to `ServerData`, with the two hashes, and the asset check (ADR-005, ADR-008); the world templates T1–T9 redrawn natively at 1 m, and the Siege castle built from them;
 - the subset of jobs the trial needs: repair and trenches;
 - the rest of the interface: layout A of [Hud.md](Hud.md), with squad selection, control groups, the command card, the minimap, alerts and the repair lock, and every hover reading also reachable without hover (ADR-007);
 - the Siege defender AI;
@@ -307,7 +309,7 @@ Run it with six people (F-48).
 | Players cannot read breaches | M3, M5 | The single round of legibility work, then the kill criterion |
 | The Siege defender is too weak or too strong to test anything | M4 | Scripted behaviors and tuning; it plays one authored castle, not arbitrary ones |
 | The plan overruns | Every milestone | The spike's ratio rescales everything; the cut order in GameDesign.md applies past Skirmish, and within the MVP the trebuchet, the gatehouse attack and the breach lab are the last things to cut |
-| Content takes longer than code | M4, M6 | The templates and models already exist in `Assets/`; one castle and two Hold maps only |
+| Content takes longer than code | M4, M6 | The templates and models already exist in `GameData/`; one castle and two Hold maps only |
 
 ## Deferred to the Skirmish plan
 

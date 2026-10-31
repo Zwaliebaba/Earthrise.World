@@ -415,7 +415,7 @@ Controls are standard for the genre, played on squads: selection, control groups
 
 ## How it is built
 
-- **One simulation, authoritative.** Single-player runs the same simulation as a world server, in the same process. AI houses, raiders and stewards issue the same commands a player does. Every game can be replayed from its commands, in the build that recorded it.
+- **One simulation, authoritative.** Single-player runs the same simulation as a world server, in the same process. AI houses, raiders and stewards issue the same commands a player does. Every game can be replayed from its commands, in the build and with the server data that recorded it.
 - **The world is a seed plus its edits.** A generated world is rebuilt from its seed, and only what players changed is stored. Saves are small, and archiving a finished world is cheap. Where resources lie is kept on the server, so a modified client cannot find hidden veins.
 - **Destruction is resolved by rules in the simulation.** Outcomes are predictable and the same for every player. Tumbling debris is drawn locally and never matters.
 - **Voxels are drawn directly, without meshing**, using ray-casting after Majercik et al. (2018). An edit shows on screen in the next frame.

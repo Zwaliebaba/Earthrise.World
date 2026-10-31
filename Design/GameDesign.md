@@ -96,7 +96,7 @@ The owner adopted a look specification from a visual prototype, and settled wher
 
 ### 2026-10-31: the MVP's assets and the content format
 
-1. **The MVP's voxel assets are the owner's package,** now in `Assets/` and catalogued in [MvpAssets.md](MvpAssets.md). It brings nine templates (T1–T9), unit and engine models, and illustrations, and its own choices with them:
+1. **The MVP's voxel assets are the owner's package,** now in `GameData/` (`Assets/` until [ADR-008](ADR/ADR-008-server-and-client-game-data.md)) and catalogued in [MvpAssets.md](MvpAssets.md). It brings nine templates (T1–T9), unit and engine models, and illustrations, and its own choices with them:
    - the proportions of the hall, keep, gatehouse, tower and drop sites;
    - the hall's frame and each drop site's shed as critical parts;
    - hollow towers and keeps;
@@ -151,9 +151,19 @@ The owner delivered a HUD package, kept unchanged in [Reference/HudPrototype/](R
 6. **Confirmed as Decided:**
    - the ARM64 floor of `/arch:armv8.0+lse` (ADR-007);
    - AGENTS.md R16's correction on contraction;
-   - ADR-005's amendments: the asset check that every structure voxel connects to its template's base, and `Assets/Fonts/`;
+   - ADR-005's amendments: the asset check that every structure voxel connects to its template's base, and a folder for the font (now `GameData/Client/Fonts/`);
    - Hud.md's additions: the cards, the cell widths, BLOCKED, GROUND from the resolver, section names in the scenario, and F1 and F2.
 7. **The prototypes' support code is the owner's.** `support.js` in Design/Reference/ was produced with Claude Design by the owner, as were all the packages' assets ([Reference/README.md](Reference/README.md)).
+
+### 2026-10-31: game data, server and client
+
+[ADR-008](ADR/ADR-008-server-and-client-game-data.md) records the engineering side.
+
+1. **Content is split by who reads it.** Sources live in `GameData/Server/` and `GameData/Client/`. Content both sides read, the templates and the palette, has its source on the server's side.
+2. **The client has everything compiled in.** The server reads its own data from baked files in `<outputdir>\ServerData`, which can be rebuilt without recompiling, so server-only data such as statistics and waves can be tuned between playtests.
+3. **`<outputdir>\GameData` is kept for client content too large to compile in,** audio first.
+4. **The JSON layer file is the only committed voxel source.** A tool writes a `.vox` for MagicaVoxel and writes an edit back, so the owner can keep authoring in Claude Design and touch up in MagicaVoxel.
+5. **Shaders stay compiled into the executable.**
 
 ## Pillars (Decided)
 

@@ -1,6 +1,6 @@
 # ADR-002 — The simulation is authoritative and sits behind a server boundary from the first line
 
-**Status:** Accepted, 2026-10-31. Proposed 2026-10-30 and revised the same day after a design review (decisions 3 and 6); accepted by the owner after the review of the game description. Nothing implements it yet.
+**Status:** Accepted, 2026-10-31. Proposed 2026-10-30 and revised the same day after a design review (decisions 3 and 6); accepted by the owner after the review of the game description. [ADR-008](ADR-008-server-and-client-game-data.md) extends decision 6: a replay is promised within one build and one set of server data. Nothing implements it yet.
 
 ## Context
 

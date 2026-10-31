@@ -229,7 +229,7 @@ Hovering a cell shows the tooltip: hotkey, label and a one-line rule.
   - 25 command icons of 9 × 9 at U+E000–U+E018.
   
   A test checks that every string the HUD can draw has its glyphs (Proposed).
-- **The source is `Assets/Fonts/EarthriseMason-glyphs.json`.** Each glyph's `rows` are its bitmap as text, and the atlases beside it are previews. The package's `earthrise-font.js` and `.otf` stay in Reference/HudPrototype/ as its own editing tools. Its JavaScript and its JSON agree glyph for glyph, and its three atlases match the rows pixel for pixel; both were checked on import.
+- **The source is `GameData/Client/Fonts/EarthriseMason-glyphs.json`.** Each glyph's `rows` are its bitmap as text, and the atlases beside it are previews. The package's `earthrise-font.js` and `.otf` stay in Reference/HudPrototype/ as its own editing tools. Its JavaScript and its JSON agree glyph for glyph, and its three atlases match the rows pixel for pixel; both were checked on import.
 - **It reaches the game the way voxel content does:** a tool under `Tools/` bakes the rows into the `Content` library, and nothing is loaded at runtime ([ADR-005](ADR/ADR-005-content-formats.md)). The text ADR in M3 settles the baked form.
 - **Drawing:** the renderer draws glyphs only at whole multiples, 2 to 6 screen px per font pixel, with no filtering.
 
@@ -307,7 +307,7 @@ minimap             { baseDirty, squadDots[], viewQuad, pings[] }
   - **readings:** BLOCKED for every ranged attack, the trebuchet included, as GameDescription.md requires; the archer's row, which the package gave as "+15% per 3 m" of range when height gives one band of range and +15% damage; GROUND from the resolver in place of the package's 1.2 m soil rule;
   - **where things live:** section names in the scenario rather than the template; F1 and F2 for the integrity and passability views.
 - **Still Proposed:** the DPI bands; selecting by a squad's footprint; the deck's coverage and camera framing; the minimap built at its drawn size; the glyph coverage test; the Hold control's GATHER.
-- **The font's source** is the JSON in `Assets/Fonts/`, not the package's JavaScript (§9).
+- **The font's source** is the JSON in `GameData/Client/Fonts/`, not the package's JavaScript (§9).
 
 ## Open
 

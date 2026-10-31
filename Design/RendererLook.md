@@ -37,7 +37,7 @@ This is the look specification for the voxel renderer, the first step in GameDes
 
 Colours are authored in sRGB and converted to linear before lighting. The output is sRGB, with no tone mapping.
 
-[`Assets/Palette.json`](../Assets/Palette.json) carries these colours with their frozen indices and behaviours ([ADR-005](ADR/ADR-005-content-formats.md)). The indices follow the second package's numbering.
+[`GameData/Server/Palette.json`](../GameData/Server/Palette.json) carries these colours with their frozen indices and behaviours ([ADR-005](ADR/ADR-005-content-formats.md)). The indices follow the second package's numbering.
 
 | idx | Material | sRGB | Jitter | Grid | Behaves as |
 |---|---|---|---|---|---|
