@@ -1,0 +1,813 @@
+{
+ "project": "Earthrise.World",
+ "generatedFrom": "MVP Asset Sheet.dc.html",
+ "voxelSize": 0.5,
+ "axes": "y up, +z front; .json layers[y][z][x]; .vox uses MagicaVoxel z-up with vox_y = depth-1-z",
+ "faction": "red (palette index 16 — swap per faction)",
+ "note": "Re-pathed from the package (Design/Reference/SiegePrototype/manifest.json). Template costs are recounted under ADR-005: decorations such as openings, gate fittings and banners cost as the material they sit in. For models, costM3 is only the model's volume and sets no cost.",
+ "assets": [
+  {
+   "id": "T1",
+   "key": "hall",
+   "name": "Hall",
+   "category": "templates",
+   "role": "Timber. Drop site for everything. Until the keep is complete, the hall is the keep.",
+   "criticalPart": "Hall frame",
+   "silhouetteCue": null,
+   "sizeVoxels": {
+    "x": 22,
+    "y": 13,
+    "z": 14
+   },
+   "sizeMetres": {
+    "x": 11,
+    "y": 6.5,
+    "z": 7
+   },
+   "voxelCount": 992,
+   "costM3": {
+    "stone": 0,
+    "timber": 124.0,
+    "foundation": 0
+   },
+   "notes": [
+    "COST: 124 m³ timber, recounted under ADR-005 (the package counted 122.25 m³ timber, leaving decorations out)"
+   ],
+   "files": {
+    "vox": "Templates/earthrise-t1-hall.vox",
+    "json": "Templates/earthrise-t1-hall.json",
+    "png": "Templates/earthrise-t1-hall.png"
+   },
+   "kind": "template",
+   "packageCostM3": {
+    "stone": 0,
+    "timber": 122.25,
+    "foundation": 0
+   }
+  },
+  {
+   "id": "T2",
+   "key": "keep",
+   "name": "Keep",
+   "category": "templates",
+   "role": "Stone, raised around the hall. Break it and hold its foot for two minutes to win.",
+   "criticalPart": "Great tower",
+   "silhouetteCue": null,
+   "sizeVoxels": {
+    "x": 24,
+    "y": 43,
+    "z": 30
+   },
+   "sizeMetres": {
+    "x": 12,
+    "y": 21.5,
+    "z": 15
+   },
+   "voxelCount": 11027,
+   "costM3": {
+    "stone": 1375.5,
+    "timber": 2.875,
+    "foundation": 0
+   },
+   "notes": [
+    "COST: 1375.5 m³ stone + 2.875 m³ timber, recounted under ADR-005 (the package counted 1364 m³ stone + 1.375 m³ timber, leaving decorations out)"
+   ],
+   "files": {
+    "vox": "Templates/earthrise-t2-keep.vox",
+    "json": "Templates/earthrise-t2-keep.json",
+    "png": "Templates/earthrise-t2-keep.png"
+   },
+   "kind": "template",
+   "packageCostM3": {
+    "stone": 1364,
+    "timber": 1.375,
+    "foundation": 0
+   }
+  },
+  {
+   "id": "T3",
+   "key": "wall",
+   "name": "Stone wall, standard",
+   "category": "templates",
+   "role": "The everyday curtain section, 8 × 1.5 × 6 m. Costs exactly its volume.",
+   "criticalPart": "None (sections open by the breach rule)",
+   "silhouetteCue": null,
+   "sizeVoxels": {
+    "x": 16,
+    "y": 13,
+    "z": 3
+   },
+   "sizeMetres": {
+    "x": 8,
+    "y": 6.5,
+    "z": 1.5
+   },
+   "voxelCount": 576,
+   "costM3": {
+    "stone": 72.0,
+    "timber": 0,
+    "foundation": 0
+   },
+   "notes": [
+    "COST: 72 m³ stone"
+   ],
+   "files": {
+    "vox": "Templates/earthrise-t3-stone-wall-standard.vox",
+    "json": "Templates/earthrise-t3-stone-wall-standard.json",
+    "png": "Templates/earthrise-t3-stone-wall-standard.png"
+   },
+   "kind": "template"
+  },
+  {
+   "id": "T4",
+   "key": "tower",
+   "name": "Tower",
+   "category": "templates",
+   "role": "Garrisons ranged units, which fire from height. Hollow, so it costs less than its outline.",
+   "criticalPart": "Firing platform",
+   "silhouetteCue": null,
+   "sizeVoxels": {
+    "x": 14,
+    "y": 24,
+    "z": 14
+   },
+   "sizeMetres": {
+    "x": 7,
+    "y": 12,
+    "z": 7
+   },
+   "voxelCount": 3280,
+   "costM3": {
+    "stone": 410.0,
+    "timber": 0,
+    "foundation": 0
+   },
+   "notes": [
+    "COST: 410 m³ stone, recounted under ADR-005 (the package counted 407.5 m³ stone, leaving decorations out)"
+   ],
+   "files": {
+    "vox": "Templates/earthrise-t4-tower.vox",
+    "json": "Templates/earthrise-t4-tower.json",
+    "png": "Templates/earthrise-t4-tower.png"
+   },
+   "kind": "template",
+   "packageCostM3": {
+    "stone": 407.5,
+    "timber": 0,
+    "foundation": 0
+   }
+  },
+  {
+   "id": "T5",
+   "key": "gatehouse",
+   "name": "Gatehouse",
+   "category": "templates",
+   "role": "Opens for its owner. The timber gate is the weak point; the garrison fires down into the passage.",
+   "criticalPart": "Gate",
+   "silhouetteCue": null,
+   "sizeVoxels": {
+    "x": 18,
+    "y": 24,
+    "z": 14
+   },
+   "sizeMetres": {
+    "x": 9,
+    "y": 12,
+    "z": 7
+   },
+   "voxelCount": 4684,
+   "costM3": {
+    "stone": 578.5,
+    "timber": 7.0,
+    "foundation": 0
+   },
+   "notes": [
+    "COST: 578.5 m³ stone + 7 m³ timber, recounted under ADR-005 (the package counted 576 m³ stone + 6 m³ timber, leaving decorations out)"
+   ],
+   "files": {
+    "vox": "Templates/earthrise-t5-gatehouse.vox",
+    "json": "Templates/earthrise-t5-gatehouse.json",
+    "png": "Templates/earthrise-t5-gatehouse.png"
+   },
+   "kind": "template",
+   "packageCostM3": {
+    "stone": 576,
+    "timber": 6,
+    "foundation": 0
+   }
+  },
+  {
+   "id": "T6",
+   "key": "palisade",
+   "name": "Palisade",
+   "category": "templates",
+   "role": "Cheap, fast timber line. Rams and engines shatter it.",
+   "criticalPart": "None",
+   "silhouetteCue": null,
+   "sizeVoxels": {
+    "x": 16,
+    "y": 8,
+    "z": 4
+   },
+   "sizeMetres": {
+    "x": 8,
+    "y": 4,
+    "z": 2
+   },
+   "voxelCount": 149,
+   "costM3": {
+    "stone": 0,
+    "timber": 18.625,
+    "foundation": 0
+   },
+   "notes": [
+    "COST: 18.6 m³ timber"
+   ],
+   "files": {
+    "vox": "Templates/earthrise-t6-palisade.vox",
+    "json": "Templates/earthrise-t6-palisade.json",
+    "png": "Templates/earthrise-t6-palisade.png"
+   },
+   "kind": "template"
+  },
+  {
+   "id": "T7",
+   "key": "palgate",
+   "name": "Palisade gate",
+   "category": "templates",
+   "role": "Timber gate set into a palisade line.",
+   "criticalPart": "Gate",
+   "silhouetteCue": null,
+   "sizeVoxels": {
+    "x": 16,
+    "y": 9,
+    "z": 2
+   },
+   "sizeMetres": {
+    "x": 8,
+    "y": 4.5,
+    "z": 1
+   },
+   "voxelCount": 124,
+   "costM3": {
+    "stone": 0,
+    "timber": 15.5,
+    "foundation": 0
+   },
+   "notes": [
+    "COST: 15.5 m³ timber, recounted under ADR-005 (the package counted 14 m³ timber, leaving decorations out)"
+   ],
+   "files": {
+    "vox": "Templates/earthrise-t7-palisade-gate.vox",
+    "json": "Templates/earthrise-t7-palisade-gate.json",
+    "png": "Templates/earthrise-t7-palisade-gate.png"
+   },
+   "kind": "template",
+   "packageCostM3": {
+    "stone": 0,
+    "timber": 14,
+    "foundation": 0
+   },
+   "knownIssues": [
+    "The grid has 2 empty rows in front (z); the baker trims to the occupied voxels (ADR-005)."
+   ]
+  },
+  {
+   "id": "T8",
+   "key": "yard",
+   "name": "Quarry yard",
+   "category": "templates",
+   "role": "Stone drop site. Cuts siege shot from the stockpile.",
+   "criticalPart": "Shed",
+   "silhouetteCue": null,
+   "sizeVoxels": {
+    "x": 16,
+    "y": 7,
+    "z": 12
+   },
+   "sizeMetres": {
+    "x": 8,
+    "y": 3.5,
+    "z": 6
+   },
+   "voxelCount": 226,
+   "costM3": {
+    "stone": 0,
+    "timber": 20.25,
+    "foundation": 0
+   },
+   "notes": [
+    "COST: 20.25 m³ timber, recounted under ADR-005 (the package counted 19.875 m³ timber, leaving decorations out)"
+   ],
+   "files": {
+    "vox": "Templates/earthrise-t8-quarry-yard.vox",
+    "json": "Templates/earthrise-t8-quarry-yard.json",
+    "png": "Templates/earthrise-t8-quarry-yard.png"
+   },
+   "kind": "template",
+   "packageCostM3": {
+    "stone": 0,
+    "timber": 19.875,
+    "foundation": 0
+   }
+  },
+  {
+   "id": "T9",
+   "key": "lumber",
+   "name": "Lumber camp",
+   "category": "templates",
+   "role": "Timber drop site for felling designations.",
+   "criticalPart": "Shed",
+   "silhouetteCue": null,
+   "sizeVoxels": {
+    "x": 15,
+    "y": 6,
+    "z": 12
+   },
+   "sizeMetres": {
+    "x": 7.5,
+    "y": 3,
+    "z": 6
+   },
+   "voxelCount": 246,
+   "costM3": {
+    "stone": 0,
+    "timber": 18.5,
+    "foundation": 0
+   },
+   "notes": [
+    "COST: 18.5 m³ timber"
+   ],
+   "files": {
+    "vox": "Templates/earthrise-t9-lumber-camp.vox",
+    "json": "Templates/earthrise-t9-lumber-camp.json",
+    "png": "Templates/earthrise-t9-lumber-camp.png"
+   },
+   "kind": "template"
+  },
+  {
+   "id": "E1",
+   "key": "ditch",
+   "name": "Ditch & rampart",
+   "category": "earthworks",
+   "role": "Dug as a pair; the spoil piles into a rampart on the keep side. Foot soldiers cross, machines cannot.",
+   "criticalPart": "None",
+   "silhouetteCue": null,
+   "sizeVoxels": {
+    "x": 16,
+    "y": 10,
+    "z": 24
+   },
+   "sizeMetres": {
+    "x": 8,
+    "y": 5,
+    "z": 12
+   },
+   "voxelCount": 2336,
+   "costM3": {
+    "stone": 0,
+    "timber": 0,
+    "foundation": 0
+   },
+   "notes": [
+    "SPOIL: 40 m³ dug → 44 m³ rampart"
+   ],
+   "files": {
+    "vox": "Illustrations/earthrise-e1-ditch-rampart.vox",
+    "json": "Illustrations/earthrise-e1-ditch-rampart.json",
+    "png": "Illustrations/earthrise-e1-ditch-rampart.png"
+   },
+   "kind": "illustration",
+   "knownIssues": [
+    "The rampart holds 44 m3 against 40 m3 dug; the spoil should equal the rampart.",
+    "The new rampart is topped with grass; under Design/RendererLook.md a fresh rampart is bare earth."
+   ]
+  },
+  {
+   "id": "E2",
+   "key": "foundation",
+   "name": "Deep foundation",
+   "category": "earthworks",
+   "role": "Reaches bedrock and costs its volume in stone. A wall on it cannot be undermined. Cut away at the front.",
+   "criticalPart": "None",
+   "silhouetteCue": null,
+   "sizeVoxels": {
+    "x": 20,
+    "y": 16,
+    "z": 10
+   },
+   "sizeMetres": {
+    "x": 10,
+    "y": 8,
+    "z": 5
+   },
+   "voxelCount": 1576,
+   "costM3": {
+    "stone": 42,
+    "timber": 0,
+    "foundation": 36
+   },
+   "notes": [
+    "COST: 36 m³ foundation + 42 m³ wall"
+   ],
+   "files": {
+    "vox": "Illustrations/earthrise-e2-deep-foundation.vox",
+    "json": "Illustrations/earthrise-e2-deep-foundation.json",
+    "png": "Illustrations/earthrise-e2-deep-foundation.png"
+   },
+   "kind": "illustration"
+  },
+  {
+   "id": "U1",
+   "key": "laborer",
+   "name": "Laborers",
+   "category": "units",
+   "role": "Gather, build, repair and dig on designations.",
+   "criticalPart": null,
+   "silhouetteCue": "Tan body, bare head, pick on shoulder",
+   "sizeVoxels": {
+    "x": 12,
+    "y": 5,
+    "z": 5
+   },
+   "sizeMetres": {
+    "x": 6,
+    "y": 2.5,
+    "z": 2.5
+   },
+   "voxelCount": 48,
+   "costM3": {
+    "stone": 0,
+    "timber": 2.25,
+    "foundation": 0
+   },
+   "notes": [],
+   "files": {
+    "vox": "Illustrations/earthrise-u1-laborers.vox",
+    "json": "Illustrations/earthrise-u1-laborers.json",
+    "png": "Illustrations/earthrise-u1-laborers.png"
+   },
+   "kind": "illustration",
+   "figure": {
+    "json": "Models/earthrise-u1-laborer.json",
+    "vox": "Models/earthrise-u1-laborer.vox",
+    "sizeVoxels": {
+     "x": 2,
+     "y": 5,
+     "z": 1
+    },
+    "voxelCount": 8,
+    "squadOf": 6
+   }
+  },
+  {
+   "id": "U2",
+   "key": "spear",
+   "name": "Spearmen",
+   "category": "units",
+   "role": "Cheap line infantry that holds against horse.",
+   "criticalPart": null,
+   "silhouetteCue": "Spear tip 1.5 m above the helmet",
+   "sizeVoxels": {
+    "x": 12,
+    "y": 7,
+    "z": 5
+   },
+   "sizeMetres": {
+    "x": 6,
+    "y": 3.5,
+    "z": 2.5
+   },
+   "voxelCount": 66,
+   "costM3": {
+    "stone": 0,
+    "timber": 4.5,
+    "foundation": 0
+   },
+   "notes": [],
+   "files": {
+    "vox": "Illustrations/earthrise-u2-spearmen.vox",
+    "json": "Illustrations/earthrise-u2-spearmen.json",
+    "png": "Illustrations/earthrise-u2-spearmen.png"
+   },
+   "kind": "illustration",
+   "figure": {
+    "json": "Models/earthrise-u2-spearman.json",
+    "vox": "Models/earthrise-u2-spearman.vox",
+    "sizeVoxels": {
+     "x": 2,
+     "y": 7,
+     "z": 1
+    },
+    "voxelCount": 11,
+    "squadOf": 6
+   }
+  },
+  {
+   "id": "U3",
+   "key": "archer",
+   "name": "Archers",
+   "category": "units",
+   "role": "Long-ranged foot. Arrows fly flat and gain from height.",
+   "criticalPart": null,
+   "silhouetteCue": "Leather hood, bow tip at the shoulder",
+   "sizeVoxels": {
+    "x": 12,
+    "y": 5,
+    "z": 5
+   },
+   "sizeMetres": {
+    "x": 6,
+    "y": 2.5,
+    "z": 2.5
+   },
+   "voxelCount": 42,
+   "costM3": {
+    "stone": 0,
+    "timber": 2.25,
+    "foundation": 0
+   },
+   "notes": [],
+   "files": {
+    "vox": "Illustrations/earthrise-u3-archers.vox",
+    "json": "Illustrations/earthrise-u3-archers.json",
+    "png": "Illustrations/earthrise-u3-archers.png"
+   },
+   "kind": "illustration",
+   "figure": {
+    "json": "Models/earthrise-u3-archer.json",
+    "vox": "Models/earthrise-u3-archer.vox",
+    "sizeVoxels": {
+     "x": 2,
+     "y": 5,
+     "z": 1
+    },
+    "voxelCount": 7,
+    "squadOf": 6
+   }
+  },
+  {
+   "id": "U4",
+   "key": "outrider",
+   "name": "Outriders",
+   "category": "units",
+   "role": "Fast light horse: scouting, raids, engine hunting.",
+   "criticalPart": null,
+   "silhouetteCue": "Horse, 2.5 m tall",
+   "sizeVoxels": {
+    "x": 9,
+    "y": 5,
+    "z": 6
+   },
+   "sizeMetres": {
+    "x": 4.5,
+    "y": 2.5,
+    "z": 3
+   },
+   "voxelCount": 36,
+   "costM3": {
+    "stone": 0,
+    "timber": 0,
+    "foundation": 0
+   },
+   "notes": [],
+   "files": {
+    "vox": "Illustrations/earthrise-u4-outriders.vox",
+    "json": "Illustrations/earthrise-u4-outriders.json",
+    "png": "Illustrations/earthrise-u4-outriders.png"
+   },
+   "kind": "illustration",
+   "figure": {
+    "json": "Models/earthrise-u4-outrider.json",
+    "vox": "Models/earthrise-u4-outrider.vox",
+    "sizeVoxels": {
+     "x": 1,
+     "y": 5,
+     "z": 5
+    },
+    "voxelCount": 12,
+    "squadOf": 3
+   }
+  },
+  {
+   "id": "U5",
+   "key": "maa",
+   "name": "Men-at-arms",
+   "category": "units",
+   "role": "Armored foot that holds and storms breaches.",
+   "criticalPart": null,
+   "silhouetteCue": "All iron, faction shield in front",
+   "sizeVoxels": {
+    "x": 12,
+    "y": 4,
+    "z": 6
+   },
+   "sizeMetres": {
+    "x": 6,
+    "y": 2,
+    "z": 3
+   },
+   "voxelCount": 54,
+   "costM3": {
+    "stone": 0,
+    "timber": 0,
+    "foundation": 0
+   },
+   "notes": [],
+   "files": {
+    "vox": "Illustrations/earthrise-u5-men-at-arms.vox",
+    "json": "Illustrations/earthrise-u5-men-at-arms.json",
+    "png": "Illustrations/earthrise-u5-men-at-arms.png"
+   },
+   "kind": "illustration",
+   "figure": {
+    "json": "Models/earthrise-u5-man-at-arms.json",
+    "vox": "Models/earthrise-u5-man-at-arms.vox",
+    "sizeVoxels": {
+     "x": 2,
+     "y": 4,
+     "z": 2
+    },
+    "voxelCount": 9,
+    "squadOf": 6
+   }
+  },
+  {
+   "id": "S1",
+   "key": "ram",
+   "name": "Battering ram",
+   "category": "siege",
+   "role": "Breaks gates and timber at contact; chips stone at the base. Its hide roof shrugs off arrows.",
+   "criticalPart": null,
+   "silhouetteCue": "Hide roof, iron-headed log",
+   "sizeVoxels": {
+    "x": 6,
+    "y": 7,
+    "z": 15
+   },
+   "sizeMetres": {
+    "x": 3,
+    "y": 3.5,
+    "z": 7.5
+   },
+   "voxelCount": 176,
+   "costM3": {
+    "stone": 0,
+    "timber": 10.5,
+    "foundation": 0
+   },
+   "notes": [
+    "COST: 10.5 m³ timber"
+   ],
+   "files": {
+    "vox": "Models/earthrise-s1-battering-ram.vox",
+    "json": "Models/earthrise-s1-battering-ram.json",
+    "png": "Models/earthrise-s1-battering-ram.png"
+   },
+   "kind": "model"
+  },
+  {
+   "id": "S2",
+   "key": "sapper",
+   "name": "Sappers",
+   "category": "siege",
+   "role": "Dig trenches at twice a laborer’s speed. Armored against arrows, weak in melee.",
+   "criticalPart": null,
+   "silhouetteCue": "Iron shoulders, raised pick",
+   "sizeVoxels": {
+    "x": 13,
+    "y": 5,
+    "z": 5
+   },
+   "sizeMetres": {
+    "x": 6.5,
+    "y": 2.5,
+    "z": 2.5
+   },
+   "voxelCount": 54,
+   "costM3": {
+    "stone": 0,
+    "timber": 2.25,
+    "foundation": 0
+   },
+   "notes": [],
+   "files": {
+    "vox": "Illustrations/earthrise-s2-sappers.vox",
+    "json": "Illustrations/earthrise-s2-sappers.json",
+    "png": "Illustrations/earthrise-s2-sappers.png"
+   },
+   "kind": "illustration",
+   "figure": {
+    "json": "Models/earthrise-s2-sapper.json",
+    "vox": "Models/earthrise-s2-sapper.vox",
+    "sizeVoxels": {
+     "x": 3,
+     "y": 5,
+     "z": 1
+    },
+    "voxelCount": 9,
+    "squadOf": 6
+   }
+  },
+  {
+   "id": "S3",
+   "key": "trebuchet",
+   "name": "Trebuchet",
+   "category": "siege",
+   "role": "Long range, large craters. Must deploy, and every shot costs stone.",
+   "criticalPart": null,
+   "silhouetteCue": "12 m arm, counterweight",
+   "sizeVoxels": {
+    "x": 23,
+    "y": 26,
+    "z": 7
+   },
+   "sizeMetres": {
+    "x": 11.5,
+    "y": 13,
+    "z": 3.5
+   },
+   "voxelCount": 223,
+   "costM3": {
+    "stone": 0,
+    "timber": 18.375,
+    "foundation": 0
+   },
+   "notes": [
+    "COST: 18.4 m³ timber"
+   ],
+   "files": {
+    "vox": "Models/earthrise-s3-trebuchet.vox",
+    "json": "Models/earthrise-s3-trebuchet.json",
+    "png": "Models/earthrise-s3-trebuchet.png"
+   },
+   "kind": "model"
+  },
+  {
+   "id": "M1",
+   "key": "strata",
+   "name": "Ground strata",
+   "category": "materials",
+   "role": "Grass over earth over common rock, a building-stone lens and bedrock. Terraced and jittered in 1 m cells.",
+   "criticalPart": null,
+   "silhouetteCue": "Cutaway corner",
+   "sizeVoxels": {
+    "x": 12,
+    "y": 13,
+    "z": 12
+   },
+   "sizeMetres": {
+    "x": 6,
+    "y": 6.5,
+    "z": 6
+   },
+   "voxelCount": 1248,
+   "costM3": {
+    "stone": 19.125,
+    "timber": 0,
+    "foundation": 0
+   },
+   "notes": [],
+   "files": {
+    "vox": "Illustrations/earthrise-m1-ground-strata.vox",
+    "json": "Illustrations/earthrise-m1-ground-strata.json",
+    "png": "Illustrations/earthrise-m1-ground-strata.png"
+   },
+   "kind": "illustration"
+  },
+  {
+   "id": "M2",
+   "key": "rubble",
+   "name": "Rubble keeps its material",
+   "category": "materials",
+   "role": "Stone rubble clears for stone at half its volume. Timber and earth rubble yield nothing.",
+   "criticalPart": null,
+   "silhouetteCue": "Stone · timber · earth",
+   "sizeVoxels": {
+    "x": 27,
+    "y": 4,
+    "z": 8
+   },
+   "sizeMetres": {
+    "x": 13.5,
+    "y": 2,
+    "z": 4
+   },
+   "voxelCount": 190,
+   "costM3": {
+    "stone": 1.75,
+    "timber": 4.125,
+    "foundation": 0
+   },
+   "notes": [
+    "YIELD: Stone heap → half its volume as stone"
+   ],
+   "files": {
+    "vox": "Illustrations/earthrise-m2-rubble-keeps-its-material.vox",
+    "json": "Illustrations/earthrise-m2-rubble-keeps-its-material.json",
+    "png": "Illustrations/earthrise-m2-rubble-keeps-its-material.png"
+   },
+   "kind": "illustration"
+  }
+ ]
+}

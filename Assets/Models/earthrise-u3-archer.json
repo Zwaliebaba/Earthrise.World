@@ -1,0 +1,52 @@
+{
+ "id": "U3",
+ "name": "Archer",
+ "voxelSize": 0.5,
+ "size": {
+  "x": 2,
+  "y": 5,
+  "z": 1
+ },
+ "axes": "y up, +z front, layers[y][z][x]",
+ "derivedFrom": "Illustrations/earthrise-u3-archers.json, one of 6 identical figures",
+ "silhouetteCue": "Leather hood, bow tip at the shoulder",
+ "legend": {
+  "g": {
+   "material": 7,
+   "name": "timber",
+   "hex": "#7a5534"
+  },
+  "j": {
+   "material": 16,
+   "name": "faction",
+   "hex": "#b23a2e"
+  },
+  "p": {
+   "material": 23,
+   "name": "cloth",
+   "hex": "#3d3530"
+  },
+  "t": {
+   "material": 27,
+   "name": "leather",
+   "hex": "#6e5a3e"
+  }
+ },
+ "layers": [
+  [
+   "p."
+  ],
+  [
+   "j."
+  ],
+  [
+   "jg"
+  ],
+  [
+   "tg"
+  ],
+  [
+   ".g"
+  ]
+ ]
+}

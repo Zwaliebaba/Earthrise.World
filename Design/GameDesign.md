@@ -12,11 +12,11 @@ Earthrise.World is a real-time strategy game about medieval lords on land made e
 
 ### 2026-10-30
 
-1. **Voxels exist for destruction.** Teardown is the reference for both the destruction and the look. How close the look can get from an RTS camera is what the renderer spike finds out (below).
+1. **Voxels exist for destruction.** Teardown is the reference for both the destruction and the look. How close the look can get from an RTS camera is what the renderer spike finds out (below). Since 2026-10-31 the reference for the look is [RendererLook.md](RendererLook.md), which comes from a visual prototype; Teardown remains the reference for destruction.
 2. **The game logic is the classic historical RTS:** a worker economy, technology progression and counter-based unit combat. Age of Empires II is the reference for how those mechanics feel. It is not a source of content: factions, units, resources and technology are this game's own.
 3. **The real goal is a shared, persistent online world.** It is not part of the MVP.
 4. **The MVP has one human player.** AI factions fill the other seats.
-5. **Voxel sizes and the camera's projection are settled by a renderer spike** that shows and measures them, not on paper. The render voxel size and the simulation voxel size may differ by an integer ratio; the simulation voxel size is chosen on measured simulation cost as well as on the picture. The form of the camera is decided below (2026-10-31).
+5. **Voxel sizes and the camera's projection were to be settled by a renderer spike** that shows and measures them, not on paper. The render voxel size and the simulation voxel size may differ by an integer ratio. Superseded on 2026-10-31: the owner set both sizes at 0.5 m, and the camera as orthographic at 34°, from a visual prototype ([RendererLook.md](RendererLook.md)). The spike now measures what they cost.
 6. **The setting is medieval.**
 
 ### 2026-10-31: the game description
@@ -32,7 +32,7 @@ The owner accepted [GameDescription.md](GameDescription.md) in full. Its numbers
 7. **Eras are built.** Hall, Keep and Citadel. Advancing means completing the keep, and then the citadel's great tower, in quarried stone.
 8. **Armies.** Seven units in two linked counter cycles, plus rams, sappers, mantlets, mangonels, trebuchets and carts, as the description lists them. Combat is stat-based with melee, pierce and crush damage. Shots are physical, and elevation counts in steps of 3 m.
 9. **What the game never has:** units on walls, ladders or siege towers; building outside templates; tunnels; gunpowder; flowing water; debris that affects play.
-10. **The camera** is an isometric strategy view that rotates in 90° steps and zooms from single stones to a whole holding.
+10. **The camera** is an isometric strategy view that rotates in 90° steps and zooms from single stones to a whole holding. Since 2026-10-31 it is orthographic, at 34° above the horizon (RendererLook.md).
 
 ### 2026-10-31: the design review
 
@@ -78,6 +78,34 @@ The [review](Review/GameDescription-2026-10-31.md) of the game description kept 
 7. **The contest band** is six evening hours, for example 18:00 to 24:00.
 8. **Truces.** A banner can be in one enforced truce at a time, and a truce lapses after seven days unless renewed.
 
+### 2026-10-31: the renderer's look
+
+The owner adopted a look specification from a visual prototype, and settled where it collided with the design. [RendererLook.md](RendererLook.md) holds it in full.
+
+1. **The voxel is 0.5 m,** for rendering and for the simulation alike, and for everything solid. Terrain heights come in whole metres, built from 1 m terraces.
+2. **Earth stands at up to 45°, measured over 1 m,** so the generator's 1 m terraces are stable, and [ADR-003](ADR/ADR-003-world-as-seed-plus-edits.md)'s slope invariant uses the same rule.
+3. **The camera is orthographic,** 34° above the horizon. The floors of deep ditches and the near terraces of pits can be hidden at that angle, and units in them show as silhouettes.
+4. **Units are tokens** of 1 × 1 × 4 voxels, banded in colour. No limbs animate.
+5. **Four new materials** settle what the prototype's colours do in the simulation:
+   - grass is earth that only the generator makes;
+   - leaves span as wide as a canopy, yield no timber, and burn;
+   - openings in structures are a colour on solid voxels;
+   - shallow water is lighter, so fords show.
+
+   Rubble takes its colour from what it fell from, so rubble that yields stone looks different from waste rubble.
+
+### 2026-10-31: the MVP's assets and the content format
+
+1. **The MVP's voxel assets are the owner's package,** now in `Assets/` and catalogued in [MvpAssets.md](MvpAssets.md). It brings nine templates (T1–T9), unit and engine models, and illustrations, and its own choices with them:
+   - the proportions of the hall, keep, gatehouse, tower and drop sites;
+   - the hall's frame and each drop site's shed as critical parts;
+   - hollow towers and keeps;
+   - a standard ditch 5 m wide and 2 m deep, with 1:1 sides;
+   - one cue per unit type;
+   - render-only colours for horse, leather and rubble.
+2. **The content format is [ADR-005](ADR/ADR-005-content-formats.md),** which closes that question. JSON layer files are the source, with MagicaVoxel copies beside them. Decorations behave and cost as the material they sit in. Everything is baked into a `Content` library, and nothing is loaded at runtime.
+3. **The palisade gate (T7) is one of the MVP's templates.**
+
 ## Pillars (Decided)
 
 A pillar is a test every feature has to pass. A feature that serves none of them is a candidate for cutting.
@@ -91,12 +119,12 @@ A pillar is a test every feature has to pass. A feature that serves none of them
 - **Unit-versus-unit combat stays stat-based**: attack, armor and counters, with melee, pierce and crush damage. At RTS distance a hit location on a soldier is invisible, and counter-based combat is what keeps a battle legible.
 - **Only engines, sappers, laborers on a designation, collapses and fire remove voxels.** Soldiers never do. A shot travels through the voxel grid and stops at the first solid thing it meets, so a wall stops an arrow. Vision is a radius and is not blocked by walls. An engine sees as far as it shoots.
 - **Structures and terrain are physical.** A hit removes a crater where it lands, with a radius that depends on the weapon and the material. Voxels carry no hit points.
-- **Materials behave differently.** Wood, earth and stone each have their own strength: how large a crater a hit leaves, and how far the material spans without support. Earth slumps to a maximum slope, so digging beside a wall's foundation is a siege tactic. Common rock holds vertical faces. Bedrock cannot be dug, and nothing founded on it can be undermined. The generated world holds earth only at or below its slope; steeper ground is stone. Timber burns once the attacker has fire: from the Citadel era, or the Keep era for the Wealdfolk. Fire is not in the MVP.
+- **Materials behave differently.** Wood, earth and stone each have their own strength: how large a crater a hit leaves, and how far the material spans without support. Earth slumps to 45°, measured over 1 m, so the generator's 1 m terraces stand and digging beside a wall's foundation is a siege tactic. Grass is earth that only the generator makes. Leaves span as wide as a canopy, yield no timber and burn. Common rock holds vertical faces. Bedrock cannot be dug, and nothing founded on it can be undermined. The generated world holds earth only at or below its slope; steeper ground is stone. Timber burns once the attacker has fire: from the Citadel era, or the Keep era for the Wealdfolk. Fire is not in the MVP.
 - **Excavation is a designation.** The player draws a quarry, pit, ditch, trench, felling, clearance or demolition designation with a footprint and a depth. Workers dig it in a pattern that always leaves a ramp out, so a dig never traps its own workers. A moat is a ditch, and undermining is a trench beside a foundation.
 - **A building is a template.** Construction fills in the template's voxels as workers build. Each template has a foundation that reaches the ground, and construction levels the footprint first; a deep foundation reaches bedrock. Repair puts back voxels that were built and later removed, and pays for the material. It works from the owner's side at a fixed rate per section, and not on a section hit in the last ten seconds by an engine shot, a ram blow or a trench. A building stops working when one of its critical parts, such as a gatehouse's gate or a tower's firing platform, falls below its threshold, the share of the part's voxels still standing and supported; it is then a ruin until repaired. A building never finished is under construction, not a ruin. Nothing is built outside templates.
 - **No unit stands on a structure.** Towers and keeps garrison and fire. Walls are crossed only through gates and breaches. Ramparts are earth, not structures, and units stand on them. Loose material never comes to rest on top of a structure or near the top of one beside it, so no heap makes a ramp over an intact wall.
 - **A unit whose ground is removed drops to the next walkable surface in its column** and takes crush damage if the drop is more than 3 m. A unit whose cell fills with rubble is placed on top and takes the collapse's damage. Navigation moves it; a collapse never does ([ADR-004](ADR/ADR-004-rule-based-destruction.md), decision 6).
-- **A breach is a path.** Navigation updates from edits once per tick, on a grid sized for units rather than voxels. A gap a unit fits through is a route. Each column has one walkable surface, its highest walkable cell, because units never stand on structures and nothing is tunnelled; the space under a rock overhang is not walkable. Foot soldiers climb slopes as steep as settled earth, and cavalry, carts, rams and engines climb less.
+- **A breach is a path.** Navigation updates from edits once per tick, on a grid sized for units rather than voxels. A gap a unit fits through, one voxel wide and four high, is a route. Each column has one walkable surface, its highest walkable cell, because units never stand on structures and nothing is tunnelled; the space under a rock overhang is not walkable. Foot soldiers climb slopes as steep as settled earth, and cavalry, carts, rams and engines climb less.
 - **A piece that loses its support collapses** through a rule in the simulation ([ADR-004](ADR/ADR-004-rule-based-destruction.md)). It gives a visible warning first. It falls towards the side that lost support, or straight down if it lost support evenly. It does not rotate in the simulation; it is laid down as rubble along the fall, over a length up to its height, and damages the voxels and units in that strip as it falls. A collapse that removes another structure's support starts a new collapse on the next tick. Visual debris is the client's business and never affects play.
 - **Rubble is loose material.** It slumps like earth, can be walked over more slowly, and keeps the material it fell from. Workers clear rubble of building stone for stone at half its volume; other rubble yields nothing.
 
@@ -199,22 +227,22 @@ Each stage builds a piece the shared world needs: the Siege stage's defending AI
 - If H1 fails, resources become nodes that leave visible scars on the land. Ditches, trenches and pits stay dug, and Earthstone is still dug out of the Deep, because the Deep is the objective, not the economy. Whether Worlds goes ahead without pillar 1 is decided then, before Skirmish starts.
 - Before any Worlds code, the season is tested on paper. At least 16 players play an eight-week campaign, each holding a window inside a band, with sieges settled by dice or by a Trial build. If fewer than three in four are still playing in week 6, or both sides are present in fewer than half the windows that see a siege, the season is reworked first.
 - If the demand signal stays below its threshold (*Persistence*), Worlds is not built.
-- If the renderer spike misses its pass mark at every candidate voxel size, a new ADR revisits [ADR-001](ADR/ADR-001-direct-voxel-ray-casting.md) before any gameplay code is written.
+- If the renderer spike misses its pass mark at 0.5 m, a new ADR revisits [ADR-001](ADR/ADR-001-direct-voxel-ray-casting.md) before any gameplay code is written.
 
 ## Renderer spike (Decided: it happens, draws a changing scene and measures drawing and editing; Proposed: the rest of what it answers)
 
 The spike is the first code in the repository. It conforms to AGENTS.md like any other code, which also means it settles the solution layout (AGENTS.md §2). It draws a generated test scene with [ADR-001](ADR/ADR-001-direct-voxel-ray-casting.md)'s method: terrain, a dense forest, and a town with walls, roughly what a late-game settlement looks like. The scene also changes while it is drawn (question 5). It answers six questions:
 
-1. **Voxel size.** The candidates are 10, 25 and 50 cm, each shown at the default zoom, the closest and the farthest. Teardown uses 10 cm, but the player sees it from a few metres away. As a rough estimate only, if the default view spans about 150 m of world at 1920 px, a 10 cm voxel is about 1.3 px, a 25 cm one about 3 px and a 50 cm one about 6 px. The spike replaces this estimate with what is actually on screen. It settles two sizes: the render voxel and the simulation voxel. They are equal unless question 6 calls for a simulation voxel that is an integer multiple of the render voxel; the client then generates the finer detail from the simulation voxel's material and a position hash, and that detail is cosmetic.
-2. **Camera.** The view is decided: isometric, rotating in 90° steps. The spike settles its projection, orthographic or perspective at a steep fixed pitch with a narrow field of view, and the zoom range. It judges the pitch on a ditched wall and a terraced pit added to the scene. Stand-ins for units are drawn at their simulated size, and the default zoom is the widest at which unit classes and sides can still be told apart.
+1. **Voxel size.** It is decided: 0.5 m for rendering and for the simulation ([RendererLook.md](RendererLook.md)). The spike shows it at the default zoom, the closest and the farthest, and checks the look's acceptance tests on screen.
+2. **Camera.** It is decided: orthographic, 34° above the horizon, rotating in 90° steps, from about 12 m to about 260 m of view height. The spike checks it on a ditched wall and a terraced pit added to the scene, with units drawn as their 1 × 1 × 4 tokens. It also checks that unit classes and sides can be told apart at the default zoom.
 3. **Cost.** GPU time at the default and the farthest zoom, measured on stated hardware.
-4. **Look.** How far shadow maps and per-voxel shading get towards the Teardown reference. If they fall short, a lighting ADR follows: traced shadows and occlusion through a voxel occupancy volume, or DXR for secondary rays, which ADR-001 leaves room for.
-5. **Edits.** The scene runs quarrying at the peak rate the Skirmish tempo implies, back-solved from template volumes for each candidate voxel size, and one wall collapse. The spike measures the cost of rebuilding an edited chunk's render buffer, and checks distant chunks for voxels that pop in or out. The stochastic pruning in ADR-001's source keys on a voxel's position in the render buffer (its Listing 3), which an edit reorders; the spike's ADR records a key that survives edits.
-6. **Simulation cost** for each candidate size: memory for the MVP map, one support search on the test town after a breach, and one navigation tile rebuild. It measures the same on a synthetic, headless world of 2 km × 2 km that carries a season's edits and a dozen sieges at once.
+4. **Look.** Whether shadow maps, baked corner shading and jittered colour reach RendererLook.md's acceptance checks. If they fall short, a lighting ADR follows: traced shadows and occlusion through a voxel occupancy volume, or DXR for secondary rays, which ADR-001 leaves room for.
+5. **Edits.** The scene runs quarrying at the peak rate the Skirmish tempo implies, back-solved from template volumes at 0.5 m, and one wall collapse. The spike measures the cost of rebuilding an edited chunk's render records, its neighbours' corner shading included. At 0.5 m no voxel falls below about 2 px anywhere in the zoom range, so ADR-001's stochastic pruning is not used, and the problem of finding a pruning key that survives edits does not arise.
+6. **Simulation cost** at 0.5 m: memory for the MVP map, one support search on the test town after a breach, and one navigation tile rebuild. It measures the same on a synthetic, headless world of 2 km × 2 km that carries a season's edits and a dozen sieges at once.
 
 The pass mark is decided: an RTX 3060-class GPU at 1920×1080 and 60 frames a second, with the voxel pass inside 8 ms of the 16.7 ms frame at the default zoom.
 
-Its output is an ADR on the two voxel sizes and the camera's projection, with measured figures. If question 4 calls for one, a lighting ADR follows. The spike needs Windows and a Direct3D 12 GPU to build and run.
+Its output is an ADR recording what the decided voxel size and camera cost, with measured figures. If question 4 calls for one, a lighting ADR follows. The spike needs Windows and a Direct3D 12 GPU to build and run.
 
 ## Open questions
 

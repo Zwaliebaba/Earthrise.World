@@ -4,19 +4,19 @@ Operating instructions for every agent (and human) writing code in this reposito
 
 This repository is a greenfield C++23 game and a hobby project with one developer: **Earthrise.World, an open-world voxel game**, built on Direct3D 12 on Windows with MSVC. The world is drawn by direct voxel ray-casting after Majercik et al. 2018. Each voxel is rasterized as a screen-space bounding quad, and a ray-box test in the pixel shader finds the exact hit; nothing is meshed ([ADR-001](Design/ADR/ADR-001-direct-voxel-ray-casting.md)). This file is about **how code is written here** — naming, layout, build settings and the standing rules of the codebase. It is not the design: what the game *is* belongs in [`Design/GameDesign.md`](Design/GameDesign.md) and [`Design/GameDescription.md`](Design/GameDescription.md).
 
-**The tree has no code yet.** This repository holds this file, the root configuration files, `.gitignore`, `.github/`, `.claude/` (an agent command that reviews the design) and `Design/` (the game design, the MVP plan, the ADRs, a design review and the paper ADR-001 rests on) — no solution, no projects, no source. Nothing below is a target to migrate towards; it describes the code as it must be written from the first line. There is no legacy here and nothing is grandfathered, so a whole-tree run of any checker comes back clean — trivially today, and by conformance from then on.
+**The tree has no code yet.** This repository holds this file, the root configuration files, `.gitignore`, `.github/`, `.claude/` (an agent command that reviews the design), `Assets/` (the MVP's voxel content, [ADR-005](Design/ADR/ADR-005-content-formats.md)) and `Design/` (the game design, the renderer's look, the MVP plan, the ADRs, a design review and the paper ADR-001 rests on) — no solution, no projects, no source. Nothing below is a target to migrate towards; it describes the code as it must be written from the first line. There is no legacy here and nothing is grandfathered, so a whole-tree run of any checker comes back clean — trivially today, and by conformance from then on.
 
 **Where these rules come from.** They are carried over from two sibling repositories: `Outpost.Warzone`, where the formatter and linter settings were measured against roughly 223,000 lines, and `Nomad-Commander`. That lineage is why `.clang-format` and `.clang-tidy` are what they are, and it is why code can move between the trees without a rename or a reflow pass. **What did not come across is the other trees' design, their decisions or their plan.** A decision taken there binds nothing here.
 
 **What is authoritative, in order:**
 
 1. **This file** — conformance: naming, style, build settings, and how to work here.
-2. **`Design/ADR/`** — engineering decisions taken while building, one file per decision (§6). There are four so far: `ADR-001` on how voxels are drawn, `ADR-002` on the authoritative simulation, `ADR-003` on the world as a seed plus its edits, and `ADR-004` on rule-based destruction. Numbering started at `ADR-001` in this repository and does not continue another's, so the next is `ADR-005`.
+2. **`Design/ADR/`** — engineering decisions taken while building, one file per decision (§6). There are five so far: `ADR-001` on how voxels are drawn, `ADR-002` on the authoritative simulation, `ADR-003` on the world as a seed plus its edits, `ADR-004` on rule-based destruction, and `ADR-005` on the format of voxel content. Numbering started at `ADR-001` in this repository and does not continue another's, so the next is `ADR-006`.
 3. **The surrounding code** — for anything neither of the above covers, match the file you are editing.
 
 The design sits alongside rather than above: [`Design/GameDesign.md`](Design/GameDesign.md) and [`Design/GameDescription.md`](Design/GameDescription.md) say what is built, and this file says how. Where the two differ, GameDesign.md governs, and it marks each item Decided, Proposed or Open. A task that needs a design answer they do not give, or that rests on something only Proposed or Open, asks the owner and gets the answer written down before the code is.
 
-**`Design/Reference/` holds the papers that decisions cite.** A reference is evidence, not authority: it binds only through the ADR that cites it, and only as far as that ADR says. Where the paper and an ADR differ, the ADR wins.
+**`Design/Reference/` holds the papers and prototypes that decisions cite.** A reference is evidence, not authority: it binds only through the ADR that cites it, and only as far as that ADR says. Where the paper and an ADR differ, the ADR wins.
 
 If a rule here conflicts with a habit from another codebase, this file wins. If you think a rule is wrong or your task cannot be done without deviating, **say so in your report — never deviate silently.**
 
@@ -195,7 +195,9 @@ The concrete layout — the solution, the projects and the edges between them �
 
 **There are no vendored SDKs and no package manager.** The build depends on the Windows SDK and the MSVC standard library, and on nothing else. See R14.
 
-**`Design/` holds no code.** Its top level holds the game design and the MVP plan, `Design/ADR/` holds the decisions (§6), `Design/Review/` holds design reviews, and `Design/Reference/` holds the papers the decisions cite, each committed unchanged with its licence notice intact.
+**`Design/` holds no code.** Its top level holds the game design, the renderer's look and the MVP plan, `Design/ADR/` holds the decisions (§6), `Design/Review/` holds design reviews, and `Design/Reference/` holds the papers and prototypes the decisions cite, each committed unchanged with any licence notice intact.
+
+**`Assets/` holds the game's content sources, outside every project directory** ([ADR-005](Design/ADR/ADR-005-content-formats.md)). That means voxel templates and models as `.json` layer files, which are the source, with `.vox` copies and `.png` previews beside them, plus the palette and the manifest. Nothing loads them at runtime: they are baked into the `Content` library at build time, as shaders are compiled in. The format, project-file and clang-tidy checkers skip `Assets/`.
 
 **Build and IDE output is never committed** — `x64/`, `.vs/`, `*.user`, and anything a build step generates.
 

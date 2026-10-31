@@ -107,3 +107,11 @@
 # The papers under Design/Reference/ are committed byte-for-byte, as their licences require. No
 # line-ending conversion and no textual diff, whatever git's heuristic would have guessed.
 *.pdf           binary
+
+# The rest of Design/Reference/, such as a prototype and its package, is kept byte-for-byte as delivered too.
+Design/Reference/** -text
+
+# Voxel models and their previews are binary. The .json layer file beside each .vox is its source
+# (ADR-005), and the .vox must agree with it voxel for voxel.
+*.vox           binary
+*.png           binary
