@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#1b1916">
+<style>html,body{margin:0;padding:0;background:#1b1916;overscroll-behavior:none}a{color:#e8b86a}a:hover{color:#f3ede2}</style>
+</helmet>
+<div data-screen-label="MVP HUD prototype" style="position:fixed;inset:0;background:#1b1916;overflow:hidden;color:#f3ede2;font-family:'Earthrise Mason','IBM Plex Mono',monospace;font-size:20px;line-height:24px;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none">
+  <sc-if value="{{ showChrome }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;left:0;right:0;top:0;height:40px;display:flex;align-items:center;gap:6px;padding:0 10px;background:#0f0e0c;border-bottom:1px solid #3a342c;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;color:#a69c8a;overflow-x:auto;white-space:nowrap;box-sizing:border-box">
+      <div style="color:#e8b86a;padding-right:6px;flex:none">HUD PROTOTYPE</div>
+      <sc-for list="{{ scenTabs }}" as="t" hint-placeholder-count="5">
+        <button onClick="{{ t.onClick }}" style="height:28px;padding:0 10px;border:0;cursor:pointer;font-family:inherit;font-size:12px;letter-spacing:.06em;flex:none;background:{{ t.bg }};color:{{ t.fg }}">{{ t.label }}</button>
+      </sc-for>
+      <div style="width:14px;flex:none"></div>
+      <button onClick="{{ setA }}" style="height:28px;padding:0 10px;border:0;cursor:pointer;font-family:inherit;font-size:12px;flex:none;background:{{ aBg }};color:{{ aFg }}">A · DECK</button>
+      <button onClick="{{ setB }}" style="height:28px;padding:0 10px;border:0;cursor:pointer;font-family:inherit;font-size:12px;flex:none;background:{{ bBg }};color:{{ bFg }}">B · CORNERS</button>
+      <div style="width:14px;flex:none"></div>
+      <div style="flex:none">{{ inputHint }}</div>
+    </div>
+  </sc-if>
+  <div style="position:absolute;left:0;right:0;bottom:0;top:{{ stageTop }}">
+    <div ref="{{ hostRef }}" style="position:absolute;inset:0;cursor:{{ cursor }};touch-action:none"></div>
+    <div ref="{{ overRef }}" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;font-family:'Earthrise Mason',monospace;font-size:20px;line-height:20px"></div>
+    <sc-if value="{{ loading }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#a69c8a">GENERATING LAND…</div>
+    </sc-if>
+    <div style="position:absolute;right:8px;top:8px;color:#d2584a;max-width:50%">{{ err }}</div>
+    <div style="position:absolute;inset:0;pointer-events:none;zoom:{{ uiZoom }}">
+
+    <sc-if value="{{ layoutA }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute;left:0;right:0;top:0;height:44px;display:flex;align-items:center;gap:20px;padding:0 6px 0 12px;background:rgba(21,19,16,.92);border-bottom:2px solid #3a342c;pointer-events:auto;box-sizing:border-box;min-width:0">
+        <sc-for list="{{ res }}" as="r" hint-placeholder-count="3"><div style="display:flex;gap:8px;white-space:nowrap"><div style="color:#a69c8a">{{ r.k }}</div><div style="color:{{ r.fg }}">{{ r.v }}</div></div></sc-for>
+        <div style="flex:1"></div>
+        <div style="display:flex;gap:10px;align-items:center;min-width:0;white-space:nowrap;overflow:hidden"><div style="color:#e8b86a">{{ objTitle }}</div><div style="color:#d8d0c2;overflow:hidden;text-overflow:ellipsis">{{ objDetail }}</div><sc-if value="{{ hasProg }}" hint-placeholder-val="{{ false }}"><div style="width:120px;height:8px;background:#3a342c;flex:none"><div style="height:8px;background:#e8b86a;width:{{ progW }}"></div></div></sc-if></div>
+        <div style="flex:1"></div>
+        <div style="display:flex;gap:4px">
+        <button onClick="{{ rotL }}" aria-label="Rotate left" style="width:36px;height:36px;border:2px solid #3a342c;background:#2a2621;color:#f3ede2;padding:0;cursor:pointer;font-family:inherit;font-size:20px;line-height:20px;pointer-events:auto" style-hover="background:#3a342c">↺</button>
+        <button onClick="{{ rotR }}" aria-label="Rotate right" style="width:36px;height:36px;border:2px solid #3a342c;background:#2a2621;color:#f3ede2;padding:0;cursor:pointer;font-family:inherit;font-size:20px;line-height:20px;pointer-events:auto" style-hover="background:#3a342c">↻</button>
+        <button onClick="{{ zoomOut }}" aria-label="Zoom out" style="width:36px;height:36px;border:2px solid #3a342c;background:#2a2621;color:#f3ede2;padding:0;cursor:pointer;font-family:inherit;font-size:20px;line-height:20px;pointer-events:auto" style-hover="background:#3a342c">-</button>
+        <button onClick="{{ zoomIn }}" aria-label="Zoom in" style="width:36px;height:36px;border:2px solid #3a342c;background:#2a2621;color:#f3ede2;padding:0;cursor:pointer;font-family:inherit;font-size:20px;line-height:20px;pointer-events:auto" style-hover="background:#3a342c">+</button></div>
+      </div>
+      <div style="position:absolute;left:0;right:0;top:56px;display:flex;justify-content:center;pointer-events:none">
+        <sc-if value="{{ hasMode }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:12px;align-items:center;background:rgba(21,19,16,.92);border:2px solid #3a342c;pointer-events:auto;border-color:#e8b86a;padding:6px 6px 6px 14px">
+            <div style="color:#e8b86a;white-space:nowrap">{{ modeText }}</div>
+            <button onClick="{{ cancelMode }}" style="height:44px;padding:0 12px;border:2px solid #3a342c;background:#2a2621;color:#f3ede2;padding:0;cursor:pointer;font-family:inherit;font-size:20px;line-height:20px;pointer-events:auto" style-hover="background:#3a342c">CANCEL · ESC</button>
+          </div>
+        </sc-if></div>
+      <div style="position:absolute;left:8px;top:110px;display:flex;flex-direction:column;gap:6px">
+        <sc-for list="{{ alerts }}" as="a" hint-placeholder-count="1">
+          <div style="display:flex;gap:10px;align-items:center;background:rgba(21,19,16,.92);border:2px solid #3a342c;pointer-events:auto;border-color:{{ a.bd }};padding:8px 10px;max-width:440px">
+            <div style="display:flex;flex-direction:column;gap:4px;min-width:0;flex:1"><div style="color:{{ a.bd }}">{{ a.text }}</div><div style="color:#d8d0c2">{{ a.sub }}</div></div>
+            <sc-if value="{{ a.hasJump }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.onJump }}" style="height:44px;padding:0 10px;border:2px solid #3a342c;background:#2a2621;color:#f3ede2;padding:0;cursor:pointer;font-family:inherit;font-size:20px;line-height:20px;pointer-events:auto" style-hover="background:#3a342c">JUMP</button></sc-if>
+          </div>
+        </sc-for></div>
+      <div style="position:absolute;left:212px;bottom:212px;display:flex;gap:4px">
+        <sc-for list="{{ groups }}" as="g" hint-placeholder-count="5">
+          <button onClick="{{ g.onClick }}" style="position:relative;width:120px;height:40px;border:2px solid {{ g.bd }};background:{{ g.bg }};color:{{ g.fg }};padding:0 6px;cursor:pointer;pointer-events:auto;font-family:inherit;font-size:20px;line-height:20px;display:flex;align-items:center;gap:8px;box-sizing:border-box">
+            <div style="color:#e8b86a">{{ g.n }}</div><div>{{ g.count }}</div><div style="color:#a69c8a">{{ g.label }}</div>
+          </button>
+        </sc-for>
+        <button onClick="{{ toggleAssign }}" style="width:64px;height:40px;border:2px solid {{ assignBd }};background:{{ assignBg }};color:#f3ede2;padding:0;cursor:pointer;pointer-events:auto;font-family:inherit;font-size:20px;line-height:20px">SET</button></div>
+      <div style="position:absolute;right:8px;bottom:212px">
+        <sc-if value="{{ hasTip }}" hint-placeholder-val="{{ false }}">
+          <div style="width:400px;background:rgba(21,19,16,.92);border:2px solid #3a342c;pointer-events:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px;box-sizing:border-box">
+            <div style="display:flex;gap:10px"><div style="color:#e8b86a">{{ tipHk }}</div><div>{{ tipTitle }}</div></div>
+            <div style="color:#d8d0c2">{{ tipBody }}</div>
+          </div>
+        </sc-if></div>
+      <div style="position:absolute;right:416px;bottom:212px">
+        <sc-if value="{{ hasReadout }}" hint-placeholder-val="{{ false }}">
+          <div style="width:340px;background:rgba(21,19,16,.92);border:2px solid #3a342c;pointer-events:auto;border-color:{{ roBd }};padding:10px 12px;display:flex;flex-direction:column;gap:5px;box-sizing:border-box">
+            <div style="color:#e8b86a">{{ roTitle }}</div>
+            <sc-for list="{{ roRows }}" as="r" hint-placeholder-count="4"><div style="display:flex;gap:10px"><div style="width:96px;flex:none;color:#a69c8a">{{ r.k }}</div><div style="min-width:0">{{ r.v }}</div></div></sc-for>
+          </div>
+        </sc-if></div>
+      <div style="position:absolute;left:0;right:0;bottom:0;height:204px;display:flex;gap:8px;padding:8px;background:rgba(21,19,16,.94);border-top:2px solid #3a342c;pointer-events:auto;box-sizing:border-box">
+        
+      <div onPointerDown="{{ mmDown }}" onPointerMove="{{ mmMove }}" onPointerUp="{{ mmUp }}" onContextMenu="{{ mmCtx }}" style="position:relative;width:188px;height:188px;flex:none;background:#0f0e0c;pointer-events:auto;touch-action:none;cursor:pointer">
+        <canvas ref="{{ mmBaseRef }}" width="128" height="128" style="position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated"></canvas>
+        <canvas ref="{{ mmOverRef }}" width="256" height="256" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+        <div style="position:absolute;left:4px;top:2px;color:#a69c8a;pointer-events:none">N</div>
+      </div>
+        <div style="flex:1;min-width:340px;background:#1f1c18;padding:10px 12px;overflow:auto">
+        <sc-if value="{{ selNone }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:8px;color:#a69c8a">
+            <div style="color:#f3ede2">NOTHING SELECTED</div>
+            <div>{{ selHint1 }}</div>
+            <div>{{ selHint2 }}</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ selSingle }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;gap:12px;min-width:0">
+            <div style="position:relative;width:96px;height:96px;flex:none;background:#2a2621;display:flex;align-items:center;justify-content:center">
+              <img ref="{{ sThumbRef }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated">
+              <div style="font-size:60px;line-height:60px;color:#c6bca7">{{ sIcon }}</div>
+            </div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+              <div style="display:flex;gap:12px;align-items:baseline;white-space:nowrap;overflow:hidden"><div style="font-size:30px;line-height:30px">{{ sName }}</div><div style="color:{{ sOwnerFg }};flex:none">{{ sOwner }}</div></div>
+              <sc-if value="{{ sHasHp }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;gap:10px;align-items:center"><div style="width:120px;height:10px;background:#3a342c;flex:none"><div style="height:10px;width:{{ sHpW }};background:#9cc26a"></div></div><div style="color:#d8d0c2;white-space:nowrap;flex:none">{{ sHpText }}</div></div>
+              </sc-if>
+              <sc-for list="{{ sStats }}" as="st" hint-placeholder-count="2">
+                <div style="display:flex;gap:10px;min-width:0;white-space:nowrap"><div style="color:#a69c8a;flex:none">{{ st.k }}</div><div style="min-width:0;overflow:hidden;text-overflow:ellipsis">{{ st.v }}</div></div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ selMulti }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+            <div style="display:flex;gap:12px;align-items:baseline"><div style="font-size:30px;line-height:30px">{{ mTitle }}</div><div style="color:#a69c8a">TAB CYCLES TYPE</div></div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ tiles }}" as="tl" hint-placeholder-count="3">
+                <button onClick="{{ tl.onClick }}" style="position:relative;width:80px;height:84px;border:2px solid {{ tl.bd }};background:#2a2621;padding:0;cursor:pointer;pointer-events:auto;color:#f3ede2;font-family:inherit;font-size:20px;line-height:20px">
+                  <img ref="{{ tl.imgRef }}" alt="" style="position:absolute;left:50%;top:0;width:58px;height:58px;margin-left:-29px;image-rendering:pixelated">
+                  <div style="position:absolute;left:0;right:0;top:8px;font-size:30px;line-height:30px;color:#c6bca7">{{ tl.icon }}</div>
+                  <div style="position:absolute;right:4px;top:2px;color:#e8b86a">{{ tl.count }}</div>
+                  <div style="position:absolute;left:4px;right:4px;bottom:22px;height:4px;background:#3a342c"><div style="height:4px;width:{{ tl.hpW }};background:#9cc26a"></div></div>
+                  <div style="position:absolute;left:0;right:0;bottom:2px;text-align:center;color:#d8d0c2">{{ tl.label }}</div>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(72px,96px));grid-template-rows:repeat(3,60px);gap:4px;flex:0 1 396px;min-width:300px">
+        <sc-for list="{{ cmds }}" as="c" hint-placeholder-count="12">
+          <button onClick="{{ c.onClick }}" onPointerEnter="{{ c.onEnter }}" onPointerLeave="{{ c.onLeave }}" style="position:relative;width:100%;height:60px;border:2px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};padding:0;cursor:pointer;pointer-events:auto;font-family:inherit;font-size:20px;line-height:20px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;padding-bottom:6px;box-sizing:border-box">
+            <div style="position:absolute;left:5px;top:4px;color:{{ c.hkFg }}">{{ c.hk }}</div>
+            <div style="font-size:30px;line-height:30px">{{ c.icon }}</div>
+            <div>{{ c.label }}</div>
+          </button>
+        </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ layoutB }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:12px;top:12px;display:flex;flex-direction:column;gap:6px;background:rgba(21,19,16,.92);border:2px solid #3a342c;pointer-events:auto;padding:8px 12px;max-width:calc(100% - 260px);box-sizing:border-box">
+        <div style="display:flex;gap:18px;flex-wrap:wrap"><sc-for list="{{ res }}" as="r" hint-placeholder-count="3"><div style="display:flex;gap:8px;white-space:nowrap"><div style="color:#a69c8a">{{ r.k }}</div><div style="color:{{ r.fg }}">{{ r.v }}</div></div></sc-for></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div style="color:#e8b86a">{{ objTitle }}</div><div style="color:#d8d0c2">{{ objDetail }}</div><sc-if value="{{ hasProg }}" hint-placeholder-val="{{ false }}"><div style="width:120px;height:8px;background:#3a342c;flex:none"><div style="height:8px;background:#e8b86a;width:{{ progW }}"></div></div></sc-if></div>
+      </div>
+      <div style="position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        <div style="background:rgba(21,19,16,.92);border:2px solid #3a342c;pointer-events:auto;padding:4px">
+      <div onPointerDown="{{ mmDown }}" onPointerMove="{{ mmMove }}" onPointerUp="{{ mmUp }}" onContextMenu="{{ mmCtx }}" style="position:relative;width:200px;height:200px;flex:none;background:#0f0e0c;pointer-events:auto;touch-action:none;cursor:pointer">
+        <canvas ref="{{ mmBaseRef }}" width="128" height="128" style="position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated"></canvas>
+        <canvas ref="{{ mmOverRef }}" width="256" height="256" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+        <div style="position:absolute;left:4px;top:2px;color:#a69c8a;pointer-events:none">N</div>
+      </div></div>
+        <div style="display:flex;gap:4px">
+        <button onClick="{{ rotL }}" aria-label="Rotate left" style="width:48px;height:48px;border:2px solid #3a342c;background:#2a2621;color:#f3ede2;padding:0;cursor:pointer;font-family:inherit;font-size:20px;line-height:20px;pointer-events:auto" style-hover="background:#3a342c">↺</button>
+        <button onClick="{{ rotR }}" aria-label="Rotate right" style="width:48px;height:48px;border:2px solid #3a342c;background:#2a2621;color:#f3ede2;padding:0;cursor:pointer;font-family:inherit;font-size:20px;line-height:20px;pointer-events:auto" style-hover="background:#3a342c">↻</button>
+        <button onClick="{{ zoomOut }}" aria-label="Zoom out" style="width:48px;height:48px;border:2px solid #3a342c;background:#2a2621;color:#f3ede2;padding:0;cursor:pointer;font-family:inherit;font-size:20px;line-height:20px;pointer-events:auto" style-hover="background:#3a342c">-</button>
+        <button onClick="{{ zoomIn }}" aria-label="Zoom in" style="width:48px;height:48px;border:2px solid #3a342c;background:#2a2621;color:#f3ede2;padding:0;cursor:pointer;font-family:inherit;font-size:20px;line-height:20px;pointer-events:auto" style-hover="background:#3a342c">+</button></div>
+      </div>
+      <div style="position:absolute;left:0;right:0;top:12px;display:flex;justify-content:center;pointer-events:none">
+        <sc-if value="{{ hasMode }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:12px;align-items:center;background:rgba(21,19,16,.92);border:2px solid #3a342c;pointer-events:auto;border-color:#e8b86a;padding:6px 6px 6px 14px">
+            <div style="color:#e8b86a;white-space:nowrap">{{ modeText }}</div>
+            <button onClick="{{ cancelMode }}" style="height:44px;padding:0 12px;border:2px solid #3a342c;background:#2a2621;color:#f3ede2;padding:0;cursor:pointer;font-family:inherit;font-size:20px;line-height:20px;pointer-events:auto" style-hover="background:#3a342c">CANCEL · ESC</button>
+          </div>
+        </sc-if></div>
+      <div style="position:absolute;left:50%;top:70px;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;align-items:center">
+        <sc-for list="{{ alerts }}" as="a" hint-placeholder-count="1">
+          <div style="display:flex;gap:10px;align-items:center;background:rgba(21,19,16,.92);border:2px solid #3a342c;pointer-events:auto;border-color:{{ a.bd }};padding:8px 10px;max-width:440px">
+            <div style="display:flex;flex-direction:column;gap:4px;min-width:0;flex:1"><div style="color:{{ a.bd }}">{{ a.text }}</div><div style="color:#d8d0c2">{{ a.sub }}</div></div>
+            <sc-if value="{{ a.hasJump }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.onJump }}" style="height:44px;padding:0 10px;border:2px solid #3a342c;background:#2a2621;color:#f3ede2;padding:0;cursor:pointer;font-family:inherit;font-size:20px;line-height:20px;pointer-events:auto" style-hover="background:#3a342c">JUMP</button></sc-if>
+          </div>
+        </sc-for></div>
+      <div style="position:absolute;left:12px;top:130px;bottom:186px;display:flex;flex-direction:column;flex-wrap:wrap;align-content:flex-start;gap:6px">
+        <sc-for list="{{ groups }}" as="g" hint-placeholder-count="5">
+          <button onClick="{{ g.onClick }}" style="position:relative;width:132px;height:52px;border:2px solid {{ g.bd }};background:{{ g.bg }};color:{{ g.fg }};padding:0 6px;cursor:pointer;pointer-events:auto;font-family:inherit;font-size:20px;line-height:20px;display:flex;align-items:center;gap:8px;box-sizing:border-box">
+            <div style="color:#e8b86a">{{ g.n }}</div><div>{{ g.count }}</div><div style="color:#a69c8a">{{ g.label }}</div>
+          </button>
+        </sc-for>
+        <button onClick="{{ toggleAssign }}" style="width:132px;height:52px;border:2px solid {{ assignBd }};background:{{ assignBg }};color:#f3ede2;padding:0;cursor:pointer;pointer-events:auto;font-family:inherit;font-size:20px;line-height:20px">SET</button></div>
+      <div style="position:absolute;left:12px;bottom:12px;width:min(480px,calc(100% - 360px));min-height:150px;background:rgba(21,19,16,.92);border:2px solid #3a342c;pointer-events:auto;padding:10px 12px;box-sizing:border-box">
+        <sc-if value="{{ selNone }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:8px;color:#a69c8a">
+            <div style="color:#f3ede2">NOTHING SELECTED</div>
+            <div>{{ selHint1 }}</div>
+            <div>{{ selHint2 }}</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ selSingle }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;gap:12px;min-width:0">
+            <div style="position:relative;width:108px;height:108px;flex:none;background:#2a2621;display:flex;align-items:center;justify-content:center">
+              <img ref="{{ sThumbRef }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated">
+              <div style="font-size:60px;line-height:60px;color:#c6bca7">{{ sIcon }}</div>
+            </div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+              <div style="display:flex;gap:12px;align-items:baseline;white-space:nowrap;overflow:hidden"><div style="font-size:30px;line-height:30px">{{ sName }}</div><div style="color:{{ sOwnerFg }};flex:none">{{ sOwner }}</div></div>
+              <sc-if value="{{ sHasHp }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;gap:10px;align-items:center"><div style="width:120px;height:10px;background:#3a342c;flex:none"><div style="height:10px;width:{{ sHpW }};background:#9cc26a"></div></div><div style="color:#d8d0c2;white-space:nowrap;flex:none">{{ sHpText }}</div></div>
+              </sc-if>
+              <sc-for list="{{ sStats }}" as="st" hint-placeholder-count="2">
+                <div style="display:flex;gap:10px;min-width:0;white-space:nowrap"><div style="color:#a69c8a;flex:none">{{ st.k }}</div><div style="min-width:0;overflow:hidden;text-overflow:ellipsis">{{ st.v }}</div></div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ selMulti }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+            <div style="display:flex;gap:12px;align-items:baseline"><div style="font-size:30px;line-height:30px">{{ mTitle }}</div><div style="color:#a69c8a">TAB CYCLES TYPE</div></div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ tiles }}" as="tl" hint-placeholder-count="3">
+                <button onClick="{{ tl.onClick }}" style="position:relative;width:72px;height:76px;border:2px solid {{ tl.bd }};background:#2a2621;padding:0;cursor:pointer;pointer-events:auto;color:#f3ede2;font-family:inherit;font-size:20px;line-height:20px">
+                  <img ref="{{ tl.imgRef }}" alt="" style="position:absolute;left:50%;top:0;width:50px;height:50px;margin-left:-25px;image-rendering:pixelated">
+                  <div style="position:absolute;left:0;right:0;top:8px;font-size:30px;line-height:30px;color:#c6bca7">{{ tl.icon }}</div>
+                  <div style="position:absolute;right:4px;top:2px;color:#e8b86a">{{ tl.count }}</div>
+                  <div style="position:absolute;left:4px;right:4px;bottom:22px;height:4px;background:#3a342c"><div style="height:4px;width:{{ tl.hpW }};background:#9cc26a"></div></div>
+                  <div style="position:absolute;left:0;right:0;bottom:2px;text-align:center;color:#d8d0c2">{{ tl.label }}</div>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+      <div style="position:absolute;left:12px;bottom:176px">
+        <sc-if value="{{ hasReadout }}" hint-placeholder-val="{{ false }}">
+          <div style="width:340px;background:rgba(21,19,16,.92);border:2px solid #3a342c;pointer-events:auto;border-color:{{ roBd }};padding:10px 12px;display:flex;flex-direction:column;gap:5px;box-sizing:border-box">
+            <div style="color:#e8b86a">{{ roTitle }}</div>
+            <sc-for list="{{ roRows }}" as="r" hint-placeholder-count="4"><div style="display:flex;gap:10px"><div style="width:96px;flex:none;color:#a69c8a">{{ r.k }}</div><div style="min-width:0">{{ r.v }}</div></div></sc-for>
+          </div>
+        </sc-if></div>
+      <div style="position:absolute;right:12px;bottom:196px">
+        <sc-if value="{{ hasTip }}" hint-placeholder-val="{{ false }}">
+          <div style="width:316px;background:rgba(21,19,16,.92);border:2px solid #3a342c;pointer-events:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px;box-sizing:border-box">
+            <div style="display:flex;gap:10px"><div style="color:#e8b86a">{{ tipHk }}</div><div>{{ tipTitle }}</div></div>
+            <div style="color:#d8d0c2">{{ tipBody }}</div>
+          </div>
+        </sc-if></div>
+      <div style="position:absolute;right:12px;bottom:12px;display:grid;grid-template-columns:repeat(3,100px);grid-template-rows:repeat(2,84px);gap:6px">
+        <sc-for list="{{ cmdsB }}" as="c" hint-placeholder-count="12">
+          <button onClick="{{ c.onClick }}" onPointerEnter="{{ c.onEnter }}" onPointerLeave="{{ c.onLeave }}" style="position:relative;width:100px;height:84px;border:2px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};padding:0;cursor:pointer;pointer-events:auto;font-family:inherit;font-size:20px;line-height:20px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;padding-bottom:6px;box-sizing:border-box">
+            <div style="position:absolute;left:5px;top:4px;color:{{ c.hkFg }}">{{ c.hk }}</div>
+            <div style="font-size:30px;line-height:30px">{{ c.icon }}</div>
+            <div>{{ c.label }}</div>
+          </button>
+        </sc-for>
+      </div>
+    </sc-if>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;layout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;A · deck&quot;,&quot;B · corners&quot;],&quot;default&quot;:&quot;A · deck&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;HUD&quot;},&quot;hotkeys&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;mnemonic · WASD pans&quot;,&quot;grid · arrows pan&quot;],&quot;default&quot;:&quot;mnemonic · WASD pans&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;HUD&quot;},&quot;showChrome&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;HUD&quot;}}">
+class Component extends DCLogic {
+  state = { loading: true, err: '', scen: 0, layout: null, mode: null, tip: null, readout: null, page: 0, bPage: 0, assign: false, uiZoom: 1, n: 0 };
+  hostRef = React.createRef(); overRef = React.createRef();
+  view = 0; az = -Math.PI / 4; vh = 60; ptrs = new Map(); sel = new Set(); groups = {}; activeKind = null; alerts = []; shots = []; marks = []; desig = []; prints = []; stone = 380; timber = 96; frame = 0;
+  ICON = { move: '\uE000', attack: '\uE001', stop: '\uE002', hold: '\uE003', fire: '\uE004', pack: '\uE005', storm: '\uE006', garrison: '\uE007', eject: '\uE008', repair: '\uE009', quarry: '\uE00A', pit: '\uE00B', ditch: '\uE00C', fell: '\uE00D', clear: '\uE00E', trench: '\uE00F', build: '\uE010', tower: '\uE011', gate: '\uE012', palisade: '\uE013', yard: '\uE014', camp: '\uE015', back: '\uE016', trebuchet: '\uE017', keep: '\uE018' };
+  GRID = ['Q', 'W', 'E', 'R', 'A', 'S', 'D', 'F', 'Z', 'X', 'C', 'V'];
+  MNEMO = { move: 'M', stop: 'X', hold: 'H', attack: 'T', storm: 'R', fire: 'F', pack: 'P', garrison: 'G', eject: 'E', repair: 'R', quarry: 'Q', pit: 'P', ditch: 'I', trench: 'T', fell: 'F', clear: 'L', build: 'B', b_wall: 'L', b_tower: 'T', b_gate: 'G', b_pal: 'P', b_yard: 'Y', b_camp: 'C', back: 'B' };
+  ORDER = ['trebuchet', 'tower', 'keep', 'maa', 'spear', 'archer', 'sapper', 'laborer'];
+  SECS = [50, 56, 61, 66, 72];
+  mmBaseRef = el => { this.mmBase = el; this.drawMMBase(); };
+  mmOverRef = el => { this.mmOver = el; };
+  mmCtx = e => e.preventDefault();
+  mmDown = e => { e.stopPropagation(); e.preventDefault(); const t = e.currentTarget; try { t.setPointerCapture(e.pointerId); } catch (_) {} this.mmDrag = { btn: e.button }; this.mmAt(e, t); };
+  mmMove = e => { if (this.mmDrag) this.mmAt(e, e.currentTarget); };
+  mmUp = () => { this.mmDrag = null; };
+
+  componentDidMount() {
+    this.fitUi = () => { const w = window.innerWidth, h = window.innerHeight; const z = (w >= 2400 && h >= 1300) ? 2 : (w >= 1800 && h >= 1000) ? 1.5 : 1; if (z !== this.state.uiZoom) this.setState({ uiZoom: z }); };
+    window.addEventListener('resize', this.fitUi); this.fitUi();
+    this.onKey = e => this.key(e); window.addEventListener('keydown', this.onKey);
+    this.loadFont();
+    setTimeout(() => this.init().catch(e => { console.error('HUD init failed', e); this.setState({ err: String(e && e.message || e) }); }), 30);
+    this.clock = setInterval(() => this.quarter(), 250);
+  }
+  componentWillUnmount() { this.dead = true; window.removeEventListener('resize', this.fitUi); window.removeEventListener('keydown', this.onKey); clearInterval(this.clock); clearInterval(this.iv); cancelAnimationFrame(this.raf); if (this.ro) this.ro.disconnect(); if (this.renderer) { this.renderer.dispose(); this.renderer.domElement.remove(); } }
+  componentDidUpdate(pp) { if (pp.layout !== this.props.layout) this.setState({ layout: null }); }
+  async loadFont() {
+    try {
+      const fm = await import(new URL('earthrise-font.js', document.baseURI).href);
+      const otm = await import('https://esm.sh/opentype.js@1.3.4');
+      const ff = new FontFace('Earthrise Mason', fm.buildFont(otm.default || otm)); await ff.load(); document.fonts.add(ff); this.bump();
+    } catch (e) { console.warn('bitmap font failed', e); }
+  }
+  bump() { if (!this.dead) this.setState(s => ({ n: s.n + 1 })); }
+  mnemonic() { return !String(this.props.hotkeys ?? 'mnemonic').startsWith('grid'); }
+  hkFor(key, slot) { return this.mnemonic() ? (this.MNEMO[key] || '') : this.GRID[slot]; }
+
+  info() { return {
+    laborer: { name: 'Laborer', short: 'LABOR', hp: 25, speed: 1.6, stats: [['ROLE', 'Builds, digs'], ['ARMOR', 'None']] },
+    spear: { name: 'Spearman', short: 'SPEAR', hp: 45, speed: 1.8, stats: [['STRONG', 'Horse, knights'], ['WEAK', 'Archers, arms']] },
+    archer: { name: 'Archer', short: 'ARCHER', hp: 30, speed: 1.8, stats: [['RANGE', '+15% per 3 m'], ['WEAK', 'Horse, arms']] },
+    maa: { name: 'Man-at-arms', short: 'ARMS', hp: 70, speed: 1.4, stats: [['STRONG', 'Spear, bows'], ['ROLE', 'Storm breaches']] },
+    sapper: { name: 'Sapper', short: 'SAPPER', hp: 40, speed: 1.5, stats: [['DIGS', '2× trench speed'], ['ARMOR', 'Pierce']] },
+    trebuchet: { name: 'Trebuchet', short: 'TREB', hp: 150, stats: [] },
+    tower: { name: 'Tower', short: 'TOWER', stats: [] },
+    keep: { name: 'Keep', short: 'KEEP', stats: [['TOWER', '100%'], ['TO WIN', 'Hold foot 2:00']] }
+  }; }
+  cmdDefs() { return {
+    move: { label: 'MOVE', tip: 'Move to a point. Right-click, or tap the ground, also moves.' },
+    stop: { label: 'STOP', tip: 'Cancel current orders.' },
+    hold: { label: 'HOLD', tip: 'Hold position and fight only what comes in reach.' },
+    attack: { label: 'ATTACK', tip: 'Attack-move: advance and engage on the way.' },
+    storm: { label: 'STORM', tip: 'Advance through the breach to the keep’s foot and hold it.' },
+    fire: { label: 'FIRE', tip: 'Lob shot at a point 12–70 m away. Each shot costs 6 m³ of stone.' },
+    pack: { label: 'PACK', tip: 'Pack to move, deploy to fire. Takes 4 s either way.' },
+    garrison: { label: 'GARRISON', tip: 'Bring nearby archers inside. They fire from height.' },
+    eject: { label: 'EJECT', tip: 'Put the garrison out at the tower’s foot, on your side.' },
+    repair: { label: 'REPAIR', tip: 'Repair from your side. A section hit in the last 10 s is locked.' },
+    quarry: { label: 'QUARRY', tip: 'Cut building stone from an outcrop in terraces. Drag an area.' },
+    pit: { label: 'PIT', tip: 'Dig a terraced hole to a set depth. Drag an area.' },
+    ditch: { label: 'DITCH', tip: 'Dig a ditch. Its spoil becomes a rampart on the keep side.' },
+    trench: { label: 'TRENCH', tip: 'Cut a narrow trench beside a foundation to undermine it.' },
+    fell: { label: 'FELL', tip: 'Clear forest for timber. It stays cut for the season.' },
+    clear: { label: 'CLEAR', tip: 'Clear rubble for stone at half its volume.' },
+    build: { label: 'BUILD', tip: 'Place a template. Costs exactly its volume.' },
+    b_wall: { label: 'WALL', icon: 'build', tip: 'Stone wall 8 × 2 × 6 m · 96 m³ stone.', tpl: [8, 2, 6, 96, 0] },
+    b_tower: { label: 'TOWER', icon: 'tower', tip: 'Tower 7 × 7 × 11 m · 477 m³ stone.', tpl: [7, 7, 11, 477, 0] },
+    b_gate: { label: 'GATE', icon: 'gate', tip: 'Gatehouse 9 × 7 × 12 m · 585 m³ stone + 12 m³ timber.', tpl: [9, 7, 12, 585, 12] },
+    b_pal: { label: 'PALISADE', icon: 'palisade', tip: 'Palisade 8 × 1 × 4 m · 35 m³ timber.', tpl: [8, 1, 4, 0, 35] },
+    b_yard: { label: 'YARD', icon: 'yard', tip: 'Quarry yard: stone drop site · 32 m³ timber.', tpl: [7, 6, 3, 0, 32] },
+    b_camp: { label: 'CAMP', icon: 'camp', tip: 'Lumber camp: timber drop site · 30 m³ timber.', tpl: [7, 6, 3, 0, 30] },
+    back: { label: 'BACK', tip: 'Back to orders.' }
+  }; }
+  card(kind, page) {
+    const N = null;
+    if (kind === 'laborer') return page === 1 ? ['b_wall', 'b_tower', 'b_gate', 'b_pal', 'b_yard', 'b_camp', N, N, N, N, N, 'back'] : ['move', 'stop', N, N, 'quarry', 'pit', 'ditch', 'trench', 'fell', 'clear', 'repair', 'build'];
+    if (kind === 'sapper') return ['move', 'stop', 'hold', N, N, N, N, 'trench', N, N, N, N];
+    if (kind === 'trebuchet') return ['fire', 'stop', N, N, 'pack', N, N, N, N, N, N, N];
+    if (kind === 'tower') return ['garrison', 'eject', N, N, 'repair', N, N, N, N, N, N, N];
+    if (kind === 'keep') return [N, N, N, N, N, N, N, N, N, N, N, N];
+    return ['move', 'stop', 'hold', 'attack', this.scen().player === 'red' ? 'storm' : N, N, N, N, N, N, N, N];
+  }
+  scens() { return [
+    { key: 'bombard', label: '1 · SIEGE: BOMBARD', player: 'red', cam: [42, 12, 61, 62] },
+    { key: 'storm', label: '2 · SIEGE: STORM', player: 'red', cam: [62, 15, 61, 44] },
+    { key: 'quarry', label: '3 · HOLD: QUARRY & PLACE', player: 'blue', cam: [76, 10, 90, 52] },
+    { key: 'defend', label: '4 · HOLD: DEFEND', player: 'blue', cam: [56, 14, 68, 56] },
+    { key: 'control', label: '5 · CONTROL BUILD', player: 'red', cam: [42, 12, 61, 62], control: true }
+  ]; }
+  scen() { return this.scens()[this.state.scen]; }
+
+  buildWorld() {
+    const S = 1, W = 128, D = 128, H = 48, G = 15, CX = 74, CZ = 61, WD = W * D;
+    const vox = new Uint8Array(W * D * H);
+    const set = (x, y, z, m) => { if (x >= 0 && x < W && z >= 0 && z < D && y >= 0 && y < H) vox[x + z * W + y * WD] = m; };
+    const get = (x, y, z) => (x >= 0 && x < W && z >= 0 && z < D && y >= 0 && y < H) ? vox[x + z * W + y * WD] : 0;
+    const v = m => Math.round(m * S);
+    const boxV = (x0, x1, y0, y1, z0, z1, m) => { for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) set(x, y, z, m); };
+    const box = (x0, x1, y0, y1, z0, z1, m) => boxV(v(x0), v(x1) - 1, v(y0), v(y1) - 1, v(z0), v(z1) - 1, m);
+    // detail models: units, engines, mantlets, debris at 0.5 m, drawn on top of the 1 m world
+    const DS = 2, DW = W * DS, DD = D * DS, DH = H * DS, DWD = DW * DD;
+    const det = new Uint8Array(DW * DD * DH);
+    const dset = (x, y, z, m) => { if (x >= 0 && x < DW && z >= 0 && z < DD && y >= 0 && y < DH) det[x + z * DW + y * DWD] = m; };
+    const dget = (x, y, z) => (x >= 0 && x < DW && z >= 0 && z < DD && y >= 0 && y < DH) ? det[x + z * DW + y * DWD] : 0;
+    const dv = m => Math.round(m * DS);
+    const dboxV = (x0, x1, y0, y1, z0, z1, m) => { for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) dset(x, y, z, m); };
+    const dbox = (x0, x1, y0, y1, z0, z1, m) => dboxV(dv(x0), dv(x1) - 1, dv(y0), dv(y1) - 1, dv(z0), dv(z1) - 1, m);
+    const dline = (ax, ay, az, bx, by, bz, m) => { const L = Math.hypot(bx - ax, by - ay, bz - az), n = Math.ceil(L * DS * 2); for (let i = 0; i <= n; i++) { const k = i / n; dset(Math.floor((ax + (bx - ax) * k) * DS), Math.floor((ay + (by - ay) * k) * DS), Math.floor((az + (bz - az) * k) * DS), m); } };
+    const hash = (x, z, s = 0) => { let h = (x * 374761393 + z * 668265263 + s * 982451653) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967295; };
+    const vn = (x, z, s) => { const xi = Math.floor(x), zi = Math.floor(z), xf = x - xi, zf = z - zi, u = xf * xf * (3 - 2 * xf), w = zf * zf * (3 - 2 * zf); const a = hash(xi, zi, s), b = hash(xi + 1, zi, s), c = hash(xi, zi + 1, s), d = hash(xi + 1, zi + 1, s); return a + (b - a) * u + (c - a) * w + (a - b - c + d) * u * w; };
+    const fbm = (x, z, s) => vn(x, z, s) * .55 + vn(x * 2, z * 2, s + 7) * .3 + vn(x * 4, z * 4, s + 13) * .15;
+    const ss = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+    const M = { GRASS: 1, EARTH: 2, ROCK: 3, STONE: 4, BED: 5, WALL: 6, TIMBER: 7, RUBBLE: 8, WATER: 9, LEAF: 10, LEAF2: 11, ROOF: 12, FIELD: 13, FIELD2: 14, PATH: 15, RED: 16, BLUE: 17, STEEL: 18, TAN: 19, DARK: 20, WEIGHT: 21, SKIN: 22, CLOTH: 23 };
+    const cl = (a, n) => Math.max(0, Math.min(n - 1, a));
+    const riverX = z => 12 + z * 0.12 + Math.sin(z * 0.06) * 5;
+    const hv = new Int16Array(W * D);
+    for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
+      const base = 6 + fbm(x * .035, z * .035, 1) * 6, d = Math.hypot(x - CX, z - CZ);
+      let h = base + (G - base) * ss(42, 27, d);
+      const rd = Math.abs(x - riverX(z));
+      if (rd < 9) h = Math.min(h, Math.max(2, 2 + (rd - 4) * 1.1));
+      const h0 = Math.round(h); hv[x + z * W] = h0;
+      const earth = Math.max(1, Math.round(1 + fbm(x * .08, z * .08, 5) * 5 - (x > CX ? 2 : 0)));
+      const bed = 1 + Math.round(fbm(x * .05, z * .05, 9) * 3);
+      for (let y = 0; y < h0; y++) set(x, y, z, y < bed ? M.BED : (y >= h0 - earth ? (y === h0 - 1 ? M.GRASS : M.EARTH) : M.ROCK));
+      if (rd < 4.5) for (let y = h0; y < 4; y++) set(x, y, z, M.WATER);
+    }
+    const gV = (x, z) => hv[cl(x, W) + cl(z, D) * W];
+    const topV = (x, z) => { for (let y = H - 1; y >= 0; y--) if (get(x, y, z)) return y + 1; return 0; };
+    for (let z = 76; z < 118; z++) for (let x = 46; x < 104; x++) {
+      const rr = Math.hypot((x - 74) / 1.5, z - 93) + fbm(x * .2, z * .2, 31) * 4; if (rr > 17) continue;
+      const top = gV(x, z); for (let y = 3; y < top - (rr < 8 ? 0 : 1); y++) set(x, y, z, M.STONE);
+    }
+    for (let z = 85; z < 103; z++) for (let x = 61; x < 89; x++) {
+      const rr = Math.min(x - 61, 88 - x, z - 85, 102 - z);
+      let floorM = 13 - Math.min(Math.floor(rr / 2), 4) * 2;
+      if (z >= 85 && z < 87 && x >= 63) floorM = Math.max(floorM, 13 - Math.min(8, Math.floor((x - 63) / 2)));
+      for (let y = floorM; y < H; y++) set(x, y, z, 0);
+    }
+    for (let i = 0; i < 5; i++) { const px = 92 + i * 2, pz = 90 + (i % 2) * 2, g = gV(px, pz); boxV(px, px + 1, g, g + (i % 3), pz, pz + 1, M.STONE); }
+    for (let x = 93; x < W; x++) for (let z = 59; z < 64; z++) { const y = gV(x, z) - 1; if (get(x, y, z) === M.GRASS) set(x, y, z, M.PATH); }
+    for (let z = 88; z < 124; z++) for (let x = 104; x < 124; x++) { const y = gV(x, z) - 1; if (get(x, y, z) === M.GRASS && fbm(x * .05, z * .05, 41) > .35) set(x, y, z, Math.floor(z / 3) % 2 ? M.FIELD : M.FIELD2); }
+    for (let z = 34; z < 89; z++) {
+      if (z >= 54 && z <= 68) continue;
+      for (let x = 46; x < 57; x++) {
+        const g = gV(x, z), dd = Math.max(0, Math.min(2, Math.round(2.5 - Math.abs(x + .5 - 50.5))));
+        if (dd > 0) { for (let y = g - dd; y < g; y++) set(x, y, z, 0); continue; }
+        const n = Math.max(0, Math.min(2, Math.round(2 - Math.abs(x + .5 - 54.5))));
+        for (let k = 0; k < n; k++) set(x, g + k, z, k === n - 1 ? M.GRASS : M.EARTH);
+      }
+    }
+    // castle: standard curtain wall 2 m thick (1 m world voxels)
+    const cren = (x0, x1, z0, z1, yb) => { for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) { const edge = x === x0 || x === x1 || z === z0 || z === z1; if (!edge) continue; const t = (x === x0 || x === x1) ? z : x; if (t % 2 === 0) set(x, yb, z, M.WALL); } };
+    box(58, 60, G, G + 7, 45, 47, M.WALL); box(58, 60, G, G + 7, 76, 78, M.WALL); box(58, 91, G, G + 7, 45, 47, M.WALL); box(58, 91, G, G + 7, 76, 78, M.WALL); box(89, 91, G, G + 7, 45, 78, M.WALL); box(58, 60, G, G + 7, 45, 78, M.WALL);
+    for (let x = 58; x < 91; x += 2) { set(x, G + 7, 45, M.WALL); set(x, G + 7, 77, M.WALL); }
+    for (let z = 45; z < 78; z += 2) { set(58, G + 7, z, M.WALL); set(90, G + 7, z, M.WALL); }
+    [[59, 46], [90, 46], [59, 77], [90, 77]].forEach(([cx, cz]) => {
+      boxV(cx - 3, cx + 3, G, G + 10, cz - 3, cz + 3, M.WALL); cren(cx - 3, cx + 3, cz - 3, cz + 3, G + 11);
+      [G + 3, G + 7].forEach(y => { set(cx - 3, y, cz, M.DARK); set(cx + 3, y, cz, M.DARK); set(cx, y, cz - 3, M.DARK); set(cx, y, cz + 3, M.DARK); set(cx - 3, y + 1, cz, M.DARK); set(cx + 3, y + 1, cz, M.DARK); set(cx, y + 1, cz - 3, M.DARK); set(cx, y + 1, cz + 3, M.DARK); });
+    });
+    boxV(68, 79, G, G + 15, 55, 66, M.WALL); cren(68, 79, 55, 66, G + 16);
+    [[68, 55], [77, 55], [68, 64], [77, 64]].forEach(([x, z]) => { boxV(x, x + 2, G + 16, G + 18, z, z + 2, M.WALL); });
+    [G + 5, G + 9, G + 13].forEach(y => { [58, 61, 64].forEach(z => { set(68, y, z, M.DARK); set(68, y + 1, z, M.DARK); set(79, y, z, M.DARK); set(79, y + 1, z, M.DARK); }); [71, 74, 77].forEach(x => { set(x, y, 55, M.DARK); set(x, y + 1, 55, M.DARK); set(x, y, 66, M.DARK); set(x, y + 1, 66, M.DARK); }); });
+    boxV(68, 68, G, G + 2, 60, 61, M.DARK);
+    boxV(74, 74, G + 16, G + 22, 61, 61, M.TIMBER); boxV(75, 77, G + 19, G + 21, 61, 61, M.RED);
+    boxV(87, 93, G, G + 8, 57, 65, M.WALL); cren(87, 93, 57, 65, G + 9); boxV(87, 93, G, G + 3, 60, 62, 0); boxV(93, 93, G, G + 3, 60, 62, M.TIMBER);
+    const cot = (x0, z0, w, d) => {
+      boxV(x0, x0 + w - 1, G, G + 2, z0, z0 + d - 1, M.TIMBER); set(x0 + (w >> 1), G, z0, M.DARK); set(x0 + (w >> 1), G + 1, z0, M.DARK);
+      boxV(x0 - 1, x0 + w, G + 3, G + 3, z0 - 1, z0 + d, M.ROOF); boxV(x0 - 1, x0 + w, G + 4, G + 4, z0, z0 + d - 1, M.ROOF); boxV(x0 - 1, x0 + w, G + 5, G + 5, z0 + 1, z0 + d - 2, M.ROOF);
+    };
+    cot(62, 50, 5, 4); cot(62, 69, 5, 4); cot(82, 50, 5, 4); cot(82, 70, 5, 4); cot(70, 70, 5, 4);
+    // breach + craters + rubble (world rubble at 1 m)
+    for (let y = G - 1; y <= G + 8; y++) for (let z = 50; z < 72; z++) for (let x = 58; x <= 60; x++) { const w = 1.5 + Math.max(0, y - G) * 0.62 + (fbm(z * .5, y * .5, 77) - .5) * 1.2; if (Math.abs(z + .5 - 61) < w) set(x, y, z, 0); }
+    const crater = (cx, cy, cz, rr, s) => { for (let y = Math.floor(cy - rr); y <= cy + rr; y++) for (let z = Math.floor(cz - rr); z <= cz + rr; z++) for (let x = Math.floor(cx - rr); x <= cx + rr; x++) { const d = Math.hypot(x + .5 - cx, y + .5 - cy, z + .5 - cz) + (hash(x, z * 31 + y, s) - .5) * .5; if (d < rr && get(x, y, z) === M.WALL) set(x, y, z, 0); } };
+    crater(57.6, G + 3.6, 70.5, 1.6, 1); crater(55.6, G + 7.5, 47, 1.5, 2); crater(57.7, G + 5.2, 51.5, 1.3, 3);
+    for (let z = 52; z < 70; z++) for (let x = 48; x < 68; x++) {
+      const rr = Math.hypot((x + .5 - 59) / 8.5, (z + .5 - 61) / 5.6); if (rr >= 1) continue;
+      const n = Math.round(3 * Math.pow(1 - rr, 0.85) + (fbm(x * .7, z * .7, 51) - .5) * 0.8), g = gV(x, z);
+      for (let k = 0; k < n; k++) if (!get(x, g + k, z)) set(x, g + k, z, hash(x, z * 7 + k, 52) < .12 ? M.WALL : M.RUBBLE);
+    }
+    // forest at 1 m
+    for (let z = 2; z < 122; z++) for (let x = 2; x < 120; x++) {
+      const d = Math.hypot(x - CX, z - CZ), rd = Math.abs(x - riverX(z));
+      if (d < 31 || rd < 7 || (x > 90 && z > 84)) continue;
+      if (!((x + z < 100) || (z > 92 && x < 60))) continue;
+      if (fbm(x * .06, z * .06, 21) < 0.5 || hash(x, z, 3) > 0.09) continue;
+      const g = gV(x, z); if (get(x, g - 1, z) !== M.GRASS) continue;
+      if (hash(x, z, 8) < 0.2 && x + z > 70) { set(x, g, z, M.TIMBER); continue; }
+      const th = 2 + Math.floor(hash(x, z, 4) * 3), lm = hash(x, z, 5) < .5 ? M.LEAF : M.LEAF2, rr = 1.3 + hash(x, z, 6) * 0.9, cy = g + th + 1;
+      for (let k = 0; k < th; k++) set(x, g + k, z, M.TIMBER);
+      for (let dy = -2; dy <= 2; dy++) for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) if (Math.hypot(dx, dy * 1.2, dz) <= rr && !get(x + dx, cy + dy, z + dz)) set(x + dx, cy + dy, z + dz, lm);
+    }
+    // ---- 0.5 m detail models ----
+    const dtop = (ix, iz) => { let t = topV(ix >> 1, iz >> 1) * 2; for (let y = DH - 1; y >= t; y--) if (dget(ix, y, iz)) return y + 1; return t; };
+    for (let i = 0; i < 44; i++) {
+      const x = 59 + (hash(i, 1, 81) - .5) * 20, z = 61 + (hash(i, 2, 81) - .5) * 14, ix = dv(x), iz = dv(z), s = hash(i, 3, 81) < .6 ? 1 : 2;
+      if (Math.abs(x - 59) < 1.5 && Math.abs(z - 61) > 3) continue;
+      const y = dtop(ix, iz); dboxV(ix, ix + s - 1, y, y + s - 1, iz, iz + s - 1, M.WALL);
+    }
+    for (let i = 0; i < 320; i++) {
+      const a = hash(i, 4, 82) * Math.PI * 2, rr = Math.sqrt(hash(i, 5, 82)), x = 59 + Math.cos(a) * rr * 8.5, z = 61 + Math.sin(a) * rr * 5.6, ix = dv(x), iz = dv(z);
+      dset(ix, dtop(ix, iz), iz, hash(i, 6, 82) < .3 ? M.WALL : M.RUBBLE);
+    }
+    const tre = (x0, z0) => {
+      let gm = 0; for (let z = Math.floor(z0); z < z0 + 3.5; z++) for (let x = Math.floor(x0 - .5); x < x0 + 7.5; x++) gm = Math.max(gm, gV(x, z));
+      const y0 = gm;
+      dbox(x0 - .5, x0 + 7.5, y0, y0 + .5, z0, z0 + .5, M.TIMBER); dbox(x0 - .5, x0 + 7.5, y0, y0 + .5, z0 + 3, z0 + 3.5, M.TIMBER);
+      [x0 - .5, x0 + 3.5, x0 + 7].forEach(x => dbox(x, x + .5, y0, y0 + .5, z0, z0 + 3.5, M.TIMBER));
+      [z0 + .25, z0 + 3.25].forEach(zz => { dline(x0 + .5, y0 + .5, zz, x0 + 3.75, y0 + 6.5, zz, M.TIMBER); dline(x0 + 7, y0 + .5, zz, x0 + 3.75, y0 + 6.5, zz, M.TIMBER); });
+      dbox(x0 + 3.5, x0 + 4, y0 + 6.5, y0 + 7, z0, z0 + 3.5, M.STEEL);
+      const tip = { x: x0 - 3.5, y: y0 + 12.5, z: z0 + 1.75 };
+      dline(x0 + 6.5, y0 + 4.5, tip.z, tip.x, tip.y, tip.z, M.TIMBER);
+      dbox(x0 + 5.5, x0 + 7.5, y0 + 2, y0 + 4, z0 + .5, z0 + 3, M.WEIGHT);
+      dline(tip.x, tip.y, tip.z, tip.x - .3, tip.y - 2.5, tip.z, M.CLOTH);
+      return tip;
+    };
+    const tipA = tre(32, 49), tipB = tre(34, 69.5);
+    for (let i = 0; i < 6; i++) { const ix = dv(28 + (i % 3) * .5), iz = dv(59 + ((i / 3) | 0) * .5); dset(ix, dtop(ix, iz), iz, M.STONE); }
+    const mant = (x, z) => { let g = 0; for (let iz = dv(z); iz < dv(z + 2.5); iz++) g = Math.max(g, dtop(dv(x), iz)); for (let k = 0; k < 4; k++) { const ix = dv(x) - Math.floor(k / 3); for (let iz = dv(z); iz < dv(z + 2.5); iz++) dset(ix, g + k, iz, M.TIMBER); } dline(x - 1.2, g / 2, z + 1.25, x - .3, g / 2 + 1.3, z + 1.25, M.TIMBER); };
+    mant(45, 53.5); mant(44, 57.5); mant(45, 64.5); mant(44, 68.5);
+    const placed = [], ents = [];
+    const fig = (x, z, team, spear) => {
+      const ix = dv(x), iz = dv(z), y0 = dtop(ix, iz);
+      if (get(ix >> 1, (y0 >> 1) - 1, iz >> 1) === M.WATER) return;
+      dset(ix, y0, iz, M.CLOTH); dset(ix, y0 + 1, iz, team); dset(ix, y0 + 2, iz, team); dset(ix, y0 + 3, iz, team === M.TAN ? M.SKIN : M.STEEL);
+      if (spear) { dboxV(ix + 1, ix + 1, y0 + 1, y0 + 4, iz, iz, M.TIMBER); dset(ix + 1, y0 + 5, iz, M.STEEL); }
+    };
+    const scatter = (cx, cz, n, rx, rz, team, s, sp) => { for (let i = 0; i < n * 3 && n > 0; i++) { const x = cx + (hash(i, s, 71) - .5) * 2 * rx, z = cz + (hash(i, s, 72) - .5) * 2 * rz; if (placed.some(p => Math.hypot(p[0] - x, p[1] - z) < 1.1)) continue; placed.push([x, z]); ents.push({ x, z, team, s, sp: hash(i, s, 73) < sp }); n--; } };
+    scatter(54, 61, 18, 3.5, 3, M.RED, 1, .5); scatter(59, 61, 5, .6, 1.2, M.RED, 11, .3);
+    scatter(42, 55.5, 7, 1.2, 2, M.RED, 2, .6); scatter(42, 66.5, 7, 1.2, 2, M.RED, 3, .6);
+    scatter(38, 61, 18, 3, 4, M.RED, 4, .8); scatter(30, 54, 5, 2, 1.5, M.RED, 9, 0); scatter(32, 74.5, 5, 2, 1.2, M.RED, 10, 0);
+    scatter(64, 61, 18, 2.5, 4.5, M.BLUE, 5, .7); scatter(66, 52, 6, 2, 1.5, M.BLUE, 6, .5); scatter(71, 61, 6, 1, 3, M.BLUE, 12, .9);
+    scatter(75, 94, 14, 11, 7, M.TAN, 7, 0); scatter(114, 106, 7, 8, 12, M.TAN, 8, 0); scatter(47.5, 75, 5, 1.5, 1.5, M.RED, 13, 0);
+    return { world: { vox, W, D, H }, detail: { vox: det, W: DW, D: DD, H: DH }, G, hash, M, tipA, tipB, ents, get };
+  }
+
+
+  async init() {
+    const THREE = await import('https://esm.sh/three@0.160.0');
+    if (this.dead || !this.hostRef.current) return;
+    const host = this.hostRef.current;
+    const wd = this.buildWorld(); this.wd = wd;
+    const { G, hash, M } = wd;
+    const pal = { 1: '#7d8b4f', 2: '#8a6a48', 3: '#8d8a84', 4: '#ddd2b9', 5: '#4a4744', 6: '#c6bca7', 7: '#7a5534', 8: '#a69c8a', 9: '#4f7f8c', 10: '#4f6a3a', 11: '#62803f', 12: '#8c4a3a', 13: '#c9a95a', 14: '#a6a056', 15: '#a88e6a', 16: '#b23a2e', 17: '#2f5d93', 18: '#9aa0a6', 19: '#c79a6b', 20: '#2e2a27', 21: '#5b5650', 22: '#d9a57f', 23: '#3d3530', 24: '#5e4330', 27: '#6e5a3e' };
+    const TER = { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 13: 1, 14: 1, 15: 1 }, AO = [0.52, 0.68, 0.84, 1], AOT = [0.74, 0.84, 0.93, 1];
+    const base = {}; Object.keys(pal).forEach(k => { base[k] = new THREE.Color(pal[k]); });
+    const N = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, -1]];
+    const C = [[[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]], [[0, 0, 1], [0, 1, 1], [0, 1, 0], [0, 0, 0]], [[0, 1, 0], [0, 1, 1], [1, 1, 1], [1, 1, 0]], [[1, 0, 1], [1, 1, 1], [0, 1, 1], [0, 0, 1]], [[0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 0]]];
+    const TU = [[1, 2], [1, 2], [0, 2], [0, 1], [0, 1]];
+    const meshGrid = (g, shift, extra) => {
+      const { vox, W, D, H } = g, WD = W * D;
+      const sol = (x, y, z) => y < 0 ? 1 : ((x >= 0 && x < W && z >= 0 && z < D && y < H && vox[x + z * W + y * WD]) ? 1 : (extra ? extra(x, y, z) : 0));
+      const tops = new Int16Array(WD);
+      for (let i = 0; i < WD; i++) { for (let y = H - 1; y >= 0; y--) if (vox[i + y * WD]) { tops[i] = y + 1; break; } }
+      let nf = 0;
+      for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) { const t = tops[x + z * W]; for (let y = 0; y < t; y++) { if (!vox[x + z * W + y * WD]) continue; for (let f = 0; f < 5; f++) if (!sol(x + N[f][0], y + N[f][1], z + N[f][2])) nf++; } }
+      const pos = new Uint16Array(nf * 12), nor = new Int8Array(nf * 12), colA = new Uint16Array(nf * 12), idx = new Uint32Array(nf * 6);
+      const col = new THREE.Color(), q = [0, 0, 0], aos = [0, 0, 0, 0];
+      let fi = 0;
+      for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
+        const t = tops[x + z * W];
+        for (let y = 0; y < t; y++) {
+          const m = vox[x + z * W + y * WD]; if (!m) continue;
+          let colDone = false; const ter = TER[m];
+          for (let f = 0; f < 5; f++) {
+            const n = N[f]; if (sol(x + n[0], y + n[1], z + n[2])) continue;
+            if (!colDone) { col.copy(base[m]); const j = ter ? (m === M.GRASS ? 0.05 : 0.04) : (m === M.LEAF || m === M.LEAF2) ? 0.1 : (m === M.WALL || m === M.RUBBLE) ? 0.07 : 0.05; const hx = ter ? (x >> shift) : x, hy = ter ? (y >> shift) : y, hz = ter ? (z >> shift) : z; col.offsetHSL(0, 0, (hash(hx * 7 + hy * 131, hz * 3, m) - .5) * j); colDone = true; }
+            const u = TU[f][0], w = TU[f][1];
+            for (let k = 0; k < 4; k++) {
+              const c = C[f][k], vi = fi * 4 + k;
+              pos[vi * 3] = x + c[0]; pos[vi * 3 + 1] = y + c[1]; pos[vi * 3 + 2] = z + c[2];
+              nor[vi * 3] = n[0] * 127; nor[vi * 3 + 1] = n[1] * 127; nor[vi * 3 + 2] = n[2] * 127;
+              q[0] = x + n[0]; q[1] = y + n[1]; q[2] = z + n[2];
+              const du = c[u] ? 1 : -1, dw = c[w] ? 1 : -1;
+              q[u] += du; const s1 = sol(q[0], q[1], q[2]); q[u] -= du; q[w] += dw; const s2 = sol(q[0], q[1], q[2]); q[u] += du; const cc = sol(q[0], q[1], q[2]);
+              const ao = (s1 && s2) ? 0 : 3 - (s1 + s2 + cc); aos[k] = ao;
+              const sh = (ter ? AOT : AO)[ao];
+              colA[vi * 3] = Math.min(65535, col.r * sh * 65535); colA[vi * 3 + 1] = Math.min(65535, col.g * sh * 65535); colA[vi * 3 + 2] = Math.min(65535, col.b * sh * 65535);
+            }
+            const b = fi * 4, ii = fi * 6;
+            if (aos[0] + aos[2] < aos[1] + aos[3]) { idx[ii] = b + 1; idx[ii + 1] = b + 2; idx[ii + 2] = b + 3; idx[ii + 3] = b + 1; idx[ii + 4] = b + 3; idx[ii + 5] = b; }
+            else { idx[ii] = b; idx[ii + 1] = b + 1; idx[ii + 2] = b + 2; idx[ii + 3] = b; idx[ii + 4] = b + 2; idx[ii + 5] = b + 3; }
+            fi++;
+          }
+        }
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3, true));
+      geo.setAttribute('color', new THREE.BufferAttribute(colA, 3, true));
+      geo.setIndex(new THREE.BufferAttribute(idx, 1));
+      geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(W / 2, H / 2, D / 2), W);
+      return geo;
+    };
+    const wgM = wd.world, wwd = wgM.W * wgM.D;
+    const geoW = meshGrid(wgM, 0, null);
+    const geoD = meshGrid(wd.detail, 1, (x, y, z) => { const X = x >> 1, Y = y >> 1, Z = z >> 1; return (X >= 0 && X < wgM.W && Z >= 0 && Z < wgM.D && Y >= 0 && Y < wgM.H && wgM.vox[X + Z * wgM.W + Y * wwd]) ? 1 : 0; });
+    if (this.dead) return;
+    this.THREE = THREE; this.pal = pal;
+    const wg = wd.world, W = wg.W, D = wg.D, H = wg.H; this.W = W;
+    const top = new Int16Array(W * D), walk = new Int16Array(W * D), topM = new Uint8Array(W * D), NOWALK = { 6: 1, 7: 1, 10: 1, 11: 1, 12: 1, 16: 1, 17: 1, 20: 1 };
+    for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) { let t = 0, wk = -1, tm = 0; for (let y = H - 1; y >= 0; y--) { const m = wg.vox[x + z * W + y * W * D]; if (!m) continue; if (!t) { t = y + 1; tm = m; } if (!NOWALK[m]) { wk = y + 1; break; } } top[x + z * W] = t; walk[x + z * W] = wk < 0 ? t : wk; topM[x + z * W] = tm; }
+    this.top = top; this.walkH = walk; this.topM = topM;
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
+    renderer.setClearColor('#d6ccba');
+    host.appendChild(renderer.domElement); renderer.domElement.style.display = 'block'; renderer.domElement.style.touchAction = 'none';
+    const scene = new THREE.Scene();
+    scene.add(new THREE.HemisphereLight('#d4dbe6', '#5a4a38', 1.0));
+    const sun = new THREE.DirectionalLight('#ffd8a6', 2.7); sun.position.set(-90, 75, 55); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096);
+    Object.assign(sun.shadow.camera, { left: -100, right: 100, top: 100, bottom: -100, near: 1, far: 400 }); sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.15;
+    scene.add(sun); scene.add(sun.target);
+    const vmat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 });
+    [[geoW, 1], [geoD, 0.5]].forEach(([g, sc]) => { const mm = new THREE.Mesh(g, vmat); mm.scale.setScalar(sc); mm.position.set(-64, 0, -64); mm.castShadow = true; mm.receiveShadow = true; scene.add(mm); });
+    renderer.shadowMap.needsUpdate = true;
+    const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 900);
+    Object.assign(this, { renderer, scene, cam, vmat });
+    this.camT = new THREE.Vector3(0, 12, 0); this.camDir = new THREE.Vector3(0, -1, 0); this.v3 = new THREE.Vector3(); this.v3b = new THREE.Vector3();
+    const TEAM = { red: 16, blue: 17 };
+    const unitGrid = (kind, team) => { const GW = 4, GH = 7, GD = 3, vox = new Uint8Array(GW * GH * GD), s = (x, y, z, m) => { vox[x + z * GW + y * GW * GD] = m; }, t = TEAM[team], x = 1, z = 1;
+      s(x, 0, z, kind === 'laborer' ? t : 23);
+      if (kind === 'laborer') { s(x, 1, z, 19); s(x, 2, z, 19); s(x, 3, z, 22); s(x + 1, 1, z, 7); s(x + 1, 2, z, 7); s(x + 1, 3, z, 7); s(x + 1, 4, z, 18); }
+      if (kind === 'spear') { s(x, 1, z, t); s(x, 2, z, t); s(x, 3, z, 18); for (let y = 0; y <= 5; y++) s(x + 1, y, z, 7); s(x + 1, 6, z, 18); }
+      if (kind === 'archer') { s(x, 1, z, t); s(x, 2, z, t); s(x, 3, z, 27); s(x + 1, 2, z, 7); s(x + 1, 3, z, 7); s(x + 1, 4, z, 7); }
+      if (kind === 'maa') { s(x, 1, z, 18); s(x, 2, z, 18); s(x, 3, z, 18); s(x, 1, z + 1, t); s(x, 2, z + 1, t); s(x + 1, 1, z, 18); s(x + 1, 2, z, 18); s(x + 1, 3, z, 18); }
+      if (kind === 'sapper') { s(x, 1, z, t); s(x, 2, z, 18); s(x, 3, z, 18); s(x + 1, 1, z, 7); s(x + 1, 2, z, 7); s(x + 1, 3, z, 7); s(x + 1, 4, z, 18); s(x + 2, 4, z, 18); }
+      return { vox, W: GW, D: GD, H: GH }; };
+    const INFO = this.info();
+    this.ents = [];
+    const add = o => { o.id = this.ents.length; o.x0 = o.x; o.z0 = o.z; o.max = INFO[o.kind].hp || 0; o.hp = o.max; this.ents.push(o); return o; };
+    const kindFor = e => { const s = e.s; if (e.team === M.TAN || s === 9 || s === 10) return 'laborer'; if (s === 13) return 'sapper'; if (s === 11) return 'maa'; if ([2, 3, 5, 6, 12].includes(s)) return e.sp ? 'spear' : 'archer'; return e.sp ? 'spear' : 'maa'; };
+    wd.ents.forEach(e => add({ kind: kindFor(e), team: e.team === M.RED ? 'red' : 'blue', x: e.x, z: e.z, grp: e.s, mobile: true }));
+    [[59, 46], [90, 46], [59, 77], [90, 77]].forEach(([x, z]) => add({ kind: 'tower', team: 'blue', x, z, struct: true, garrison: [], r: 4 }));
+    add({ kind: 'keep', team: 'blue', x: 74, z: 61, struct: true, r: 7 });
+    [[35.5, 50.75, wd.tipA], [37.5, 71.25, wd.tipB]].forEach(([x, z, tip]) => add({ kind: 'trebuchet', team: 'red', x, z, struct: true, r: 4.5, tstate: 'deployed', tT: 0, tip, cool: 0 }));
+    const ringG = new THREE.RingGeometry(0.55, 0.78, 20); ringG.rotateX(-Math.PI / 2);
+    const ringM = new THREE.MeshBasicMaterial({ color: '#e8b86a', depthTest: false, transparent: true });
+    const geoCache = {};
+    this.ents.forEach(e => {
+      const g = new THREE.Group();
+      if (e.mobile) { const k = e.kind + '-' + e.team; if (!geoCache[k]) geoCache[k] = meshGrid(unitGrid(e.kind, e.team), 1, null); const m = new THREE.Mesh(geoCache[k], vmat); m.scale.setScalar(.5); m.position.set(-.75, 0, -.75); m.receiveShadow = true; g.add(m); }
+      const ring = new THREE.Mesh(ringG, ringM); ring.renderOrder = 5; if (e.struct) ring.scale.setScalar(e.r * 1.25); ring.position.y = .12; ring.visible = false; g.add(ring); e.ring = ring;
+      e.g = g; scene.add(g); e.y = walk[(e.x | 0) + (e.z | 0) * W]; g.position.set(e.x - 64, e.y, e.z - 64);
+    });
+    const mkG = new THREE.RingGeometry(0.5, 0.9, 24); mkG.rotateX(-Math.PI / 2);
+    for (let i = 0; i < 8; i++) { const m = new THREE.Mesh(mkG, new THREE.MeshBasicMaterial({ color: '#e8b86a', transparent: true, depthTest: false })); m.visible = false; m.renderOrder = 6; scene.add(m); this.marks.push({ m, t: 0 }); }
+    const boxG = new THREE.BoxGeometry(1, 1, 1), edgeG = new THREE.EdgesGeometry(boxG);
+    this.boxG = boxG; this.edgeG = edgeG;
+    this.ghost = new THREE.Mesh(boxG, new THREE.MeshBasicMaterial({ color: '#e8b86a', transparent: true, opacity: .32, depthWrite: false })); this.ghost.add(new THREE.LineSegments(edgeG, new THREE.LineBasicMaterial({ color: '#e8b86a' }))); this.ghost.visible = false; scene.add(this.ghost);
+    this.dragM = new THREE.Mesh(boxG, new THREE.MeshBasicMaterial({ color: '#e8b86a', transparent: true, opacity: .3, depthWrite: false })); this.dragM.add(new THREE.LineSegments(edgeG, new THREE.LineBasicMaterial({ color: '#f3ede2' }))); this.dragM.visible = false; scene.add(this.dragM);
+    this.shotGeo = new THREE.BoxGeometry(.9, .9, .9); this.shotMat = new THREE.MeshStandardMaterial({ color: '#6b655d', roughness: 1 });
+    this.dust = []; for (let i = 0; i < 30; i++) { const mm = new THREE.Mesh(new THREE.BoxGeometry(.8, .8, .8), new THREE.MeshStandardMaterial({ color: i % 3 ? '#b8ad98' : '#c6bca7', transparent: true, roughness: 1 })); mm.visible = false; scene.add(mm); this.dust.push({ m: mm, v: new THREE.Vector3(), life: 0 }); }
+    const tr = new THREE.WebGLRenderer({ antialias: false, alpha: true, preserveDrawingBuffer: true }); tr.setPixelRatio(1); tr.setSize(96, 96, false); tr.setClearColor(0x000000, 0);
+    const ts = new THREE.Scene(); ts.add(new THREE.HemisphereLight('#d4dbe6', '#5a4a38', 1.2)); const tl = new THREE.DirectionalLight('#ffd8a6', 2.4); tl.position.set(-3, 5, 4); ts.add(tl);
+    const tc = new THREE.OrthographicCamera(-1.7, 1.7, 1.7, -1.7, .1, 60); tc.position.set(Math.sin(-Math.PI / 4) * 10, 7.4, Math.cos(-Math.PI / 4) * 10); tc.lookAt(0, 1.4, 0);
+    this.thumbs = {};
+    Object.keys(geoCache).forEach(k => { const m = new THREE.Mesh(geoCache[k], vmat); m.scale.setScalar(.5); m.position.set(-.75, 0, -.75); ts.add(m); tr.render(ts, tc); this.thumbs[k] = tr.domElement.toDataURL('image/png'); ts.remove(m); });
+    tr.dispose(); if (tr.forceContextLoss) tr.forceContextLoss();
+    this.drawMMBase();
+    host.addEventListener('pointerdown', e => this.pDown(e));
+    host.addEventListener('pointermove', e => this.pMove(e));
+    host.addEventListener('pointerup', e => this.pUp(e));
+    host.addEventListener('pointercancel', e => this.pCancel(e));
+    host.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && !this.ptrs.size) this.hover = null; });
+    host.addEventListener('wheel', e => { e.preventDefault(); this.zoom(Math.pow(1.0015, e.deltaY)); }, { passive: false });
+    host.addEventListener('contextmenu', e => e.preventDefault());
+    const resize = () => { const w = host.clientWidth, h = host.clientHeight; if (!w || !h) return; renderer.setSize(w, h); this.updFrustum(); };
+    this.ro = new ResizeObserver(resize); this.ro.observe(host); resize();
+    this.setScen(0);
+    this.setState({ loading: false });
+    let prev = performance.now();
+    const tick = now => { if (this.dead) return; const dt = Math.min(0.05, (now - prev) / 1000); prev = now; this.frame++; this.step(dt, now); this.lastTick = performance.now(); this.raf = requestAnimationFrame(tick); };
+    tick(performance.now());
+    this.iv = setInterval(() => { if (performance.now() - this.lastTick > 500) { cancelAnimationFrame(this.raf); tick(performance.now()); } }, 250);
+  }
+
+  step(dt, now) {
+    const cam = this.cam, T = this.camT, W = this.W, INFO = this.info();
+    const host = this.hostRef.current;
+    if (host) { const hw = host.clientWidth, hh = host.clientHeight; if (hw && hh && (hw !== this.sizeW || hh !== this.sizeH)) { this.sizeW = hw; this.sizeH = hh; this.renderer.setSize(hw, hh); this.updFrustum(); } }
+    const goal = -Math.PI / 4 + this.view * Math.PI / 2; this.az += (goal - this.az) * Math.min(1, dt * 8);
+    const el = 0.6, R = 200; cam.position.set(T.x + Math.sin(this.az) * Math.cos(el) * R, T.y + Math.sin(el) * R, T.z + Math.cos(this.az) * Math.cos(el) * R); cam.lookAt(T); cam.updateMatrixWorld(); cam.getWorldDirection(this.camDir);
+    const keys = this.keysDown || {}, s2 = 600 * dt;
+    if (this.mnemonic()) this.panPx((keys.a ? s2 : 0) - (keys.d ? s2 : 0), (keys.w ? s2 : 0) - (keys.s ? s2 : 0));
+    this.panPx((keys.arrowleft ? s2 : 0) - (keys.arrowright ? s2 : 0), (keys.arrowup ? s2 : 0) - (keys.arrowdown ? s2 : 0));
+    this.ents.forEach(e => {
+      if (e.cool > 0) e.cool -= dt;
+      if (!e.mobile || e.hidden || !e.path || !e.path.length) return;
+      const [tx, tz] = e.path[0], dx = tx - e.x, dz = tz - e.z, d = Math.hypot(dx, dz), sp = (INFO[e.kind].speed || 1.5) * dt * 2.4;
+      if (d <= sp) { e.x = tx; e.z = tz; e.path.shift(); if (!e.path.length) { e.path = null; if (e.onArrive) { const f = e.onArrive; e.onArrive = null; f(); } } }
+      else { e.x += dx / d * sp; e.z += dz / d * sp; e.g.rotation.y = Math.round(Math.atan2(dx, dz) / (Math.PI / 2)) * (Math.PI / 2); }
+      const wy = this.walkH[Math.max(0, Math.min(W - 1, e.x | 0)) + Math.max(0, Math.min(W - 1, e.z | 0)) * W];
+      e.y += (wy - e.y) * Math.min(1, dt * 12); e.g.position.set(e.x - 64, e.y, e.z - 64);
+    });
+    this.shots = this.shots.filter(s => { s.t += dt / s.dur; const t = Math.min(1, s.t); s.m.position.lerpVectors(s.a, s.b, t); s.m.position.y += Math.sin(t * Math.PI) * s.arc; s.m.rotation.x += dt * 5; if (t >= 1) { this.scene.remove(s.m); this.impact(s); return false; } return true; });
+    this.dust.forEach(p => { if (p.life <= 0) return; p.life -= dt * 0.8; p.v.y -= dt * 7; p.m.position.addScaledVector(p.v, dt); const sc = 0.4 + (1 - p.life) * 1.8; p.m.scale.set(sc, sc, sc); p.m.material.opacity = Math.max(0, p.life); if (p.life <= 0) p.m.visible = false; });
+    this.marks.forEach(mk => { if (mk.t <= 0) return; mk.t -= dt * 1.4; const sc = 1 + (1 - mk.t) * 1.5; mk.m.scale.set(sc, 1, sc); mk.m.material.opacity = Math.max(0, mk.t); if (mk.t <= 0) mk.m.visible = false; });
+    const m = this.state.mode || '';
+    if (this.hover && m && this.frame % 2 === 0) { const g = this.ground(this.hover.x, this.hover.y); this.hoverG = g; if (g && m.startsWith('place:')) this.updGhost(m.slice(6), g); }
+    else if (!m) this.hoverG = null;
+    this.renderer.render(this.scene, cam);
+    this.updOverlay();
+    if (this.frame % 3 === 0) this.drawMMOver();
+  }
+  hostRect() { return this.hostRef.current.getBoundingClientRect(); }
+  updFrustum() { if (!this.cam || !this.hostRef.current) return; const r = this.hostRect(), a = (r.width || 1) / (r.height || 1), vh = this.vh; Object.assign(this.cam, { left: -vh * a / 2, right: vh * a / 2, top: vh / 2, bottom: -vh / 2 }); this.cam.updateProjectionMatrix(); }
+  zoom(f) { this.vh = Math.max(20, Math.min(130, this.vh * f)); this.updFrustum(); }
+  panPx(dx, dy) { if (!dx && !dy) return; const r = this.hostRect(), k = this.vh / (r.height || 1), az = this.az, se = Math.sin(0.6); const rx = Math.cos(az), rz = -Math.sin(az), fx = -Math.sin(az), fz = -Math.cos(az); this.camT.x = Math.max(-64, Math.min(64, this.camT.x + (-dx * rx + dy * fx / se) * k)); this.camT.z = Math.max(-64, Math.min(64, this.camT.z + (-dx * rz + dy * fz / se) * k)); }
+  centerOn(x, z) { if (x == null) return; this.camT.set(x - 64, this.walkH[Math.max(0, Math.min(127, x | 0)) + Math.max(0, Math.min(127, z | 0)) * 128] || 12, z - 64); }
+  rayO(cx, cy) { const r = this.hostRect(); return new this.THREE.Vector3((cx - r.left) / r.width * 2 - 1, -((cy - r.top) / r.height) * 2 + 1, -1).unproject(this.cam); }
+  planeHit(cx, cy, py) { const o = this.rayO(cx, cy), d = this.camDir, t = (py - o.y) / d.y; return { x: o.x + d.x * t + 64, z: o.z + d.z * t + 64 }; }
+  ground(cx, cy) { if (!this.cam) return null; const o = this.rayO(cx, cy), d = this.camDir, W = this.W; for (let t = 0; t < 800; t += 0.5) { const x = o.x + d.x * t + 64, y = o.y + d.y * t, z = o.z + d.z * t + 64; if (y < 0) break; if (x < 0 || z < 0 || x >= W || z >= W) continue; const h = this.top[(x | 0) + (z | 0) * W]; if (y <= h) return { x, z, y: h }; } return null; }
+  scr(e, lift) { const r = this.hostRect(), V = this.v3; V.set(e.x - 64, e.y + lift, e.z - 64).project(this.cam); return { x: r.left + (V.x + 1) / 2 * r.width, y: r.top + (1 - V.y) / 2 * r.height }; }
+  liftOf(e) { return e.struct ? (e.kind === 'trebuchet' ? 4 : e.kind === 'keep' ? 9 : 7) : 1; }
+  pickEnt(cx, cy) { const r = this.hostRect(), ppm = r.height / this.vh; let best = null, bs = 1e9; this.ents.forEach(e => { if (e.hidden) return; const p = this.scr(e, this.liftOf(e)), d = Math.hypot(p.x - cx, p.y - cy), lim = e.struct ? Math.max(28, e.r * ppm) : Math.max(18, 1.2 * ppm), sc = e.struct ? d + 24 : d; if (d < lim && sc < bs) { bs = sc; best = e; } }); return best; }
+  ownSel() { const P = this.scen().player; return [...this.sel].map(id => this.ents[id]).filter(e => e && !e.hidden && e.team === P); }
+  syncRings() { if (!this.ents) return; this.ents.forEach(e => { e.ring.visible = this.sel.has(e.id) && !e.hidden; }); }
+  select(ids, add) { if (!add) this.sel = new Set(); ids.forEach(id => this.sel.add(id)); this.activeKind = null; this.hideGhost(); this.syncRings(); this.setState({ page: 0, bPage: 0, mode: null, readout: null }); }
+  boxSelect(x0, y0, x1, y1, add) { const a = Math.min(x0, x1), b = Math.max(x0, x1), c = Math.min(y0, y1), d = Math.max(y0, y1), P = this.scen().player; const ids = this.ents.filter(e => e.mobile && !e.hidden && e.team === P).filter(e => { const p = this.scr(e, 1); return p.x >= a && p.x <= b && p.y >= c && p.y <= d; }).map(e => e.id); this.select(ids, add); }
+  selectSame(cx, cy) { const e = this.pickEnt(cx, cy); if (!e) return; const r = this.hostRect(); const ids = this.ents.filter(o => o.kind === e.kind && o.team === e.team && !o.hidden).filter(o => { const p = this.scr(o, 1); return p.x >= r.left && p.x <= r.right && p.y >= r.top && p.y <= r.bottom; }).map(o => o.id); this.select(ids, false); }
+  activeKindNow() { const own = this.ownSel(), ks = this.ORDER.filter(k => own.some(e => e.kind === k)); if (this.activeKind && ks.includes(this.activeKind)) return this.activeKind; return ks[0] || null; }
+  cardNow() { const k = this.activeKindNow(); return k ? this.card(k, this.state.page) : []; }
+  cycleKind() { const own = this.ownSel(), ks = this.ORDER.filter(k => own.some(e => e.kind === k)); if (ks.length < 2) return; const i = ks.indexOf(this.activeKindNow()); this.activeKind = ks[(i + 1) % ks.length]; this.setState({ page: 0, bPage: 0 }); }
+  pickGroup(n) {
+    if (this.state.assign) { this.groups[n] = [...this.sel]; this.setState({ assign: false }); return; }
+    const ids = (this.groups[n] || []).filter(id => this.ents[id] && !this.ents[id].hidden); if (!ids.length) return;
+    const now = performance.now(); if (this.lastG === n && now - this.lastGT < 380) { const c = ids.reduce((a, id) => [a[0] + this.ents[id].x / ids.length, a[1] + this.ents[id].z / ids.length], [0, 0]); this.centerOn(c[0], c[1]); }
+    this.lastG = n; this.lastGT = now; this.select(ids, false);
+  }
+  mark(x, z, color) { const mk = this.marks.reduce((a, b) => (a.t < b.t ? a : b)); mk.m.material.color.set(color || '#e8b86a'); mk.m.position.set(x - 64, (this.walkH[Math.max(0, Math.min(127, x | 0)) + Math.max(0, Math.min(127, z | 0)) * 128] || 12) + .15, z - 64); mk.m.visible = true; mk.t = 1; }
+  orderMove(list, gx, gz, opts) {
+    opts = opts || {}; const mob = list.filter(e => e.mobile && !e.hidden); if (!mob.length) return false;
+    const n = mob.length, cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / cols), sp = 1.1;
+    mob.forEach((e, i) => { const cx = (i % cols) - (cols - 1) / 2, cz = Math.floor(i / cols) - (rows - 1) / 2, path = []; if (opts.via && e.x < opts.via[0] - 1) path.push([opts.via[0] - 1, opts.via[1] + cx * .5], [opts.via[0] + 1.5, opts.via[1] + cx * .5]); path.push([gx + cx * sp, gz + cz * sp]); e.path = path; e.hold = false; e.onArrive = null; });
+    this.mark(gx, gz, opts.color); return true;
+  }
+  tap(x, y, shift, type) {
+    const m = this.state.mode;
+    if (m) { const g = this.ground(x, y); if (g) this.execAt(m, g, shift); return; }
+    const e = this.pickEnt(x, y);
+    if (e) { if (shift && this.sel.has(e.id)) { this.sel.delete(e.id); this.syncRings(); this.bump(); } else this.select([e.id], shift); return; }
+    const own = this.ownSel().filter(o => o.mobile);
+    if (type !== 'mouse' && own.length) { const g = this.ground(x, y); if (g) { this.orderMove(own, g.x, g.z); this.bump(); } return; }
+    if (!shift) this.select([], false);
+  }
+  rightClick(x, y) {
+    const own = this.ownSel(); if (!own.length) return; const g = this.ground(x, y); if (!g) return;
+    if (!own.some(e => e.mobile) && own.some(e => e.kind === 'trebuchet')) { this.fireAt(g); return; }
+    const tgt = this.pickEnt(x, y); this.orderMove(own, g.x, g.z, { color: tgt && tgt.team !== this.scen().player ? '#d2584a' : '#e8b86a' }); this.bump();
+  }
+  execAt(m, g, shift) {
+    const own = this.ownSel();
+    if (m === 'move' || m === 'attack' || m === 'repair') { this.orderMove(own, g.x, g.z, { color: m === 'attack' ? '#d2584a' : '#e8b86a' }); if (m === 'repair') this.pushAlert('REPAIR QUEUED', 'Laborers work from your side', g.x, g.z); if (!shift) this.setState({ mode: null }); else this.bump(); return; }
+    if (m === 'fire') { this.fireAt(g); return; }
+    if (m.startsWith('place:')) { this.place(m.slice(6), g, shift); return; }
+    if (m.startsWith('desig:')) this.endDesig({ g0: { x: g.x - 3, z: g.z - 3 }, g1: { x: g.x + 3, z: g.z + 3 } });
+  }
+  cmdDisabled(key) {
+    const own = this.ownSel(), trebs = own.filter(e => e.kind === 'trebuchet'), tw = own.filter(e => e.kind === 'tower');
+    if (key === 'fire') return !trebs.some(t => t.tstate === 'deployed') || this.stone < 6;
+    if (key === 'pack') return trebs.every(t => t.tstate === 'packing' || t.tstate === 'deploying');
+    if (key === 'eject') return !tw.some(t => t.garrison.length);
+    if (key === 'garrison') return tw.every(t => t.garrison.length >= 6);
+    const def = this.cmdDefs()[key], tp = def && def.tpl; if (tp) return this.stone < tp[3] || this.timber < tp[4];
+    return false;
+  }
+  cmdLabel(key) { if (key === 'pack') { const tr = this.ownSel().filter(e => e.kind === 'trebuchet'); return tr.length && tr.every(t => t.tstate === 'packed' || t.tstate === 'deploying') ? 'DEPLOY' : 'PACK'; } return this.cmdDefs()[key].label; }
+  exec(key) {
+    if (this.cmdDisabled(key)) return;
+    const own = this.ownSel();
+    switch (key) {
+      case 'move': case 'attack': return this.setState({ mode: key });
+      case 'stop': own.forEach(e => { e.path = null; e.onArrive = null; }); return this.bump();
+      case 'hold': own.forEach(e => { e.path = null; e.hold = true; }); return this.pushAlert('HOLDING POSITION', own.filter(e => e.mobile).length + ' units hold');
+      case 'storm': this.orderMove(own, 66, 61, { via: [59, 61], color: '#d2584a' }); return this.pushAlert('STORMING THE BREACH', 'Hold the keep’s foot for 2:00', 66, 61);
+      case 'fire': return this.setState({ mode: 'fire' });
+      case 'pack': own.filter(e => e.kind === 'trebuchet').forEach(t => { if (t.tstate === 'deployed') { t.tstate = 'packing'; t.tT = 4; } else if (t.tstate === 'packed') { t.tstate = 'deploying'; t.tT = 4; } }); return this.setState({ mode: null });
+      case 'garrison': return this.garrison(own.filter(e => e.kind === 'tower'));
+      case 'eject': return this.eject(own.filter(e => e.kind === 'tower'));
+      case 'repair': if (own.some(e => e.kind === 'tower')) { this.repairT = 6; this.pushAlert('REPAIR LOCKED', 'Hit 4 s ago · repairs start in 6 s'); return; } return this.setState({ mode: 'repair' });
+      case 'build': return this.setState({ page: 1, bPage: 0, mode: null });
+      case 'back': this.hideGhost(); return this.setState({ page: 0, bPage: 0, mode: null, readout: null });
+    }
+    if (['quarry', 'pit', 'ditch', 'trench', 'fell', 'clear'].includes(key)) return this.setState({ mode: 'desig:' + key, readout: null });
+    if (key.startsWith('b_')) { this.hideGhost(); return this.setState({ mode: 'place:' + key, readout: null }); }
+  }
+  pushAlert(text, sub, x, z, urgent) { this.alerts.unshift({ text, sub, x, z, urgent, t: performance.now() }); this.alerts = this.alerts.slice(0, 4); this.bump(); }
+  fireAt(g) {
+    const THREE = this.THREE, trebs = this.ownSel().filter(e => e.kind === 'trebuchet'); if (!trebs.length) return;
+    trebs.forEach(t => {
+      const d = Math.hypot(g.x - t.x, g.z - t.z);
+      if (t.tstate !== 'deployed') { this.pushAlert('TREBUCHET PACKED', 'Deploy before firing', t.x, t.z); return; }
+      if (d < 12 || d > 70) { this.mark(g.x, g.z, '#d2584a'); return; }
+      if (this.stone < 6) { this.pushAlert('NOT ENOUGH STONE', 'Each shot costs 6 m³'); return; }
+      if (t.cool > 0) return;
+      this.stone -= 6; t.cool = 2.5;
+      const m = new THREE.Mesh(this.shotGeo, this.shotMat); this.scene.add(m);
+      this.shots.push({ m, a: new THREE.Vector3(t.tip.x - 64, t.tip.y, t.tip.z - 64), b: new THREE.Vector3(g.x - 64, g.y, g.z - 64), t: 0, dur: 1.1 + d / 55, arc: 6 + d * .3, g });
+    });
+    this.bump();
+  }
+  impact(s) {
+    this.dust.forEach((p, k) => { if (k % 2) return; p.life = 1; p.m.visible = true; p.m.position.copy(s.b); p.v.set((Math.random() - .5) * 8, Math.random() * 6 + 2, (Math.random() - .5) * 8); });
+    const g = s.g;
+    if (Math.abs(g.x - 59) < 4) { const k = this.SECS.findIndex(zc => Math.abs(g.z - zc) < 3); if (k >= 0) {
+      if (this.scen().control) { this.wallHp[k] = Math.max(0, this.wallHp[k] - 12); this.pushAlert('HIT W' + (k + 1), this.wallHp[k] > 0 ? this.wallHp[k] + '% health left' : 'Section destroyed', 59, this.SECS[k]); }
+      else this.pushAlert('HIT W' + (k + 1), 'Crater cut · repair locked 10 s', 59, this.SECS[k]);
+    } }
+  }
+  garrison(towers) {
+    const t = towers[0]; if (!t) return; const free = 6 - t.garrison.length;
+    const pool = this.ents.filter(e => e.team === 'blue' && e.kind === 'archer' && !e.hidden && !e.inbound).sort((a, b) => Math.hypot(a.x - t.x, a.z - t.z) - Math.hypot(b.x - t.x, b.z - t.z)).slice(0, free);
+    const fx = t.x + Math.sign(74 - t.x) * 4.5, fz = t.z + Math.sign(61 - t.z) * 4.5;
+    pool.forEach((e, i) => { e.inbound = true; e.path = [[fx + (i % 3) * .8, fz + Math.floor(i / 3) * .8]]; e.onArrive = () => { e.inbound = false; e.hidden = true; e.g.visible = false; this.sel.delete(e.id); t.garrison.push(e.id); this.syncRings(); this.bump(); }; });
+    this.pushAlert(pool.length ? 'GARRISONING ' + pool.length + ' ARCHERS' : 'NO ARCHERS NEARBY', pool.length ? 'They fire from height' : 'Bring archers closer', t.x, t.z);
+  }
+  eject(towers) { towers.forEach(t => { const fx = t.x + Math.sign(74 - t.x) * 4.5, fz = t.z + Math.sign(61 - t.z) * 4.5; t.garrison.forEach((id, i) => { const e = this.ents[id]; e.hidden = false; e.g.visible = true; e.x = fx + (i % 3) * .8; e.z = fz + Math.floor(i / 3) * .8; e.path = null; }); t.garrison = []; }); this.bump(); }
+  rectOf(g0, g1) { return { x0: Math.floor(Math.min(g0.x, g1.x)), x1: Math.max(Math.floor(Math.min(g0.x, g1.x)) + 1, Math.ceil(Math.max(g0.x, g1.x))), z0: Math.floor(Math.min(g0.z, g1.z)), z1: Math.max(Math.floor(Math.min(g0.z, g1.z)) + 1, Math.ceil(Math.max(g0.z, g1.z))) }; }
+  showRect(mesh, r, color) { let hmax = 0; for (let z = r.z0; z < r.z1; z++) for (let x = r.x0; x < r.x1; x++) hmax = Math.max(hmax, this.walkH[Math.max(0, Math.min(127, x)) + Math.max(0, Math.min(127, z)) * 128]); mesh.scale.set(r.x1 - r.x0, .5, r.z1 - r.z0); mesh.position.set((r.x0 + r.x1) / 2 - 64, hmax + .3, (r.z0 + r.z1) / 2 - 64); mesh.material.color.set(color); mesh.visible = true; }
+  dcol(t) { return { quarry: '#e8b86a', pit: '#c79a6b', ditch: '#9c7a52', trench: '#d2584a', fell: '#7fa04f', clear: '#c6bca7' }[t]; }
+  dragDesig(p) { const g1 = this.ground(p.x, p.y); if (!p.g0 || !g1) return; p.g1 = g1; const type = (this.state.mode || '').slice(6), r = this.rectOf(p.g0, g1); this.showRect(this.dragM, r, this.dcol(type)); const now = performance.now(); if (!this.roT || now - this.roT > 100) { this.roT = now; this.setState({ readout: this.desigRead(type, r) }); } }
+  endDesig(p) {
+    this.dragM.visible = false; if (!p.g0 || !p.g1) return;
+    const type = (this.state.mode || '').slice(6), r = this.rectOf(p.g0, p.g1); if (!type) return;
+    const m = new this.THREE.Mesh(this.boxG, new this.THREE.MeshBasicMaterial({ color: this.dcol(type), transparent: true, opacity: .28, depthWrite: false })); m.add(new this.THREE.LineSegments(this.edgeG, new this.THREE.LineBasicMaterial({ color: this.dcol(type) }))); this.showRect(m, r, this.dcol(type)); this.scene.add(m); this.desig.push(m);
+    const labs = this.ownSel().filter(e => e.kind === 'laborer'); this.orderMove(labs, (r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2);
+    this.pushAlert(type.toUpperCase() + ' DESIGNATED', labs.length + ' laborers assigned', (r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2);
+    this.setState({ mode: null, readout: this.desigRead(type, r) });
+  }
+  desigRead(type, r) {
+    const get = this.wd.get, w = r.x1 - r.x0, d = r.z1 - r.z0, dep = { quarry: 4, pit: 3, ditch: 2, trench: 2, fell: 0, clear: 0 }[type];
+    let stone = 0, timber = 0, rub = 0, vol = 0;
+    for (let z = r.z0; z < r.z1; z++) for (let x = r.x0; x < r.x1; x++) { const i = Math.max(0, Math.min(127, x)) + Math.max(0, Math.min(127, z)) * 128, t = this.top[i]; for (let y = t - 1; y >= Math.max(0, t - 8); y--) { const m = get(x, y, z); if (m === 7) timber++; if (m === 10 || m === 11) timber += .25; if (m === 8) rub++; } const wk = this.walkH[i]; for (let y = wk - 1; y >= wk - dep; y--) { const m = get(x, y, z); if (m) vol++; if (m === 4) stone++; } }
+    const rows = [{ k: 'AREA', v: w + ' × ' + d + ' m' }];
+    if (type === 'quarry') rows.push({ k: 'DEPTH', v: '4 m in terraces' }, { k: 'YIELD', v: stone ? stone + ' m³ building stone' : 'None · common rock' }, { k: 'RAMP', v: 'Left on the near rim' });
+    if (type === 'pit') rows.push({ k: 'DEPTH', v: '3 m' }, { k: 'SPOIL', v: vol + ' m³' }, { k: 'YIELD', v: stone + ' m³ stone' });
+    if (type === 'ditch') rows.push({ k: 'DEPTH', v: '2 m' }, { k: 'RAMPART', v: vol + ' m³ on the keep side' }, { k: 'STOPS', v: 'Rams, engines, cavalry' });
+    if (type === 'trench') { const near = r.x1 > 55 && r.x0 < 63 && r.z1 > 45 && r.z0 < 78, mid = (r.z0 + r.z1) / 2; const k = this.SECS.reduce((b, zc, i) => Math.abs(mid - zc) < Math.abs(mid - this.SECS[b]) ? i : b, 0); rows.push({ k: 'DEPTH', v: '2 m, open to the sky' }, { k: 'TARGET', v: near ? 'Undermines W' + (k + 1) + ' (on earth)' : 'No foundation in reach' }); }
+    if (type === 'fell') rows.push({ k: 'YIELD', v: Math.round(timber) + ' m³ timber' }, { k: 'NOTE', v: 'Stays cut for the season' });
+    if (type === 'clear') rows.push({ k: 'RUBBLE', v: rub + ' m³' }, { k: 'YIELD', v: Math.floor(rub / 2) + ' m³ stone (half)' });
+    rows.push({ k: 'CREW', v: this.ownSel().filter(e => e.kind === 'laborer').length + ' laborers' });
+    return { title: type.toUpperCase(), rows, warn: type === 'quarry' && !stone };
+  }
+  footInfo(x0, z0, w, d) {
+    const get = this.wd.get, hs = []; let soil = 0, bed = 0;
+    for (let z = Math.floor(z0); z < z0 + d; z++) for (let x = Math.floor(x0); x < x0 + w; x++) { const t = this.walkH[Math.max(0, Math.min(127, x)) + Math.max(0, Math.min(127, z)) * 128]; hs.push(t); let s = 0, y = t - 1; while (y >= 0 && (get(x, y, z) === 1 || get(x, y, z) === 2)) { s++; y--; } let b = t - 1; while (b >= 0 && get(x, b, z) !== 5) b--; soil += s; bed += t - (b + 1); }
+    const n = hs.length || 1, base = Math.round(hs.reduce((a, b) => a + b, 0) / n); return { base, soil: soil / n, bed: bed / n, cut: hs.reduce((a, h) => a + Math.abs(h - base), 0) };
+  }
+  updGhost(key, g) {
+    const tp = this.cmdDefs()[key].tpl, w = tp[0], d = tp[1], h = tp[2], cx = Math.round(g.x - w / 2) + w / 2, cz = Math.round(g.z - d / 2) + d / 2, f = this.footInfo(cx - w / 2, cz - d / 2, w, d);
+    this.ghost.visible = true; this.ghost.scale.set(w, h, d); this.ghost.position.set(cx - 64, f.base + h / 2, cz - 64); this.ghostAt = { cx, cz, base: f.base, w, d, h };
+    const thin = f.soil <= 1.2; this.ghost.material.color.set(thin ? '#9cc26a' : '#e8b86a');
+    const now = performance.now(); if (!this.roT || now - this.roT > 120) { this.roT = now; const cost = (tp[3] ? tp[3] + ' m³ stone' : '') + (tp[3] && tp[4] ? ' + ' : '') + (tp[4] ? tp[4] + ' m³ timber' : ''); const rows = [{ k: 'SOIL', v: f.soil.toFixed(1) + ' m of earth' }, { k: 'BEDROCK', v: f.bed.toFixed(1) + ' m down' }, { k: 'GROUND', v: thin ? 'Thin soil on rock · strong' : 'Deep earth · can be sapped' }, { k: 'CUT/FILL', v: f.cut + ' m³ to level' }, { k: 'COST', v: cost }]; if (tp[3]) rows.push({ k: 'DEEP FDN', v: '+' + Math.round(w * d * f.bed) + ' m³ · cannot be sapped' }); this.setState({ readout: { title: 'PLACE ' + this.cmdDefs()[key].label, rows, warn: !thin } }); }
+  }
+  place(key, g, shift) {
+    const C = this.cmdDefs()[key], tp = C.tpl; if (!this.ghostAt) this.updGhost(key, g); const a = this.ghostAt;
+    if (this.stone < tp[3] || this.timber < tp[4]) { this.pushAlert('NOT ENOUGH ' + (this.stone < tp[3] ? 'STONE' : 'TIMBER'), 'Quarry or fell more first'); return; }
+    this.stone -= tp[3]; this.timber -= tp[4];
+    const m = new this.THREE.Mesh(this.boxG, new this.THREE.MeshBasicMaterial({ color: '#f3ede2', transparent: true, opacity: .22, depthWrite: false })); m.add(new this.THREE.LineSegments(this.edgeG, new this.THREE.LineBasicMaterial({ color: '#f3ede2' }))); m.scale.set(a.w, a.h, a.d); m.position.set(a.cx - 64, a.base + a.h / 2, a.cz - 64); this.scene.add(m); this.prints.push(m);
+    const labs = this.ownSel().filter(e => e.kind === 'laborer'); this.orderMove(labs, a.cx, a.cz + a.d / 2 + 2);
+    this.pushAlert(C.label + ' PLACED', 'Laborers level the footprint, then build', a.cx, a.cz);
+    if (!shift) { this.hideGhost(); this.setState({ mode: null, page: 0 }); }
+  }
+  hideGhost() { if (this.ghost) this.ghost.visible = false; this.ghostAt = null; }
+  pDown(e) {
+    const el = this.hostRef.current; try { el.setPointerCapture(e.pointerId); } catch (_) {}
+    const p = { id: e.pointerId, type: e.pointerType, btn: e.button, sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, mode: null, shift: e.shiftKey || e.ctrlKey || e.metaKey };
+    this.ptrs.set(e.pointerId, p);
+    if (this.ptrs.size === 2) { const [a, b] = [...this.ptrs.values()]; a.mode = b.mode = 'pinch'; this.pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y), vh0: this.vh, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; clearTimeout(this.lpT); this.hideBox(); this.hideLp(); this.dragM.visible = false; return; }
+    if (e.pointerType !== 'mouse') { this.hover = { x: p.x, y: p.y }; this.lpT = setTimeout(() => { if (p.mode) return; p.mode = 'longwait'; if (navigator.vibrate) navigator.vibrate(12); this.showLp(p.x, p.y); }, 450); }
+    if (e.button === 1) p.mode = 'pan';
+  }
+  pMove(e) {
+    if (e.pointerType === 'mouse' && !this.ptrs.size) { this.hover = { x: e.clientX, y: e.clientY }; return; }
+    const p = this.ptrs.get(e.pointerId); if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY; this.hover = { x: p.x, y: p.y };
+    if (p.mode === 'pinch') { const ps = [...this.ptrs.values()]; if (ps.length < 2) return; const [a, b] = ps, d = Math.hypot(a.x - b.x, a.y - b.y); this.vh = Math.max(20, Math.min(130, this.pinch.vh0 * this.pinch.d0 / Math.max(20, d))); this.updFrustum(); const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2; this.panPx(mx - this.pinch.mx, my - this.pinch.my); this.pinch.mx = mx; this.pinch.my = my; return; }
+    const moved = Math.hypot(p.x - p.sx, p.y - p.sy) > 8;
+    if (p.mode === 'longwait' && moved) { p.mode = 'box'; this.hideLp(); }
+    if (!p.mode && moved) {
+      clearTimeout(this.lpT); const m = this.state.mode || '';
+      if (m.startsWith('desig:') && (p.type !== 'mouse' || p.btn === 0)) { p.mode = 'desig'; p.g0 = this.ground(p.sx, p.sy); }
+      else if (p.type === 'mouse') p.mode = p.btn === 0 ? 'box' : 'pan';
+      else p.mode = 'pan';
+    }
+    if (p.mode === 'pan') this.panPx(dx, dy);
+    if (p.mode === 'box') this.drawBox(p.sx, p.sy, p.x, p.y);
+    if (p.mode === 'desig') this.dragDesig(p);
+  }
+  pUp(e) {
+    const p = this.ptrs.get(e.pointerId); if (!p) return; this.ptrs.delete(e.pointerId); clearTimeout(this.lpT); this.hideLp();
+    if (p.mode === 'pinch') { if (!this.ptrs.size) this.pinch = null; else this.ptrs.forEach(q => { q.mode = 'pan'; }); return; }
+    if (p.mode === 'box') { this.hideBox(); this.boxSelect(p.sx, p.sy, p.x, p.y, p.shift); return; }
+    if (p.mode === 'desig') { this.endDesig(p); return; }
+    if (p.mode === 'pan') return;
+    if (p.mode === 'longwait') { this.selectSame(p.x, p.y); return; }
+    if (p.type === 'mouse' && p.btn === 2) { this.rightClick(p.x, p.y); return; }
+    if (p.type === 'mouse' && p.btn !== 0) return;
+    const now = performance.now(), dbl = this.lastTap && now - this.lastTap.t < 320 && Math.hypot(p.x - this.lastTap.x, p.y - this.lastTap.y) < 20; this.lastTap = { t: now, x: p.x, y: p.y };
+    if (dbl && !this.state.mode && p.type === 'mouse') { this.selectSame(p.x, p.y); return; }
+    this.tap(p.x, p.y, p.shift, p.type);
+  }
+  pCancel(e) { this.ptrs.delete(e.pointerId); clearTimeout(this.lpT); this.hideBox(); this.hideLp(); this.pinch = null; }
+  key(e) {
+    const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+    const k = e.key, lk = k.toLowerCase();
+    if (!this.keysDown) { this.keysDown = {}; window.addEventListener('keyup', ev => { this.keysDown[ev.key.toLowerCase()] = false; }); window.addEventListener('blur', () => { this.keysDown = {}; }); }
+    if (lk.startsWith('arrow')) { this.keysDown[lk] = true; e.preventDefault(); return; }
+    if (this.mnemonic() && lk.length === 1 && 'wasd'.includes(lk) && !e.ctrlKey && !e.metaKey) { this.keysDown[lk] = true; return; }
+    if (/^[1-9]$/.test(k)) { const n = +k; if (e.ctrlKey || e.metaKey) { e.preventDefault(); this.groups[n] = [...this.sel]; this.pushAlert('GROUP ' + n + ' SET', this.sel.size + ' selected'); } else this.pickGroup(n); return; }
+    if (k === 'Escape') { if (this.state.mode || this.state.page) { this.hideGhost(); this.dragM.visible = false; this.setState({ mode: null, page: 0, readout: null }); } else this.select([], false); return; }
+    if (k === 'Tab') { e.preventDefault(); this.cycleKind(); return; }
+    if (k === ' ') { e.preventDefault(); const a = this.alerts.find(a => a.x != null); if (a) this.centerOn(a.x, a.z); return; }
+    if (k === '[' || k === 'PageUp') { this.view -= 1; return; } if (k === ']' || k === 'PageDown') { this.view += 1; return; }
+    if (k === '+' || k === '=') { this.zoom(1 / 1.2); return; } if (k === '-' || k === '_') { this.zoom(1.2); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const up = k.toUpperCase(), card = this.cardNow();
+    for (let i = 0; i < card.length; i++) { const c = card[i]; if (c && this.hkFor(c, i) === up) { e.preventDefault(); this.exec(c); return; } }
+  }
+  pool(name, i, css) { this.pools = this.pools || {}; const arr = this.pools[name] = this.pools[name] || []; let el = arr[i]; if (!el) { el = document.createElement('div'); el.style.cssText = css; this.overRef.current.appendChild(el); arr[i] = el; } return el; }
+  hidePool(name, from) { const arr = (this.pools || {})[name] || []; for (let i = from; i < arr.length; i++) arr[i].style.display = 'none'; }
+  drawBox(x0, y0, x1, y1) { const r = this.hostRect(), el = this.pool('box', 0, 'position:absolute;border:2px solid #e8b86a;background:rgba(232,184,106,.12)'); el.style.display = 'block'; el.style.left = (Math.min(x0, x1) - r.left) + 'px'; el.style.top = (Math.min(y0, y1) - r.top) + 'px'; el.style.width = Math.abs(x1 - x0) + 'px'; el.style.height = Math.abs(y1 - y0) + 'px'; }
+  hideBox() { this.hidePool('box', 0); }
+  showLp(x, y) { const r = this.hostRect(), el = this.pool('lp', 0, 'position:absolute;width:64px;height:64px;margin:-32px 0 0 -32px;border:3px solid #e8b86a;border-radius:50%;display:flex;align-items:flex-end;justify-content:center'); if (!el.firstChild) { const t = document.createElement('div'); t.style.cssText = 'margin-bottom:-34px;white-space:nowrap;color:#f3ede2;background:#15130f;padding:4px 6px'; t.textContent = 'DRAG TO SELECT'; el.appendChild(t); } el.style.display = 'flex'; el.style.left = (x - r.left) + 'px'; el.style.top = (y - r.top) + 'px'; }
+  hideLp() { this.hidePool('lp', 0); }
+  updOverlay() {
+    if (!this.overRef.current) return; const r = this.hostRect(); let i = 0;
+    this.sel.forEach(id => { const e = this.ents[id]; if (!e || e.hidden || !e.mobile) return; const p = this.scr(e, 2.6); const el = this.pool('hp', i++, 'position:absolute;width:24px;height:6px;margin:-3px 0 0 -12px;background:#15130f;border:1px solid #15130f'); if (!el.firstChild) { const f = document.createElement('div'); f.style.cssText = 'height:100%;background:#9cc26a'; el.appendChild(f); } el.style.display = 'block'; el.style.left = (p.x - r.left) + 'px'; el.style.top = (p.y - r.top) + 'px'; el.firstChild.style.width = Math.round(e.hp / e.max * 100) + '%'; });
+    this.hidePool('hp', i);
+    let j = 0;
+    if (this.scen().control) this.SECS.forEach((zc, k) => { const p = this.scr({ x: 59, y: 15, z: zc }, 9.5); const el = this.pool('wall', j++, 'position:absolute;width:72px;margin-left:-36px;display:flex;flex-direction:column;gap:3px;align-items:center;color:#f3ede2'); if (!el.childNodes.length) el.innerHTML = '<div style="background:#15130f;padding:2px 4px"></div><div style="width:72px;height:10px;background:#15130f;border:2px solid #15130f;box-sizing:border-box"><div style="height:100%"></div></div>'; const hp = this.wallHp[k]; el.style.display = 'flex'; el.style.left = (p.x - r.left) + 'px'; el.style.top = (p.y - r.top) + 'px'; el.childNodes[0].textContent = 'W' + (k + 1) + ' ' + hp + '%'; const bar = el.childNodes[1].firstChild; bar.style.width = hp + '%'; bar.style.background = hp > 50 ? '#9cc26a' : hp > 0 ? '#e8b86a' : '#d2584a'; });
+    this.hidePool('wall', j);
+    const m = this.state.mode || '', show = this.hover && m && (m === 'fire' || m === 'move' || m === 'attack' || m === 'repair');
+    if (show) {
+      const el = this.pool('ret', 0, 'position:absolute;width:36px;height:36px;margin:-18px 0 0 -18px;border:3px solid #e8b86a;border-radius:50%;box-sizing:border-box');
+      if (!el.firstChild) { const t = document.createElement('div'); t.style.cssText = 'position:absolute;left:28px;top:30px;white-space:nowrap;background:#15130f;padding:3px 6px'; el.appendChild(t); }
+      let text = m === 'move' ? 'MOVE' : m === 'attack' ? 'ATTACK-MOVE' : m === 'repair' ? 'REPAIR' : '', col = m === 'attack' ? '#d2584a' : '#e8b86a';
+      if (m === 'fire') { const t = this.ownSel().find(e => e.kind === 'trebuchet'), g = this.hoverG; if (t && g) { const d = Math.round(Math.hypot(g.x - t.x, g.z - t.z)); if (d > 70) { text = 'OUT OF RANGE · ' + d + ' m'; col = '#d2584a'; } else if (d < 12) { text = 'TOO CLOSE · ' + d + ' m'; col = '#d2584a'; } else { text = 'IN RANGE · ' + d + ' m · 6 m³'; col = '#9cc26a'; } } }
+      el.style.display = 'block'; el.style.left = (this.hover.x - r.left) + 'px'; el.style.top = (this.hover.y - r.top) + 'px'; el.style.borderColor = col; el.firstChild.textContent = text; el.firstChild.style.color = col;
+    } else this.hidePool('ret', 0);
+  }
+  drawMMBase() {
+    const c = this.mmBase; if (!c || !this.topM) return; const g = c.getContext('2d'), W = this.W, img = g.createImageData(W, W), pal = this.pal;
+    for (let z = 0; z < W; z++) for (let x = 0; x < W; x++) { const i = x + z * W, hex = pal[this.topM[i]] || '#000000'; const k = 1 + (this.top[Math.max(0, x - 1) + z * W] - this.top[Math.min(W - 1, x + 1) + z * W]) * 0.06 + (this.top[i] - 10) * 0.012; const o = i * 4; img.data[o] = Math.min(255, parseInt(hex.slice(1, 3), 16) * k); img.data[o + 1] = Math.min(255, parseInt(hex.slice(3, 5), 16) * k); img.data[o + 2] = Math.min(255, parseInt(hex.slice(5, 7), 16) * k); img.data[o + 3] = 255; }
+    g.putImageData(img, 0, 0);
+  }
+  drawMMOver() {
+    const c = this.mmOver; if (!c || !this.ents) return; const g = c.getContext('2d'); g.clearRect(0, 0, 256, 256);
+    this.desig.concat(this.prints).forEach(m => { g.strokeStyle = '#f3ede2'; g.lineWidth = 1; g.strokeRect((m.position.x + 64 - m.scale.x / 2) * 2, (m.position.z + 64 - m.scale.z / 2) * 2, m.scale.x * 2, m.scale.z * 2); });
+    this.ents.forEach(e => { if (e.hidden) return; const s = this.sel.has(e.id); g.fillStyle = s ? '#ffe2a8' : (e.team === 'red' ? '#e0503f' : '#6aa0ff'); const sz = e.struct ? 7 : 3; g.fillRect(e.x * 2 - sz / 2, e.z * 2 - sz / 2, sz, sz); });
+    const r = this.hostRect(), q = [[r.left, r.top], [r.right, r.top], [r.right, r.bottom], [r.left, r.bottom]].map(([x, y]) => this.planeHit(x, y, 12));
+    g.strokeStyle = '#f3ede2'; g.lineWidth = 2; g.beginPath(); q.forEach((p, i) => i ? g.lineTo(p.x * 2, p.z * 2) : g.moveTo(p.x * 2, p.z * 2)); g.closePath(); g.stroke();
+    const t = performance.now() / 1000; this.alerts.forEach(a => { if (a.x == null) return; const rr = 5 + (t * 14 % 14); g.strokeStyle = a.urgent ? '#d2584a' : '#e8b86a'; g.lineWidth = 2; g.strokeRect(a.x * 2 - rr, a.z * 2 - rr, rr * 2, rr * 2); });
+  }
+  mmAt(e, t) { const r = t.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * 128, z = (e.clientY - r.top) / r.height * 128; if (x < 0 || z < 0 || x > 128 || z > 128) return; if (this.mmDrag && this.mmDrag.btn === 2) { const own = this.ownSel(); if (own.length) this.orderMove(own, x, z); this.mmDrag = null; return; } this.centerOn(x, z); }
+  setScen(i) {
+    const S = this.scens()[i]; if (!this.ents) return;
+    this.ents.forEach(e => { e.x = e.x0; e.z = e.z0; e.path = null; e.onArrive = null; e.inbound = false; e.hidden = false; e.hp = e.max; e.g.visible = true; e.g.rotation.y = 0; if (e.garrison) e.garrison = []; if (e.kind === 'trebuchet') { e.tstate = 'deployed'; e.tT = 0; e.cool = 0; } e.y = this.walkH[(e.x | 0) + (e.z | 0) * 128]; e.g.position.set(e.x - 64, e.y, e.z - 64); });
+    this.ents.forEach(e => { if (e.mobile && e.kind !== 'laborer') e.hp = Math.round(e.max * (0.55 + this.wd.hash(e.id, 3, 9) * 0.45)); });
+    this.desig.concat(this.prints, this.shots.map(s => s.m)).forEach(m => this.scene.remove(m)); this.desig = []; this.prints = []; this.shots = []; this.hideGhost(); this.dragM.visible = false;
+    this.alerts = []; this.stone = S.player === 'red' ? 380 : 2214; this.timber = 196; this.stormT = 0; this.waveT = 160; this.fallT = 7; this.clockT = 34 * 60 + 12; this.repairT = 0; this.wallHp = [100, 100, 0, 100, 100];
+    const by = f => this.ents.filter(f).map(e => e.id), red = e => e.team === 'red', blue = e => e.team === 'blue';
+    let sel = [], groups = {};
+    if (S.key === 'bombard' || S.key === 'control') { sel = by(e => e.kind === 'trebuchet').slice(0, 1); groups = { 1: by(e => e.kind === 'trebuchet'), 2: by(e => red(e) && e.grp === 1), 3: by(e => red(e) && e.kind === 'archer'), 4: by(e => red(e) && e.grp === 4) }; }
+    if (S.key === 'storm') { sel = by(e => red(e) && (e.grp === 1 || e.grp === 11)); groups = { 1: sel.slice(), 2: by(e => red(e) && e.grp === 4), 3: by(e => red(e) && e.kind === 'archer'), 4: by(e => e.kind === 'trebuchet') }; this.alerts.push({ text: 'BREACH OPEN AT W3', sub: 'Rubble ramp · foot soldiers can cross', x: 59, z: 61 }); }
+    if (S.key === 'quarry') { sel = by(e => blue(e) && e.kind === 'laborer' && e.grp === 7); groups = { 1: sel.slice(), 2: by(e => blue(e) && e.kind === 'laborer' && e.grp === 8), 3: by(e => blue(e) && e.kind === 'spear'), 4: by(e => blue(e) && e.kind === 'archer') }; }
+    if (S.key === 'defend') { sel = by(e => e.kind === 'tower' && e.x0 < 70 && e.z0 > 70); groups = { 1: by(e => e.kind === 'tower'), 2: by(e => blue(e) && e.kind === 'spear'), 3: by(e => blue(e) && e.kind === 'archer'), 4: by(e => blue(e) && e.kind === 'laborer') }; this.alerts.push({ text: 'W5 WILL FALL IN 7 S', sub: 'Pull units clear of the wall foot', x: 59, z: 72, urgent: true, fall: true }, { text: 'SAPPERS AT THE WEST DITCH', sub: '5 sappers trenching W5', x: 47.5, z: 75 }); }
+    this.sel = new Set(sel); this.groups = groups; this.activeKind = null;
+    this.camT.set(S.cam[0] - 64, S.cam[1], S.cam[2] - 64); this.vh = S.cam[3]; this.view = 0; this.az = -Math.PI / 4; this.updFrustum();
+    this.syncRings();
+    this.setState({ scen: i, mode: null, readout: null, page: 0, bPage: 0, tip: null, assign: false });
+  }
+  quarter() {
+    if (!this.ents) return; const S = this.scen(), dt = 0.25, now = performance.now(); this.clockT += dt;
+    if (S.key === 'storm') { const near = this.ents.filter(e => e.team === 'red' && e.mobile && !e.hidden && Math.hypot(e.x - 66, e.z - 61) < 5).length; if (near >= 5) this.stormT = Math.min(120, this.stormT + dt); }
+    if (S.key === 'quarry') this.waveT = Math.max(0, this.waveT - dt);
+    if (S.key === 'defend' && this.fallT > 0) { this.fallT = Math.max(0, this.fallT - dt); const a = this.alerts.find(a => a.fall); if (a) { a.text = this.fallT > 0 ? 'W5 WILL FALL IN ' + Math.ceil(this.fallT) + ' S' : 'W5 HAS FALLEN'; a.sub = this.fallT > 0 ? 'Pull units clear of the wall foot' : 'Breach at W5 · rubble ramp'; } }
+    if (this.repairT > 0) this.repairT = Math.max(0, this.repairT - dt);
+    this.ents.forEach(e => { if (e.kind === 'trebuchet' && e.tT > 0) { e.tT -= dt; if (e.tT <= 0) e.tstate = e.tstate === 'packing' ? 'packed' : 'deployed'; } });
+    this.alerts = this.alerts.filter(a => !a.t || now - a.t < 7000);
+    this.bump();
+  }
+  modeText(m) { const C = this.cmdDefs(); if (m === 'move') return 'MOVE · CHOOSE A POINT'; if (m === 'attack') return 'ATTACK-MOVE · CHOOSE A POINT'; if (m === 'fire') return 'FIRE · TARGET 12–70 m · 6 m³ A SHOT'; if (m === 'repair') return 'REPAIR · CHOOSE A SECTION'; if (m.startsWith('desig:')) return m.slice(6).toUpperCase() + ' · DRAG AN AREA'; if (m.startsWith('place:')) return 'PLACE ' + C[m.slice(6)].label + ' · SHIFT KEEPS PLACING'; return ''; }
+
+  renderVals() {
+    const st = this.state, S = this.scen(), I = this.info(), C = this.cmdDefs(), ICON = this.ICON, ents = this.ents || [], player = S.player;
+    const lay = st.layout || (String(this.props.layout ?? 'A').startsWith('B') ? 'B' : 'A');
+    const sel = [...this.sel].map(id => ents[id]).filter(e => e && !e.hidden);
+    const kinds = this.ORDER.filter(k => sel.some(e => e.kind === k)), ak = ents.length ? this.activeKindNow() : null;
+    const thumbOf = e => (this.thumbs && e && this.thumbs[e.kind + '-' + e.team]) || '';
+    const imgRef = url => el => { if (!el) return; if (url) { if (el.getAttribute('src') !== url) el.setAttribute('src', url); el.style.visibility = 'visible'; } else el.style.visibility = 'hidden'; };
+    const fmt = s => { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+    const siege = player === 'red';
+    const army = ents.filter(e => e.team === 'red' && e.mobile && !e.hidden && e.kind !== 'laborer').length, labs = ents.filter(e => e.team === 'blue' && e.kind === 'laborer');
+    const res = siege ? [{ k: 'STONE', v: Math.round(this.stone) + ' m³', fg: this.stone < 30 ? '#d2584a' : '#f3ede2' }, { k: 'ARMY', v: String(army), fg: '#f3ede2' }, { k: 'TIME', v: fmt(this.clockT || 0), fg: '#f3ede2' }]
+      : [{ k: 'STONE', v: Math.round(this.stone) + ' m³', fg: '#f3ede2' }, { k: 'TIMBER', v: Math.round(this.timber) + ' m³', fg: '#f3ede2' }, { k: 'LABOR', v: labs.length + ' · ' + labs.filter(e => !e.path).length + ' idle', fg: '#f3ede2' }, { k: 'WAVE', v: '3 / 5', fg: '#f3ede2' }];
+    let objTitle = 'OPEN THE WEST WALL', objDetail = 'Breach a section, then storm the keep', hasProg = false, progW = '0%';
+    if (S.key === 'control') objDetail = 'Control build · walls have health bars';
+    if (S.key === 'storm') { objTitle = 'HOLD THE KEEP’S FOOT'; objDetail = fmt(this.stormT || 0) + ' / 2:00'; hasProg = true; progW = Math.round((this.stormT || 0) / 120 * 100) + '%'; }
+    if (S.key === 'quarry') { objTitle = 'PREPARE FOR WAVE 3'; objDetail = 'Raiders in ' + fmt(this.waveT || 0); hasProg = true; progW = Math.round((1 - (this.waveT || 0) / 160) * 100) + '%'; }
+    if (S.key === 'defend') { objTitle = 'SURVIVE WAVE 3'; objDetail = 'Sappers are trenching the west wall'; }
+    const e0 = sel[0], single = sel.length === 1;
+    let sName = '', sOwner = '', sOwnerFg = '#a69c8a', sHpText = '', sHpW = '0%', sStats = [], sIcon = '', sHasHp = false;
+    if (single) {
+      const inf = I[e0.kind], mine = e0.team === player; sName = inf.name.toUpperCase(); sOwner = mine ? 'YOURS' : 'ENEMY'; sOwnerFg = mine ? '#e8b86a' : '#d2584a';
+      if (e0.max) { sHasHp = true; sHpText = Math.round(e0.hp) + ' / ' + e0.max; sHpW = Math.round(e0.hp / e0.max * 100) + '%'; }
+      sStats = inf.stats.map(([k, v]) => ({ k, v }));
+      if (e0.kind === 'tower') sStats = [{ k: 'GARRISON', v: e0.garrison.length + ' / 6' }, { k: S.control ? 'HEALTH' : 'PLATFORM', v: S.control ? '1200 / 1200' : '100%' }, { k: 'REPAIR', v: this.repairT > 0 ? 'Locked · ' + Math.ceil(this.repairT) + ' s' : 'Ready' }];
+      if (e0.kind === 'trebuchet') sStats = [{ k: 'STATE', v: { deployed: 'Deployed', packing: 'Packing…', packed: 'Packed', deploying: 'Deploying…' }[e0.tstate] }, { k: 'RANGE', v: '12–70 m' }, { k: 'SHOTS', v: Math.floor(this.stone / 6) + ' × 6 m³' }];
+      if (e0.mobile && e0.path) sStats = sStats.slice(0, 1).concat([{ k: 'ORDER', v: 'Moving' }]);
+      sIcon = thumbOf(e0) ? '' : (ICON[e0.kind] || '');
+    }
+    const tiles = kinds.map(k => { const es = sel.filter(e => e.kind === k), t = es[0], hp = es.reduce((a, e) => a + (e.max ? e.hp / e.max : 1), 0) / es.length; return { count: String(es.length), label: I[k].short, imgRef: imgRef(thumbOf(t)), icon: thumbOf(t) ? '' : (ICON[k] || ''), hpW: Math.round(hp * 100) + '%', bd: k === ak ? '#e8b86a' : '#3a342c', onClick: () => { this.activeKind = k; this.setState({ page: 0, bPage: 0 }); } }; });
+    const card = ents.length ? this.cardNow() : [];
+    const empty = { label: '', icon: '', hk: '', onClick: () => {}, onEnter: () => {}, onLeave: () => {}, bg: 'rgba(36,33,28,.6)', fg: '#5a5248', bd: '#2a2621', hkFg: '#5a5248' };
+    const mkCmd = (key, slot) => { if (!key) return empty; const dis = this.cmdDisabled(key), act = !!st.mode && (st.mode === key || st.mode.slice(st.mode.indexOf(':') + 1) === key); return { label: this.cmdLabel(key), icon: ICON[C[key].icon || key] || '', hk: this.hkFor(key, slot), onClick: () => this.exec(key), onEnter: () => this.setState({ tip: { key, slot } }), onLeave: () => this.setState({ tip: null }), bg: act ? '#4a3d22' : '#2a2621', fg: dis ? '#6a6258' : '#f3ede2', bd: act ? '#e8b86a' : '#3a342c', hkFg: dis ? '#6a6258' : '#e8b86a' }; };
+    const cmds = (card.length ? card : Array(12).fill(null)).map(mkCmd);
+    const live = card.map((k, i) => k ? { k, i } : null).filter(Boolean);
+    let bl = live; if (live.length > 6) bl = st.bPage ? live.slice(5).concat([{ k: '__less' }]) : live.slice(0, 5).concat([{ k: '__more' }]);
+    const cmdsB = bl.map(o => o.k.startsWith('__') ? { label: o.k === '__more' ? 'MORE' : 'BACK', icon: o.k === '__more' ? '…' : ICON.back, hk: '', onClick: () => this.setState({ bPage: o.k === '__more' ? 1 : 0 }), onEnter: () => {}, onLeave: () => {}, bg: '#2a2621', fg: '#f3ede2', bd: '#3a342c', hkFg: '#a69c8a' } : mkCmd(o.k, o.i));
+    while (cmdsB.length < 6) cmdsB.push(empty);
+    const groups = [1, 2, 3, 4, 5].map(n => { const ids = (this.groups[n] || []).filter(id => ents[id] && !ents[id].hidden), ks = this.ORDER.filter(k => ids.some(id => ents[id].kind === k)), act = ids.length > 0 && ids.length === this.sel.size && ids.every(id => this.sel.has(id)); return { n: String(n), count: ids.length ? String(ids.length) : '', label: ks.length ? I[ks[0]].short : '—', bg: act ? '#4a3d22' : 'rgba(21,19,16,.92)', bd: act || st.assign ? '#e8b86a' : '#3a342c', fg: ids.length ? '#f3ede2' : '#6a6258', onClick: ev => { if (st.assign || (ev && (ev.ctrlKey || ev.metaKey))) { this.groups[n] = [...this.sel]; this.setState({ assign: false }); } else this.pickGroup(n); } }; });
+    const alerts = this.alerts.slice(0, 3).map(a => ({ text: a.text, sub: a.sub || '', bd: a.urgent ? '#d2584a' : '#e8b86a', hasJump: a.x != null, onJump: () => this.centerOn(a.x, a.z) }));
+    const tipK = st.tip && st.tip.key, ro = st.readout, chrome = this.props.showChrome ?? true, mn = this.mnemonic();
+    return {
+      hostRef: this.hostRef, overRef: this.overRef, mmBaseRef: this.mmBaseRef, mmOverRef: this.mmOverRef, mmDown: this.mmDown, mmMove: this.mmMove, mmUp: this.mmUp, mmCtx: this.mmCtx,
+      loading: st.loading, err: st.err, uiZoom: st.uiZoom, showChrome: chrome, stageTop: chrome ? '40px' : '0px', cursor: st.mode ? 'crosshair' : 'default',
+      layoutA: lay === 'A', layoutB: lay === 'B',
+      setA: () => this.setState({ layout: 'A' }), setB: () => this.setState({ layout: 'B' }),
+      aBg: lay === 'A' ? '#e8b86a' : '#24211c', aFg: lay === 'A' ? '#15130f' : '#d8d0c2', bBg: lay === 'B' ? '#e8b86a' : '#24211c', bFg: lay === 'B' ? '#15130f' : '#d8d0c2',
+      scenTabs: this.scens().map((s, i) => ({ label: s.label, bg: i === st.scen ? '#e8b86a' : '#24211c', fg: i === st.scen ? '#15130f' : '#d8d0c2', onClick: () => this.setScen(i) })),
+      inputHint: (mn ? 'WASD PAN' : 'ARROWS PAN') + ' · [ ] ROTATE · WHEEL/PINCH ZOOM · CTRL+1–9 SETS GROUP · TAB TYPE · SPACE ALERT · TOUCH: DRAG PANS, HOLD+DRAG SELECTS',
+      res, objTitle, objDetail, hasProg, progW,
+      selNone: !sel.length, selSingle: single, selMulti: sel.length > 1,
+      selHint1: 'TAP OR CLICK A UNIT · DRAG TO BOX-SELECT', selHint2: 'TOUCH: HOLD, THEN DRAG · 1–9 GROUPS',
+      sName, sOwner, sOwnerFg, sHpText, sHpW, sStats, sIcon, sHasHp, sThumbRef: imgRef(single ? thumbOf(e0) : ''),
+      mTitle: sel.length + ' SELECTED', tiles, cmds, cmdsB, groups,
+      toggleAssign: () => this.setState({ assign: !st.assign }), assignBd: st.assign ? '#e8b86a' : '#3a342c', assignBg: st.assign ? '#4a3d22' : 'rgba(21,19,16,.92)',
+      alerts,
+      hasMode: !!st.mode, modeText: st.mode ? this.modeText(st.mode) : '', cancelMode: () => { this.hideGhost(); if (this.dragM) this.dragM.visible = false; this.setState({ mode: null, readout: null }); },
+      hasTip: !!tipK, tipHk: tipK ? this.hkFor(tipK, st.tip.slot) : '', tipTitle: tipK ? this.cmdLabel(tipK) : '', tipBody: tipK ? C[tipK].tip : '',
+      hasReadout: !!ro, roTitle: ro ? ro.title : '', roRows: ro ? ro.rows : [], roBd: ro && ro.warn ? '#d2584a' : '#e8b86a',
+      rotL: () => { this.view -= 1; }, rotR: () => { this.view += 1; }, zoomIn: () => this.zoom(1 / 1.25), zoomOut: () => this.zoom(1.25)
+    };
+  }
+}
+</script>
+</body>
+</html>

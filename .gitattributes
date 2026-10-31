@@ -115,3 +115,4 @@ Design/Reference/** -text
 # (ADR-005), and the .vox must agree with it voxel for voxel.
 *.vox           binary
 *.png           binary
+*.otf           binary

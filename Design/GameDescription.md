@@ -28,7 +28,8 @@ It is for players of classic historical RTS games who know their counters and bu
 | Eras | Hall, Keep and Citadel, each built from quarried stone |
 | Cultures | Masons, Wealdfolk and Delvers, each built around one material |
 | Camera | An orthographic isometric view at 34° that rotates in 90° steps and zooms from single stones to a whole holding |
-| Voxels | 0.5 m for everything solid; terrain in 1 m terraces |
+| Voxels | 1 m for the world; 0.5 m for units, engines and debris |
+| Platforms | Windows PCs, laptops and tablets, on x64 and ARM64; mouse and keyboard, or touch |
 
 ## The objective
 
@@ -50,12 +51,12 @@ Every feature has to serve at least one of these. The classic RTS layer they sit
 
 ### Materials
 
-Everything solid is made of voxels small enough that a crater, a ditch or a breach has the shape of whatever made it. Every voxel is 0.5 m. The generator shapes the land in 1 m terraces, and digging works at the full 0.5 m. Each voxel is one material, and the materials behave differently.
+Everything solid is made of 1 m voxels. A crater's size and depth show which weapon made it, and a ditch or a breach has the outline of the work that cut it. Dust and loose blocks are drawn by the client and never change what happened. Units, engines and debris are finer 0.5 m voxel models, drawn over the world and never written into it. Each voxel is one material, and the materials behave differently.
 
 | Material | Where it is | Behavior |
 |---|---|---|
 | Grass | The top of undisturbed earth | Earth in every rule. Only the generator makes it, so dug ground stays bare. |
-| Earth | The soil over the rock, of varying depth | Dug quickly. Slumps to 45°, measured over 1 m, so earth never stands steeper than that and the generator's 1 m terraces stand. Absorbs shot: craters slump closed, and earthworks flatten instead of holing. |
+| Earth | The soil over the rock, of varying depth | Dug quickly. Slumps to 45°, so no earth column stands more than one voxel above its neighbour. Absorbs shot: craters slump closed, and earthworks flatten instead of holing. |
 | Common rock | Under the earth and in cliffs | Dug slowly and yields nothing. Holds vertical faces and overhangs up to its span. |
 | Building stone | Sparse outcrops | Quarried for stone. The only source of new stone besides rubble. |
 | Bedrock | Deep down, nearer the surface in places | Cannot be dug. Anything founded on it cannot be undermined. |
@@ -87,7 +88,7 @@ Skirmish maps give each start position a matched budget of resources, ground and
 | Iron | Ore from veins, smelted at a forge | Bars | Armored units, crossbows, engine fittings, upgrades |
 | Earthstone | The Deep (Worlds) | Blocks | Winning the season |
 
-**Stone and timber are counted by volume, and buildings cost exactly the volume they are made of.** A stone wall section of 8 m × 1.5 m × 6 m costs 72 m³ of stone. Quarrying gives back exactly the volume removed. The pit beside a castle is visibly the size of the castle, and a besieged lord's rubble is the besieger's next quarry.
+**Stone and timber are counted by volume, and buildings cost exactly the volume they are made of.** A stone wall section of 8 m × 2 m × 6 m costs 96 m³ of stone. Quarrying gives back exactly the volume removed. The pit beside a castle is visibly the size of the castle, and a besieged lord's rubble is the besieger's next quarry.
 
 **Earth is never stockpiled.** Digging a ditch piles its spoil into a rampart placed with the ditch, so the two are built together.
 
@@ -161,8 +162,8 @@ Openings such as arrow slits, doors and windows, and decorations such as gate fi
 |---|---|---|---|
 | Palisade | Hall | Timber | Cheap and fast, with its own timber gates. Rams and engines shatter it; fire destroys it. |
 | Ditch and rampart | Hall | Earth | Dug as a pair. Foot soldiers can cross both and stand on the rampart's crest; cavalry, carts, rams and engines cannot cross either. The ditch slows and channels infantry; the rampart absorbs shot and flattens instead of holing. |
-| Stone wall, standard (1.5 m thick) | Keep | Stone | The everyday curtain wall |
-| Stone wall, thick (2.5 m thick) | Citadel | Stone | Takes about twice as many shots to breach and costs two thirds more stone |
+| Stone wall, standard (2 m thick) | Keep | Stone | The everyday curtain wall |
+| Stone wall, thick (3 m thick) | Citadel | Stone | Takes about twice as many shots to breach and costs half as much again in stone |
 | Tower | Keep | Stone | Garrisons ranged units, which fire from height |
 | Gatehouse | Keep | Stone, timber | Opens for its owner. The timber gate is its weak point, and the garrison fires down into the passage in front of it with crush damage that a ram's roof does not stop. |
 
@@ -215,9 +216,11 @@ Shots are physical. Every arrow, bolt and stone travels through the voxel grid a
 
 **Garrisons.** Towers and keeps hold units. Garrisoned ranged units fire from height, and garrisoned units heal slowly. When a tower stops working, its garrison is put out at the foot of the tower, on its owner's side and clear of where the tower would fall.
 
-**Units and the land.** Units walk on ground, wade fords, and cross rubble slowly. Foot soldiers climb slopes as steep as settled earth; cavalry, carts, rams and engines climb less, so a ditch or a rampart stops them. Units stand on ramparts, which are earth, but never on structures, and the space under a rock overhang is not walkable. A unit stands 2 m tall on a 0.5 m square, so a gap one voxel wide and four high is a route. When a breach opens, every unit that is ordered inside will path through it. A unit whose ground is dug away drops to the ground below it and takes crush damage if the drop is more than 3 m. A unit buried by a collapse is placed on top of the rubble and takes the collapse's damage.
+**Units and the land.** Units walk on ground, wade fords, and cross rubble slowly. Foot soldiers climb slopes as steep as settled earth; cavalry, carts, rams and engines climb less, so a ditch or a rampart stops them. Units stand on ramparts, which are earth, but never on structures, and the space under a rock overhang is not walkable. A unit stands 2 m tall on a 0.5 m square, so a gap one voxel wide and two high is a route. When a breach opens, every unit that is ordered inside will path through it. A unit whose ground is dug away drops to the ground below it and takes crush damage if the drop is more than 3 m. A unit buried by a collapse is placed on top of the rubble and takes the collapse's damage.
 
 **Soldiers never change the land.** Only engines, sappers, laborers on a designation, collapses and fire remove voxels.
+
+**Squads.** Soldiers fight in squads of one type: six on foot, or three outriders. The player selects and orders squads, and control groups hold squads. Each figure has its own hit points and is drawn, hit and killed on its own, so a squad that loses figures fights on with fewer. A squad can be split when a single figure is needed. Engines, mantlets and carts are ordered one at a time.
 
 ### Roster
 
@@ -266,7 +269,7 @@ Defenders win sieges with:
 
 **Balance targets.**
 
-- One trebuchet, unopposed, opens a walkable breach in a standard stone section in about three minutes, and in a thick section in about six.
+- One trebuchet, unopposed, opens a walkable breach in a standard stone section in about three minutes, and in a thick section in about six. These targets are for 2 m and 3 m walls on the 1 m grid.
 - Repair between the volleys of one engine at most doubles those times.
 - A ram breaks a palisade in under a minute, and a gatehouse's gate in about four under fire from the gatehouse's own garrison.
 - No culture's walls take more than one and a half times these targets to breach.
@@ -400,7 +403,7 @@ Sessions of 30 to 90 minutes are the norm, mostly inside the contest band. A lor
 
 ## Readability
 
-The camera is an orthographic isometric view, 34° above the horizon. It rotates in 90° steps, because walls and rubble hide units, and zooms from single stones to a whole holding. At that angle the floors of deep ditches and the near terraces of pits can be hidden; units in them show as silhouettes. [RendererLook.md](RendererLook.md) gives the look in full. The tools that make physical siege legible are part of the game, not an afterthought:
+The camera is an orthographic isometric view, 34° above the horizon. At the default zoom a world voxel is about 13 px on a 1080p screen. It rotates in 90° steps, because walls and rubble hide units, and zooms from single stones to a whole holding. At that angle the floors of deep ditches and the near terraces of pits can be hidden; units in them show as silhouettes. [RendererLook.md](RendererLook.md) gives the look in full. The tools that make physical siege legible are part of the game, not an afterthought:
 
 - **Integrity view:** on by default. For each wall section, how close it is to opening, read from the collapse rule: its widest hole against the width at which the stone above falls, its lowest opening against what foot soldiers can climb, and any gap under its foundation. It also shows the ground the section stands on, marks its weak point, where that reading is closest to open, and shows the repair lock on a section hit in the last ten seconds.
 - **Collapse preview:** where a damaged piece will fall, before it falls, and a warning and a minimap alert when it starts to go.
@@ -408,7 +411,7 @@ The camera is an orthographic isometric view, 34° above the horizon. It rotates
 - **Passability view:** where units can walk, climb and cross, and where a breach has opened a route.
 - **Fog of war:** vision is a radius, and walls do not block it. Ground you are not watching shows the land as you last saw it, so scouting reveals new quarries, ditches and breaches. An engine sees as far as it shoots, so its crew watches where its shot lands.
 
-Controls are standard for the genre: selection, control groups, a command card, a minimap and build placement. Placement shows the cut and fill a foundation needs and the depth to rock and bedrock beneath it. For a dig, it shows where the ground will slump and which structures that would undermine. The attack cursor shows whether a target can be hit, is in range but blocked, or is out of range.
+Controls are standard for the genre, played on squads: selection, control groups, a command card, a minimap and build placement. They come in two schemes over one set of commands: mouse and keyboard, and touch on a tablet such as the Surface Pro. Hover can speed things up but is never the only way to see something, because touch has no hover. Every reading below can also be reached without it. Placement shows the cut and fill a foundation needs and the depth to rock and bedrock beneath it. For a dig, it shows where the ground will slump and which structures that would undermine. It counts only the building stone in sight, so it never reveals stone that is still hidden. The attack cursor shows whether a target can be hit, is in range but blocked, or is out of range.
 
 ## How it is built
 
@@ -416,7 +419,8 @@ Controls are standard for the genre: selection, control groups, a command card, 
 - **The world is a seed plus its edits.** A generated world is rebuilt from its seed, and only what players changed is stored. Saves are small, and archiving a finished world is cheap. Where resources lie is kept on the server, so a modified client cannot find hidden veins.
 - **Destruction is resolved by rules in the simulation.** Outcomes are predictable and the same for every player. Tumbling debris is drawn locally and never matters.
 - **Voxels are drawn directly, without meshing**, using ray-casting after Majercik et al. (2018). An edit shows on screen in the next frame.
-- **Platform:** Windows and Direct3D 12, in C++, on an engine written for this game.
+- **Two voxel sizes.** The world and the simulation use 1 m voxels. Units, engines and debris are 0.5 m voxel models, drawn over the world and never written into it.
+- **Platform:** Windows on x64 and ARM64, with Direct3D 12, in C++, on an engine written for this game. Windows and Direct3D stay inside the engine, so the simulation is portable. Android is an ambition, not a target.
 
 ## How the design is proven
 

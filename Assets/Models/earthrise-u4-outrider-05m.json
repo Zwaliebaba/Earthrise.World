@@ -1,0 +1,72 @@
+{
+ "id": "U4",
+ "name": "Outrider",
+ "voxelSize": 0.5,
+ "size": {
+  "x": 1,
+  "y": 5,
+  "z": 5
+ },
+ "axes": "y up, +z front, layers[y][z][x]",
+ "derivedFrom": "Illustrations/earthrise-u4-outriders-05m.json, one of 3 identical figures",
+ "silhouetteCue": "Horse, 2.5 m tall",
+ "legend": {
+  "j": {
+   "material": 16,
+   "name": "faction",
+   "hex": "#b23a2e"
+  },
+  "k": {
+   "material": 18,
+   "name": "iron",
+   "hex": "#9aa0a6"
+  },
+  "p": {
+   "material": 23,
+   "name": "cloth",
+   "hex": "#3d3530"
+  },
+  "q": {
+   "material": 24,
+   "name": "horse",
+   "hex": "#5e4330"
+  }
+ },
+ "layers": [
+  [
+   ".",
+   "q",
+   ".",
+   "q",
+   "."
+  ],
+  [
+   ".",
+   "q",
+   ".",
+   "q",
+   "."
+  ],
+  [
+   "p",
+   "q",
+   "q",
+   "q",
+   "q"
+  ],
+  [
+   ".",
+   ".",
+   "j",
+   ".",
+   "q"
+  ],
+  [
+   ".",
+   ".",
+   "k",
+   ".",
+   "."
+  ]
+ ]
+}

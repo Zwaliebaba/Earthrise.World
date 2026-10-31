@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#1b1916">
+<style>html,body{margin:0;padding:0;background:#1b1916;overscroll-behavior:none}a{color:#e8b86a}a:hover{color:#f3ede2}</style>
+</helmet>
+<div data-screen-label="Key scene · mobile landscape" style="position:fixed;inset:0;background:#1b1916;overflow:hidden;font-family:'IBM Plex Sans',sans-serif;color:#f3ede2;touch-action:none;user-select:none;-webkit-user-select:none">
+  <div ref="{{ hostRef }}" style="position:absolute;inset:0"></div>
+  <sc-if value="{{ loading }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.12em;color:#a69c8a">GENERATING LAND…</div>
+  </sc-if>
+  <div style="position:absolute;right:10px;top:10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#e8b86a;max-width:40vw">{{ err }}</div>
+  <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;inset:0;pointer-events:none">
+      <div ref="{{ l1 }}" style="position:absolute;left:0;top:0;width:0;height:0;opacity:0">
+        <button onClick="{{ pick1 }}" aria-label="Note 1" style="position:absolute;left:-22px;top:-22px;width:44px;height:44px;border:0;padding:0;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;pointer-events:auto">
+          <div style="width:30px;height:30px;border-radius:50%;background:#15130f;border:2px solid #e8b86a;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color:#e8b86a;box-sizing:border-box">1</div>
+        </button>
+      </div>
+      <div ref="{{ l2 }}" style="position:absolute;left:0;top:0;width:0;height:0;opacity:0">
+        <button onClick="{{ pick2 }}" aria-label="Note 2" style="position:absolute;left:-22px;top:-22px;width:44px;height:44px;border:0;padding:0;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;pointer-events:auto">
+          <div style="width:30px;height:30px;border-radius:50%;background:#15130f;border:2px solid #e8b86a;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color:#e8b86a;box-sizing:border-box">2</div>
+        </button>
+      </div>
+      <div ref="{{ l3 }}" style="position:absolute;left:0;top:0;width:0;height:0;opacity:0">
+        <button onClick="{{ pick3 }}" aria-label="Note 3" style="position:absolute;left:-22px;top:-22px;width:44px;height:44px;border:0;padding:0;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;pointer-events:auto">
+          <div style="width:30px;height:30px;border-radius:50%;background:#15130f;border:2px solid #e8b86a;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color:#e8b86a;box-sizing:border-box">3</div>
+        </button>
+      </div>
+      <div ref="{{ l4 }}" style="position:absolute;left:0;top:0;width:0;height:0;opacity:0">
+        <button onClick="{{ pick4 }}" aria-label="Note 4" style="position:absolute;left:-22px;top:-22px;width:44px;height:44px;border:0;padding:0;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;pointer-events:auto">
+          <div style="width:30px;height:30px;border-radius:50%;background:#15130f;border:2px solid #e8b86a;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color:#e8b86a;box-sizing:border-box">4</div>
+        </button>
+      </div>
+    </div>
+  </sc-if>
+  <div style="position:absolute;left:calc(12px + env(safe-area-inset-left));top:12px;max-width:min(300px,38vw);background:rgba(21,19,16,.9);padding:10px 14px;display:flex;flex-direction:column;gap:3px;pointer-events:none">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:#e8b86a">EARTHRISE.WORLD</div>
+    <div style="font-family:'EB Garamond',serif;font-size:20px;line-height:1.05">The Breach at the West Wall</div>
+  </div>
+  <sc-if value="{{ noteOpen }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;right:calc(12px + env(safe-area-inset-right));top:12px;width:min(300px,40vw);max-height:calc(100% - 80px);overflow:auto;background:rgba(21,19,16,.92);padding:12px 14px 10px;display:flex;flex-direction:column;gap:10px;box-sizing:border-box">
+        <sc-if value="{{ sel1 }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#e8b86a">1 / 4 · WALLS FALL WHERE STRUCK</div>
+            <div style="font-family:'EB Garamond',serif;font-size:21px;line-height:1.05">The breach</div>
+            <div style="font-size:13px;line-height:1.45;color:#d8d0c2;text-wrap:pretty">No health bars. Shot cut a crater, the section lost its support and fell, leaving a rubble ramp into the bailey.</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sel2 }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#e8b86a">2 / 4 · WHERE YOU DIG</div>
+            <div style="font-family:'EB Garamond',serif;font-size:21px;line-height:1.05">The quarry is the moat</div>
+            <div style="font-size:13px;line-height:1.45;color:#d8d0c2;text-wrap:pretty">The castle was cut from this outcrop. The terraced pit under the south wall is a ditch no engine can cross.</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sel3 }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#e8b86a">3 / 4 · SIEGE ECONOMY</div>
+            <div style="font-family:'EB Garamond',serif;font-size:21px;line-height:1.05">Trebuchets</div>
+            <div style="font-size:13px;line-height:1.45;color:#d8d0c2;text-wrap:pretty">Every shot costs the attacker quarried stone. Mantlets screen the crews from tower fire.</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sel4 }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;color:#e8b86a">4 / 4 · THE SIEGE CHOICE</div>
+            <div style="font-family:'EB Garamond',serif;font-size:21px;line-height:1.05">Where the ditch ran out</div>
+            <div style="font-size:13px;line-height:1.45;color:#d8d0c2;text-wrap:pretty">Ditch and rampart guard the west wall, except one stretch on deep earth. That is where the attackers struck.</div>
+          </div>
+        </sc-if>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button onClick="{{ prev }}" aria-label="Previous note" style="width:44px;height:44px;border:0;background:#2a2621;color:#f3ede2;font-size:19px;cursor:pointer;flex:none" style-hover="background:#3a342c">‹</button>
+        <button onClick="{{ next }}" aria-label="Next note" style="width:44px;height:44px;border:0;background:#2a2621;color:#f3ede2;font-size:19px;cursor:pointer;flex:none" style-hover="background:#3a342c">›</button>
+        <div style="flex:1"></div>
+        <button onClick="{{ closeNote }}" aria-label="Hide notes" style="width:44px;height:44px;border:0;background:#2a2621;color:#f3ede2;font-size:19px;cursor:pointer;flex:none" style-hover="background:#3a342c">×</button>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ noteClosed }}" hint-placeholder-val="{{ false }}">
+    <button onClick="{{ openNote }}" style="position:absolute;right:calc(12px + env(safe-area-inset-right));top:12px;height:44px;padding:0 16px;border:0;background:rgba(21,19,16,.92);color:#e8b86a;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;cursor:pointer">NOTES 1–4</button>
+  </sc-if>
+  <div style="position:absolute;left:calc(12px + env(safe-area-inset-left));bottom:12px;background:rgba(21,19,16,.9);padding:8px 12px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;color:#a69c8a;pointer-events:none">SWIPE TO ROTATE · TAP A MARKER</div>
+  <div style="position:absolute;right:calc(12px + env(safe-area-inset-right));bottom:12px;display:flex;gap:4px;background:rgba(21,19,16,.9);padding:4px">
+    <button onClick="{{ rotL }}" aria-label="Rotate left" style="width:44px;height:44px;border:0;background:#2a2621;color:#f3ede2;font-size:19px;cursor:pointer;flex:none" style-hover="background:#3a342c">↺</button>
+    <button onClick="{{ rotR }}" aria-label="Rotate right" style="width:44px;height:44px;border:0;background:#2a2621;color:#f3ede2;font-size:19px;cursor:pointer;flex:none" style-hover="background:#3a342c">↻</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showLabels&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Scene&quot;},&quot;timeOfDay&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;golden&quot;,&quot;morning&quot;,&quot;dusk&quot;],&quot;default&quot;:&quot;golden&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Scene&quot;},&quot;autoRotate&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Scene&quot;}}">
+class Component extends DCLogic {
+  state = { loading: true, sel: 1, open: true };
+  hostRef = React.createRef();
+  l1 = React.createRef(); l2 = React.createRef(); l3 = React.createRef(); l4 = React.createRef();
+  view = 0; az = -Math.PI / 4;
+
+  componentDidMount() {
+    this.fit = () => this.setState({ scale: Math.min(window.innerWidth / 1920, window.innerHeight / 1080) }); this.fit(); window.addEventListener('resize', this.fit);
+    setTimeout(() => this.init().catch(e => { console.error('scene init failed', e); this.setState({ err: String(e && e.stack || e) }); }), 30);
+  }
+  componentWillUnmount() {
+    this.dead = true; window.removeEventListener('resize', this.fit); cancelAnimationFrame(this.raf); clearInterval(this.iv);
+    if (this.ro) this.ro.disconnect();
+    if (this.renderer) { this.renderer.dispose(); this.renderer.domElement.remove(); }
+  }
+  componentDidUpdate(pp) { if (pp.timeOfDay !== this.props.timeOfDay) this.applyLight(); }
+
+  presets() {
+    return {
+      golden: { bg: '#d6ccba', sun: '#ffd8a6', si: 2.7, sp: [-90, 75, 55], sky: '#d4dbe6', gnd: '#5a4a38', hi: 1.0 },
+      morning: { bg: '#c9d3d6', sun: '#fff3e2', si: 2.4, sp: [60, 120, 80], sky: '#dfe8f0', gnd: '#5d5446', hi: 1.15 },
+      dusk: { bg: '#2c2b34', sun: '#ff9858', si: 2.3, sp: [-130, 42, 25], sky: '#5b6690', gnd: '#2a2018', hi: 0.7 }
+    };
+  }
+  applyLight() {
+    if (!this.sun) return;
+    const p = this.presets()[this.props.timeOfDay ?? 'golden'] || this.presets().golden;
+    this.renderer.setClearColor(p.bg);
+    this.sun.color.set(p.sun); this.sun.intensity = p.si; this.sun.position.set(p.sp[0], p.sp[1], p.sp[2]);
+    this.hemi.color.set(p.sky); this.hemi.groundColor.set(p.gnd); this.hemi.intensity = p.hi;
+    this.renderer.shadowMap.needsUpdate = true;
+  }
+
+  buildWorld() {
+    const S = 2, WM = 128, W = WM * S, D = WM * S, H = 84, G = 15, CX = 74, CZ = 61, WD = W * D;
+    const vox = new Uint8Array(W * D * H);
+    const set = (x, y, z, m) => { if (x >= 0 && x < W && z >= 0 && z < D && y >= 0 && y < H) vox[x + z * W + y * WD] = m; };
+    const get = (x, y, z) => (x >= 0 && x < W && z >= 0 && z < D && y >= 0 && y < H) ? vox[x + z * W + y * WD] : 0;
+    const v = m => Math.round(m * S);
+    const boxV = (x0, x1, y0, y1, z0, z1, m) => { for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) set(x, y, z, m); };
+    const box = (x0, x1, y0, y1, z0, z1, m) => boxV(v(x0), v(x1) - 1, v(y0), v(y1) - 1, v(z0), v(z1) - 1, m);
+    const hash = (x, z, s = 0) => { let h = (x * 374761393 + z * 668265263 + s * 982451653) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967295; };
+    const vn = (x, z, s) => { const xi = Math.floor(x), zi = Math.floor(z), xf = x - xi, zf = z - zi, u = xf * xf * (3 - 2 * xf), w = zf * zf * (3 - 2 * zf); const a = hash(xi, zi, s), b = hash(xi + 1, zi, s), c = hash(xi, zi + 1, s), d = hash(xi + 1, zi + 1, s); return a + (b - a) * u + (c - a) * w + (a - b - c + d) * u * w; };
+    const fbm = (x, z, s) => vn(x, z, s) * .55 + vn(x * 2, z * 2, s + 7) * .3 + vn(x * 4, z * 4, s + 13) * .15;
+    const ss = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+    const M = { GRASS: 1, EARTH: 2, ROCK: 3, STONE: 4, BED: 5, WALL: 6, TIMBER: 7, RUBBLE: 8, WATER: 9, LEAF: 10, LEAF2: 11, ROOF: 12, FIELD: 13, FIELD2: 14, PATH: 15, RED: 16, BLUE: 17, STEEL: 18, TAN: 19, DARK: 20, WEIGHT: 21, SKIN: 22, CLOTH: 23 };
+    const cl = (a, n) => Math.max(0, Math.min(n - 1, a));
+    const riverX = z => 12 + z * 0.12 + Math.sin(z * 0.06) * 5;
+    const hv = new Int16Array(W * D);
+    for (let iz = 0; iz < D; iz++) for (let ix = 0; ix < W; ix++) {
+      const x = ix / S, z = iz / S;
+      const base = 6 + fbm(x * .035, z * .035, 1) * 6;
+      const d = Math.hypot(x - CX, z - CZ);
+      let h = base + (G - base) * ss(42, 27, d);
+      const rd = Math.abs(x - riverX(z));
+      if (rd < 9) h = Math.min(h, Math.max(2, 2 + (rd - 4) * 1.1));
+      const h0 = Math.round(h) * S; hv[ix + iz * W] = h0;
+      const earth = Math.max(1, Math.round(Math.max(0.5, 1 + fbm(x * .08, z * .08, 5) * 5 - (x > CX ? 2 : 0)) * S));
+      const bed = Math.round((1 + fbm(x * .05, z * .05, 9) * 3) * S);
+      for (let y = 0; y < h0; y++) set(ix, y, iz, y < bed ? M.BED : (y >= h0 - earth ? (y === h0 - 1 ? M.GRASS : M.EARTH) : M.ROCK));
+      if (rd < 4.5) for (let y = h0; y < v(4); y++) set(ix, y, iz, M.WATER);
+    }
+    const gV = (ix, iz) => hv[cl(ix, W) + cl(iz, D) * W];
+    const topV = (ix, iz) => { for (let y = H - 1; y >= 0; y--) if (get(ix, y, iz)) return y + 1; return 0; };
+    // building-stone outcrop + terraced quarry under the south wall
+    for (let iz = v(76); iz < v(118); iz++) for (let ix = v(46); ix < v(104); ix++) {
+      const x = ix / S, z = iz / S, r = Math.hypot((x - 74) / 1.5, z - 93) + fbm(x * .2, z * .2, 31) * 4;
+      if (r > 17) continue;
+      const top = gV(ix, iz);
+      for (let y = v(3); y < top - (r < 8 ? 0 : 1); y++) set(ix, y, iz, M.STONE);
+    }
+    for (let iz = v(85); iz < v(103); iz++) for (let ix = v(61); ix < v(89); ix++) {
+      const x = ix / S, z = iz / S, r = Math.min(x - 61, 89 - x, z - 85, 103 - z);
+      let floorM = 13 - Math.min(Math.floor(r / 2.2), 4) * 2;
+      if (z >= 85.5 && z < 87.5 && x >= 63) floorM = Math.max(floorM, 13 - Math.min(8, (x - 63) / 2.2));
+      for (let y = v(floorM); y < H; y++) set(ix, y, iz, 0);
+    }
+    for (let i = 0; i < 5; i++) { const px = 92 + i * 2.5, pz = 90 + (i % 2) * 2.5, ix = v(px), iz = v(pz), g = gV(ix, iz); boxV(ix, ix + 2, g, g + 1 + (i % 3), iz, iz + 2, M.STONE); }
+    // road east from the gate, fields
+    for (let ix = v(93); ix < W; ix++) for (let iz = v(59); iz < v(64); iz++) { const y = gV(ix, iz) - 1; if (get(ix, y, iz) === M.GRASS) set(ix, y, iz, M.PATH); }
+    for (let iz = v(88); iz < v(124); iz++) for (let ix = v(104); ix < v(124); ix++) { const x = ix / S, z = iz / S, y = gV(ix, iz) - 1; if (get(ix, y, iz) === M.GRASS && fbm(x * .05, z * .05, 41) > .35) set(ix, y, iz, Math.floor(z / 3) % 2 ? M.FIELD : M.FIELD2); }
+    // ditch + rampart west of the wall, stopping short of the breach
+    for (let iz = v(34); iz < v(89); iz++) {
+      const z = iz / S, gap = z < 54 ? 54 - z : z > 68 ? z - 68 : -1;
+      if (gap < 0) continue;
+      const taper = ss(0, 2.5, gap) * ss(0, 3, Math.min(z - 34, 89 - z));
+      for (let ix = v(46); ix < v(57); ix++) {
+        const x = ix / S, g = gV(ix, iz);
+        const dd = Math.min(2, Math.max(0, 2 - Math.max(0, Math.abs(x - 50.5) - 0.75))) * taper;
+        if (dd > 0) { for (let y = g - v(dd); y < g; y++) set(ix, y, iz, 0); continue; }
+        const n = v(Math.min(1.5, Math.max(0, 1.5 - Math.max(0, Math.abs(x - 54.5) - 0.5))) * taper);
+        for (let k = 0; k < n; k++) set(ix, g + k, iz, k === n - 1 ? M.GRASS : M.EARTH);
+      }
+    }
+    // castle
+    const cren = (x0, x1, z0, z1, yb, alongX) => { for (let iz = v(z0); iz < v(z1); iz++) for (let ix = v(x0); ix < v(x1); ix++) { if ((alongX ? ix : iz) % 2) continue; for (let y = v(yb); y < v(yb + 1); y++) set(ix, y, iz, M.WALL); } };
+    box(58, 91, G, G + 7, 45, 46.5, M.WALL); cren(58, 91, 45, 45.5, G + 7, true);
+    box(58, 91, G, G + 7, 76.5, 78, M.WALL); cren(58, 91, 77.5, 78, G + 7, true);
+    box(58, 59.5, G, G + 7, 45, 78, M.WALL); cren(58, 58.5, 45, 78, G + 7, false);
+    box(89.5, 91, G, G + 7, 45, 78, M.WALL); cren(90.5, 91, 45, 78, G + 7, false);
+    const slit = (x0, x1, z0, z1, y) => box(x0, x1, y, y + 1.5, z0, z1, M.DARK);
+    [[58.75, 45.75], [90.25, 45.75], [58.75, 77.25], [90.25, 77.25]].forEach(([cx, cz]) => {
+      const x0 = cx - 3.5, z0 = cz - 3.5;
+      box(x0, x0 + 7, G, G + 11, z0, z0 + 7, M.WALL);
+      cren(x0, x0 + 7, z0, z0 + .5, G + 11, true); cren(x0, x0 + 7, z0 + 6.5, z0 + 7, G + 11, true);
+      cren(x0, x0 + .5, z0, z0 + 7, G + 11, false); cren(x0 + 6.5, x0 + 7, z0, z0 + 7, G + 11, false);
+      [G + 3, G + 7.5].forEach(y => { slit(x0, x0 + .5, cz - .5, cz, y); slit(x0 + 6.5, x0 + 7, cz - .5, cz, y); slit(cx - .5, cx, z0, z0 + .5, y); slit(cx - .5, cx, z0 + 6.5, z0 + 7, y); });
+    });
+    box(68, 80, G, G + 16, 55, 67, M.WALL);
+    cren(68, 80, 55, 55.5, G + 16, true); cren(68, 80, 66.5, 67, G + 16, true); cren(68, 68.5, 55, 67, G + 16, false); cren(79.5, 80, 55, 67, G + 16, false);
+    [[68, 55], [77.5, 55], [68, 64.5], [77.5, 64.5]].forEach(([x, z]) => box(x, x + 2.5, G + 16, G + 18.5, z, z + 2.5, M.WALL));
+    [G + 5, G + 9.5, G + 13.5].forEach(y => { [58, 61, 64].forEach(z => { box(68, 68.5, y, y + 1.5, z - .5, z, M.DARK); box(79.5, 80, y, y + 1.5, z - .5, z, M.DARK); }); [71, 74, 77].forEach(x => { box(x - .5, x, y, y + 1.5, 55, 55.5, M.DARK); box(x - .5, x, y, y + 1.5, 66.5, 67, M.DARK); }); });
+    box(68, 68.5, G, G + 2.5, 60, 62, M.DARK);
+    box(74, 74.5, G + 16, G + 23, 61, 61.5, M.TIMBER); box(74.5, 78, G + 20, G + 22.5, 61, 61.5, M.RED);
+    box(87, 94, G, G + 9, 57, 65, M.WALL); cren(87, 94, 57, 57.5, G + 9, true); cren(87, 94, 64.5, 65, G + 9, true); cren(93.5, 94, 57, 65, G + 9, false);
+    box(87, 94, G, G + 3.5, 59.5, 62.5, 0); box(93.5, 94, G, G + 3.5, 59.5, 62.5, M.TIMBER);
+    const cot = (x0, z0, w, d) => {
+      box(x0, x0 + w, G, G + 2.5, z0, z0 + d, M.TIMBER);
+      box(x0 + w / 2 - .5, x0 + w / 2 + .5, G, G + 2, z0, z0 + .5, M.DARK);
+      const cz = (v(z0) + v(z0 + d)) / 2, hd = (v(z0 + d) - v(z0)) / 2, yb = v(G + 2.5);
+      for (let iz = v(z0) - 1; iz <= v(z0 + d); iz++) {
+        const dz = Math.abs(iz + .5 - cz), ry = yb + Math.floor(hd + 1 - dz);
+        for (let ix = v(x0) - 1; ix <= v(x0 + w); ix++) for (let y = yb; y <= ry; y++) {
+          const gable = ix === v(x0) - 1 || ix === v(x0 + w);
+          if (y >= ry - 1) set(ix, y, iz, M.ROOF); else if (!gable && iz >= v(z0) && iz < v(z0 + d)) set(ix, y, iz, M.TIMBER);
+        }
+      }
+    };
+    cot(62, 49, 5, 4); cot(62, 69, 5, 4); cot(82, 49, 5, 4); cot(82, 70, 5, 4); cot(70, 70, 5, 4);
+    // the breach in the west wall + craters + rubble ramp
+    for (let y = v(G) - 1; y < v(G + 8); y++) for (let iz = v(50); iz < v(72); iz++) for (let ix = v(57.9); ix < v(59.6); ix++) {
+      const z = iz / S, yy = y / S - G, w = 1.4 + Math.max(0, yy) * 0.6 + (fbm(iz * .3, y * .3, 77) - .5) * 1.1;
+      if (Math.abs(z - 61) < w) set(ix, y, iz, 0);
+    }
+    const crater = (cx, cy, cz, r, s) => { for (let iy = v(cy - r); iy <= v(cy + r); iy++) for (let iz = v(cz - r); iz <= v(cz + r); iz++) for (let ix = v(cx - r); ix <= v(cx + r); ix++) { const d = Math.hypot(ix / S - cx, iy / S - cy, iz / S - cz) + (hash(ix, iz * 31 + iy, s) - .5) * .4; if (d < r && get(ix, iy, iz) === M.WALL) set(ix, iy, iz, 0); } };
+    crater(57.6, G + 3.6, 70.5, 1.4, 1); crater(54.8, G + 7.5, 47, 1.2, 2); crater(57.7, G + 5.2, 51.5, 1, 3);
+    for (let iz = v(52); iz < v(70); iz++) for (let ix = v(48); ix < v(68); ix++) {
+      const x = ix / S, z = iz / S, r = Math.hypot((x - 58.75) / 8.5, (z - 61) / 5.6);
+      if (r >= 1) continue;
+      const n = v(3 * Math.pow(1 - r, 0.85) + (fbm(x * .7, z * .7, 51) - .5) * 0.8), g = gV(ix, iz);
+      for (let k = 0; k < n; k++) if (!get(ix, g + k, iz)) set(ix, g + k, iz, hash(ix, iz * 7 + k, 52) < .12 ? M.WALL : M.RUBBLE);
+    }
+    for (let i = 0; i < 40; i++) {
+      const x = 58.75 + (hash(i, 1, 81) - .5) * 20, z = 61 + (hash(i, 2, 81) - .5) * 14, ix = v(x), iz = v(z), s = hash(i, 3, 81) < .6 ? 1 : 2;
+      if (Math.abs(x - 58.75) < 1 && Math.abs(z - 61) > 3) continue;
+      const y = topV(ix, iz); boxV(ix, ix + s - 1, y, y + s - 1, iz, iz + s - 1, M.WALL);
+    }
+    // siege lines
+    const line = (ax, ay, az, bx, by, bz, t, m) => { const L = Math.hypot(bx - ax, by - ay, bz - az), n = Math.ceil(L * S * 2); for (let i = 0; i <= n; i++) { const k = i / n, px = ax + (bx - ax) * k, py = ay + (by - ay) * k, pz = az + (bz - az) * k; boxV(v(px - t / 2), v(px + t / 2) - 1, v(py - t / 2), v(py + t / 2) - 1, v(pz - t / 2), v(pz + t / 2) - 1, m); } };
+    const tre = (x0, z0) => {
+      let gm = 0; for (let iz = v(z0); iz < v(z0 + 3.5); iz++) for (let ix = v(x0 - .5); ix < v(x0 + 7.5); ix++) gm = Math.max(gm, gV(ix, iz));
+      const y0 = gm / S;
+      box(x0 - .5, x0 + 7.5, y0, y0 + .5, z0, z0 + .5, M.TIMBER); box(x0 - .5, x0 + 7.5, y0, y0 + .5, z0 + 3, z0 + 3.5, M.TIMBER);
+      [x0 - .5, x0 + 3.5, x0 + 7].forEach(x => box(x, x + .5, y0, y0 + .5, z0, z0 + 3.5, M.TIMBER));
+      [z0 + .25, z0 + 3.25].forEach(zz => { line(x0 + .5, y0 + .5, zz, x0 + 3.75, y0 + 6.5, zz, .5, M.TIMBER); line(x0 + 7, y0 + .5, zz, x0 + 3.75, y0 + 6.5, zz, .5, M.TIMBER); });
+      box(x0 + 3.5, x0 + 4, y0 + 6.5, y0 + 7, z0, z0 + 3.5, M.STEEL);
+      const tip = { x: x0 - 3.5, y: y0 + 12.5, z: z0 + 1.75 };
+      line(x0 + 6.5, y0 + 4.5, tip.z, tip.x, tip.y, tip.z, .5, M.TIMBER);
+      box(x0 + 5.5, x0 + 7.5, y0 + 2, y0 + 4, z0 + .75, z0 + 2.75, M.WEIGHT);
+      line(tip.x, tip.y, tip.z, tip.x - .3, tip.y - 2.5, tip.z, .5, M.CLOTH);
+      return tip;
+    };
+    const tipA = tre(32, 49), tipB = tre(34, 69.5);
+    for (let i = 0; i < 6; i++) { const ix = v(28 + (i % 3)), iz = v(59 + ((i / 3) | 0)); const y = topV(ix, iz); boxV(ix, ix + 1, y, y + 1, iz, iz + 1, M.STONE); }
+    const mant = (x, z) => { let g = 0; for (let iz = v(z); iz < v(z + 2.5); iz++) g = Math.max(g, gV(v(x), iz)); for (let k = 0; k < v(2); k++) { const ix = v(x) - Math.floor(k / 3); for (let iz = v(z); iz < v(z + 2.5); iz++) set(ix, g + k, iz, M.TIMBER); } line(x - 1.2, g / S, z + 1.25, x - .3, g / S + 1.3, z + 1.25, .5, M.TIMBER); };
+    mant(45, 53.5); mant(44, 57.5); mant(45, 64.5); mant(44, 68.5);
+    const placed = [];
+    const fig = (x, z, team, spear) => {
+      const ix = v(x), iz = v(z), y0 = topV(ix, iz);
+      if (get(ix, y0 - 1, iz) === M.WATER) return;
+      set(ix, y0, iz, M.CLOTH); set(ix, y0 + 1, iz, team); set(ix, y0 + 2, iz, team); set(ix, y0 + 3, iz, team === M.TAN ? M.SKIN : M.STEEL);
+      if (spear) { boxV(ix + 1, ix + 1, y0 + 1, y0 + 4, iz, iz, M.TIMBER); set(ix + 1, y0 + 5, iz, M.STEEL); }
+    };
+    const scatter = (cx, cz, n, rx, rz, team, s, sp) => { for (let i = 0; i < n * 3 && n > 0; i++) { const x = cx + (hash(i, s, 71) - .5) * 2 * rx, z = cz + (hash(i, s, 72) - .5) * 2 * rz; if (placed.some(p => Math.hypot(p[0] - x, p[1] - z) < 1.1)) continue; placed.push([x, z]); fig(x, z, team, hash(i, s, 73) < sp); n--; } };
+    scatter(54, 61, 18, 3.5, 3, M.RED, 1, .5); scatter(59, 61, 5, .6, 1.2, M.RED, 11, .3);
+    scatter(42, 55.5, 7, 1.2, 2, M.RED, 2, .6); scatter(42, 66.5, 7, 1.2, 2, M.RED, 3, .6);
+    scatter(38, 61, 18, 3, 4, M.RED, 4, .8); scatter(30, 54, 5, 2, 1.5, M.RED, 9, 0); scatter(32, 74.5, 5, 2, 1.2, M.RED, 10, 0);
+    scatter(63.5, 61, 18, 2.5, 4.5, M.BLUE, 5, .7); scatter(66, 52, 6, 2, 1.5, M.BLUE, 6, .5); scatter(70, 61, 6, 1, 3, M.BLUE, 12, .9);
+    scatter(75, 94, 14, 11, 7, M.TAN, 7, 0); scatter(114, 106, 7, 8, 12, M.TAN, 8, 0);
+    // forest; stumps where timber went into the engines
+    for (let z = 2; z < 122; z++) for (let x = 2; x < 120; x++) {
+      const d = Math.hypot(x - CX, z - CZ), rd = Math.abs(x - riverX(z));
+      if (d < 31 || rd < 7 || (x > 90 && z > 84)) continue;
+      if (!((x + z < 100) || (z > 92 && x < 60))) continue;
+      if (fbm(x * .06, z * .06, 21) < 0.5 || hash(x, z, 3) > 0.075) continue;
+      const ix = v(x + hash(x, z, 30) * .8), iz = v(z + hash(x, z, 31) * .8), g = gV(ix, iz);
+      if (get(ix, g - 1, iz) !== M.GRASS) continue;
+      if (hash(x, z, 8) < 0.2 && x + z > 70) { set(ix, g, iz, M.TIMBER); continue; }
+      const th = v(2.5 + hash(x, z, 4) * 2); boxV(ix, ix, g, g + th, iz, iz, M.TIMBER);
+      const R = (1.4 + hash(x, z, 6) * 1.1) * S, cy = g + th + 1, lm = hash(x, z, 5) < .5 ? M.LEAF : M.LEAF2, RC = Math.ceil(R);
+      for (let dy = -RC; dy <= RC; dy++) for (let dz = -RC; dz <= RC; dz++) for (let dx = -RC; dx <= RC; dx++) {
+        const dd = Math.hypot(dx, dy * 1.15, dz) / R; if (dd >= 1) continue;
+        if (dd > .7 && hash(ix + dx, (iz + dz) * 3 + dy * 131, 98) > .55) continue;
+        if (!get(ix + dx, cy + dy, iz + dz)) set(ix + dx, cy + dy, iz + dz, hash(dx + ix, dz * 7 + dy + iz, 99) < .3 ? (lm === M.LEAF ? M.LEAF2 : M.LEAF) : lm);
+      }
+    }
+    return { vox, W, D, H, S, G, get, hash, M, tipA, tipB };
+  }
+
+  async init() {
+    const THREE = await import('https://esm.sh/three@0.160.0');
+    if (this.dead || !this.hostRef.current) return;
+    const host = this.hostRef.current;
+    const wd = this.buildWorld();
+    const { vox, W, D, H, S, G, hash, M } = wd, WD = W * D;
+    const pal = { 1: '#7d8b4f', 2: '#8a6a48', 3: '#8d8a84', 4: '#ddd2b9', 5: '#4a4744', 6: '#c6bca7', 7: '#7a5534', 8: '#a69c8a', 9: '#4f7f8c', 10: '#4f6a3a', 11: '#62803f', 12: '#8c4a3a', 13: '#c9a95a', 14: '#a6a056', 15: '#a88e6a', 16: '#b23a2e', 17: '#2f5d93', 18: '#9aa0a6', 19: '#c79a6b', 20: '#2e2a27', 21: '#5b5650', 22: '#d9a57f', 23: '#3d3530' };
+    const sol = (x, y, z) => y < 0 ? 1 : (x >= 0 && x < W && z >= 0 && z < D && y < H && vox[x + z * W + y * WD]) ? 1 : 0;
+    const tops = new Int16Array(WD);
+    for (let i = 0; i < WD; i++) { for (let y = H - 1; y >= 0; y--) if (vox[i + y * WD]) { tops[i] = y + 1; break; } }
+    const N = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, -1]];
+    const C = [[[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]], [[0, 0, 1], [0, 1, 1], [0, 1, 0], [0, 0, 0]], [[0, 1, 0], [0, 1, 1], [1, 1, 1], [1, 1, 0]], [[1, 0, 1], [1, 1, 1], [0, 1, 1], [0, 0, 1]], [[0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 0]]];
+    const AX = [0, 0, 1, 2, 2], TU = [[1, 2], [1, 2], [0, 2], [0, 1], [0, 1]];
+    let nf = 0;
+    for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) { const t = tops[x + z * W]; for (let y = 0; y < t; y++) { if (!vox[x + z * W + y * WD]) continue; for (let f = 0; f < 5; f++) if (!sol(x + N[f][0], y + N[f][1], z + N[f][2])) nf++; } }
+    const pos = new Uint16Array(nf * 12), nor = new Int8Array(nf * 12), colA = new Uint16Array(nf * 12), idx = new Uint32Array(nf * 6);
+    const base = {}; Object.keys(pal).forEach(k => { base[k] = new THREE.Color(pal[k]); });
+    const AO = [0.52, 0.68, 0.84, 1], AOT = [0.74, 0.84, 0.93, 1], TER = { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 13: 1, 14: 1, 15: 1 }, col = new THREE.Color(), p = [0, 0, 0], q = [0, 0, 0], aos = [0, 0, 0, 0];
+    let fi = 0;
+    for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
+      const t = tops[x + z * W];
+      for (let y = 0; y < t; y++) {
+        const m = vox[x + z * W + y * WD]; if (!m) continue;
+        let colDone = false;
+        for (let f = 0; f < 5; f++) {
+          const n = N[f];
+          if (sol(x + n[0], y + n[1], z + n[2])) continue;
+          if (!colDone) { col.copy(base[m]); const ter = TER[m]; const j = ter ? (m === M.GRASS ? 0.05 : 0.04) : (m === M.LEAF || m === M.LEAF2) ? 0.1 : (m === M.WALL || m === M.RUBBLE) ? 0.07 : 0.05; const hx = ter ? (x >> 1) : x, hy = ter ? (y >> 1) : y, hz = ter ? (z >> 1) : z; col.offsetHSL(0, 0, (hash(hx * 7 + hy * 131, hz * 3, m) - .5) * j); colDone = true; }
+          const u = TU[f][0], w = TU[f][1];
+          for (let k = 0; k < 4; k++) {
+            const c = C[f][k], vi = fi * 4 + k;
+            pos[vi * 3] = x + c[0]; pos[vi * 3 + 1] = y + c[1]; pos[vi * 3 + 2] = z + c[2];
+            nor[vi * 3] = n[0] * 127; nor[vi * 3 + 1] = n[1] * 127; nor[vi * 3 + 2] = n[2] * 127;
+            p[0] = x + n[0]; p[1] = y + n[1]; p[2] = z + n[2];
+            const du = c[u] ? 1 : -1, dw = c[w] ? 1 : -1;
+            q[0] = p[0]; q[1] = p[1]; q[2] = p[2]; q[u] += du; const s1 = sol(q[0], q[1], q[2]);
+            q[u] -= du; q[w] += dw; const s2 = sol(q[0], q[1], q[2]);
+            q[u] += du; const cc = sol(q[0], q[1], q[2]);
+            const ao = (s1 && s2) ? 0 : 3 - (s1 + s2 + cc); aos[k] = ao;
+            const sh = (TER[m] ? AOT : AO)[ao];
+            colA[vi * 3] = Math.min(65535, col.r * sh * 65535); colA[vi * 3 + 1] = Math.min(65535, col.g * sh * 65535); colA[vi * 3 + 2] = Math.min(65535, col.b * sh * 65535);
+          }
+          const b = fi * 4, ii = fi * 6;
+          if (aos[0] + aos[2] < aos[1] + aos[3]) { idx[ii] = b + 1; idx[ii + 1] = b + 2; idx[ii + 2] = b + 3; idx[ii + 3] = b + 1; idx[ii + 4] = b + 3; idx[ii + 5] = b; }
+          else { idx[ii] = b; idx[ii + 1] = b + 1; idx[ii + 2] = b + 2; idx[ii + 3] = b; idx[ii + 4] = b + 2; idx[ii + 5] = b + 3; }
+          fi++;
+        }
+      }
+    }
+    if (this.dead) return;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3, true));
+    geo.setAttribute('color', new THREE.BufferAttribute(colA, 3, true));
+    geo.setIndex(new THREE.BufferAttribute(idx, 1));
+    geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(W / 2, 20, D / 2), W);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+    let sx = null; const el0 = renderer.domElement; el0.style.touchAction = 'none';
+    el0.addEventListener('pointerdown', e => { sx = e.clientX; });
+    el0.addEventListener('pointerup', e => { if (sx === null) return; const dx = e.clientX - sx; sx = null; if (Math.abs(dx) > 40) this.view += dx > 0 ? 1 : -1; });
+    el0.addEventListener('pointercancel', () => { sx = null; });
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
+    host.appendChild(renderer.domElement); renderer.domElement.style.display = 'block';
+    const scene = new THREE.Scene();
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 }));
+    mesh.scale.setScalar(1 / S); mesh.position.set(-W / S / 2, 0, -D / S / 2);
+    mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh);
+    const hemi = new THREE.HemisphereLight('#fff', '#444', 1); scene.add(hemi);
+    const sun = new THREE.DirectionalLight('#fff', 2.5);
+    sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+    Object.assign(sun.shadow.camera, { left: -100, right: 100, top: 100, bottom: -100, near: 1, far: 400 });
+    sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.12;
+    scene.add(sun); scene.add(sun.target);
+    const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 800);
+    Object.assign(this, { THREE, renderer, scene, cam, sun, hemi });
+    this.applyLight();
+    const half = W / S / 2, wp = (x, y, z) => new THREE.Vector3(x - half, y, z - half);
+    const shotGeo = new THREE.BoxGeometry(.9, .9, .9), shotMat = new THREE.MeshStandardMaterial({ color: '#6b655d', roughness: 1 });
+    const dust = []; const dg = new THREE.BoxGeometry(.8, .8, .8);
+    for (let i = 0; i < 36; i++) { const mm = new THREE.Mesh(dg, new THREE.MeshStandardMaterial({ color: i % 3 ? '#b8ad98' : '#c6bca7', transparent: true, roughness: 1 })); mm.visible = false; scene.add(mm); dust.push({ m: mm, v: new THREE.Vector3(), life: 0 }); }
+    const shots = [
+      { a: wp(wd.tipA.x, wd.tipA.y, wd.tipA.z), b: wp(58.6, G + 5, 59.5), off: 0, m: new THREE.Mesh(shotGeo, shotMat) },
+      { a: wp(wd.tipB.x, wd.tipB.y, wd.tipB.z), b: wp(58.6, G + 4, 62.5), off: 0.5, m: new THREE.Mesh(shotGeo, shotMat) }
+    ];
+    shots.forEach(s => scene.add(s.m));
+    const lastPhase = [1, 1];
+    const anchors = [[this.l1, wp(58.5, G + 4, 61)], [this.l2, wp(70, 10, 94)], [this.l3, wp(36, 19, 51)], [this.l4, wp(50.5, 13.5, 80)]];
+    const resize = () => {
+      const w = host.clientWidth, h = host.clientHeight; if (!w || !h) return;
+      renderer.setSize(w, h); const a = w / h, vh = Math.min(120, Math.max(58, 128 / a));
+      Object.assign(cam, { left: -vh * a / 2, right: vh * a / 2, top: vh / 2, bottom: -vh / 2 }); cam.updateProjectionMatrix();
+      this.w = w; this.h = h;
+    };
+    this.ro = new ResizeObserver(resize); this.ro.observe(host); resize();
+    this.setState({ loading: false });
+    const target = new THREE.Vector3(-2, 12, 2), vv = new THREE.Vector3();
+    let prev = performance.now();
+    const tick = (now) => {
+      if (this.dead) return;
+      const dt = Math.min(0.05, (now - prev) / 1000); prev = now;
+      const goal = -Math.PI / 4 + this.view * Math.PI / 2;
+      if (this.props.autoRotate) { this.az += dt * 0.09; this.view = Math.round((this.az + Math.PI / 4) / (Math.PI / 2)); }
+      else this.az += (goal - this.az) * Math.min(1, dt * 6);
+      const el = 0.6, R = 200;
+      cam.position.set(target.x + Math.sin(this.az) * Math.cos(el) * R, target.y + Math.sin(el) * R, target.z + Math.cos(this.az) * Math.cos(el) * R);
+      cam.lookAt(target);
+      const T = now / 1000, period = 3.6;
+      shots.forEach((s, i) => {
+        const ph = ((T / period + s.off) % 1), t = Math.min(1, ph / 0.72);
+        s.m.visible = t < 1; s.m.position.lerpVectors(s.a, s.b, t); s.m.position.y += Math.sin(t * Math.PI) * 24; s.m.rotation.x = T * 4;
+        if (lastPhase[i] < 0.72 && ph >= 0.72) dust.forEach((d, k) => { if (k % 2 !== i) return; d.life = 1; d.m.visible = true; d.m.position.copy(s.b); d.v.set((Math.random() - .3) * 8, Math.random() * 6 + 2, (Math.random() - .5) * 8); });
+        lastPhase[i] = ph;
+      });
+      dust.forEach(d => { if (d.life <= 0) return; d.life -= dt * 0.8; d.v.y -= dt * 6; d.m.position.addScaledVector(d.v, dt); const s = 0.4 + (1 - d.life) * 1.8; d.m.scale.set(s, s, s); d.m.material.opacity = Math.max(0, d.life); if (d.life <= 0) d.m.visible = false; });
+      renderer.render(scene, cam);
+      anchors.forEach(([r, a]) => { const e = r.current; if (!e) return; vv.copy(a).project(cam); e.style.transform = 'translate(' + ((vv.x + 1) / 2 * this.w).toFixed(1) + 'px,' + ((1 - vv.y) / 2 * this.h).toFixed(1) + 'px)'; e.style.opacity = 1; });
+      this.lastTick = performance.now();
+      this.raf = requestAnimationFrame(tick);
+    };
+    tick(performance.now());
+    this.iv = setInterval(() => { if (performance.now() - this.lastTick > 500) { cancelAnimationFrame(this.raf); tick(performance.now()); } }, 250);
+  }
+
+  renderVals() {
+    return {
+      hostRef: this.hostRef, l1: this.l1, l2: this.l2, l3: this.l3, l4: this.l4,
+      loading: this.state.loading, err: this.state.err || '',
+      sel1: this.state.sel === 1, sel2: this.state.sel === 2, sel3: this.state.sel === 3, sel4: this.state.sel === 4,
+      noteOpen: this.state.open, noteClosed: !this.state.open,
+      pick1: () => this.setState({ sel: 1, open: true }), pick2: () => this.setState({ sel: 2, open: true }), pick3: () => this.setState({ sel: 3, open: true }), pick4: () => this.setState({ sel: 4, open: true }),
+      next: () => this.setState(s => ({ sel: s.sel % 4 + 1 })), prev: () => this.setState(s => ({ sel: (s.sel + 2) % 4 + 1 })),
+      closeNote: () => this.setState({ open: false }), openNote: () => this.setState({ open: true }),
+      showLabels: this.props.showLabels ?? true,
+      rotL: () => { this.view -= 1; },
+      rotR: () => { this.view += 1; }
+    };
+  }
+}
+</script>
+</body>
+</html>

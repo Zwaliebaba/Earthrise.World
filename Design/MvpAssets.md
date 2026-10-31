@@ -1,8 +1,12 @@
 # Earthrise.World — MVP assets
 
-**Status:** Decided by the owner, 2026-10-31. This is the catalogue of the MVP's voxel assets, which live in [`Assets/`](../Assets/), in the format of [ADR-005](ADR/ADR-005-content-formats.md). They come from the owner's package, which is kept unchanged in [Reference/SiegePrototype/](Reference/SiegePrototype/). [GameDesign.md](GameDesign.md) and [GameDescription.md](GameDescription.md) govern rules and behaviour; this document and [RendererLook.md](RendererLook.md) govern size, colour and shading.
+**Status:** Decided by the owner, 2026-10-31. This is the catalogue of the MVP's voxel assets, which live in [`Assets/`](../Assets/), in the format of [ADR-005](ADR/ADR-005-content-formats.md). They come from the owner's second package, kept unchanged in [Reference/SiegePrototypeV2/](Reference/SiegePrototypeV2/). It replaced the first, which is still kept in [Reference/SiegePrototype/](Reference/SiegePrototype/). [GameDesign.md](GameDesign.md) and [GameDescription.md](GameDescription.md) govern rules and behaviour; this document and [RendererLook.md](RendererLook.md) govern size, colour and shading.
 
-Every asset uses 0.5 m voxels, so one voxel is 0.125 m³. Sizes are given as width × height × depth, with depth measured front to back.
+Assets come in two voxel sizes ([ADR-006](ADR/ADR-006-voxel-sizes.md)):
+- **World assets** use 1 m voxels, so one voxel is 1 m³. These are the templates, the earthworks and the material samples. Their file names end in `-1m`.
+- **Models** use 0.5 m voxels, so one voxel is 0.125 m³. These are units, engines and squads. Their file names end in `-05m`.
+
+Sizes are given as width × height × depth, with depth measured front to back. The world assets are automatic conversions from the first package's 0.5 m drawings, and are to be redrawn natively at 1 m (Known issues).
 
 ## Templates
 
@@ -10,78 +14,88 @@ Buildings, used by both the simulation and the client. The costs are counted und
 
 | Id | Template | Size (m) | Cost | Critical part | Notes |
 |---|---|---|---|---|---|
-| T1 | Hall | 11 × 6.5 × 7 | 124 m³ timber | Hall frame (the whole building) | The drop site for everything. The hall is the keep until the keep is complete. |
-| T2 | Keep | 12 × 21.5 × 15 | 1,375.5 m³ stone + 2.875 m³ timber | Great tower | 12 × 12 m and 16 m high, with a forebuilding. The 21.5 m includes the banner. Hollow: 1.5 m walls with floors. |
-| T3 | Stone wall, standard | 8 × 6.5 × 1.5 | 72 m³ stone | None: a section opens by the breach rule | 5.5 m of wall and 1 m of merlons. That is the same 72 m³ as GameDescription.md's 8 × 1.5 × 6 m. |
-| T4 | Tower | 7 × 12 × 7 | 410 m³ stone | Firing platform | Hollow. Arrow slits are decorations. |
-| T5 | Gatehouse | 9 × 12 × 7 | 578.5 m³ stone + 7 m³ timber | Gate | The garrison fires down into the passage. |
-| T6 | Palisade | 8 × 4 × 2 | 18.625 m³ timber | None | |
-| T7 | Palisade gate | 8 × 4.5 × 1 | 15.5 m³ timber | Gate | The grid has 1 m of padding in front, which the baker trims. |
-| T8 | Quarry yard | 8 × 3.5 × 6 | 20.25 m³ timber | Shed | The stone drop site. Its stone stack is stock. |
-| T9 | Lumber camp | 7.5 × 3 × 6 | 18.5 m³ timber | Shed | The timber drop site. Its log stack is stock. |
+| T1 | Hall | 11 × 7 × 7 | 188 m³ timber | Hall frame (the whole building) | The drop site for everything. The hall is the keep until the keep is complete. The roof costs as timber. |
+| T2 | Keep | 12 × 19 × 15 | 1,722 m³ stone | Great tower | A 12 × 12 m great tower with a forebuilding in front. Hollow: 2 m walls, with a floor every 5 m. |
+| T3 | Stone wall, standard | 8 × 7 × 2 | 96 m³ stone | None: a section opens by the breach rule | 5 m of solid wall and 2 m of crenellation above it. That is the same 96 m³ as GameDescription.md's 8 × 2 × 6 m. |
+| T4 | Tower | 7 × 12 × 7 | 479 m³ stone | Firing platform | Hollow, with 2 m walls. The platform is the top 3 m, merlons included. |
+| T5 | Gatehouse | 9 × 12 × 7 | 585 m³ stone + 12 m³ timber | Gate | The gate is 3 m wide and 4 m high. The garrison fires down into the passage. |
+| T6 | Palisade | 8 × 4 × 2 | 35 m³ timber | None | |
+| T7 | Palisade gate | 8 × 5 × 1 | 32 m³ timber | Gate | Its iron fittings cost as timber. The grid has 1 m of padding in front, which the baker trims. |
+| T8 | Quarry yard | 7 × 3 × 6 | 32 m³ timber | Shed | The stone drop site. Its stone stack is stock. The shed has no posts (Known issues). |
+| T9 | Lumber camp | 7 × 3 × 6 | 30 m³ timber | Shed | The timber drop site. Its log stack is stock. The shed has no posts (Known issues). |
 
 ## Models
 
-Drawn by the client only. Models set no costs and no rules (ADR-005, decision 8). Each unit type is one 1 × 1 × 4 figure with one cue that tells it apart.
+Drawn by the client only. Models set no costs and no rules (ADR-005, decision 8). Each unit type is one figure: a body of 1 × 1 × 4 voxels, 0.5 × 0.5 × 2 m, with one cue beside it that tells it apart. Far away, units are drawn as impostors (RendererLook.md).
 
-| Id | Model | Figure (voxels) | Cue |
-|---|---|---|---|
-| U1 | Laborer | 2 × 5 × 1 | Tan body, bare head, pick on the shoulder |
-| U2 | Spearman | 2 × 7 × 1 | Spear tip 1.5 m above the helmet |
-| U3 | Archer | 2 × 5 × 1 | Leather hood, bow tip at the shoulder |
-| U4 | Outrider | 1 × 5 × 5 | A horse, 2.5 m tall |
-| U5 | Man-at-arms | 2 × 4 × 2 | All iron, with a faction shield in front |
-| S2 | Sapper | 3 × 5 × 1 | Iron shoulders, raised pick |
-| S1 | Battering ram | 3 × 3.5 × 7.5 m | Hide roof, iron-headed log |
-| S3 | Trebuchet | 11.5 × 13 × 3.5 m | 12 m arm, counterweight. A static model in the MVP. |
+| Id | Model | Figure (voxels) | Size (m) | Cue |
+|---|---|---|---|---|
+| U1 | Laborer | 2 × 5 × 1 | 1 × 2.5 × 0.5 | Tan body, bare head, pick on the shoulder |
+| U2 | Spearman | 2 × 7 × 1 | 1 × 3.5 × 0.5 | Spear tip 1.5 m above the helmet |
+| U3 | Archer | 2 × 5 × 1 | 1 × 2.5 × 0.5 | Leather hood, bow tip at the shoulder |
+| U4 | Outrider | 1 × 5 × 5 | 0.5 × 2.5 × 2.5 | A horse, 2.5 m tall |
+| U5 | Man-at-arms | 2 × 4 × 2 | 1 × 2 × 1 | All iron, with a faction shield in front |
+| S2 | Sapper | 3 × 5 × 1 | 1.5 × 2.5 × 0.5 | Iron shoulders, raised pick |
+| S1 | Battering ram | 6 × 7 × 15 | 3 × 3.5 × 7.5 | Hide roof, iron-headed log |
+| S3 | Trebuchet | 23 × 26 × 7 | 11.5 × 13 × 3.5 | 12 m arm, counterweight. A static model in the MVP. |
+
+The figures are the same as in the first package, which already drew them at 0.5 m.
 
 ## Illustrations
 
 These are for documentation and tests, and are never baked:
-- **Squads:** U1–U5 and S2, in groups of six (outriders in threes).
-- **E1, ditch and rampart:** the standard ditch profile.
-- **E2, deep foundation:** a 42 m³ wall on a 36 m³ foundation that reaches bedrock 3 m down, cut away at the front.
-- **M1, ground strata:** grass, earth, common rock, a lens of building stone, and bedrock.
-- **M2, rubble keeps its material:** heaps of stone, timber and earth rubble.
+- **Squads** (0.5 m): U1–U5 and S2, in groups of six (outriders in threes).
+- **E1, ditch and rampart** (1 m): the standard ditch, with its spoil as a rampart 2 m high on the side towards the keep.
+- **E2, deep foundation** (1 m): a 56 m³ wall on a 48 m³ foundation that reaches bedrock 3 m down, cut away at the front.
+- **M1, ground strata** (1 m): grass, earth, common rock, a lens of building stone, and bedrock.
+- **M2, rubble keeps its material** (1 m): heaps of stone, timber and earth rubble.
 
-## Decided with the package
+## Decided with the packages
 
-The package made choices the design documents had not fixed. The owner adopted them with the package:
+The packages made choices the design documents had not fixed. The owner adopted them with the packages:
 
 - **Proportions:** the hall, keep, gatehouse, tower and drop sites as in the table above.
 - **Critical parts:** the hall's frame and each drop site's shed, as well as the gate, the firing platform and the great tower that GameDescription.md already names.
-- **Hollow buildings:** towers and the keep are hollow, with 1.5 m walls and floors, so they cost less than their outline.
-- **The standard ditch** is 5 m wide at the top and 2 m deep, with 1:1 sides. Those are 45°, the slope at which earth stands. The rampart is built from the spoil on the side towards the keep.
+- **Hollow buildings:** towers and the keep are hollow, with 2 m walls and floors, so they cost less than their outline. The first package's walls were 1.5 m, which the 1 m grid cannot draw.
+- **The standard ditch** is 5 m wide at the top and 2 m deep, with 1:1 sides. Those are 45°, the slope at which earth stands. On the 1 m grid the sides step: 4 m wide in the top metre and 2 m in the second, which is 6 m² of cross-section, the same as the 1:1 profile. The rampart is built from the spoil on the side towards the keep.
 - **Unit cues:** one cue per unit type, as listed under Models.
 - **Render-only colours:** horse #5e4330, leather (hides and hoods) #6e5a3e, timber rubble #5f4530 and earth rubble #7d6044. Rock rubble is #7f7c77, which is provisional.
 
 ## Known issues
 
-- **E1's rampart holds 44 m³ against 40 m³ dug.** The spoil and the rampart must be equal, as GameDescription.md and the package's own notes both say, so the profile needs solving again.
-- **E1's new rampart is topped with grass.** Under RendererLook.md only the generator places grass, so a fresh rampart is bare earth. E1 is an illustration, so this affects nothing that is baked.
-- **The package's costs left decorations out.** `Manifest.json` keeps each original figure as `packageCostM3`, next to the recount.
-- **The key scene builds its own walls 7 m high.** The T3 template is 6.5 m including its merlons. Where they differ, the templates win (MvpPlan.md, M1).
+- **The world assets are automatic conversions.** The package made each 1 m voxel from the majority of 2 × 2 × 2 voxels of the 0.5 m drawing. T1–T7 are to be redrawn natively at 1 m before the M4 Siege castle is final, and T8 and T9 before M6.
+- **T8's and T9's sheds have no posts.** The conversion dropped the 0.5 m posts:
+  - T9's roof touches nothing below it, so the critical part is unsupported the moment it is placed ([ADR-004](ADR/ADR-004-rule-based-destruction.md)).
+  - T8's roof stands only on the stone stack, which is stock, and a 2 m timber post beside it touches nothing. Hauling the stone away would bring the roof down.
+  - The asset check now tests for this (ADR-005).
+- **E1 does not hold its own spoil.** The rampart holds 48 m³ against 32 m³ dug, and the spoil and the rampart must be equal (GameDescription.md). The conversion flattened the ditch to 3 m wide and 1 m deep, with a 1 m slot 2 m deep. Redrawing the ditch at the decided profile digs exactly 48 m³ for its 8 m, which fixes both without touching the rampart.
+- **E1's new rampart is topped with grass.** Only the generator places grass (RendererLook.md), so a fresh rampart is bare earth. E1 is an illustration, so this affects nothing that is baked.
+- **T2's banner was removed.** The conversion dropped its pole and left two faction voxels floating. Banners are 0.5 m models (ADR-006). T2's preview still shows the banner.
+- **The package's costs left decorations out.** `Manifest.json` keeps each original figure as `packageCostM3`, next to the recount. T1, T2, T4 and T7 cost slightly more than the package said.
+- **The scene prompt builds its walls 1.5 m thick.** T3 is 2 m. Where they differ, the templates win ([MvpPlan.md](MvpPlan.md), M1).
 
 ## Previews
 
-![T1 Hall](../Assets/Templates/earthrise-t1-hall.png)
-![T2 Keep](../Assets/Templates/earthrise-t2-keep.png)
-![T3 Stone wall](../Assets/Templates/earthrise-t3-stone-wall-standard.png)
-![T4 Tower](../Assets/Templates/earthrise-t4-tower.png)
-![T5 Gatehouse](../Assets/Templates/earthrise-t5-gatehouse.png)
-![T6 Palisade](../Assets/Templates/earthrise-t6-palisade.png)
-![T7 Palisade gate](../Assets/Templates/earthrise-t7-palisade-gate.png)
-![T8 Quarry yard](../Assets/Templates/earthrise-t8-quarry-yard.png)
-![T9 Lumber camp](../Assets/Templates/earthrise-t9-lumber-camp.png)
-![S1 Battering ram](../Assets/Models/earthrise-s1-battering-ram.png)
-![S3 Trebuchet](../Assets/Models/earthrise-s3-trebuchet.png)
-![U1 Laborers](../Assets/Illustrations/earthrise-u1-laborers.png)
-![U2 Spearmen](../Assets/Illustrations/earthrise-u2-spearmen.png)
-![U3 Archers](../Assets/Illustrations/earthrise-u3-archers.png)
-![U4 Outriders](../Assets/Illustrations/earthrise-u4-outriders.png)
-![U5 Men-at-arms](../Assets/Illustrations/earthrise-u5-men-at-arms.png)
-![S2 Sappers](../Assets/Illustrations/earthrise-s2-sappers.png)
-![E1 Ditch and rampart](../Assets/Illustrations/earthrise-e1-ditch-rampart.png)
-![E2 Deep foundation](../Assets/Illustrations/earthrise-e2-deep-foundation.png)
-![M1 Ground strata](../Assets/Illustrations/earthrise-m1-ground-strata.png)
-![M2 Rubble keeps its material](../Assets/Illustrations/earthrise-m2-rubble-keeps-its-material.png)
+The previews are the package's own renderings; nothing reads them.
+
+![T1 Hall](../Assets/Templates/earthrise-t1-hall-1m.png)
+![T2 Keep](../Assets/Templates/earthrise-t2-keep-1m.png)
+![T3 Stone wall](../Assets/Templates/earthrise-t3-stone-wall-standard-1m.png)
+![T4 Tower](../Assets/Templates/earthrise-t4-tower-1m.png)
+![T5 Gatehouse](../Assets/Templates/earthrise-t5-gatehouse-1m.png)
+![T6 Palisade](../Assets/Templates/earthrise-t6-palisade-1m.png)
+![T7 Palisade gate](../Assets/Templates/earthrise-t7-palisade-gate-1m.png)
+![T8 Quarry yard](../Assets/Templates/earthrise-t8-quarry-yard-1m.png)
+![T9 Lumber camp](../Assets/Templates/earthrise-t9-lumber-camp-1m.png)
+![S1 Battering ram](../Assets/Models/earthrise-s1-battering-ram-05m.png)
+![S3 Trebuchet](../Assets/Models/earthrise-s3-trebuchet-05m.png)
+![U1 Laborers](../Assets/Illustrations/earthrise-u1-laborers-05m.png)
+![U2 Spearmen](../Assets/Illustrations/earthrise-u2-spearmen-05m.png)
+![U3 Archers](../Assets/Illustrations/earthrise-u3-archers-05m.png)
+![U4 Outriders](../Assets/Illustrations/earthrise-u4-outriders-05m.png)
+![U5 Men-at-arms](../Assets/Illustrations/earthrise-u5-men-at-arms-05m.png)
+![S2 Sappers](../Assets/Illustrations/earthrise-s2-sappers-05m.png)
+![E1 Ditch and rampart](../Assets/Illustrations/earthrise-e1-ditch-rampart-1m.png)
+![E2 Deep foundation](../Assets/Illustrations/earthrise-e2-deep-foundation-1m.png)
+![M1 Ground strata](../Assets/Illustrations/earthrise-m1-ground-strata-1m.png)
+![M2 Rubble keeps its material](../Assets/Illustrations/earthrise-m2-rubble-keeps-its-material-1m.png)

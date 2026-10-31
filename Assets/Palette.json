@@ -1,6 +1,6 @@
 {
- "colorSpace": "sRGB (convert to linear before lighting)",
- "jitter": "HSL lightness ± jitter/2 from hash(cell, material); terrain uses 1 m cells (voxel >> 1)",
+ "colorSpace": "sRGB → linear before lighting",
+ "jitter": "HSL lightness ± jitter/2 from hash(cell, material); world cell = 1 m voxel, model cell = 0.5 m voxel",
  "ao": {
   "structure": [
    0.52,
@@ -13,7 +13,13 @@
    0.84,
    0.93,
    1
-  ]
+  ],
+  "modelsSampleWorld": true
+ },
+ "grids": {
+  "world": "one voxel is 1 m: terrain, templates, earthworks, rubble, trees; simulated (ADR-006)",
+  "models": "one voxel is 0.5 m: units, engines, mantlets, banners, debris; never simulated (ADR-006)",
+  "both": "may appear in the world and in models"
  },
  "behaviors": {
   "earth": "earth",
@@ -25,7 +31,7 @@
   "water": "water",
   "stoneRubble": "rubble that yields stone",
   "wasteRubble": "rubble that yields nothing",
-  "inherit": "decoration: behaves as the most common non-decorative face neighbour (ADR-005)",
+  "inherit": "decoration: behaves as the most common non-decorative face neighbour of its own kind (ADR-005)",
   "modelOnly": "appears only in models, never in the world grid"
  },
  "materials": [
@@ -34,46 +40,56 @@
    "name": "grass",
    "hex": "#7d8b4f",
    "jitter": 0.05,
-   "jitterCell": "1m",
+   "jitterCell": "voxel",
    "aoSet": "terrain",
+   "grid": "world",
    "behavior": "earth",
-   "note": "Only the generator places it; edits never create it, so dug ground shows earth."
+   "packageSimulationMaterial": "earth",
+   "note": "Only the generator places it; edits never create it, so dug ground shows earth (RendererLook.md)."
   },
   {
    "index": 2,
    "name": "earth",
    "hex": "#8a6a48",
    "jitter": 0.04,
-   "jitterCell": "1m",
+   "jitterCell": "voxel",
    "aoSet": "terrain",
-   "behavior": "earth"
+   "grid": "world",
+   "behavior": "earth",
+   "packageSimulationMaterial": "earth"
   },
   {
    "index": 3,
    "name": "common rock",
    "hex": "#8d8a84",
    "jitter": 0.04,
-   "jitterCell": "1m",
+   "jitterCell": "voxel",
    "aoSet": "terrain",
-   "behavior": "commonRock"
+   "grid": "world",
+   "behavior": "commonRock",
+   "packageSimulationMaterial": "common rock"
   },
   {
    "index": 4,
    "name": "building stone",
    "hex": "#ddd2b9",
    "jitter": 0.04,
-   "jitterCell": "1m",
+   "jitterCell": "voxel",
    "aoSet": "terrain",
-   "behavior": "buildingStone"
+   "grid": "world",
+   "behavior": "buildingStone",
+   "packageSimulationMaterial": "building stone"
   },
   {
    "index": 5,
    "name": "bedrock",
    "hex": "#4a4744",
    "jitter": 0.04,
-   "jitterCell": "1m",
+   "jitterCell": "voxel",
    "aoSet": "terrain",
-   "behavior": "bedrock"
+   "grid": "world",
+   "behavior": "bedrock",
+   "packageSimulationMaterial": "bedrock"
   },
   {
    "index": 6,
@@ -82,7 +98,9 @@
    "jitter": 0.07,
    "jitterCell": "voxel",
    "aoSet": "structure",
+   "grid": "both",
    "behavior": "buildingStone",
+   "packageSimulationMaterial": "building stone (built)",
    "note": "Named \"dressed stone\" in the package. Stone laid by a template; the Masons' dressed-stone upgrade gets an index of its own."
   },
   {
@@ -92,7 +110,9 @@
    "jitter": 0.05,
    "jitterCell": "voxel",
    "aoSet": "structure",
-   "behavior": "timber"
+   "grid": "both",
+   "behavior": "timber",
+   "packageSimulationMaterial": "timber"
   },
   {
    "index": 8,
@@ -101,38 +121,43 @@
    "jitter": 0.07,
    "jitterCell": "voxel",
    "aoSet": "structure",
-   "behavior": "stoneRubble"
+   "grid": "both",
+   "behavior": "stoneRubble",
+   "packageSimulationMaterial": "rubble(from: building stone)"
   },
   {
    "index": 9,
-   "name": "leaves A",
-   "hex": "#4f6a3a",
-   "jitter": 0.1,
-   "jitterCell": "voxel",
-   "aoSet": "structure",
-   "behavior": "leaves",
-   "source": "Design/RendererLook.md"
-  },
-  {
-   "index": 10,
-   "name": "leaves B",
-   "hex": "#62803f",
-   "jitter": 0.1,
-   "jitterCell": "voxel",
-   "aoSet": "structure",
-   "behavior": "leaves",
-   "source": "Design/RendererLook.md"
-  },
-  {
-   "index": 11,
    "name": "water",
    "hex": "#4f7f8c",
    "jitter": 0.03,
    "jitterCell": "voxel",
    "aoSet": "structure",
+   "grid": "world",
    "behavior": "water",
-   "source": "Design/RendererLook.md",
+   "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)",
    "note": "Shallow water draws lighter, so fords show."
+  },
+  {
+   "index": 10,
+   "name": "leaves A",
+   "hex": "#4f6a3a",
+   "jitter": 0.1,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "world",
+   "behavior": "leaves",
+   "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)"
+  },
+  {
+   "index": 11,
+   "name": "leaves B",
+   "hex": "#62803f",
+   "jitter": 0.1,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "world",
+   "behavior": "leaves",
+   "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)"
   },
   {
    "index": 12,
@@ -141,37 +166,42 @@
    "jitter": 0.05,
    "jitterCell": "voxel",
    "aoSet": "structure",
-   "behavior": "timber"
+   "grid": "world",
+   "behavior": "timber",
+   "packageSimulationMaterial": "timber"
   },
   {
    "index": 13,
    "name": "field A",
    "hex": "#c9a95a",
    "jitter": 0.04,
-   "jitterCell": "1m",
+   "jitterCell": "voxel",
    "aoSet": "terrain",
+   "grid": "world",
    "behavior": "earth",
-   "source": "Design/RendererLook.md"
+   "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)"
   },
   {
    "index": 14,
    "name": "field B",
    "hex": "#a6a056",
    "jitter": 0.04,
-   "jitterCell": "1m",
+   "jitterCell": "voxel",
    "aoSet": "terrain",
+   "grid": "world",
    "behavior": "earth",
-   "source": "Design/RendererLook.md"
+   "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)"
   },
   {
    "index": 15,
    "name": "road",
    "hex": "#a88e6a",
    "jitter": 0.04,
-   "jitterCell": "1m",
+   "jitterCell": "voxel",
    "aoSet": "terrain",
+   "grid": "world",
    "behavior": "earth",
-   "source": "Design/RendererLook.md"
+   "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)"
   },
   {
    "index": 16,
@@ -180,8 +210,9 @@
    "jitter": 0.05,
    "jitterCell": "voxel",
    "aoSet": "structure",
-   "note": "Faction colour, swapped per owner at draw time. In a template (a banner) it behaves as its host.",
-   "behavior": "inherit"
+   "grid": "models",
+   "behavior": "inherit",
+   "note": "Faction colour, swapped per owner at draw time. Banners are 0.5 m models (ADR-006); in a template it behaves as its host."
   },
   {
    "index": 18,
@@ -190,6 +221,7 @@
    "jitter": 0.05,
    "jitterCell": "voxel",
    "aoSet": "structure",
+   "grid": "both",
    "behavior": "inherit",
    "note": "In a template (gate fittings) it behaves as its host."
   },
@@ -200,6 +232,7 @@
    "jitter": 0.05,
    "jitterCell": "voxel",
    "aoSet": "structure",
+   "grid": "models",
    "behavior": "modelOnly"
   },
   {
@@ -209,7 +242,9 @@
    "jitter": 0.05,
    "jitterCell": "voxel",
    "aoSet": "structure",
+   "grid": "world",
    "behavior": "inherit",
+   "packageSimulationMaterial": "building stone (built)",
    "note": "Painted on a solid voxel; behaves as its host."
   },
   {
@@ -219,6 +254,7 @@
    "jitter": 0.05,
    "jitterCell": "voxel",
    "aoSet": "structure",
+   "grid": "models",
    "behavior": "modelOnly"
   },
   {
@@ -228,6 +264,7 @@
    "jitter": 0.05,
    "jitterCell": "voxel",
    "aoSet": "structure",
+   "grid": "models",
    "behavior": "modelOnly"
   },
   {
@@ -237,6 +274,7 @@
    "jitter": 0.05,
    "jitterCell": "voxel",
    "aoSet": "structure",
+   "grid": "models",
    "behavior": "inherit",
    "note": "In a template it behaves as its host."
   },
@@ -247,6 +285,7 @@
    "jitter": 0.05,
    "jitterCell": "voxel",
    "aoSet": "structure",
+   "grid": "models",
    "behavior": "modelOnly"
   },
   {
@@ -256,7 +295,9 @@
    "jitter": 0.07,
    "jitterCell": "voxel",
    "aoSet": "structure",
-   "behavior": "wasteRubble"
+   "grid": "both",
+   "behavior": "wasteRubble",
+   "packageSimulationMaterial": "rubble(from: timber)"
   },
   {
    "index": 26,
@@ -265,7 +306,9 @@
    "jitter": 0.05,
    "jitterCell": "voxel",
    "aoSet": "structure",
-   "behavior": "wasteRubble"
+   "grid": "both",
+   "behavior": "wasteRubble",
+   "packageSimulationMaterial": "rubble(from: earth)"
   },
   {
    "index": 27,
@@ -274,6 +317,7 @@
    "jitter": 0.05,
    "jitterCell": "voxel",
    "aoSet": "structure",
+   "grid": "models",
    "behavior": "modelOnly"
   },
   {
@@ -283,9 +327,10 @@
    "jitter": 0.07,
    "jitterCell": "voxel",
    "aoSet": "structure",
+   "grid": "world",
    "behavior": "wasteRubble",
-   "source": "Design/RendererLook.md",
-   "note": "Provisional colour: common rock at lower lightness, tuned in the spike."
+   "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)",
+   "note": "Provisional colour, not in the package: common rock at lower lightness, tuned in the spike."
   }
  ]
 }

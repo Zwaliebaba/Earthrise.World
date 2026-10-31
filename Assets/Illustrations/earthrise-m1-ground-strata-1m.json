@@ -1,0 +1,166 @@
+{
+ "id": "M1",
+ "name": "Ground strata",
+ "voxelSize": 1,
+ "kind": "world template (1 m grid)",
+ "size": {
+  "x": 6,
+  "y": 7,
+  "z": 6
+ },
+ "axes": "y up, +z front, layers[y][z][x]",
+ "criticalPart": null,
+ "costM3": {
+  "stone": 12,
+  "timber": 0,
+  "foundation": 0
+ },
+ "legend": {
+  "e": {
+   "material": 5,
+   "name": "bedrock",
+   "hex": "#4a4744"
+  },
+  "c": {
+   "material": 3,
+   "name": "common rock",
+   "hex": "#8d8a84"
+  },
+  "b": {
+   "material": 2,
+   "name": "earth",
+   "hex": "#8a6a48"
+  },
+  "d": {
+   "material": 4,
+   "name": "building stone",
+   "hex": "#ddd2b9"
+  },
+  "a": {
+   "material": 1,
+   "name": "grass",
+   "hex": "#7d8b4f"
+  }
+ },
+ "partsLegend": {
+  "1": "critical part",
+  "2": "foundation",
+  "3": "stock (not costed)"
+ },
+ "layers": [
+  [
+   "eeeeee",
+   "eeeeee",
+   "eeeeee",
+   "eeeeee",
+   "eeeeee",
+   "eeeeee"
+  ],
+  [
+   "cccccc",
+   "cccccc",
+   "cccccc",
+   "cecccc",
+   "cceccc",
+   "eeeccc"
+  ],
+  [
+   "bbbbbb",
+   "bbbbbb",
+   "ccdddd",
+   "...ddd",
+   "...ddd",
+   "...ddc"
+  ],
+  [
+   "bbbbbb",
+   "bbbbbb",
+   "bbbbbb",
+   "...bbb",
+   "...ccc",
+   "...ccc"
+  ],
+  [
+   "aaaaaa",
+   "aaaaaa",
+   "bbbbbb",
+   "...bbb",
+   "...bbb",
+   "...bbb"
+  ],
+  [
+   "......",
+   "......",
+   "aaaaaa",
+   "...aaa",
+   "...bbb",
+   "...bbb"
+  ],
+  [
+   "......",
+   "......",
+   "......",
+   "......",
+   "...aaa",
+   "...aaa"
+  ]
+ ],
+ "parts": [
+  [
+   "......",
+   "......",
+   "......",
+   "......",
+   "......",
+   "......"
+  ],
+  [
+   "......",
+   "......",
+   "......",
+   "......",
+   "......",
+   "......"
+  ],
+  [
+   "......",
+   "......",
+   "......",
+   "......",
+   "......",
+   "......"
+  ],
+  [
+   "......",
+   "......",
+   "......",
+   "......",
+   "......",
+   "......"
+  ],
+  [
+   "......",
+   "......",
+   "......",
+   "......",
+   "......",
+   "......"
+  ],
+  [
+   "......",
+   "......",
+   "......",
+   "......",
+   "......",
+   "......"
+  ],
+  [
+   "......",
+   "......",
+   "......",
+   "......",
+   "......",
+   "......"
+  ]
+ ]
+}
