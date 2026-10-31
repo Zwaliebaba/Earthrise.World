@@ -268,6 +268,7 @@ At the end of M1:
 | 4 | 2026-10-31 | | #12 | | The client half of the bake, and the asset check |
 | 5 | 2026-10-31 | | #13, #15 | | ADR-001's pipeline: the voxel pass and its render tests, then the spike's first scene of chunks and models |
 | 6 | 2026-10-31 | | #16 | | The strategy camera and its controls |
+| 8 | 2026-10-31 | | #17 | | The render scale and its bilinear upscale |
 
 ### M2 — Headless simulation
 
