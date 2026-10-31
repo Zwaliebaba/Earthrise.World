@@ -82,7 +82,10 @@ LRESULT CALLBACK Window::Procedure(HWND _window, UINT _message, WPARAM _wParam, 
   {
   case WM_DPICHANGED:
   {
-    // Windows suggests the rectangle that keeps the window's physical size on the new monitor.
+    // Windows suggests the rectangle that keeps the window's physical size on the new monitor, and
+    // passes it as a pointer in lParam. The cast is the Win32 contract, and what the check guards,
+    // optimization lost to an integer's pointer provenance, does not arise in a message handler.
+    // NOLINTNEXTLINE(performance-no-int-to-ptr)
     const RECT& suggested = *reinterpret_cast<const RECT*>(_lParam);
     SetWindowPos(_window, nullptr, suggested.left, suggested.top, suggested.right - suggested.left, suggested.bottom - suggested.top,
                  SWP_NOZORDER | SWP_NOACTIVATE);

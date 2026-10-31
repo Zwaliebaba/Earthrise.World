@@ -63,6 +63,9 @@ def Commands(_root, _clangTidy, _configuration, _platform):
 
 
 def Main(_arguments):
+  # A redirected stdout on Windows is cp1252, which cannot print clang-tidy's UTF-8 diagnostics or
+  # this script's own separators. CI reads it as UTF-8, as a console does since PEP 528.
+  sys.stdout.reconfigure(encoding="utf-8")
   parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
   parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
   parser.add_argument("--clang-tidy", default="clang-tidy")
@@ -97,7 +100,7 @@ def Main(_arguments):
 
   def Run(_entry):
     source, command = _entry
-    result = subprocess.run(command, capture_output=True, text=True, cwd=root, check=False)
+    result = subprocess.run(command, capture_output=True, encoding="utf-8", errors="replace", cwd=root, check=False)
     return source, result
 
   failures = 0

@@ -5,7 +5,11 @@
 // Headless measurements (MvpPlan.md, M1, spike question 6). For now it times filling one chunk;
 // the support search and the navigation rebuild follow. Wall-clock time is fine here: the bench
 // measures the simulation, it is not part of it.
-int main()
+
+namespace
+{
+
+int FillOneChunk()
 {
   Protocol::Chunk chunk;
   const auto start = std::chrono::steady_clock::now();
@@ -22,4 +26,21 @@ int main()
   const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start);
   std::println("SimulationBench: filled one chunk, {} voxels, in {} us", chunk.SolidCount(), elapsed.count());
   return chunk.SolidCount() == Protocol::Chunk::VOXEL_COUNT ? 0 : 1;
+}
+
+} // namespace
+
+int main()
+{
+  // std::println throws std::format_error on a bad format string. A bench that fails says why and
+  // exits non-zero, rather than letting the exception escape main.
+  try
+  {
+    return FillOneChunk();
+  }
+  catch (const std::exception& error)
+  {
+    std::fputs(error.what(), stderr);
+    return 1;
+  }
 }
