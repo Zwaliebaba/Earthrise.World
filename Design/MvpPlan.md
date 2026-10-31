@@ -176,7 +176,10 @@ Each CI guard is removed once its input is there.
 **Progress (2026-10-31):**
 - The three checkers and the property sheet have landed, with `Build/TestCheckers.py`: the good fixture and the repository pass, and 36 broken variants each fail for their own reason.
 - CI runs them: the project checker in the Windows job, and the format check and the checker tests in the Linux job.
-- The paper tests are in progress; their reports go in `Design/Review/PaperTests/`.
+- The three paper tests have run; their reports are in `Design/Review/PaperTests/`, and their values are in GameDesign.md, *2026-10-31: the paper tests' values*:
+  - **The Siege route table** passes all three criteria under the owner's decisions and its Proposed fixes.
+  - **The Hold rule test** fails under the owner's three rule changes (1 of 3 layouts). Which of a quarry's two effects wins is open with the owner.
+  - **The breach-prediction prototype** is built, and waits for its twelve people. Their median accuracy is M0's remaining gate.
 
 **Done when:**
 - the checkers run in CI;

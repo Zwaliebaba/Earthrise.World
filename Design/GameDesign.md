@@ -186,6 +186,40 @@ The owner settled the open items of the readiness review ([Review/MvpReadiness-2
 8. **The MVP trebuchet switches between baked poses:** packed, cocked and released, three static models.
 9. **Skirmish has one or two AI houses.**
 
+### 2026-10-31: the paper tests' values
+
+M0's three paper tests ran: the [Hold rule test](Review/PaperTests/HoldRuleTest.md), the [breach-prediction prototype](Review/PaperTests/BreachPrediction.md) and the [Siege route table](Review/PaperTests/SiegeRouteTable.md). After their first run the owner settled the values below marked Decided. The rest are the implementer's, Proposed with their reasons in the reports, for the owner to confirm or change (*Starting the MVP*, item 7).
+
+**Decided (owner, 2026-10-31):**
+1. **Stone spans 2 m.** T2's two floors and its roof are timber: 192 voxels, which make the keep 1,530 m³ of stone and 192 m³ of timber. Every template's stone now stands at that span.
+2. **Masonry is ordinary stone.** Palette index 6, masonry, is the stone a template lays, which the asset package calls dressed stone. It uses the crater table's stone column, and its rubble yields stone. The Masons' dressed-stone upgrade gets a palette index of its own.
+3. **Repair's pass mark is for one engine.** With one engine, repair adds 1.3–2× to the time to open a section, at the trebuchet's reload. The ten-second lock stays, so two engines firing alternately keep a section locked, as intended (GameDescription.md, the repair lock). The Siege table measures 1.50× at a 20 s reload.
+
+**Proposed, from the breach-prediction prototype:**
+4. **The anchor depth is 8 m** below the generated surface, deeper than any siege dig the MVP draws.
+5. **Foot soldiers climb 1 m in each 1 m step**, the slope of settled earth.
+6. **Loose material comes to rest at most 1 m below a structure's top.**
+7. **A breach-prediction item shows the damage as done (N = 0)** and asks one question, "open or shut?", with a free-text reason.
+8. **Six people take each readout**, twelve in all. The prototype's key splits 8 open and 8 shut. M0 asks the support readout to reach a median accuracy of 0.65, and nobody has taken the test yet.
+
+**Proposed, from the Siege route table:**
+9. **The engine-range guard is measured, not computed.** No point outside every garrison's reach lies within an engine's range of the great tower, on the Siege castle or on any castle the Skirmish AI builds. It is measured on the castle's plan, because between towers their reach ends closer to the curtain than the formula assumes. When confirmed, this replaces the guard sentence in decision 2 of *2026-10-31: the design review*.
+10. **The trebuchet's range is 12–50 m**, in place of Hud.md's placeholder of 12–70 m.
+11. **A trebuchet's shot descends at 45° or steeper.**
+12. **T5's gate stands at the inner end of its passage.** The gatehouse then fires into the passage in front of the gate. A lobbed shot cannot reach the gate until the arch over the passage is cut back. T5 is redrawn with it before M4.
+13. **Undermining, and a ram at a wall's base, each open a standard section in about three minutes, unopposed,** as one trebuchet does. Repair at most doubles that.
+14. **A ram strikes every 15 s, and a standard foundation on deep earth reaches 4 m down.** These are the values that meet item 13.
+15. **A shot costs 1.5 m³ of stone,** so that a breach costs the attacker about half of what the defender pays to rebuild it.
+
+**Open:**
+16. **The Hold's wave rule.** The owner chose three changes:
+    - an open section is always taken;
+    - the open term reads the trench a sapper would still need, so undermining shows before collapse;
+    - the gate scores only for waves that bring a ram.
+
+    With all three, the breach moves with the quarry in 1 of 3 layouts, against a bar of 2. The open-term change is what fails it: beside a quarry it cancels the quarry's ditch reason. Without that change, the other two pass in 3 of 3. Which of a quarry's two effects a wave weighs more, the ditch or the undermining, is the owner's to settle. No Hold value is recorded until then.
+17. **Timber's span.** T1's roof needs 5 m and T2's timber floors 4 m.
+
 ## Pillars (Decided)
 
 A pillar is a test every feature has to pass. A feature that serves none of them is a candidate for cutting.
