@@ -258,7 +258,7 @@ At the end of M1:
 
 | # | Started | Finished | PRs | Owner hours | Notes |
 |---|---|---|---|---|---|
-| 1 | 2026-10-31 | | | | The scaffold, with each project's first piece |
+| 1 | 2026-10-31 | | #8 | | The scaffold, with each project's first piece |
 
 ### M2 — Headless simulation
 
