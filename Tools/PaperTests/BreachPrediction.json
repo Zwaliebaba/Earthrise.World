@@ -1,0 +1,2975 @@
+{
+  "version": "cae945ae93d9",
+  "instrument": "Breach prediction, paper test (design review F-04, F-47; cheapest test 3)",
+  "writeUp": "Design/Review/PaperTests/BreachPrediction.md",
+  "generator": "Tools/PaperTests/BreachPrediction.py",
+  "status": "Proposed values; no participant has taken it.",
+  "model": {
+    "voxelMeters": 1,
+    "wall": "T3, the standard stone section: 8 m long, 2 m thick, 7 m high (5 m solid and 2 m of crenellation), 96 voxels of masonry",
+    "templateMatchesGameData": true,
+    "neighbors": "one column of each neighbouring section, intact, so support runs into them as it would along a wall line",
+    "ground": "y 0 bedrock, y 1 common rock, y 2-3 earth; the wall's lowest row stands on the earth at y 4",
+    "aprons": "7 m of ground on each side of the wall",
+    "gridVoxels": {
+      "x": 10,
+      "y": 16,
+      "z": 16
+    },
+    "axes": "x along the wall, left to right as seen from outside; y up; z from outside to inside",
+    "stoneSpanMeters": 2,
+    "rockSpanMeters": 2,
+    "fallWidthMeters": 5,
+    "anchorDepthMeters": 8,
+    "climbMeters": 1,
+    "unitHeightMeters": 2,
+    "looseSetHeightMeters": 1,
+    "shotsAheadN": 0
+  },
+  "views": {
+    "front": "rows top first, y 10 down to y 0; columns x 0-9, where 0 and 9 are the neighbouring sections; near is the outer layer, far the inner",
+    "top": "rows inside first, z 15 down to z 0; heights are metres above the ground's surface",
+    "groundRows": 4,
+    "legend": {
+      "E": {
+        "index": 2,
+        "name": "earth",
+        "hex": "#8a6a48"
+      },
+      "R": {
+        "index": 3,
+        "name": "common rock",
+        "hex": "#8d8a84"
+      },
+      "B": {
+        "index": 5,
+        "name": "bedrock",
+        "hex": "#4a4744"
+      },
+      "S": {
+        "index": 6,
+        "name": "masonry",
+        "hex": "#c6bca7"
+      },
+      "U": {
+        "index": 8,
+        "name": "stone rubble",
+        "hex": "#a69c8a"
+      },
+      "D": {
+        "index": 26,
+        "name": "earth rubble",
+        "hex": "#7d6044"
+      },
+      "K": {
+        "index": 28,
+        "name": "rock rubble",
+        "hex": "#7f7c77"
+      }
+    }
+  },
+  "summary": {
+    "open": 8,
+    "shut": 8,
+    "literalReadingsCorrect": {
+      "thickness": 8,
+      "asItStands": 9,
+      "support": 16
+    },
+    "thicknessAndSupportDisagreeOn": ["W01", "W02", "W05", "W06", "W08", "W11", "W13", "W14"],
+    "answerChangesUnder": {
+      "fallOutward": [],
+      "fallInward": [],
+      "fallDamage": [],
+      "stoneSpan1": ["W01", "W10", "W11"],
+      "stoneSpan3": ["W02", "W03", "W06", "W12", "W13", "W15"]
+    }
+  },
+  "scoring": {
+    "passMarkMedianAccuracy": 0.65,
+    "items": 16,
+    "correctNeededForOneParticipant": 11,
+    "medianOfSixPassesWhenThirdAndFourthSumTo": 21,
+    "chanceOneGuesserReachesPassMark": 0.1051,
+    "chanceMedianPasses": {
+      "3": {
+        "0.50": 0.0308,
+        "0.60": 0.2533,
+        "0.70": 0.7315,
+        "0.75": 0.9057,
+        "0.80": 0.9811,
+        "0.90": 1.0
+      },
+      "6": {
+        "0.50": 0.0077,
+        "0.60": 0.2434,
+        "0.70": 0.8712,
+        "0.75": 0.9831,
+        "0.80": 0.9993,
+        "0.90": 1.0
+      }
+    },
+    "note": "chanceMedianPasses[participants][perItemAccuracy]: each participant answers each item right with that probability, independently."
+  },
+  "practice": {
+    "id": "P00",
+    "title": "Undamaged section",
+    "damage": [],
+    "front": {
+      "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+      "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+    },
+    "top": {
+      "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+      "height": [
+        [0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0],
+        [6,7,6,7,6,7,6,7,6,7],
+        [5,6,5,6,5,6,5,6,5,6],
+        [0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0,0]
+      ]
+    },
+    "readouts": {
+      "thickness": {
+        "rows": [
+          {
+            "key": "THINNEST",
+            "value": "2 m of 2 m, full thickness",
+            "warn": false
+          },
+          {
+            "key": "WEAK POINT",
+            "value": "none",
+            "warn": false
+          },
+          {
+            "key": "STANDS ON",
+            "value": "earth, 2 m deep over rock",
+            "warn": false
+          }
+        ],
+        "thinnestMeters": 2,
+        "weakCells": []
+      },
+      "support": {
+        "rows": [
+          {
+            "key": "WIDEST HOLE",
+            "value": "none · the stone above a hole falls at 5 m",
+            "warn": false
+          },
+          {
+            "key": "LOWEST OPENING",
+            "value": "none",
+            "warn": false
+          },
+          {
+            "key": "GAP UNDER FOUNDATION",
+            "value": "none · the wall above falls at 5 m",
+            "warn": false
+          },
+          {
+            "key": "WEAK POINT",
+            "value": "none",
+            "warn": false
+          },
+          {
+            "key": "STANDS ON",
+            "value": "earth, 2 m deep over rock",
+            "warn": false
+          }
+        ],
+        "readings": {
+          "hole": {
+            "widthMeters": 0,
+            "falls": false,
+            "byWidth": false,
+            "cells": []
+          },
+          "opening": {
+            "floorMeters": null,
+            "onStone": false,
+            "clearMeters": 0,
+            "routeNow": false,
+            "cells": []
+          },
+          "gap": {
+            "widthMeters": 0,
+            "underOneFaceMeters": 0,
+            "falls": false,
+            "byWidth": false,
+            "cells": []
+          }
+        },
+        "weakReading": null,
+        "weakCells": [],
+        "fallWidthMeters": 5
+      }
+    },
+    "answer": "shut",
+    "resolution": {
+      "ticks": [],
+      "fallenVoxels": 0,
+      "routeBefore": null,
+      "route": null,
+      "front": {
+        "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+        "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+      },
+      "top": {
+        "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+        "height": [
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [6,7,6,7,6,7,6,7,6,7],
+          [5,6,5,6,5,6,5,6,5,6],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0]
+        ]
+      }
+    },
+    "literalReadings": {
+      "thickness": "shut",
+      "asItStands": "shut",
+      "support": "shut"
+    },
+    "sensitivity": {
+      "fallOutward": "shut",
+      "fallInward": "shut",
+      "fallDamage": "shut",
+      "stoneSpan1": "shut",
+      "stoneSpan3": "shut"
+    },
+    "checks": {
+      "holeVerdictMatchesWidth": true,
+      "gapVerdictMatchesWidth": true,
+      "looseNearStructureTop": 0,
+      "looseRestingOnStructure": 0,
+      "rubbleAtGroundEdge": false
+    }
+  },
+  "items": [
+    {
+      "id": "W01",
+      "title": "Slot at the foot, 4 m wide and 1 m high, columns 3–6",
+      "damage": [
+        {
+          "kind": "hole",
+          "columns": [3, 6],
+          "rows": [0, 0],
+          "faces": "both"
+        }
+      ],
+      "front": {
+        "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSS....SSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+        "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSS....SSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+      },
+      "top": {
+        "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+        "height": [
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [6,7,6,7,6,7,6,7,6,7],
+          [5,6,5,6,5,6,5,6,5,6],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0]
+        ]
+      },
+      "readouts": {
+        "thickness": {
+          "rows": [
+            {
+              "key": "THINNEST",
+              "value": "0 m: a hole goes through",
+              "warn": true
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 3–6, 0–1 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "thinnestMeters": 0,
+          "weakCells": [[3, 0], [4, 0], [5, 0], [6, 0]]
+        },
+        "support": {
+          "rows": [
+            {
+              "key": "WIDEST HOLE",
+              "value": "4 m wide, 1 m high · the stone above it falls at 5 m · holds",
+              "warn": false
+            },
+            {
+              "key": "LOWEST OPENING",
+              "value": "floor at ground · 1 m clear · too low: soldiers need 2 m",
+              "warn": false
+            },
+            {
+              "key": "GAP UNDER FOUNDATION",
+              "value": "none · the wall above falls at 5 m",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 3–6, 0–1 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "readings": {
+            "hole": {
+              "widthMeters": 4,
+              "falls": false,
+              "byWidth": false,
+              "cells": [[3, 0], [4, 0], [5, 0], [6, 0]]
+            },
+            "opening": {
+              "floorMeters": 0,
+              "onStone": false,
+              "clearMeters": 1,
+              "routeNow": false,
+              "cells": [[3, 0], [4, 0], [5, 0], [6, 0]]
+            },
+            "gap": {
+              "widthMeters": 0,
+              "underOneFaceMeters": 0,
+              "falls": false,
+              "byWidth": false,
+              "cells": []
+            }
+          },
+          "weakReading": "hole",
+          "weakCells": [[3, 0], [4, 0], [5, 0], [6, 0]],
+          "fallWidthMeters": 5
+        }
+      },
+      "answer": "shut",
+      "resolution": {
+        "ticks": [],
+        "fallenVoxels": 0,
+        "routeBefore": null,
+        "route": null,
+        "front": {
+          "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSS....SSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+          "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSS....SSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+        },
+        "top": {
+          "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+          "height": [
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [6,7,6,7,6,7,6,7,6,7],
+            [5,6,5,6,5,6,5,6,5,6],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0]
+          ]
+        }
+      },
+      "literalReadings": {
+        "thickness": "open",
+        "asItStands": "shut",
+        "support": "shut"
+      },
+      "sensitivity": {
+        "fallOutward": "shut",
+        "fallInward": "shut",
+        "fallDamage": "shut",
+        "stoneSpan1": "open",
+        "stoneSpan3": "shut"
+      },
+      "checks": {
+        "holeVerdictMatchesWidth": true,
+        "gapVerdictMatchesWidth": true,
+        "looseNearStructureTop": 0,
+        "looseRestingOnStructure": 0,
+        "rubbleAtGroundEdge": false
+      }
+    },
+    {
+      "id": "W02",
+      "title": "Gap under the foundation, 6 m, columns 2–7, with the sappers' trench",
+      "damage": [
+        {
+          "kind": "undercut",
+          "columns": [2, 7],
+          "faces": "both"
+        }
+      ],
+      "front": {
+        "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EE......EE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+        "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EE......EE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+      },
+      "top": {
+        "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+        "height": [
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [6,7,6,7,6,7,6,7,6,7],
+          [5,6,5,6,5,6,5,6,5,6],
+          [0,0,-1,-1,-1,-1,-1,-1,0,0],
+          [0,0,-1,-1,-1,-1,-1,-1,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0]
+        ]
+      },
+      "readouts": {
+        "thickness": {
+          "rows": [
+            {
+              "key": "THINNEST",
+              "value": "2 m of 2 m, full thickness",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "none",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "thinnestMeters": 2,
+          "weakCells": []
+        },
+        "support": {
+          "rows": [
+            {
+              "key": "WIDEST HOLE",
+              "value": "none · the stone above a hole falls at 5 m",
+              "warn": false
+            },
+            {
+              "key": "LOWEST OPENING",
+              "value": "none",
+              "warn": false
+            },
+            {
+              "key": "GAP UNDER FOUNDATION",
+              "value": "6 m across the full thickness · the wall above falls at 5 m · FALLS",
+              "warn": true
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 2–7, under the foundation",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "readings": {
+            "hole": {
+              "widthMeters": 0,
+              "falls": false,
+              "byWidth": false,
+              "cells": []
+            },
+            "opening": {
+              "floorMeters": null,
+              "onStone": false,
+              "clearMeters": 0,
+              "routeNow": false,
+              "cells": []
+            },
+            "gap": {
+              "widthMeters": 6,
+              "underOneFaceMeters": 0,
+              "falls": true,
+              "byWidth": true,
+              "cells": [[2, -1], [3, -1], [4, -1], [5, -1], [6, -1], [7, -1]]
+            }
+          },
+          "weakReading": "gap",
+          "weakCells": [[2, -1], [3, -1], [4, -1], [5, -1], [6, -1], [7, -1]],
+          "fallWidthMeters": 5
+        }
+      },
+      "answer": "open",
+      "resolution": {
+        "ticks": [
+          {
+            "pieces": 1,
+            "voxels": 24,
+            "settleMoves": 44
+          }
+        ],
+        "fallenVoxels": 24,
+        "routeBefore": null,
+        "route": [[4, 0], [4, 1], [4, 2], [4, 3], [4, 4], [4, 5], [4, 6], [4, 7], [4, 8], [4, 9], [4, 10], [4, 11], [4, 12], [4, 13], [4, 14], [4, 15]],
+        "front": {
+          "near": ["..........", ".S.S...S.S", "SSSS..SSSS", "SSSS..SSSS", "SSSS..SSSS", "SSSS.USSSS", "SSSSUUSSSS", "EE..UU..EE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+          "far": [".S.S...S.S", "SSSS..SSSS", "SSSS..SSSS", "SSSS..SSSS", "SSSS..SSSS", "SSSSUUSSSS", "SSSSUUSSSS", "EE..UU..EE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+        },
+        "top": {
+          "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEUUEEEE", "EEEEUUUEEE", "SSSSUUSSSS", "SSSSUUSSSS", "EEEUUUUEEE", "EEEEUUEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+          "height": [
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,1,1,0,0,0,0],
+            [0,0,0,0,1,1,1,0,0,0],
+            [6,7,6,7,2,2,6,7,6,7],
+            [5,6,5,6,1,2,5,6,5,6],
+            [0,0,-1,0,1,1,0,-1,0,0],
+            [0,0,-1,-1,0,0,-1,-1,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0]
+          ]
+        }
+      },
+      "literalReadings": {
+        "thickness": "shut",
+        "asItStands": "shut",
+        "support": "open"
+      },
+      "sensitivity": {
+        "fallOutward": "open",
+        "fallInward": "open",
+        "fallDamage": "open",
+        "stoneSpan1": "open",
+        "stoneSpan3": "shut"
+      },
+      "checks": {
+        "holeVerdictMatchesWidth": true,
+        "gapVerdictMatchesWidth": true,
+        "looseNearStructureTop": 0,
+        "looseRestingOnStructure": 0,
+        "rubbleAtGroundEdge": false
+      }
+    },
+    {
+      "id": "W03",
+      "title": "Slot at the foot, 5 m wide and 1 m high, columns 2–6",
+      "damage": [
+        {
+          "kind": "hole",
+          "columns": [2, 6],
+          "rows": [0, 0],
+          "faces": "both"
+        }
+      ],
+      "front": {
+        "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SS.....SSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+        "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SS.....SSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+      },
+      "top": {
+        "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+        "height": [
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [6,7,6,7,6,7,6,7,6,7],
+          [5,6,5,6,5,6,5,6,5,6],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0]
+        ]
+      },
+      "readouts": {
+        "thickness": {
+          "rows": [
+            {
+              "key": "THINNEST",
+              "value": "0 m: a hole goes through",
+              "warn": true
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 2–6, 0–1 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "thinnestMeters": 0,
+          "weakCells": [[2, 0], [3, 0], [4, 0], [5, 0], [6, 0]]
+        },
+        "support": {
+          "rows": [
+            {
+              "key": "WIDEST HOLE",
+              "value": "5 m wide, 1 m high · the stone above it falls at 5 m · FALLS",
+              "warn": true
+            },
+            {
+              "key": "LOWEST OPENING",
+              "value": "floor at ground · 1 m clear · too low: soldiers need 2 m",
+              "warn": false
+            },
+            {
+              "key": "GAP UNDER FOUNDATION",
+              "value": "none · the wall above falls at 5 m",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 2–6, 0–1 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "readings": {
+            "hole": {
+              "widthMeters": 5,
+              "falls": true,
+              "byWidth": true,
+              "cells": [[2, 0], [3, 0], [4, 0], [5, 0], [6, 0]]
+            },
+            "opening": {
+              "floorMeters": 0,
+              "onStone": false,
+              "clearMeters": 1,
+              "routeNow": false,
+              "cells": [[2, 0], [3, 0], [4, 0], [5, 0], [6, 0]]
+            },
+            "gap": {
+              "widthMeters": 0,
+              "underOneFaceMeters": 0,
+              "falls": false,
+              "byWidth": false,
+              "cells": []
+            }
+          },
+          "weakReading": "hole",
+          "weakCells": [[2, 0], [3, 0], [4, 0], [5, 0], [6, 0]],
+          "fallWidthMeters": 5
+        }
+      },
+      "answer": "open",
+      "resolution": {
+        "ticks": [
+          {
+            "pieces": 1,
+            "voxels": 9,
+            "settleMoves": 14
+          }
+        ],
+        "fallenVoxels": 9,
+        "routeBefore": null,
+        "route": [[4, 0], [4, 1], [4, 2], [4, 3], [4, 4], [4, 5], [4, 6], [4, 7], [4, 8], [4, 9], [4, 10], [4, 11], [4, 12], [4, 13], [4, 14], [4, 15]],
+        "front": {
+          "near": ["..........", ".S.S.S.S.S", "SSSS.SSSSS", "SSSS.SSSSS", "SSSS.SSSSS", "SSSSUSSSSS", "SS..U..SSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+          "far": [".S.S.S.S.S", "SSSS.SSSSS", "SSSS.SSSSS", "SSSS.SSSSS", "SSSS.SSSSS", "SSSSUSSSSS", "SS..U..SSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+        },
+        "top": {
+          "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEUEEEEE", "EEEUUEEEEE", "SSSSUSSSSS", "SSSSUSSSSS", "EEEEUEEEEE", "EEEEUEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+          "height": [
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,1,0,0,0,0,0],
+            [0,0,0,1,1,0,0,0,0,0],
+            [6,7,6,7,2,7,6,7,6,7],
+            [5,6,5,6,2,6,5,6,5,6],
+            [0,0,0,0,1,0,0,0,0,0],
+            [0,0,0,0,1,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0]
+          ]
+        }
+      },
+      "literalReadings": {
+        "thickness": "open",
+        "asItStands": "shut",
+        "support": "open"
+      },
+      "sensitivity": {
+        "fallOutward": "open",
+        "fallInward": "open",
+        "fallDamage": "open",
+        "stoneSpan1": "open",
+        "stoneSpan3": "shut"
+      },
+      "checks": {
+        "holeVerdictMatchesWidth": true,
+        "gapVerdictMatchesWidth": true,
+        "looseNearStructureTop": 0,
+        "looseRestingOnStructure": 0,
+        "rubbleAtGroundEdge": false
+      }
+    },
+    {
+      "id": "W04",
+      "title": "Outer face shaved off the whole body: 1 m left everywhere",
+      "damage": [
+        {
+          "kind": "hole",
+          "columns": [1, 8],
+          "rows": [0, 4],
+          "faces": "outer"
+        }
+      ],
+      "front": {
+        "near": ["..........", ".S.S.S.S.S", "S........S", "S........S", "S........S", "S........S", "S........S", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+        "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+      },
+      "top": {
+        "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSESESESES", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+        "height": [
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [6,7,6,7,6,7,6,7,6,7],
+          [5,6,0,6,0,6,0,6,0,6],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0]
+        ]
+      },
+      "readouts": {
+        "thickness": {
+          "rows": [
+            {
+              "key": "THINNEST",
+              "value": "1 m of 2 m",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 1–8, 0–5 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "thinnestMeters": 1,
+          "weakCells": [[1, 0], [1, 1], [1, 2], [1, 3], [1, 4], [2, 0], [2, 1], [2, 2], [2, 3], [2, 4], [3, 0], [3, 1], [3, 2], [3, 3], [3, 4], [4, 0], [4, 1], [4, 2], [4, 3], [4, 4], [5, 0], [5, 1], [5, 2], [5, 3], [5, 4], [6, 0], [6, 1], [6, 2], [6, 3], [6, 4], [7, 0], [7, 1], [7, 2], [7, 3], [7, 4], [8, 0], [8, 1], [8, 2], [8, 3], [8, 4]]
+        },
+        "support": {
+          "rows": [
+            {
+              "key": "WIDEST HOLE",
+              "value": "none · the stone above a hole falls at 5 m",
+              "warn": false
+            },
+            {
+              "key": "LOWEST OPENING",
+              "value": "none",
+              "warn": false
+            },
+            {
+              "key": "GAP UNDER FOUNDATION",
+              "value": "none · the wall above falls at 5 m",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "none",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "readings": {
+            "hole": {
+              "widthMeters": 0,
+              "falls": false,
+              "byWidth": false,
+              "cells": []
+            },
+            "opening": {
+              "floorMeters": null,
+              "onStone": false,
+              "clearMeters": 0,
+              "routeNow": false,
+              "cells": []
+            },
+            "gap": {
+              "widthMeters": 0,
+              "underOneFaceMeters": 0,
+              "falls": false,
+              "byWidth": false,
+              "cells": []
+            }
+          },
+          "weakReading": null,
+          "weakCells": [],
+          "fallWidthMeters": 5
+        }
+      },
+      "answer": "shut",
+      "resolution": {
+        "ticks": [],
+        "fallenVoxels": 0,
+        "routeBefore": null,
+        "route": null,
+        "front": {
+          "near": ["..........", ".S.S.S.S.S", "S........S", "S........S", "S........S", "S........S", "S........S", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+          "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+        },
+        "top": {
+          "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSESESESES", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+          "height": [
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [6,7,6,7,6,7,6,7,6,7],
+            [5,6,0,6,0,6,0,6,0,6],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0]
+          ]
+        }
+      },
+      "literalReadings": {
+        "thickness": "shut",
+        "asItStands": "shut",
+        "support": "shut"
+      },
+      "sensitivity": {
+        "fallOutward": "shut",
+        "fallInward": "shut",
+        "fallDamage": "shut",
+        "stoneSpan1": "shut",
+        "stoneSpan3": "shut"
+      },
+      "checks": {
+        "holeVerdictMatchesWidth": true,
+        "gapVerdictMatchesWidth": true,
+        "looseNearStructureTop": 0,
+        "looseRestingOnStructure": 0,
+        "rubbleAtGroundEdge": false
+      }
+    },
+    {
+      "id": "W05",
+      "title": "Tall slit, 1 m wide, from 1 m to 5 m up, column 5",
+      "damage": [
+        {
+          "kind": "hole",
+          "columns": [5, 5],
+          "rows": [1, 4],
+          "faces": "both"
+        }
+      ],
+      "front": {
+        "near": ["..........", ".S.S.S.S.S", "SSSSS.SSSS", "SSSSS.SSSS", "SSSSS.SSSS", "SSSSS.SSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+        "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSS.SSSS", "SSSSS.SSSS", "SSSSS.SSSS", "SSSSS.SSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+      },
+      "top": {
+        "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+        "height": [
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [6,7,6,7,6,7,6,7,6,7],
+          [5,6,5,6,5,6,5,6,5,6],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0]
+        ]
+      },
+      "readouts": {
+        "thickness": {
+          "rows": [
+            {
+              "key": "THINNEST",
+              "value": "0 m: a hole goes through",
+              "warn": true
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 5, 1–5 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "thinnestMeters": 0,
+          "weakCells": [[5, 1], [5, 2], [5, 3], [5, 4]]
+        },
+        "support": {
+          "rows": [
+            {
+              "key": "WIDEST HOLE",
+              "value": "1 m wide, 4 m high · the stone above it falls at 5 m · holds",
+              "warn": false
+            },
+            {
+              "key": "LOWEST OPENING",
+              "value": "floor 1 m up, on stone · 4 m clear · no footing: soldiers never stand on stone",
+              "warn": false
+            },
+            {
+              "key": "GAP UNDER FOUNDATION",
+              "value": "none · the wall above falls at 5 m",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 5, 1–5 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "readings": {
+            "hole": {
+              "widthMeters": 1,
+              "falls": false,
+              "byWidth": false,
+              "cells": [[5, 1], [5, 2], [5, 3], [5, 4]]
+            },
+            "opening": {
+              "floorMeters": 1,
+              "onStone": true,
+              "clearMeters": 4,
+              "routeNow": false,
+              "cells": [[5, 1], [5, 2], [5, 3], [5, 4]]
+            },
+            "gap": {
+              "widthMeters": 0,
+              "underOneFaceMeters": 0,
+              "falls": false,
+              "byWidth": false,
+              "cells": []
+            }
+          },
+          "weakReading": "hole",
+          "weakCells": [[5, 1], [5, 2], [5, 3], [5, 4]],
+          "fallWidthMeters": 5
+        }
+      },
+      "answer": "shut",
+      "resolution": {
+        "ticks": [],
+        "fallenVoxels": 0,
+        "routeBefore": null,
+        "route": null,
+        "front": {
+          "near": ["..........", ".S.S.S.S.S", "SSSSS.SSSS", "SSSSS.SSSS", "SSSSS.SSSS", "SSSSS.SSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+          "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSS.SSSS", "SSSSS.SSSS", "SSSSS.SSSS", "SSSSS.SSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+        },
+        "top": {
+          "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+          "height": [
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [6,7,6,7,6,7,6,7,6,7],
+            [5,6,5,6,5,6,5,6,5,6],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0]
+          ]
+        }
+      },
+      "literalReadings": {
+        "thickness": "open",
+        "asItStands": "shut",
+        "support": "shut"
+      },
+      "sensitivity": {
+        "fallOutward": "shut",
+        "fallInward": "shut",
+        "fallDamage": "shut",
+        "stoneSpan1": "shut",
+        "stoneSpan3": "shut"
+      },
+      "checks": {
+        "holeVerdictMatchesWidth": true,
+        "gapVerdictMatchesWidth": true,
+        "looseNearStructureTop": 0,
+        "looseRestingOnStructure": 0,
+        "rubbleAtGroundEdge": false
+      }
+    },
+    {
+      "id": "W06",
+      "title": "Outer face shaved off, and a 5 m gap under the foundation, columns 2–6",
+      "damage": [
+        {
+          "kind": "hole",
+          "columns": [1, 8],
+          "rows": [0, 4],
+          "faces": "outer"
+        },
+        {
+          "kind": "undercut",
+          "columns": [2, 6],
+          "faces": "both"
+        }
+      ],
+      "front": {
+        "near": ["..........", ".S.S.S.S.S", "S........S", "S........S", "S........S", "S........S", "S........S", "EE.....EEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+        "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EE.....EEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+      },
+      "top": {
+        "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSESESESES", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+        "height": [
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [6,7,6,7,6,7,6,7,6,7],
+          [5,6,-1,6,-1,6,-1,6,0,6],
+          [0,0,-1,-1,-1,-1,-1,0,0,0],
+          [0,0,-1,-1,-1,-1,-1,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0]
+        ]
+      },
+      "readouts": {
+        "thickness": {
+          "rows": [
+            {
+              "key": "THINNEST",
+              "value": "1 m of 2 m",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 1–8, 0–5 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "thinnestMeters": 1,
+          "weakCells": [[1, 0], [1, 1], [1, 2], [1, 3], [1, 4], [2, 0], [2, 1], [2, 2], [2, 3], [2, 4], [3, 0], [3, 1], [3, 2], [3, 3], [3, 4], [4, 0], [4, 1], [4, 2], [4, 3], [4, 4], [5, 0], [5, 1], [5, 2], [5, 3], [5, 4], [6, 0], [6, 1], [6, 2], [6, 3], [6, 4], [7, 0], [7, 1], [7, 2], [7, 3], [7, 4], [8, 0], [8, 1], [8, 2], [8, 3], [8, 4]]
+        },
+        "support": {
+          "rows": [
+            {
+              "key": "WIDEST HOLE",
+              "value": "none · the stone above a hole falls at 5 m",
+              "warn": false
+            },
+            {
+              "key": "LOWEST OPENING",
+              "value": "none",
+              "warn": false
+            },
+            {
+              "key": "GAP UNDER FOUNDATION",
+              "value": "5 m across the full thickness · the wall above falls at 5 m · FALLS",
+              "warn": true
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 2–6, under the foundation",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "readings": {
+            "hole": {
+              "widthMeters": 0,
+              "falls": false,
+              "byWidth": false,
+              "cells": []
+            },
+            "opening": {
+              "floorMeters": null,
+              "onStone": false,
+              "clearMeters": 0,
+              "routeNow": false,
+              "cells": []
+            },
+            "gap": {
+              "widthMeters": 5,
+              "underOneFaceMeters": 0,
+              "falls": true,
+              "byWidth": true,
+              "cells": [[2, -1], [3, -1], [4, -1], [5, -1], [6, -1]]
+            }
+          },
+          "weakReading": "gap",
+          "weakCells": [[2, -1], [3, -1], [4, -1], [5, -1], [6, -1]],
+          "fallWidthMeters": 5
+        }
+      },
+      "answer": "open",
+      "resolution": {
+        "ticks": [
+          {
+            "pieces": 3,
+            "voxels": 8,
+            "settleMoves": 12
+          }
+        ],
+        "fallenVoxels": 8,
+        "routeBefore": null,
+        "route": [[4, 0], [4, 1], [4, 2], [4, 3], [4, 4], [4, 5], [4, 6], [4, 7], [4, 8], [4, 9], [4, 10], [4, 11], [4, 12], [4, 13], [4, 14], [4, 15]],
+        "front": {
+          "near": ["..........", ".S.....S.S", "S........S", "S........S", "S........S", "S........S", "S...U....S", "EE.UUU.EEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+          "far": [".S.S.S.S.S", "SSSS.SSSSS", "SSSS.SSSSS", "SSSS.SSSSS", "SSSS.SSSSS", "SSSS.SSSSS", "SSSSUSSSSS", "EE..U..EEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+        },
+        "top": {
+          "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEUEEEEE", "SSSSUSSSSS", "SSEUUUESES", "EEEEUEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+          "height": [
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,1,0,0,0,0,0],
+            [6,7,6,7,1,7,6,7,6,7],
+            [5,6,-1,0,1,0,-1,6,0,6],
+            [0,0,-1,-1,0,-1,-1,0,0,0],
+            [0,0,-1,-1,-1,-1,-1,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0]
+          ]
+        }
+      },
+      "literalReadings": {
+        "thickness": "shut",
+        "asItStands": "shut",
+        "support": "open"
+      },
+      "sensitivity": {
+        "fallOutward": "open",
+        "fallInward": "open",
+        "fallDamage": "open",
+        "stoneSpan1": "open",
+        "stoneSpan3": "shut"
+      },
+      "checks": {
+        "holeVerdictMatchesWidth": true,
+        "gapVerdictMatchesWidth": true,
+        "looseNearStructureTop": 0,
+        "looseRestingOnStructure": 0,
+        "rubbleAtGroundEdge": false
+      }
+    },
+    {
+      "id": "W07",
+      "title": "Hole 1 m wide and 2 m high at the foot, column 6",
+      "damage": [
+        {
+          "kind": "hole",
+          "columns": [6, 6],
+          "rows": [0, 1],
+          "faces": "both"
+        }
+      ],
+      "front": {
+        "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSS.SSS", "SSSSSS.SSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+        "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSS.SSS", "SSSSSS.SSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+      },
+      "top": {
+        "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+        "height": [
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [6,7,6,7,6,7,6,7,6,7],
+          [5,6,5,6,5,6,5,6,5,6],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0]
+        ]
+      },
+      "readouts": {
+        "thickness": {
+          "rows": [
+            {
+              "key": "THINNEST",
+              "value": "0 m: a hole goes through",
+              "warn": true
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 6, 0–2 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "thinnestMeters": 0,
+          "weakCells": [[6, 0], [6, 1]]
+        },
+        "support": {
+          "rows": [
+            {
+              "key": "WIDEST HOLE",
+              "value": "1 m wide, 2 m high · the stone above it falls at 5 m · holds",
+              "warn": false
+            },
+            {
+              "key": "LOWEST OPENING",
+              "value": "floor at ground · 2 m clear · a route now",
+              "warn": true
+            },
+            {
+              "key": "GAP UNDER FOUNDATION",
+              "value": "none · the wall above falls at 5 m",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 6, 0–2 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "readings": {
+            "hole": {
+              "widthMeters": 1,
+              "falls": false,
+              "byWidth": false,
+              "cells": [[6, 0], [6, 1]]
+            },
+            "opening": {
+              "floorMeters": 0,
+              "onStone": false,
+              "clearMeters": 2,
+              "routeNow": true,
+              "cells": [[6, 0], [6, 1]]
+            },
+            "gap": {
+              "widthMeters": 0,
+              "underOneFaceMeters": 0,
+              "falls": false,
+              "byWidth": false,
+              "cells": []
+            }
+          },
+          "weakReading": "opening",
+          "weakCells": [[6, 0], [6, 1]],
+          "fallWidthMeters": 5
+        }
+      },
+      "answer": "open",
+      "resolution": {
+        "ticks": [],
+        "fallenVoxels": 0,
+        "routeBefore": [[6, 0], [6, 1], [6, 2], [6, 3], [6, 4], [6, 5], [6, 6], [6, 7], [6, 8], [6, 9], [6, 10], [6, 11], [6, 12], [6, 13], [6, 14], [6, 15]],
+        "route": [[6, 0], [6, 1], [6, 2], [6, 3], [6, 4], [6, 5], [6, 6], [6, 7], [6, 8], [6, 9], [6, 10], [6, 11], [6, 12], [6, 13], [6, 14], [6, 15]],
+        "front": {
+          "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSS.SSS", "SSSSSS.SSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+          "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSS.SSS", "SSSSSS.SSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+        },
+        "top": {
+          "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+          "height": [
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [6,7,6,7,6,7,6,7,6,7],
+            [5,6,5,6,5,6,5,6,5,6],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0]
+          ]
+        }
+      },
+      "literalReadings": {
+        "thickness": "open",
+        "asItStands": "open",
+        "support": "open"
+      },
+      "sensitivity": {
+        "fallOutward": "open",
+        "fallInward": "open",
+        "fallDamage": "open",
+        "stoneSpan1": "open",
+        "stoneSpan3": "open"
+      },
+      "checks": {
+        "holeVerdictMatchesWidth": true,
+        "gapVerdictMatchesWidth": true,
+        "looseNearStructureTop": 0,
+        "looseRestingOnStructure": 0,
+        "rubbleAtGroundEdge": false
+      }
+    },
+    {
+      "id": "W08",
+      "title": "Window 6 m wide and 2 m high, from 2 m up, columns 2–7",
+      "damage": [
+        {
+          "kind": "hole",
+          "columns": [2, 7],
+          "rows": [2, 3],
+          "faces": "both"
+        }
+      ],
+      "front": {
+        "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SS......SS", "SS......SS", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+        "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SS......SS", "SS......SS", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+      },
+      "top": {
+        "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+        "height": [
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [6,7,6,7,6,7,6,7,6,7],
+          [5,6,5,6,5,6,5,6,5,6],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0]
+        ]
+      },
+      "readouts": {
+        "thickness": {
+          "rows": [
+            {
+              "key": "THINNEST",
+              "value": "0 m: a hole goes through",
+              "warn": true
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 2–7, 2–4 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "thinnestMeters": 0,
+          "weakCells": [[2, 2], [2, 3], [3, 2], [3, 3], [4, 2], [4, 3], [5, 2], [5, 3], [6, 2], [6, 3], [7, 2], [7, 3]]
+        },
+        "support": {
+          "rows": [
+            {
+              "key": "WIDEST HOLE",
+              "value": "6 m wide, 2 m high · the stone above it falls at 5 m · FALLS",
+              "warn": true
+            },
+            {
+              "key": "LOWEST OPENING",
+              "value": "floor 2 m up, on stone · 2 m clear · no footing: soldiers never stand on stone",
+              "warn": false
+            },
+            {
+              "key": "GAP UNDER FOUNDATION",
+              "value": "none · the wall above falls at 5 m",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 2–7, 2–4 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "readings": {
+            "hole": {
+              "widthMeters": 6,
+              "falls": true,
+              "byWidth": true,
+              "cells": [[2, 2], [3, 2], [4, 2], [5, 2], [6, 2], [7, 2], [2, 3], [3, 3], [4, 3], [5, 3], [6, 3], [7, 3]]
+            },
+            "opening": {
+              "floorMeters": 2,
+              "onStone": true,
+              "clearMeters": 2,
+              "routeNow": false,
+              "cells": [[2, 2], [3, 2], [4, 2], [5, 2], [6, 2], [7, 2], [2, 3], [3, 3], [4, 3], [5, 3], [6, 3], [7, 3]]
+            },
+            "gap": {
+              "widthMeters": 0,
+              "underOneFaceMeters": 0,
+              "falls": false,
+              "byWidth": false,
+              "cells": []
+            }
+          },
+          "weakReading": "hole",
+          "weakCells": [[2, 2], [3, 2], [4, 2], [5, 2], [6, 2], [7, 2], [2, 3], [3, 3], [4, 3], [5, 3], [6, 3], [7, 3]],
+          "fallWidthMeters": 5
+        }
+      },
+      "answer": "shut",
+      "resolution": {
+        "ticks": [
+          {
+            "pieces": 1,
+            "voxels": 8,
+            "settleMoves": 17
+          }
+        ],
+        "fallenVoxels": 8,
+        "routeBefore": null,
+        "route": null,
+        "front": {
+          "near": ["..........", ".S.S...S.S", "SSSS..SSSS", "SS......SS", "SS......SS", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+          "far": [".S.S...S.S", "SSSS..SSSS", "SSSS..SSSS", "SS......SS", "SS......SS", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+        },
+        "top": {
+          "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEUUEEEE", "EEEEUUUEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEUUEEEE", "EEEEEUEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+          "height": [
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,1,1,0,0,0,0],
+            [0,0,0,0,1,1,1,0,0,0],
+            [6,7,6,7,2,2,6,7,6,7],
+            [5,6,5,6,2,2,5,6,5,6],
+            [0,0,0,0,1,1,0,0,0,0],
+            [0,0,0,0,0,1,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0]
+          ]
+        }
+      },
+      "literalReadings": {
+        "thickness": "open",
+        "asItStands": "shut",
+        "support": "shut"
+      },
+      "sensitivity": {
+        "fallOutward": "shut",
+        "fallInward": "shut",
+        "fallDamage": "shut",
+        "stoneSpan1": "shut",
+        "stoneSpan3": "shut"
+      },
+      "checks": {
+        "holeVerdictMatchesWidth": true,
+        "gapVerdictMatchesWidth": true,
+        "looseNearStructureTop": 0,
+        "looseRestingOnStructure": 0,
+        "rubbleAtGroundEdge": false
+      }
+    },
+    {
+      "id": "W09",
+      "title": "Slot at the foot, 7 m wide and 1 m high, columns 1–7",
+      "damage": [
+        {
+          "kind": "hole",
+          "columns": [1, 7],
+          "rows": [0, 0],
+          "faces": "both"
+        }
+      ],
+      "front": {
+        "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "S.......SS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+        "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "S.......SS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+      },
+      "top": {
+        "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+        "height": [
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [6,7,6,7,6,7,6,7,6,7],
+          [5,6,5,6,5,6,5,6,5,6],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0]
+        ]
+      },
+      "readouts": {
+        "thickness": {
+          "rows": [
+            {
+              "key": "THINNEST",
+              "value": "0 m: a hole goes through",
+              "warn": true
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 1–7, 0–1 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "thinnestMeters": 0,
+          "weakCells": [[1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0], [7, 0]]
+        },
+        "support": {
+          "rows": [
+            {
+              "key": "WIDEST HOLE",
+              "value": "7 m wide, 1 m high · the stone above it falls at 5 m · FALLS",
+              "warn": true
+            },
+            {
+              "key": "LOWEST OPENING",
+              "value": "floor at ground · 1 m clear · too low: soldiers need 2 m",
+              "warn": false
+            },
+            {
+              "key": "GAP UNDER FOUNDATION",
+              "value": "none · the wall above falls at 5 m",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 1–7, 0–1 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "readings": {
+            "hole": {
+              "widthMeters": 7,
+              "falls": true,
+              "byWidth": true,
+              "cells": [[1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0], [7, 0]]
+            },
+            "opening": {
+              "floorMeters": 0,
+              "onStone": false,
+              "clearMeters": 1,
+              "routeNow": false,
+              "cells": [[1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0], [7, 0]]
+            },
+            "gap": {
+              "widthMeters": 0,
+              "underOneFaceMeters": 0,
+              "falls": false,
+              "byWidth": false,
+              "cells": []
+            }
+          },
+          "weakReading": "hole",
+          "weakCells": [[1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0], [7, 0]],
+          "fallWidthMeters": 5
+        }
+      },
+      "answer": "open",
+      "resolution": {
+        "ticks": [
+          {
+            "pieces": 1,
+            "voxels": 31,
+            "settleMoves": 57
+          }
+        ],
+        "fallenVoxels": 31,
+        "routeBefore": null,
+        "route": [[3, 0], [3, 1], [3, 2], [3, 3], [3, 4], [3, 5], [3, 6], [3, 7], [3, 8], [3, 9], [3, 10], [3, 11], [3, 12], [3, 13], [3, 14], [3, 15]],
+        "front": {
+          "near": ["..........", ".S.....S.S", "SSS...SSSS", "SSS...SSSS", "SSS...SSSS", "SSSUUUSSSS", "S..UUU..SS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+          "far": [".S.....S.S", "SSS...SSSS", "SSS...SSSS", "SSS...SSSS", "SSS...SSSS", "SSSUUUSSSS", "S..UUU..SS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+        },
+        "top": {
+          "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEUUUEEEE", "EEUUUUUEEE", "SSSUUUSSSS", "SSSUUUSSSS", "EEUUUUUEEE", "EEEUUUEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+          "height": [
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,1,1,1,0,0,0,0],
+            [0,0,1,2,2,2,1,0,0,0],
+            [6,7,6,2,2,2,6,7,6,7],
+            [5,6,5,2,2,2,5,6,5,6],
+            [0,0,1,1,1,1,1,0,0,0],
+            [0,0,0,1,1,1,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0]
+          ]
+        }
+      },
+      "literalReadings": {
+        "thickness": "open",
+        "asItStands": "shut",
+        "support": "open"
+      },
+      "sensitivity": {
+        "fallOutward": "open",
+        "fallInward": "open",
+        "fallDamage": "open",
+        "stoneSpan1": "open",
+        "stoneSpan3": "open"
+      },
+      "checks": {
+        "holeVerdictMatchesWidth": true,
+        "gapVerdictMatchesWidth": true,
+        "looseNearStructureTop": 0,
+        "looseRestingOnStructure": 0,
+        "rubbleAtGroundEdge": false
+      }
+    },
+    {
+      "id": "W10",
+      "title": "Gap under the foundation, 4 m, columns 3–6, with the sappers' trench",
+      "damage": [
+        {
+          "kind": "undercut",
+          "columns": [3, 6],
+          "faces": "both"
+        }
+      ],
+      "front": {
+        "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EEE....EEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+        "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EEE....EEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+      },
+      "top": {
+        "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+        "height": [
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [6,7,6,7,6,7,6,7,6,7],
+          [5,6,5,6,5,6,5,6,5,6],
+          [0,0,0,-1,-1,-1,-1,0,0,0],
+          [0,0,0,-1,-1,-1,-1,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0]
+        ]
+      },
+      "readouts": {
+        "thickness": {
+          "rows": [
+            {
+              "key": "THINNEST",
+              "value": "2 m of 2 m, full thickness",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "none",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "thinnestMeters": 2,
+          "weakCells": []
+        },
+        "support": {
+          "rows": [
+            {
+              "key": "WIDEST HOLE",
+              "value": "none · the stone above a hole falls at 5 m",
+              "warn": false
+            },
+            {
+              "key": "LOWEST OPENING",
+              "value": "none",
+              "warn": false
+            },
+            {
+              "key": "GAP UNDER FOUNDATION",
+              "value": "4 m across the full thickness · the wall above falls at 5 m · holds",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 3–6, under the foundation",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "readings": {
+            "hole": {
+              "widthMeters": 0,
+              "falls": false,
+              "byWidth": false,
+              "cells": []
+            },
+            "opening": {
+              "floorMeters": null,
+              "onStone": false,
+              "clearMeters": 0,
+              "routeNow": false,
+              "cells": []
+            },
+            "gap": {
+              "widthMeters": 4,
+              "underOneFaceMeters": 0,
+              "falls": false,
+              "byWidth": false,
+              "cells": [[3, -1], [4, -1], [5, -1], [6, -1]]
+            }
+          },
+          "weakReading": "gap",
+          "weakCells": [[3, -1], [4, -1], [5, -1], [6, -1]],
+          "fallWidthMeters": 5
+        }
+      },
+      "answer": "shut",
+      "resolution": {
+        "ticks": [],
+        "fallenVoxels": 0,
+        "routeBefore": null,
+        "route": null,
+        "front": {
+          "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EEE....EEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+          "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EEE....EEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+        },
+        "top": {
+          "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+          "height": [
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [6,7,6,7,6,7,6,7,6,7],
+            [5,6,5,6,5,6,5,6,5,6],
+            [0,0,0,-1,-1,-1,-1,0,0,0],
+            [0,0,0,-1,-1,-1,-1,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0]
+          ]
+        }
+      },
+      "literalReadings": {
+        "thickness": "shut",
+        "asItStands": "shut",
+        "support": "shut"
+      },
+      "sensitivity": {
+        "fallOutward": "shut",
+        "fallInward": "shut",
+        "fallDamage": "shut",
+        "stoneSpan1": "open",
+        "stoneSpan3": "shut"
+      },
+      "checks": {
+        "holeVerdictMatchesWidth": true,
+        "gapVerdictMatchesWidth": true,
+        "looseNearStructureTop": 0,
+        "looseRestingOnStructure": 0,
+        "rubbleAtGroundEdge": false
+      }
+    },
+    {
+      "id": "W11",
+      "title": "Two slots at the foot, each 3 m wide and 1 m high, columns 1–3 and 5–7",
+      "damage": [
+        {
+          "kind": "hole",
+          "columns": [1, 3],
+          "rows": [0, 0],
+          "faces": "both"
+        },
+        {
+          "kind": "hole",
+          "columns": [5, 7],
+          "rows": [0, 0],
+          "faces": "both"
+        }
+      ],
+      "front": {
+        "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "S...S...SS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+        "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "S...S...SS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+      },
+      "top": {
+        "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+        "height": [
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [6,7,6,7,6,7,6,7,6,7],
+          [5,6,5,6,5,6,5,6,5,6],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0]
+        ]
+      },
+      "readouts": {
+        "thickness": {
+          "rows": [
+            {
+              "key": "THINNEST",
+              "value": "0 m: a hole goes through",
+              "warn": true
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 1–3, 0–1 m up and columns 5–7, 0–1 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "thinnestMeters": 0,
+          "weakCells": [[1, 0], [2, 0], [3, 0], [5, 0], [6, 0], [7, 0]]
+        },
+        "support": {
+          "rows": [
+            {
+              "key": "WIDEST HOLE",
+              "value": "3 m wide, 1 m high · the stone above it falls at 5 m · holds",
+              "warn": false
+            },
+            {
+              "key": "LOWEST OPENING",
+              "value": "floor at ground · 1 m clear · too low: soldiers need 2 m",
+              "warn": false
+            },
+            {
+              "key": "GAP UNDER FOUNDATION",
+              "value": "none · the wall above falls at 5 m",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 1–3, 0–1 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "readings": {
+            "hole": {
+              "widthMeters": 3,
+              "falls": false,
+              "byWidth": false,
+              "cells": [[1, 0], [2, 0], [3, 0]]
+            },
+            "opening": {
+              "floorMeters": 0,
+              "onStone": false,
+              "clearMeters": 1,
+              "routeNow": false,
+              "cells": [[1, 0], [2, 0], [3, 0]]
+            },
+            "gap": {
+              "widthMeters": 0,
+              "underOneFaceMeters": 0,
+              "falls": false,
+              "byWidth": false,
+              "cells": []
+            }
+          },
+          "weakReading": "hole",
+          "weakCells": [[1, 0], [2, 0], [3, 0]],
+          "fallWidthMeters": 5
+        }
+      },
+      "answer": "shut",
+      "resolution": {
+        "ticks": [],
+        "fallenVoxels": 0,
+        "routeBefore": null,
+        "route": null,
+        "front": {
+          "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "S...S...SS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+          "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "S...S...SS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+        },
+        "top": {
+          "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+          "height": [
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [6,7,6,7,6,7,6,7,6,7],
+            [5,6,5,6,5,6,5,6,5,6],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0]
+          ]
+        }
+      },
+      "literalReadings": {
+        "thickness": "open",
+        "asItStands": "shut",
+        "support": "shut"
+      },
+      "sensitivity": {
+        "fallOutward": "shut",
+        "fallInward": "shut",
+        "fallDamage": "shut",
+        "stoneSpan1": "open",
+        "stoneSpan3": "shut"
+      },
+      "checks": {
+        "holeVerdictMatchesWidth": true,
+        "gapVerdictMatchesWidth": true,
+        "looseNearStructureTop": 0,
+        "looseRestingOnStructure": 0,
+        "rubbleAtGroundEdge": false
+      }
+    },
+    {
+      "id": "W12",
+      "title": "Outer face shaved off, and a 5 m slot at the foot of the inner face, columns 3–7",
+      "damage": [
+        {
+          "kind": "hole",
+          "columns": [1, 8],
+          "rows": [0, 4],
+          "faces": "outer"
+        },
+        {
+          "kind": "hole",
+          "columns": [3, 7],
+          "rows": [0, 0],
+          "faces": "inner"
+        }
+      ],
+      "front": {
+        "near": ["..........", ".S.S.S.S.S", "S........S", "S........S", "S........S", "S........S", "S........S", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+        "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSS.....SS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+      },
+      "top": {
+        "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSESESESES", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+        "height": [
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [6,7,6,7,6,7,6,7,6,7],
+          [5,6,0,6,0,6,0,6,0,6],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0]
+        ]
+      },
+      "readouts": {
+        "thickness": {
+          "rows": [
+            {
+              "key": "THINNEST",
+              "value": "0 m: a hole goes through",
+              "warn": true
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 3–7, 0–1 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "thinnestMeters": 0,
+          "weakCells": [[3, 0], [4, 0], [5, 0], [6, 0], [7, 0]]
+        },
+        "support": {
+          "rows": [
+            {
+              "key": "WIDEST HOLE",
+              "value": "5 m wide, 1 m high · the stone above it falls at 5 m · FALLS",
+              "warn": true
+            },
+            {
+              "key": "LOWEST OPENING",
+              "value": "floor at ground · 1 m clear · too low: soldiers need 2 m",
+              "warn": false
+            },
+            {
+              "key": "GAP UNDER FOUNDATION",
+              "value": "none · the wall above falls at 5 m",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 3–7, 0–1 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "readings": {
+            "hole": {
+              "widthMeters": 5,
+              "falls": true,
+              "byWidth": true,
+              "cells": [[3, 0], [4, 0], [5, 0], [6, 0], [7, 0]]
+            },
+            "opening": {
+              "floorMeters": 0,
+              "onStone": false,
+              "clearMeters": 1,
+              "routeNow": false,
+              "cells": [[3, 0], [4, 0], [5, 0], [6, 0], [7, 0]]
+            },
+            "gap": {
+              "widthMeters": 0,
+              "underOneFaceMeters": 0,
+              "falls": false,
+              "byWidth": false,
+              "cells": []
+            }
+          },
+          "weakReading": "hole",
+          "weakCells": [[3, 0], [4, 0], [5, 0], [6, 0], [7, 0]],
+          "fallWidthMeters": 5
+        }
+      },
+      "answer": "open",
+      "resolution": {
+        "ticks": [
+          {
+            "pieces": 1,
+            "voxels": 7,
+            "settleMoves": 14
+          }
+        ],
+        "fallenVoxels": 7,
+        "routeBefore": null,
+        "route": [[5, 0], [5, 1], [5, 2], [5, 3], [5, 4], [5, 5], [5, 6], [5, 7], [5, 8], [5, 9], [5, 10], [5, 11], [5, 12], [5, 13], [5, 14], [5, 15]],
+        "front": {
+          "near": ["..........", ".S.S...S.S", "S........S", "S........S", "S........S", "S........S", "S...UUU..S", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+          "far": [".S.S...S.S", "SSSSS.SSSS", "SSSSS.SSSS", "SSSSS.SSSS", "SSSSS.SSSS", "SSSSSUSSSS", "SSS..U..SS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+        },
+        "top": {
+          "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEUEEEE", "SSSSSUSSSS", "SSESUUUSES", "EEEEEUEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+          "height": [
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,1,0,0,0,0],
+            [6,7,6,7,6,2,6,7,6,7],
+            [5,6,0,6,1,1,1,6,0,6],
+            [0,0,0,0,0,1,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0]
+          ]
+        }
+      },
+      "literalReadings": {
+        "thickness": "open",
+        "asItStands": "shut",
+        "support": "open"
+      },
+      "sensitivity": {
+        "fallOutward": "open",
+        "fallInward": "open",
+        "fallDamage": "open",
+        "stoneSpan1": "open",
+        "stoneSpan3": "shut"
+      },
+      "checks": {
+        "holeVerdictMatchesWidth": true,
+        "gapVerdictMatchesWidth": true,
+        "looseNearStructureTop": 0,
+        "looseRestingOnStructure": 0,
+        "rubbleAtGroundEdge": false
+      }
+    },
+    {
+      "id": "W13",
+      "title": "Gap under the foundation, 5 m, columns 1–5, against the left neighbour",
+      "damage": [
+        {
+          "kind": "undercut",
+          "columns": [1, 5],
+          "faces": "both"
+        }
+      ],
+      "front": {
+        "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "E.....EEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+        "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "E.....EEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+      },
+      "top": {
+        "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+        "height": [
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [6,7,6,7,6,7,6,7,6,7],
+          [5,6,5,6,5,6,5,6,5,6],
+          [0,-1,-1,-1,-1,-1,0,0,0,0],
+          [0,-1,-1,-1,-1,-1,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0]
+        ]
+      },
+      "readouts": {
+        "thickness": {
+          "rows": [
+            {
+              "key": "THINNEST",
+              "value": "2 m of 2 m, full thickness",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "none",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "thinnestMeters": 2,
+          "weakCells": []
+        },
+        "support": {
+          "rows": [
+            {
+              "key": "WIDEST HOLE",
+              "value": "none · the stone above a hole falls at 5 m",
+              "warn": false
+            },
+            {
+              "key": "LOWEST OPENING",
+              "value": "none",
+              "warn": false
+            },
+            {
+              "key": "GAP UNDER FOUNDATION",
+              "value": "5 m across the full thickness · the wall above falls at 5 m · FALLS",
+              "warn": true
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 1–5, under the foundation",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "readings": {
+            "hole": {
+              "widthMeters": 0,
+              "falls": false,
+              "byWidth": false,
+              "cells": []
+            },
+            "opening": {
+              "floorMeters": null,
+              "onStone": false,
+              "clearMeters": 0,
+              "routeNow": false,
+              "cells": []
+            },
+            "gap": {
+              "widthMeters": 5,
+              "underOneFaceMeters": 0,
+              "falls": true,
+              "byWidth": true,
+              "cells": [[1, -1], [2, -1], [3, -1], [4, -1], [5, -1]]
+            }
+          },
+          "weakReading": "gap",
+          "weakCells": [[1, -1], [2, -1], [3, -1], [4, -1], [5, -1]],
+          "fallWidthMeters": 5
+        }
+      },
+      "answer": "open",
+      "resolution": {
+        "ticks": [
+          {
+            "pieces": 1,
+            "voxels": 13,
+            "settleMoves": 28
+          }
+        ],
+        "fallenVoxels": 13,
+        "routeBefore": null,
+        "route": [[3, 0], [3, 1], [3, 2], [3, 3], [3, 4], [3, 5], [3, 6], [3, 7], [3, 8], [3, 9], [3, 10], [3, 11], [3, 12], [3, 13], [3, 14], [3, 15]],
+        "front": {
+          "near": ["..........", ".S...S.S.S", "SSS.SSSSSS", "SSS.SSSSSS", "SSS.SSSSSS", "SSS.SSSSSS", "SSSUSSSSSS", "E..U..EEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+          "far": [".S...S.S.S", "SSS.SSSSSS", "SSS.SSSSSS", "SSS.SSSSSS", "SSS.SSSSSS", "SSSUSSSSSS", "SSSUSSSSSS", "E..U..EEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+        },
+        "top": {
+          "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEUEEEEEE", "EEUUEEEEEE", "SSSUSSSSSS", "SSSUSSSSSS", "EEUUUEEEEE", "EEEUEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+          "height": [
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,1,0,0,0,0,0,0],
+            [0,0,1,1,0,0,0,0,0,0],
+            [6,7,6,2,6,7,6,7,6,7],
+            [5,6,5,1,5,6,5,6,5,6],
+            [0,-1,0,1,0,-1,0,0,0,0],
+            [0,-1,-1,0,-1,-1,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0]
+          ]
+        }
+      },
+      "literalReadings": {
+        "thickness": "shut",
+        "asItStands": "shut",
+        "support": "open"
+      },
+      "sensitivity": {
+        "fallOutward": "open",
+        "fallInward": "open",
+        "fallDamage": "open",
+        "stoneSpan1": "open",
+        "stoneSpan3": "shut"
+      },
+      "checks": {
+        "holeVerdictMatchesWidth": true,
+        "gapVerdictMatchesWidth": true,
+        "looseNearStructureTop": 0,
+        "looseRestingOnStructure": 0,
+        "rubbleAtGroundEdge": false
+      }
+    },
+    {
+      "id": "W14",
+      "title": "Window 3 m wide and 2 m high, from 2 m up, columns 3–5",
+      "damage": [
+        {
+          "kind": "hole",
+          "columns": [3, 5],
+          "rows": [2, 3],
+          "faces": "both"
+        }
+      ],
+      "front": {
+        "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSS...SSSS", "SSS...SSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+        "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSS...SSSS", "SSS...SSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+      },
+      "top": {
+        "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+        "height": [
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [6,7,6,7,6,7,6,7,6,7],
+          [5,6,5,6,5,6,5,6,5,6],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0]
+        ]
+      },
+      "readouts": {
+        "thickness": {
+          "rows": [
+            {
+              "key": "THINNEST",
+              "value": "0 m: a hole goes through",
+              "warn": true
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 3–5, 2–4 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "thinnestMeters": 0,
+          "weakCells": [[3, 2], [3, 3], [4, 2], [4, 3], [5, 2], [5, 3]]
+        },
+        "support": {
+          "rows": [
+            {
+              "key": "WIDEST HOLE",
+              "value": "3 m wide, 2 m high · the stone above it falls at 5 m · holds",
+              "warn": false
+            },
+            {
+              "key": "LOWEST OPENING",
+              "value": "floor 2 m up, on stone · 2 m clear · no footing: soldiers never stand on stone",
+              "warn": false
+            },
+            {
+              "key": "GAP UNDER FOUNDATION",
+              "value": "none · the wall above falls at 5 m",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 3–5, 2–4 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "readings": {
+            "hole": {
+              "widthMeters": 3,
+              "falls": false,
+              "byWidth": false,
+              "cells": [[3, 2], [4, 2], [5, 2], [3, 3], [4, 3], [5, 3]]
+            },
+            "opening": {
+              "floorMeters": 2,
+              "onStone": true,
+              "clearMeters": 2,
+              "routeNow": false,
+              "cells": [[3, 2], [4, 2], [5, 2], [3, 3], [4, 3], [5, 3]]
+            },
+            "gap": {
+              "widthMeters": 0,
+              "underOneFaceMeters": 0,
+              "falls": false,
+              "byWidth": false,
+              "cells": []
+            }
+          },
+          "weakReading": "hole",
+          "weakCells": [[3, 2], [4, 2], [5, 2], [3, 3], [4, 3], [5, 3]],
+          "fallWidthMeters": 5
+        }
+      },
+      "answer": "shut",
+      "resolution": {
+        "ticks": [],
+        "fallenVoxels": 0,
+        "routeBefore": null,
+        "route": null,
+        "front": {
+          "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSS...SSSS", "SSS...SSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+          "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSS...SSSS", "SSS...SSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+        },
+        "top": {
+          "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+          "height": [
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [6,7,6,7,6,7,6,7,6,7],
+            [5,6,5,6,5,6,5,6,5,6],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0]
+          ]
+        }
+      },
+      "literalReadings": {
+        "thickness": "open",
+        "asItStands": "shut",
+        "support": "shut"
+      },
+      "sensitivity": {
+        "fallOutward": "shut",
+        "fallInward": "shut",
+        "fallDamage": "shut",
+        "stoneSpan1": "shut",
+        "stoneSpan3": "shut"
+      },
+      "checks": {
+        "holeVerdictMatchesWidth": true,
+        "gapVerdictMatchesWidth": true,
+        "looseNearStructureTop": 0,
+        "looseRestingOnStructure": 0,
+        "rubbleAtGroundEdge": false
+      }
+    },
+    {
+      "id": "W15",
+      "title": "Slot at the foot, 6 m wide and 1 m high, columns 3–8, against the right neighbour",
+      "damage": [
+        {
+          "kind": "hole",
+          "columns": [3, 8],
+          "rows": [0, 0],
+          "faces": "both"
+        }
+      ],
+      "front": {
+        "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSS......S", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+        "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSS......S", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+      },
+      "top": {
+        "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+        "height": [
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [6,7,6,7,6,7,6,7,6,7],
+          [5,6,5,6,5,6,5,6,5,6],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0]
+        ]
+      },
+      "readouts": {
+        "thickness": {
+          "rows": [
+            {
+              "key": "THINNEST",
+              "value": "0 m: a hole goes through",
+              "warn": true
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 3–8, 0–1 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "thinnestMeters": 0,
+          "weakCells": [[3, 0], [4, 0], [5, 0], [6, 0], [7, 0], [8, 0]]
+        },
+        "support": {
+          "rows": [
+            {
+              "key": "WIDEST HOLE",
+              "value": "6 m wide, 1 m high · the stone above it falls at 5 m · FALLS",
+              "warn": true
+            },
+            {
+              "key": "LOWEST OPENING",
+              "value": "floor at ground · 1 m clear · too low: soldiers need 2 m",
+              "warn": false
+            },
+            {
+              "key": "GAP UNDER FOUNDATION",
+              "value": "none · the wall above falls at 5 m",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "columns 3–8, 0–1 m up",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "readings": {
+            "hole": {
+              "widthMeters": 6,
+              "falls": true,
+              "byWidth": true,
+              "cells": [[3, 0], [4, 0], [5, 0], [6, 0], [7, 0], [8, 0]]
+            },
+            "opening": {
+              "floorMeters": 0,
+              "onStone": false,
+              "clearMeters": 1,
+              "routeNow": false,
+              "cells": [[3, 0], [4, 0], [5, 0], [6, 0], [7, 0], [8, 0]]
+            },
+            "gap": {
+              "widthMeters": 0,
+              "underOneFaceMeters": 0,
+              "falls": false,
+              "byWidth": false,
+              "cells": []
+            }
+          },
+          "weakReading": "hole",
+          "weakCells": [[3, 0], [4, 0], [5, 0], [6, 0], [7, 0], [8, 0]],
+          "fallWidthMeters": 5
+        }
+      },
+      "answer": "open",
+      "resolution": {
+        "ticks": [
+          {
+            "pieces": 1,
+            "voxels": 20,
+            "settleMoves": 36
+          }
+        ],
+        "fallenVoxels": 20,
+        "routeBefore": null,
+        "route": [[5, 0], [5, 1], [5, 2], [5, 3], [5, 4], [5, 5], [5, 6], [5, 7], [5, 8], [5, 9], [5, 10], [5, 11], [5, 12], [5, 13], [5, 14], [5, 15]],
+        "front": {
+          "near": ["..........", ".S.S...S.S", "SSSSS..SSS", "SSSSS..SSS", "SSSSS..SSS", "SSSSSUUSSS", "SSS..UU..S", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+          "far": [".S.S...S.S", "SSSSS..SSS", "SSSSS..SSS", "SSSSS..SSS", "SSSSS..SSS", "SSSSSUUSSS", "SSS..UU..S", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+        },
+        "top": {
+          "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEUUEEE", "EEEEUUUUEE", "SSSSSUUSSS", "SSSSSUUSSS", "EEEEUUUEEE", "EEEEEUUEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+          "height": [
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,1,1,0,0,0],
+            [0,0,0,0,1,2,1,1,0,0],
+            [6,7,6,7,6,2,2,7,6,7],
+            [5,6,5,6,5,2,2,6,5,6],
+            [0,0,0,0,1,1,1,0,0,0],
+            [0,0,0,0,0,1,1,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0]
+          ]
+        }
+      },
+      "literalReadings": {
+        "thickness": "open",
+        "asItStands": "shut",
+        "support": "open"
+      },
+      "sensitivity": {
+        "fallOutward": "open",
+        "fallInward": "open",
+        "fallDamage": "open",
+        "stoneSpan1": "open",
+        "stoneSpan3": "shut"
+      },
+      "checks": {
+        "holeVerdictMatchesWidth": true,
+        "gapVerdictMatchesWidth": true,
+        "looseNearStructureTop": 0,
+        "looseRestingOnStructure": 0,
+        "rubbleAtGroundEdge": false
+      }
+    },
+    {
+      "id": "W16",
+      "title": "Gap under the outer face only, the whole 8 m, with the sappers' trench",
+      "damage": [
+        {
+          "kind": "undercut",
+          "columns": [1, 8],
+          "faces": "outer"
+        }
+      ],
+      "front": {
+        "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "E........E", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+        "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+      },
+      "top": {
+        "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+        "height": [
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [6,7,6,7,6,7,6,7,6,7],
+          [5,6,5,6,5,6,5,6,5,6],
+          [0,-1,-1,-1,-1,-1,-1,-1,-1,0],
+          [0,-1,-1,-1,-1,-1,-1,-1,-1,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0],
+          [0,0,0,0,0,0,0,0,0,0]
+        ]
+      },
+      "readouts": {
+        "thickness": {
+          "rows": [
+            {
+              "key": "THINNEST",
+              "value": "2 m of 2 m, full thickness",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "none",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "thinnestMeters": 2,
+          "weakCells": []
+        },
+        "support": {
+          "rows": [
+            {
+              "key": "WIDEST HOLE",
+              "value": "none · the stone above a hole falls at 5 m",
+              "warn": false
+            },
+            {
+              "key": "LOWEST OPENING",
+              "value": "none",
+              "warn": false
+            },
+            {
+              "key": "GAP UNDER FOUNDATION",
+              "value": "none across the full thickness (8 m under the outer face only) · the wall above falls at 5 m · holds",
+              "warn": false
+            },
+            {
+              "key": "WEAK POINT",
+              "value": "none",
+              "warn": false
+            },
+            {
+              "key": "STANDS ON",
+              "value": "earth, 2 m deep over rock",
+              "warn": false
+            }
+          ],
+          "readings": {
+            "hole": {
+              "widthMeters": 0,
+              "falls": false,
+              "byWidth": false,
+              "cells": []
+            },
+            "opening": {
+              "floorMeters": null,
+              "onStone": false,
+              "clearMeters": 0,
+              "routeNow": false,
+              "cells": []
+            },
+            "gap": {
+              "widthMeters": 0,
+              "underOneFaceMeters": 8,
+              "falls": false,
+              "byWidth": false,
+              "cells": []
+            }
+          },
+          "weakReading": null,
+          "weakCells": [],
+          "fallWidthMeters": 5
+        }
+      },
+      "answer": "shut",
+      "resolution": {
+        "ticks": [],
+        "fallenVoxels": 0,
+        "routeBefore": null,
+        "route": null,
+        "front": {
+          "near": ["..........", ".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "E........E", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"],
+          "far": [".S.S.S.S.S", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "RRRRRRRRRR", "BBBBBBBBBB"]
+        },
+        "top": {
+          "material": ["EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "SSSSSSSSSS", "SSSSSSSSSS", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE", "EEEEEEEEEE"],
+          "height": [
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [6,7,6,7,6,7,6,7,6,7],
+            [5,6,5,6,5,6,5,6,5,6],
+            [0,-1,-1,-1,-1,-1,-1,-1,-1,0],
+            [0,-1,-1,-1,-1,-1,-1,-1,-1,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0,0]
+          ]
+        }
+      },
+      "literalReadings": {
+        "thickness": "shut",
+        "asItStands": "shut",
+        "support": "shut"
+      },
+      "sensitivity": {
+        "fallOutward": "shut",
+        "fallInward": "shut",
+        "fallDamage": "shut",
+        "stoneSpan1": "shut",
+        "stoneSpan3": "shut"
+      },
+      "checks": {
+        "holeVerdictMatchesWidth": true,
+        "gapVerdictMatchesWidth": true,
+        "looseNearStructureTop": 0,
+        "looseRestingOnStructure": 0,
+        "rubbleAtGroundEdge": false
+      }
+    }
+  ]
+}

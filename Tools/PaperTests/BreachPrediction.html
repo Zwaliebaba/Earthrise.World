@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Breach Prediction Test</title>
+<!--
+  The breach-prediction paper test (design review F-04, F-47). A facilitator runs it with one participant at a
+  time. Self-contained: no external scripts or fonts. The items between the breach-items markers are written by
+  Tools/PaperTests/BreachPrediction.py, so edit the script, not the block. Write-up:
+  Design/Review/PaperTests/BreachPrediction.md.
+-->
+<style>
+  :root {
+    --bg: #f5f3ee;
+    --panel: #ffffff;
+    --ink: #1e1c19;
+    --muted: #625c53;
+    --line: #d6d0c4;
+    --accent: #2c5a85;
+    --accent-ink: #ffffff;
+    --bad: #9e2b25;
+    --good: #2d6a39;
+    --mark: #d99a00;
+    --sky: #d6e6ee;
+    --void: #231f1c;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: space-between; align-items: baseline; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  header strong { font-size: 17px; }
+  #status { color: var(--muted); font-variant-numeric: tabular-nums; }
+  main { max-width: 1180px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 24px; margin: 4px 0 12px; }
+  h2 { font-size: 19px; margin: 20px 0 8px; }
+  p, li { max-width: 72ch; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 16px; margin: 12px 0; }
+  label { display: block; font-weight: 600; margin: 12px 0 4px; }
+  input[type=text], input[type=number], textarea { font: inherit; padding: 8px 10px; border: 1px solid #b9b2a5; border-radius: 4px; background: #fff; color: var(--ink); width: 100%; max-width: 420px; }
+  textarea { max-width: none; min-height: 84px; resize: vertical; }
+  .choices label { font-weight: 400; display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+  button { font: inherit; padding: 9px 16px; border-radius: 4px; border: 1px solid #a9a194; background: #fff; color: var(--ink); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.link { border: none; background: none; color: var(--accent); padding: 0; text-decoration: underline; }
+  .row-buttons { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; align-items: center; }
+  .hint { color: var(--muted); font-size: 14px; }
+  .warnbox { border-left: 4px solid var(--bad); padding: 8px 12px; background: #fbf1ef; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 16px; align-items: start; }
+  .views { display: flex; flex-wrap: wrap; gap: 16px; }
+  .view { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
+  .view h3 { margin: 0 0 2px; font-size: 15px; letter-spacing: 0.04em; }
+  .view .hint { margin: 0 0 6px; }
+  svg { display: block; max-width: 100%; height: auto; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 13px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .readout { background: #2b2824; color: #f2ede4; border-radius: 6px; padding: 12px 14px; }
+  .readout .title { font-size: 13px; letter-spacing: 0.12em; color: #c9c0b1; margin-bottom: 8px; }
+  .readout .row { border-top: 1px solid #45403a; padding: 7px 0; }
+  .readout .key { display: block; font-size: 12px; letter-spacing: 0.1em; color: #bdb4a4; }
+  .readout .value { display: block; }
+  .readout .value .first { font-weight: 600; }
+  .readout .value.warn .verdict { color: #ffb09f; font-weight: 700; }
+  .readout .value.warn .first { color: #ffd0c4; }
+  .question { margin-top: 14px; }
+  .question .ask { font-weight: 600; font-size: 17px; margin-bottom: 8px; }
+  .answers { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .answers button { padding: 14px 10px; font-size: 18px; font-weight: 700; }
+  .answers button .sub { display: block; font-size: 13px; font-weight: 400; color: var(--muted); }
+  .answers button[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .answers button[aria-pressed=true] .sub { color: #dbe6f0; }
+  .score { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .ok { color: var(--good); font-weight: 600; }
+  .no { color: var(--bad); font-weight: 600; }
+  .keyitem { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, max-content)); gap: 12px; align-items: start; }
+  .keyitem .readout { font-size: 13px; width: 360px; max-width: 100%; }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 480px) {
+    .answers { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <strong>Breach prediction · paper test</strong>
+  <span id="status"></span>
+</header>
+<main>
+
+  <section id="setup" class="screen active" aria-labelledby="setup-title">
+    <h1 id="setup-title">Set up a session</h1>
+    <div id="resume" class="card" hidden>
+      <p id="resume-text"></p>
+      <div class="row-buttons">
+        <button class="primary" id="resume-go">Resume</button>
+        <button id="resume-drop">Discard it</button>
+      </div>
+    </div>
+    <div class="card">
+      <label for="participant">Participant</label>
+      <input type="text" id="participant" autocomplete="off" placeholder="for example P01">
+      <label id="condition-label">Readout shown to this participant</label>
+      <div class="choices" role="radiogroup" aria-labelledby="condition-label">
+        <label><input type="radio" name="condition" value="thickness"> Thickness readout</label>
+        <label><input type="radio" name="condition" value="support"> Support readout</label>
+      </div>
+      <p class="hint">Half the participants get each readout. The write-up gives the assignment rule.</p>
+      <label for="seed">Seed for the item order</label>
+      <div class="row-buttons" style="margin-top:0">
+        <input type="number" id="seed" min="1" max="999999" step="1" style="max-width:160px">
+        <button id="seed-new">New seed</button>
+      </div>
+      <p class="hint">The same seed gives the same order. It stays on screen during the session and goes into the results.</p>
+      <div class="row-buttons">
+        <button class="primary" id="start" disabled>Start</button>
+        <span class="hint" id="start-hint">Enter a participant and choose a readout.</span>
+      </div>
+    </div>
+    <p class="hint">Instrument version <span id="version"></span> · 16 items, split 8 open and 8 shut · <button class="link" id="show-key">Answer key (facilitator only)</button></p>
+  </section>
+
+  <section id="briefing" class="screen" aria-labelledby="briefing-title">
+    <h1 id="briefing-title">How this works</h1>
+    <div class="card">
+      <p>You will see 16 damaged sections of a castle's stone wall, one at a time. Each is 8 m long, 2 m thick and 7 m high. Each stands on earth between two undamaged sections of the same wall.</p>
+      <h2>The pictures</h2>
+      <ul>
+        <li><strong>Front</strong>: the section seen from outside the castle, as if cut along its length. Plain stone is the outer face. Darker, striped stone means the outer face is gone there and only the inner face is left. Pale blue means you can see right through. The top 2 m are battlements, and their gaps are built that way, not damage. Under the wall is the ground it stands on, and black there is a gap in the ground.</li>
+        <li><strong>Top</strong>: looking down, with outside at the bottom. The numbers are heights in metres above the ground around the wall. A minus number is a trench.</li>
+        <li>The dark panel beside them is the <strong>integrity view</strong>, the game's reading of this section.</li>
+      </ul>
+      <h2>The question</h2>
+      <p>No more shots will be fired. Anything that is going to fall falls, and the dust settles. Is the section then <strong>open</strong> or <strong>shut</strong>?</p>
+      <p><strong>Open</strong> means foot soldiers can walk through this section, from the ground outside to the ground inside.</p>
+      <ul>
+        <li>A soldier is 2 m tall and needs a gap 1 m wide and 2 m high.</li>
+        <li>Soldiers stand on ground and on rubble. They never stand on the wall's stone, not even on a low ledge.</li>
+        <li>They climb up or down 1 m in each 1 m step.</li>
+        <li>Fallen stone becomes rubble. Rubble settles into a slope soldiers can walk on, and it never stays on top of standing wall.</li>
+      </ul>
+      <p>Give your best answer, and say in a few words why. There is no time limit, and you cannot go back to an earlier item.</p>
+      <div class="row-buttons">
+        <button class="primary" id="briefing-go">Try a practice item</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="item" class="screen" aria-labelledby="item-title">
+    <h1 id="item-title"></h1>
+    <div class="layout">
+      <div>
+        <div class="views">
+          <div class="view">
+            <h3>FRONT</h3>
+            <p class="hint">Seen from outside, cut along the wall · top 2 m: battlements</p>
+            <div id="front"></div>
+          </div>
+          <div class="view">
+            <h3>TOP</h3>
+            <p class="hint">Looking down · heights in m</p>
+            <div id="top"></div>
+          </div>
+        </div>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div>
+        <div class="readout" id="readout"></div>
+        <div class="question card">
+          <div class="ask">Once anything that will fall has fallen and settled, is this section open or shut?</div>
+          <div class="answers">
+            <button id="answer-open" aria-pressed="false">OPEN<span class="sub">foot soldiers can get through</span></button>
+            <button id="answer-shut" aria-pressed="false">SHUT<span class="sub">no way through</span></button>
+          </div>
+          <label for="reason">Why? A few words</label>
+          <textarea id="reason"></textarea>
+          <div class="row-buttons">
+            <button class="primary" id="next" disabled>Next</button>
+            <span class="hint" id="next-hint">Choose open or shut.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="practice-done" class="screen" aria-labelledby="practice-title">
+    <h1 id="practice-title">Practice: the answer</h1>
+    <div class="card">
+      <p><strong>Shut.</strong> Nothing is broken, so there is no gap a soldier fits through, and nothing falls.</p>
+      <p>The 16 items come next. You will not be told the answers until the end.</p>
+      <div class="row-buttons">
+        <button class="primary" id="items-go">Start the 16 items</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="done" class="screen" aria-labelledby="done-title">
+    <h1 id="done-title">Finished</h1>
+    <div class="card">
+      <div class="score" id="score"></div>
+      <p id="score-detail"></p>
+      <div class="row-buttons">
+        <button class="primary" id="download">Download the results (JSON)</button>
+        <button id="again">Next participant</button>
+        <button class="link" id="show-items">Per-item results (facilitator)</button>
+      </div>
+      <p class="hint" id="download-hint"></p>
+    </div>
+    <div class="card" id="per-item" hidden></div>
+  </section>
+
+  <section id="key" class="screen" aria-labelledby="key-title">
+    <h1 id="key-title">Answer key</h1>
+    <p class="warnbox">Facilitator only. Do not show this to a participant before their session. Each item shows the state as participants see it, the state after the resolver has settled it, and both readouts.</p>
+    <div class="row-buttons"><button id="key-back">Back to set-up</button></div>
+    <div id="key-list"></div>
+  </section>
+
+</main>
+
+<script id="breach-items" type="application/json">{"version":"cae945ae93d9","instrument":"Breach prediction, paper test (design review F-04, F-47; cheapest test 3)","writeUp":"Design/Review/PaperTests/BreachPrediction.md","generator":"Tools/PaperTests/BreachPrediction.py","status":"Proposed values; no participant has taken it.","model":{"voxelMeters":1,"wall":"T3, the standard stone section: 8 m long, 2 m thick, 7 m high (5 m solid and 2 m of crenellation), 96 voxels of masonry","templateMatchesGameData":true,"neighbors":"one column of each neighbouring section, intact, so support runs into them as it would along a wall line","ground":"y 0 bedrock, y 1 common rock, y 2-3 earth; the wall's lowest row stands on the earth at y 4","aprons":"7 m of ground on each side of the wall","gridVoxels":{"x":10,"y":16,"z":16},"axes":"x along the wall, left to right as seen from outside; y up; z from outside to inside","stoneSpanMeters":2,"rockSpanMeters":2,"fallWidthMeters":5,"anchorDepthMeters":8,"climbMeters":1,"unitHeightMeters":2,"looseSetHeightMeters":1,"shotsAheadN":0},"views":{"front":"rows top first, y 10 down to y 0; columns x 0-9, where 0 and 9 are the neighbouring sections; near is the outer layer, far the inner","top":"rows inside first, z 15 down to z 0; heights are metres above the ground's surface","groundRows":4,"legend":{"E":{"index":2,"name":"earth","hex":"#8a6a48"},"R":{"index":3,"name":"common rock","hex":"#8d8a84"},"B":{"index":5,"name":"bedrock","hex":"#4a4744"},"S":{"index":6,"name":"masonry","hex":"#c6bca7"},"U":{"index":8,"name":"stone rubble","hex":"#a69c8a"},"D":{"index":26,"name":"earth rubble","hex":"#7d6044"},"K":{"index":28,"name":"rock rubble","hex":"#7f7c77"}}},"summary":{"open":8,"shut":8,"literalReadingsCorrect":{"thickness":8,"asItStands":9,"support":16},"thicknessAndSupportDisagreeOn":["W01","W02","W05","W06","W08","W11","W13","W14"],"answerChangesUnder":{"fallOutward":[],"fallInward":[],"fallDamage":[],"stoneSpan1":["W01","W10","W11"],"stoneSpan3":["W02","W03","W06","W12","W13","W15"]}},"scoring":{"passMarkMedianAccuracy":0.65,"items":16,"correctNeededForOneParticipant":11,"medianOfSixPassesWhenThirdAndFourthSumTo":21,"chanceOneGuesserReachesPassMark":0.1051,"chanceMedianPasses":{"3":{"0.50":0.0308,"0.60":0.2533,"0.70":0.7315,"0.75":0.9057,"0.80":0.9811,"0.90":1.0},"6":{"0.50":0.0077,"0.60":0.2434,"0.70":0.8712,"0.75":0.9831,"0.80":0.9993,"0.90":1.0}},"note":"chanceMedianPasses[participants][perItemAccuracy]: each participant answers each item right with that probability, independently."},"practice":{"id":"P00","title":"Undamaged section","damage":[],"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]},"readouts":{"thickness":{"rows":[{"key":"THINNEST","value":"2 m of 2 m, full thickness","warn":false},{"key":"WEAK POINT","value":"none","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"thinnestMeters":2,"weakCells":[]},"support":{"rows":[{"key":"WIDEST HOLE","value":"none · the stone above a hole falls at 5 m","warn":false},{"key":"LOWEST OPENING","value":"none","warn":false},{"key":"GAP UNDER FOUNDATION","value":"none · the wall above falls at 5 m","warn":false},{"key":"WEAK POINT","value":"none","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"readings":{"hole":{"widthMeters":0,"falls":false,"byWidth":false,"cells":[]},"opening":{"floorMeters":null,"onStone":false,"clearMeters":0,"routeNow":false,"cells":[]},"gap":{"widthMeters":0,"underOneFaceMeters":0,"falls":false,"byWidth":false,"cells":[]}},"weakReading":null,"weakCells":[],"fallWidthMeters":5}},"answer":"shut","resolution":{"ticks":[],"fallenVoxels":0,"routeBefore":null,"route":null,"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}},"literalReadings":{"thickness":"shut","asItStands":"shut","support":"shut"},"sensitivity":{"fallOutward":"shut","fallInward":"shut","fallDamage":"shut","stoneSpan1":"shut","stoneSpan3":"shut"},"checks":{"holeVerdictMatchesWidth":true,"gapVerdictMatchesWidth":true,"looseNearStructureTop":0,"looseRestingOnStructure":0,"rubbleAtGroundEdge":false}},"items":[{"id":"W01","title":"Slot at the foot, 4 m wide and 1 m high, columns 3–6","damage":[{"kind":"hole","columns":[3,6],"rows":[0,0],"faces":"both"}],"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSS....SSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSS....SSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]},"readouts":{"thickness":{"rows":[{"key":"THINNEST","value":"0 m: a hole goes through","warn":true},{"key":"WEAK POINT","value":"columns 3–6, 0–1 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"thinnestMeters":0,"weakCells":[[3,0],[4,0],[5,0],[6,0]]},"support":{"rows":[{"key":"WIDEST HOLE","value":"4 m wide, 1 m high · the stone above it falls at 5 m · holds","warn":false},{"key":"LOWEST OPENING","value":"floor at ground · 1 m clear · too low: soldiers need 2 m","warn":false},{"key":"GAP UNDER FOUNDATION","value":"none · the wall above falls at 5 m","warn":false},{"key":"WEAK POINT","value":"columns 3–6, 0–1 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"readings":{"hole":{"widthMeters":4,"falls":false,"byWidth":false,"cells":[[3,0],[4,0],[5,0],[6,0]]},"opening":{"floorMeters":0,"onStone":false,"clearMeters":1,"routeNow":false,"cells":[[3,0],[4,0],[5,0],[6,0]]},"gap":{"widthMeters":0,"underOneFaceMeters":0,"falls":false,"byWidth":false,"cells":[]}},"weakReading":"hole","weakCells":[[3,0],[4,0],[5,0],[6,0]],"fallWidthMeters":5}},"answer":"shut","resolution":{"ticks":[],"fallenVoxels":0,"routeBefore":null,"route":null,"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSS....SSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSS....SSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}},"literalReadings":{"thickness":"open","asItStands":"shut","support":"shut"},"sensitivity":{"fallOutward":"shut","fallInward":"shut","fallDamage":"shut","stoneSpan1":"open","stoneSpan3":"shut"},"checks":{"holeVerdictMatchesWidth":true,"gapVerdictMatchesWidth":true,"looseNearStructureTop":0,"looseRestingOnStructure":0,"rubbleAtGroundEdge":false}},{"id":"W02","title":"Gap under the foundation, 6 m, columns 2–7, with the sappers' trench","damage":[{"kind":"undercut","columns":[2,7],"faces":"both"}],"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","EE......EE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","EE......EE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,-1,-1,-1,-1,-1,-1,0,0],[0,0,-1,-1,-1,-1,-1,-1,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]},"readouts":{"thickness":{"rows":[{"key":"THINNEST","value":"2 m of 2 m, full thickness","warn":false},{"key":"WEAK POINT","value":"none","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"thinnestMeters":2,"weakCells":[]},"support":{"rows":[{"key":"WIDEST HOLE","value":"none · the stone above a hole falls at 5 m","warn":false},{"key":"LOWEST OPENING","value":"none","warn":false},{"key":"GAP UNDER FOUNDATION","value":"6 m across the full thickness · the wall above falls at 5 m · FALLS","warn":true},{"key":"WEAK POINT","value":"columns 2–7, under the foundation","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"readings":{"hole":{"widthMeters":0,"falls":false,"byWidth":false,"cells":[]},"opening":{"floorMeters":null,"onStone":false,"clearMeters":0,"routeNow":false,"cells":[]},"gap":{"widthMeters":6,"underOneFaceMeters":0,"falls":true,"byWidth":true,"cells":[[2,-1],[3,-1],[4,-1],[5,-1],[6,-1],[7,-1]]}},"weakReading":"gap","weakCells":[[2,-1],[3,-1],[4,-1],[5,-1],[6,-1],[7,-1]],"fallWidthMeters":5}},"answer":"open","resolution":{"ticks":[{"pieces":1,"voxels":24,"settleMoves":44}],"fallenVoxels":24,"routeBefore":null,"route":[[4,0],[4,1],[4,2],[4,3],[4,4],[4,5],[4,6],[4,7],[4,8],[4,9],[4,10],[4,11],[4,12],[4,13],[4,14],[4,15]],"front":{"near":["..........",".S.S...S.S","SSSS..SSSS","SSSS..SSSS","SSSS..SSSS","SSSS.USSSS","SSSSUUSSSS","EE..UU..EE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S...S.S","SSSS..SSSS","SSSS..SSSS","SSSS..SSSS","SSSS..SSSS","SSSSUUSSSS","SSSSUUSSSS","EE..UU..EE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEUUEEEE","EEEEUUUEEE","SSSSUUSSSS","SSSSUUSSSS","EEEUUUUEEE","EEEEUUEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,1,1,0,0,0,0],[0,0,0,0,1,1,1,0,0,0],[6,7,6,7,2,2,6,7,6,7],[5,6,5,6,1,2,5,6,5,6],[0,0,-1,0,1,1,0,-1,0,0],[0,0,-1,-1,0,0,-1,-1,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}},"literalReadings":{"thickness":"shut","asItStands":"shut","support":"open"},"sensitivity":{"fallOutward":"open","fallInward":"open","fallDamage":"open","stoneSpan1":"open","stoneSpan3":"shut"},"checks":{"holeVerdictMatchesWidth":true,"gapVerdictMatchesWidth":true,"looseNearStructureTop":0,"looseRestingOnStructure":0,"rubbleAtGroundEdge":false}},{"id":"W03","title":"Slot at the foot, 5 m wide and 1 m high, columns 2–6","damage":[{"kind":"hole","columns":[2,6],"rows":[0,0],"faces":"both"}],"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SS.....SSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SS.....SSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]},"readouts":{"thickness":{"rows":[{"key":"THINNEST","value":"0 m: a hole goes through","warn":true},{"key":"WEAK POINT","value":"columns 2–6, 0–1 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"thinnestMeters":0,"weakCells":[[2,0],[3,0],[4,0],[5,0],[6,0]]},"support":{"rows":[{"key":"WIDEST HOLE","value":"5 m wide, 1 m high · the stone above it falls at 5 m · FALLS","warn":true},{"key":"LOWEST OPENING","value":"floor at ground · 1 m clear · too low: soldiers need 2 m","warn":false},{"key":"GAP UNDER FOUNDATION","value":"none · the wall above falls at 5 m","warn":false},{"key":"WEAK POINT","value":"columns 2–6, 0–1 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"readings":{"hole":{"widthMeters":5,"falls":true,"byWidth":true,"cells":[[2,0],[3,0],[4,0],[5,0],[6,0]]},"opening":{"floorMeters":0,"onStone":false,"clearMeters":1,"routeNow":false,"cells":[[2,0],[3,0],[4,0],[5,0],[6,0]]},"gap":{"widthMeters":0,"underOneFaceMeters":0,"falls":false,"byWidth":false,"cells":[]}},"weakReading":"hole","weakCells":[[2,0],[3,0],[4,0],[5,0],[6,0]],"fallWidthMeters":5}},"answer":"open","resolution":{"ticks":[{"pieces":1,"voxels":9,"settleMoves":14}],"fallenVoxels":9,"routeBefore":null,"route":[[4,0],[4,1],[4,2],[4,3],[4,4],[4,5],[4,6],[4,7],[4,8],[4,9],[4,10],[4,11],[4,12],[4,13],[4,14],[4,15]],"front":{"near":["..........",".S.S.S.S.S","SSSS.SSSSS","SSSS.SSSSS","SSSS.SSSSS","SSSSUSSSSS","SS..U..SSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSS.SSSSS","SSSS.SSSSS","SSSS.SSSSS","SSSS.SSSSS","SSSSUSSSSS","SS..U..SSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEUEEEEE","EEEUUEEEEE","SSSSUSSSSS","SSSSUSSSSS","EEEEUEEEEE","EEEEUEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,1,0,0,0,0,0],[0,0,0,1,1,0,0,0,0,0],[6,7,6,7,2,7,6,7,6,7],[5,6,5,6,2,6,5,6,5,6],[0,0,0,0,1,0,0,0,0,0],[0,0,0,0,1,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}},"literalReadings":{"thickness":"open","asItStands":"shut","support":"open"},"sensitivity":{"fallOutward":"open","fallInward":"open","fallDamage":"open","stoneSpan1":"open","stoneSpan3":"shut"},"checks":{"holeVerdictMatchesWidth":true,"gapVerdictMatchesWidth":true,"looseNearStructureTop":0,"looseRestingOnStructure":0,"rubbleAtGroundEdge":false}},{"id":"W04","title":"Outer face shaved off the whole body: 1 m left everywhere","damage":[{"kind":"hole","columns":[1,8],"rows":[0,4],"faces":"outer"}],"front":{"near":["..........",".S.S.S.S.S","S........S","S........S","S........S","S........S","S........S","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSESESESES","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,0,6,0,6,0,6,0,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]},"readouts":{"thickness":{"rows":[{"key":"THINNEST","value":"1 m of 2 m","warn":false},{"key":"WEAK POINT","value":"columns 1–8, 0–5 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"thinnestMeters":1,"weakCells":[[1,0],[1,1],[1,2],[1,3],[1,4],[2,0],[2,1],[2,2],[2,3],[2,4],[3,0],[3,1],[3,2],[3,3],[3,4],[4,0],[4,1],[4,2],[4,3],[4,4],[5,0],[5,1],[5,2],[5,3],[5,4],[6,0],[6,1],[6,2],[6,3],[6,4],[7,0],[7,1],[7,2],[7,3],[7,4],[8,0],[8,1],[8,2],[8,3],[8,4]]},"support":{"rows":[{"key":"WIDEST HOLE","value":"none · the stone above a hole falls at 5 m","warn":false},{"key":"LOWEST OPENING","value":"none","warn":false},{"key":"GAP UNDER FOUNDATION","value":"none · the wall above falls at 5 m","warn":false},{"key":"WEAK POINT","value":"none","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"readings":{"hole":{"widthMeters":0,"falls":false,"byWidth":false,"cells":[]},"opening":{"floorMeters":null,"onStone":false,"clearMeters":0,"routeNow":false,"cells":[]},"gap":{"widthMeters":0,"underOneFaceMeters":0,"falls":false,"byWidth":false,"cells":[]}},"weakReading":null,"weakCells":[],"fallWidthMeters":5}},"answer":"shut","resolution":{"ticks":[],"fallenVoxels":0,"routeBefore":null,"route":null,"front":{"near":["..........",".S.S.S.S.S","S........S","S........S","S........S","S........S","S........S","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSESESESES","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,0,6,0,6,0,6,0,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}},"literalReadings":{"thickness":"shut","asItStands":"shut","support":"shut"},"sensitivity":{"fallOutward":"shut","fallInward":"shut","fallDamage":"shut","stoneSpan1":"shut","stoneSpan3":"shut"},"checks":{"holeVerdictMatchesWidth":true,"gapVerdictMatchesWidth":true,"looseNearStructureTop":0,"looseRestingOnStructure":0,"rubbleAtGroundEdge":false}},{"id":"W05","title":"Tall slit, 1 m wide, from 1 m to 5 m up, column 5","damage":[{"kind":"hole","columns":[5,5],"rows":[1,4],"faces":"both"}],"front":{"near":["..........",".S.S.S.S.S","SSSSS.SSSS","SSSSS.SSSS","SSSSS.SSSS","SSSSS.SSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSS.SSSS","SSSSS.SSSS","SSSSS.SSSS","SSSSS.SSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]},"readouts":{"thickness":{"rows":[{"key":"THINNEST","value":"0 m: a hole goes through","warn":true},{"key":"WEAK POINT","value":"columns 5, 1–5 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"thinnestMeters":0,"weakCells":[[5,1],[5,2],[5,3],[5,4]]},"support":{"rows":[{"key":"WIDEST HOLE","value":"1 m wide, 4 m high · the stone above it falls at 5 m · holds","warn":false},{"key":"LOWEST OPENING","value":"floor 1 m up, on stone · 4 m clear · no footing: soldiers never stand on stone","warn":false},{"key":"GAP UNDER FOUNDATION","value":"none · the wall above falls at 5 m","warn":false},{"key":"WEAK POINT","value":"columns 5, 1–5 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"readings":{"hole":{"widthMeters":1,"falls":false,"byWidth":false,"cells":[[5,1],[5,2],[5,3],[5,4]]},"opening":{"floorMeters":1,"onStone":true,"clearMeters":4,"routeNow":false,"cells":[[5,1],[5,2],[5,3],[5,4]]},"gap":{"widthMeters":0,"underOneFaceMeters":0,"falls":false,"byWidth":false,"cells":[]}},"weakReading":"hole","weakCells":[[5,1],[5,2],[5,3],[5,4]],"fallWidthMeters":5}},"answer":"shut","resolution":{"ticks":[],"fallenVoxels":0,"routeBefore":null,"route":null,"front":{"near":["..........",".S.S.S.S.S","SSSSS.SSSS","SSSSS.SSSS","SSSSS.SSSS","SSSSS.SSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSS.SSSS","SSSSS.SSSS","SSSSS.SSSS","SSSSS.SSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}},"literalReadings":{"thickness":"open","asItStands":"shut","support":"shut"},"sensitivity":{"fallOutward":"shut","fallInward":"shut","fallDamage":"shut","stoneSpan1":"shut","stoneSpan3":"shut"},"checks":{"holeVerdictMatchesWidth":true,"gapVerdictMatchesWidth":true,"looseNearStructureTop":0,"looseRestingOnStructure":0,"rubbleAtGroundEdge":false}},{"id":"W06","title":"Outer face shaved off, and a 5 m gap under the foundation, columns 2–6","damage":[{"kind":"hole","columns":[1,8],"rows":[0,4],"faces":"outer"},{"kind":"undercut","columns":[2,6],"faces":"both"}],"front":{"near":["..........",".S.S.S.S.S","S........S","S........S","S........S","S........S","S........S","EE.....EEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","EE.....EEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSESESESES","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,-1,6,-1,6,-1,6,0,6],[0,0,-1,-1,-1,-1,-1,0,0,0],[0,0,-1,-1,-1,-1,-1,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]},"readouts":{"thickness":{"rows":[{"key":"THINNEST","value":"1 m of 2 m","warn":false},{"key":"WEAK POINT","value":"columns 1–8, 0–5 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"thinnestMeters":1,"weakCells":[[1,0],[1,1],[1,2],[1,3],[1,4],[2,0],[2,1],[2,2],[2,3],[2,4],[3,0],[3,1],[3,2],[3,3],[3,4],[4,0],[4,1],[4,2],[4,3],[4,4],[5,0],[5,1],[5,2],[5,3],[5,4],[6,0],[6,1],[6,2],[6,3],[6,4],[7,0],[7,1],[7,2],[7,3],[7,4],[8,0],[8,1],[8,2],[8,3],[8,4]]},"support":{"rows":[{"key":"WIDEST HOLE","value":"none · the stone above a hole falls at 5 m","warn":false},{"key":"LOWEST OPENING","value":"none","warn":false},{"key":"GAP UNDER FOUNDATION","value":"5 m across the full thickness · the wall above falls at 5 m · FALLS","warn":true},{"key":"WEAK POINT","value":"columns 2–6, under the foundation","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"readings":{"hole":{"widthMeters":0,"falls":false,"byWidth":false,"cells":[]},"opening":{"floorMeters":null,"onStone":false,"clearMeters":0,"routeNow":false,"cells":[]},"gap":{"widthMeters":5,"underOneFaceMeters":0,"falls":true,"byWidth":true,"cells":[[2,-1],[3,-1],[4,-1],[5,-1],[6,-1]]}},"weakReading":"gap","weakCells":[[2,-1],[3,-1],[4,-1],[5,-1],[6,-1]],"fallWidthMeters":5}},"answer":"open","resolution":{"ticks":[{"pieces":3,"voxels":8,"settleMoves":12}],"fallenVoxels":8,"routeBefore":null,"route":[[4,0],[4,1],[4,2],[4,3],[4,4],[4,5],[4,6],[4,7],[4,8],[4,9],[4,10],[4,11],[4,12],[4,13],[4,14],[4,15]],"front":{"near":["..........",".S.....S.S","S........S","S........S","S........S","S........S","S...U....S","EE.UUU.EEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSS.SSSSS","SSSS.SSSSS","SSSS.SSSSS","SSSS.SSSSS","SSSS.SSSSS","SSSSUSSSSS","EE..U..EEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEUEEEEE","SSSSUSSSSS","SSEUUUESES","EEEEUEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,1,0,0,0,0,0],[6,7,6,7,1,7,6,7,6,7],[5,6,-1,0,1,0,-1,6,0,6],[0,0,-1,-1,0,-1,-1,0,0,0],[0,0,-1,-1,-1,-1,-1,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}},"literalReadings":{"thickness":"shut","asItStands":"shut","support":"open"},"sensitivity":{"fallOutward":"open","fallInward":"open","fallDamage":"open","stoneSpan1":"open","stoneSpan3":"shut"},"checks":{"holeVerdictMatchesWidth":true,"gapVerdictMatchesWidth":true,"looseNearStructureTop":0,"looseRestingOnStructure":0,"rubbleAtGroundEdge":false}},{"id":"W07","title":"Hole 1 m wide and 2 m high at the foot, column 6","damage":[{"kind":"hole","columns":[6,6],"rows":[0,1],"faces":"both"}],"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSS.SSS","SSSSSS.SSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSS.SSS","SSSSSS.SSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]},"readouts":{"thickness":{"rows":[{"key":"THINNEST","value":"0 m: a hole goes through","warn":true},{"key":"WEAK POINT","value":"columns 6, 0–2 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"thinnestMeters":0,"weakCells":[[6,0],[6,1]]},"support":{"rows":[{"key":"WIDEST HOLE","value":"1 m wide, 2 m high · the stone above it falls at 5 m · holds","warn":false},{"key":"LOWEST OPENING","value":"floor at ground · 2 m clear · a route now","warn":true},{"key":"GAP UNDER FOUNDATION","value":"none · the wall above falls at 5 m","warn":false},{"key":"WEAK POINT","value":"columns 6, 0–2 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"readings":{"hole":{"widthMeters":1,"falls":false,"byWidth":false,"cells":[[6,0],[6,1]]},"opening":{"floorMeters":0,"onStone":false,"clearMeters":2,"routeNow":true,"cells":[[6,0],[6,1]]},"gap":{"widthMeters":0,"underOneFaceMeters":0,"falls":false,"byWidth":false,"cells":[]}},"weakReading":"opening","weakCells":[[6,0],[6,1]],"fallWidthMeters":5}},"answer":"open","resolution":{"ticks":[],"fallenVoxels":0,"routeBefore":[[6,0],[6,1],[6,2],[6,3],[6,4],[6,5],[6,6],[6,7],[6,8],[6,9],[6,10],[6,11],[6,12],[6,13],[6,14],[6,15]],"route":[[6,0],[6,1],[6,2],[6,3],[6,4],[6,5],[6,6],[6,7],[6,8],[6,9],[6,10],[6,11],[6,12],[6,13],[6,14],[6,15]],"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSS.SSS","SSSSSS.SSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSS.SSS","SSSSSS.SSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}},"literalReadings":{"thickness":"open","asItStands":"open","support":"open"},"sensitivity":{"fallOutward":"open","fallInward":"open","fallDamage":"open","stoneSpan1":"open","stoneSpan3":"open"},"checks":{"holeVerdictMatchesWidth":true,"gapVerdictMatchesWidth":true,"looseNearStructureTop":0,"looseRestingOnStructure":0,"rubbleAtGroundEdge":false}},{"id":"W08","title":"Window 6 m wide and 2 m high, from 2 m up, columns 2–7","damage":[{"kind":"hole","columns":[2,7],"rows":[2,3],"faces":"both"}],"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SS......SS","SS......SS","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SS......SS","SS......SS","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]},"readouts":{"thickness":{"rows":[{"key":"THINNEST","value":"0 m: a hole goes through","warn":true},{"key":"WEAK POINT","value":"columns 2–7, 2–4 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"thinnestMeters":0,"weakCells":[[2,2],[2,3],[3,2],[3,3],[4,2],[4,3],[5,2],[5,3],[6,2],[6,3],[7,2],[7,3]]},"support":{"rows":[{"key":"WIDEST HOLE","value":"6 m wide, 2 m high · the stone above it falls at 5 m · FALLS","warn":true},{"key":"LOWEST OPENING","value":"floor 2 m up, on stone · 2 m clear · no footing: soldiers never stand on stone","warn":false},{"key":"GAP UNDER FOUNDATION","value":"none · the wall above falls at 5 m","warn":false},{"key":"WEAK POINT","value":"columns 2–7, 2–4 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"readings":{"hole":{"widthMeters":6,"falls":true,"byWidth":true,"cells":[[2,2],[3,2],[4,2],[5,2],[6,2],[7,2],[2,3],[3,3],[4,3],[5,3],[6,3],[7,3]]},"opening":{"floorMeters":2,"onStone":true,"clearMeters":2,"routeNow":false,"cells":[[2,2],[3,2],[4,2],[5,2],[6,2],[7,2],[2,3],[3,3],[4,3],[5,3],[6,3],[7,3]]},"gap":{"widthMeters":0,"underOneFaceMeters":0,"falls":false,"byWidth":false,"cells":[]}},"weakReading":"hole","weakCells":[[2,2],[3,2],[4,2],[5,2],[6,2],[7,2],[2,3],[3,3],[4,3],[5,3],[6,3],[7,3]],"fallWidthMeters":5}},"answer":"shut","resolution":{"ticks":[{"pieces":1,"voxels":8,"settleMoves":17}],"fallenVoxels":8,"routeBefore":null,"route":null,"front":{"near":["..........",".S.S...S.S","SSSS..SSSS","SS......SS","SS......SS","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S...S.S","SSSS..SSSS","SSSS..SSSS","SS......SS","SS......SS","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEUUEEEE","EEEEUUUEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEUUEEEE","EEEEEUEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,1,1,0,0,0,0],[0,0,0,0,1,1,1,0,0,0],[6,7,6,7,2,2,6,7,6,7],[5,6,5,6,2,2,5,6,5,6],[0,0,0,0,1,1,0,0,0,0],[0,0,0,0,0,1,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}},"literalReadings":{"thickness":"open","asItStands":"shut","support":"shut"},"sensitivity":{"fallOutward":"shut","fallInward":"shut","fallDamage":"shut","stoneSpan1":"shut","stoneSpan3":"shut"},"checks":{"holeVerdictMatchesWidth":true,"gapVerdictMatchesWidth":true,"looseNearStructureTop":0,"looseRestingOnStructure":0,"rubbleAtGroundEdge":false}},{"id":"W09","title":"Slot at the foot, 7 m wide and 1 m high, columns 1–7","damage":[{"kind":"hole","columns":[1,7],"rows":[0,0],"faces":"both"}],"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","S.......SS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","S.......SS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]},"readouts":{"thickness":{"rows":[{"key":"THINNEST","value":"0 m: a hole goes through","warn":true},{"key":"WEAK POINT","value":"columns 1–7, 0–1 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"thinnestMeters":0,"weakCells":[[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]]},"support":{"rows":[{"key":"WIDEST HOLE","value":"7 m wide, 1 m high · the stone above it falls at 5 m · FALLS","warn":true},{"key":"LOWEST OPENING","value":"floor at ground · 1 m clear · too low: soldiers need 2 m","warn":false},{"key":"GAP UNDER FOUNDATION","value":"none · the wall above falls at 5 m","warn":false},{"key":"WEAK POINT","value":"columns 1–7, 0–1 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"readings":{"hole":{"widthMeters":7,"falls":true,"byWidth":true,"cells":[[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]]},"opening":{"floorMeters":0,"onStone":false,"clearMeters":1,"routeNow":false,"cells":[[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]]},"gap":{"widthMeters":0,"underOneFaceMeters":0,"falls":false,"byWidth":false,"cells":[]}},"weakReading":"hole","weakCells":[[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]],"fallWidthMeters":5}},"answer":"open","resolution":{"ticks":[{"pieces":1,"voxels":31,"settleMoves":57}],"fallenVoxels":31,"routeBefore":null,"route":[[3,0],[3,1],[3,2],[3,3],[3,4],[3,5],[3,6],[3,7],[3,8],[3,9],[3,10],[3,11],[3,12],[3,13],[3,14],[3,15]],"front":{"near":["..........",".S.....S.S","SSS...SSSS","SSS...SSSS","SSS...SSSS","SSSUUUSSSS","S..UUU..SS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.....S.S","SSS...SSSS","SSS...SSSS","SSS...SSSS","SSS...SSSS","SSSUUUSSSS","S..UUU..SS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEUUUEEEE","EEUUUUUEEE","SSSUUUSSSS","SSSUUUSSSS","EEUUUUUEEE","EEEUUUEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,1,1,1,0,0,0,0],[0,0,1,2,2,2,1,0,0,0],[6,7,6,2,2,2,6,7,6,7],[5,6,5,2,2,2,5,6,5,6],[0,0,1,1,1,1,1,0,0,0],[0,0,0,1,1,1,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}},"literalReadings":{"thickness":"open","asItStands":"shut","support":"open"},"sensitivity":{"fallOutward":"open","fallInward":"open","fallDamage":"open","stoneSpan1":"open","stoneSpan3":"open"},"checks":{"holeVerdictMatchesWidth":true,"gapVerdictMatchesWidth":true,"looseNearStructureTop":0,"looseRestingOnStructure":0,"rubbleAtGroundEdge":false}},{"id":"W10","title":"Gap under the foundation, 4 m, columns 3–6, with the sappers' trench","damage":[{"kind":"undercut","columns":[3,6],"faces":"both"}],"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","EEE....EEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","EEE....EEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,0,-1,-1,-1,-1,0,0,0],[0,0,0,-1,-1,-1,-1,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]},"readouts":{"thickness":{"rows":[{"key":"THINNEST","value":"2 m of 2 m, full thickness","warn":false},{"key":"WEAK POINT","value":"none","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"thinnestMeters":2,"weakCells":[]},"support":{"rows":[{"key":"WIDEST HOLE","value":"none · the stone above a hole falls at 5 m","warn":false},{"key":"LOWEST OPENING","value":"none","warn":false},{"key":"GAP UNDER FOUNDATION","value":"4 m across the full thickness · the wall above falls at 5 m · holds","warn":false},{"key":"WEAK POINT","value":"columns 3–6, under the foundation","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"readings":{"hole":{"widthMeters":0,"falls":false,"byWidth":false,"cells":[]},"opening":{"floorMeters":null,"onStone":false,"clearMeters":0,"routeNow":false,"cells":[]},"gap":{"widthMeters":4,"underOneFaceMeters":0,"falls":false,"byWidth":false,"cells":[[3,-1],[4,-1],[5,-1],[6,-1]]}},"weakReading":"gap","weakCells":[[3,-1],[4,-1],[5,-1],[6,-1]],"fallWidthMeters":5}},"answer":"shut","resolution":{"ticks":[],"fallenVoxels":0,"routeBefore":null,"route":null,"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","EEE....EEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","EEE....EEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,0,-1,-1,-1,-1,0,0,0],[0,0,0,-1,-1,-1,-1,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}},"literalReadings":{"thickness":"shut","asItStands":"shut","support":"shut"},"sensitivity":{"fallOutward":"shut","fallInward":"shut","fallDamage":"shut","stoneSpan1":"open","stoneSpan3":"shut"},"checks":{"holeVerdictMatchesWidth":true,"gapVerdictMatchesWidth":true,"looseNearStructureTop":0,"looseRestingOnStructure":0,"rubbleAtGroundEdge":false}},{"id":"W11","title":"Two slots at the foot, each 3 m wide and 1 m high, columns 1–3 and 5–7","damage":[{"kind":"hole","columns":[1,3],"rows":[0,0],"faces":"both"},{"kind":"hole","columns":[5,7],"rows":[0,0],"faces":"both"}],"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","S...S...SS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","S...S...SS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]},"readouts":{"thickness":{"rows":[{"key":"THINNEST","value":"0 m: a hole goes through","warn":true},{"key":"WEAK POINT","value":"columns 1–3, 0–1 m up and columns 5–7, 0–1 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"thinnestMeters":0,"weakCells":[[1,0],[2,0],[3,0],[5,0],[6,0],[7,0]]},"support":{"rows":[{"key":"WIDEST HOLE","value":"3 m wide, 1 m high · the stone above it falls at 5 m · holds","warn":false},{"key":"LOWEST OPENING","value":"floor at ground · 1 m clear · too low: soldiers need 2 m","warn":false},{"key":"GAP UNDER FOUNDATION","value":"none · the wall above falls at 5 m","warn":false},{"key":"WEAK POINT","value":"columns 1–3, 0–1 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"readings":{"hole":{"widthMeters":3,"falls":false,"byWidth":false,"cells":[[1,0],[2,0],[3,0]]},"opening":{"floorMeters":0,"onStone":false,"clearMeters":1,"routeNow":false,"cells":[[1,0],[2,0],[3,0]]},"gap":{"widthMeters":0,"underOneFaceMeters":0,"falls":false,"byWidth":false,"cells":[]}},"weakReading":"hole","weakCells":[[1,0],[2,0],[3,0]],"fallWidthMeters":5}},"answer":"shut","resolution":{"ticks":[],"fallenVoxels":0,"routeBefore":null,"route":null,"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","S...S...SS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","S...S...SS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}},"literalReadings":{"thickness":"open","asItStands":"shut","support":"shut"},"sensitivity":{"fallOutward":"shut","fallInward":"shut","fallDamage":"shut","stoneSpan1":"open","stoneSpan3":"shut"},"checks":{"holeVerdictMatchesWidth":true,"gapVerdictMatchesWidth":true,"looseNearStructureTop":0,"looseRestingOnStructure":0,"rubbleAtGroundEdge":false}},{"id":"W12","title":"Outer face shaved off, and a 5 m slot at the foot of the inner face, columns 3–7","damage":[{"kind":"hole","columns":[1,8],"rows":[0,4],"faces":"outer"},{"kind":"hole","columns":[3,7],"rows":[0,0],"faces":"inner"}],"front":{"near":["..........",".S.S.S.S.S","S........S","S........S","S........S","S........S","S........S","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSS.....SS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSESESESES","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,0,6,0,6,0,6,0,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]},"readouts":{"thickness":{"rows":[{"key":"THINNEST","value":"0 m: a hole goes through","warn":true},{"key":"WEAK POINT","value":"columns 3–7, 0–1 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"thinnestMeters":0,"weakCells":[[3,0],[4,0],[5,0],[6,0],[7,0]]},"support":{"rows":[{"key":"WIDEST HOLE","value":"5 m wide, 1 m high · the stone above it falls at 5 m · FALLS","warn":true},{"key":"LOWEST OPENING","value":"floor at ground · 1 m clear · too low: soldiers need 2 m","warn":false},{"key":"GAP UNDER FOUNDATION","value":"none · the wall above falls at 5 m","warn":false},{"key":"WEAK POINT","value":"columns 3–7, 0–1 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"readings":{"hole":{"widthMeters":5,"falls":true,"byWidth":true,"cells":[[3,0],[4,0],[5,0],[6,0],[7,0]]},"opening":{"floorMeters":0,"onStone":false,"clearMeters":1,"routeNow":false,"cells":[[3,0],[4,0],[5,0],[6,0],[7,0]]},"gap":{"widthMeters":0,"underOneFaceMeters":0,"falls":false,"byWidth":false,"cells":[]}},"weakReading":"hole","weakCells":[[3,0],[4,0],[5,0],[6,0],[7,0]],"fallWidthMeters":5}},"answer":"open","resolution":{"ticks":[{"pieces":1,"voxels":7,"settleMoves":14}],"fallenVoxels":7,"routeBefore":null,"route":[[5,0],[5,1],[5,2],[5,3],[5,4],[5,5],[5,6],[5,7],[5,8],[5,9],[5,10],[5,11],[5,12],[5,13],[5,14],[5,15]],"front":{"near":["..........",".S.S...S.S","S........S","S........S","S........S","S........S","S...UUU..S","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S...S.S","SSSSS.SSSS","SSSSS.SSSS","SSSSS.SSSS","SSSSS.SSSS","SSSSSUSSSS","SSS..U..SS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEUEEEE","SSSSSUSSSS","SSESUUUSES","EEEEEUEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,1,0,0,0,0],[6,7,6,7,6,2,6,7,6,7],[5,6,0,6,1,1,1,6,0,6],[0,0,0,0,0,1,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}},"literalReadings":{"thickness":"open","asItStands":"shut","support":"open"},"sensitivity":{"fallOutward":"open","fallInward":"open","fallDamage":"open","stoneSpan1":"open","stoneSpan3":"shut"},"checks":{"holeVerdictMatchesWidth":true,"gapVerdictMatchesWidth":true,"looseNearStructureTop":0,"looseRestingOnStructure":0,"rubbleAtGroundEdge":false}},{"id":"W13","title":"Gap under the foundation, 5 m, columns 1–5, against the left neighbour","damage":[{"kind":"undercut","columns":[1,5],"faces":"both"}],"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","E.....EEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","E.....EEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,-1,-1,-1,-1,-1,0,0,0,0],[0,-1,-1,-1,-1,-1,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]},"readouts":{"thickness":{"rows":[{"key":"THINNEST","value":"2 m of 2 m, full thickness","warn":false},{"key":"WEAK POINT","value":"none","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"thinnestMeters":2,"weakCells":[]},"support":{"rows":[{"key":"WIDEST HOLE","value":"none · the stone above a hole falls at 5 m","warn":false},{"key":"LOWEST OPENING","value":"none","warn":false},{"key":"GAP UNDER FOUNDATION","value":"5 m across the full thickness · the wall above falls at 5 m · FALLS","warn":true},{"key":"WEAK POINT","value":"columns 1–5, under the foundation","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"readings":{"hole":{"widthMeters":0,"falls":false,"byWidth":false,"cells":[]},"opening":{"floorMeters":null,"onStone":false,"clearMeters":0,"routeNow":false,"cells":[]},"gap":{"widthMeters":5,"underOneFaceMeters":0,"falls":true,"byWidth":true,"cells":[[1,-1],[2,-1],[3,-1],[4,-1],[5,-1]]}},"weakReading":"gap","weakCells":[[1,-1],[2,-1],[3,-1],[4,-1],[5,-1]],"fallWidthMeters":5}},"answer":"open","resolution":{"ticks":[{"pieces":1,"voxels":13,"settleMoves":28}],"fallenVoxels":13,"routeBefore":null,"route":[[3,0],[3,1],[3,2],[3,3],[3,4],[3,5],[3,6],[3,7],[3,8],[3,9],[3,10],[3,11],[3,12],[3,13],[3,14],[3,15]],"front":{"near":["..........",".S...S.S.S","SSS.SSSSSS","SSS.SSSSSS","SSS.SSSSSS","SSS.SSSSSS","SSSUSSSSSS","E..U..EEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S...S.S.S","SSS.SSSSSS","SSS.SSSSSS","SSS.SSSSSS","SSS.SSSSSS","SSSUSSSSSS","SSSUSSSSSS","E..U..EEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEUEEEEEE","EEUUEEEEEE","SSSUSSSSSS","SSSUSSSSSS","EEUUUEEEEE","EEEUEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,1,0,0,0,0,0,0],[0,0,1,1,0,0,0,0,0,0],[6,7,6,2,6,7,6,7,6,7],[5,6,5,1,5,6,5,6,5,6],[0,-1,0,1,0,-1,0,0,0,0],[0,-1,-1,0,-1,-1,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}},"literalReadings":{"thickness":"shut","asItStands":"shut","support":"open"},"sensitivity":{"fallOutward":"open","fallInward":"open","fallDamage":"open","stoneSpan1":"open","stoneSpan3":"shut"},"checks":{"holeVerdictMatchesWidth":true,"gapVerdictMatchesWidth":true,"looseNearStructureTop":0,"looseRestingOnStructure":0,"rubbleAtGroundEdge":false}},{"id":"W14","title":"Window 3 m wide and 2 m high, from 2 m up, columns 3–5","damage":[{"kind":"hole","columns":[3,5],"rows":[2,3],"faces":"both"}],"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSS...SSSS","SSS...SSSS","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSS...SSSS","SSS...SSSS","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]},"readouts":{"thickness":{"rows":[{"key":"THINNEST","value":"0 m: a hole goes through","warn":true},{"key":"WEAK POINT","value":"columns 3–5, 2–4 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"thinnestMeters":0,"weakCells":[[3,2],[3,3],[4,2],[4,3],[5,2],[5,3]]},"support":{"rows":[{"key":"WIDEST HOLE","value":"3 m wide, 2 m high · the stone above it falls at 5 m · holds","warn":false},{"key":"LOWEST OPENING","value":"floor 2 m up, on stone · 2 m clear · no footing: soldiers never stand on stone","warn":false},{"key":"GAP UNDER FOUNDATION","value":"none · the wall above falls at 5 m","warn":false},{"key":"WEAK POINT","value":"columns 3–5, 2–4 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"readings":{"hole":{"widthMeters":3,"falls":false,"byWidth":false,"cells":[[3,2],[4,2],[5,2],[3,3],[4,3],[5,3]]},"opening":{"floorMeters":2,"onStone":true,"clearMeters":2,"routeNow":false,"cells":[[3,2],[4,2],[5,2],[3,3],[4,3],[5,3]]},"gap":{"widthMeters":0,"underOneFaceMeters":0,"falls":false,"byWidth":false,"cells":[]}},"weakReading":"hole","weakCells":[[3,2],[4,2],[5,2],[3,3],[4,3],[5,3]],"fallWidthMeters":5}},"answer":"shut","resolution":{"ticks":[],"fallenVoxels":0,"routeBefore":null,"route":null,"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSS...SSSS","SSS...SSSS","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSS...SSSS","SSS...SSSS","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}},"literalReadings":{"thickness":"open","asItStands":"shut","support":"shut"},"sensitivity":{"fallOutward":"shut","fallInward":"shut","fallDamage":"shut","stoneSpan1":"shut","stoneSpan3":"shut"},"checks":{"holeVerdictMatchesWidth":true,"gapVerdictMatchesWidth":true,"looseNearStructureTop":0,"looseRestingOnStructure":0,"rubbleAtGroundEdge":false}},{"id":"W15","title":"Slot at the foot, 6 m wide and 1 m high, columns 3–8, against the right neighbour","damage":[{"kind":"hole","columns":[3,8],"rows":[0,0],"faces":"both"}],"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSS......S","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSS......S","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]},"readouts":{"thickness":{"rows":[{"key":"THINNEST","value":"0 m: a hole goes through","warn":true},{"key":"WEAK POINT","value":"columns 3–8, 0–1 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"thinnestMeters":0,"weakCells":[[3,0],[4,0],[5,0],[6,0],[7,0],[8,0]]},"support":{"rows":[{"key":"WIDEST HOLE","value":"6 m wide, 1 m high · the stone above it falls at 5 m · FALLS","warn":true},{"key":"LOWEST OPENING","value":"floor at ground · 1 m clear · too low: soldiers need 2 m","warn":false},{"key":"GAP UNDER FOUNDATION","value":"none · the wall above falls at 5 m","warn":false},{"key":"WEAK POINT","value":"columns 3–8, 0–1 m up","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"readings":{"hole":{"widthMeters":6,"falls":true,"byWidth":true,"cells":[[3,0],[4,0],[5,0],[6,0],[7,0],[8,0]]},"opening":{"floorMeters":0,"onStone":false,"clearMeters":1,"routeNow":false,"cells":[[3,0],[4,0],[5,0],[6,0],[7,0],[8,0]]},"gap":{"widthMeters":0,"underOneFaceMeters":0,"falls":false,"byWidth":false,"cells":[]}},"weakReading":"hole","weakCells":[[3,0],[4,0],[5,0],[6,0],[7,0],[8,0]],"fallWidthMeters":5}},"answer":"open","resolution":{"ticks":[{"pieces":1,"voxels":20,"settleMoves":36}],"fallenVoxels":20,"routeBefore":null,"route":[[5,0],[5,1],[5,2],[5,3],[5,4],[5,5],[5,6],[5,7],[5,8],[5,9],[5,10],[5,11],[5,12],[5,13],[5,14],[5,15]],"front":{"near":["..........",".S.S...S.S","SSSSS..SSS","SSSSS..SSS","SSSSS..SSS","SSSSSUUSSS","SSS..UU..S","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S...S.S","SSSSS..SSS","SSSSS..SSS","SSSSS..SSS","SSSSS..SSS","SSSSSUUSSS","SSS..UU..S","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEUUEEE","EEEEUUUUEE","SSSSSUUSSS","SSSSSUUSSS","EEEEUUUEEE","EEEEEUUEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,1,1,0,0,0],[0,0,0,0,1,2,1,1,0,0],[6,7,6,7,6,2,2,7,6,7],[5,6,5,6,5,2,2,6,5,6],[0,0,0,0,1,1,1,0,0,0],[0,0,0,0,0,1,1,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}},"literalReadings":{"thickness":"open","asItStands":"shut","support":"open"},"sensitivity":{"fallOutward":"open","fallInward":"open","fallDamage":"open","stoneSpan1":"open","stoneSpan3":"shut"},"checks":{"holeVerdictMatchesWidth":true,"gapVerdictMatchesWidth":true,"looseNearStructureTop":0,"looseRestingOnStructure":0,"rubbleAtGroundEdge":false}},{"id":"W16","title":"Gap under the outer face only, the whole 8 m, with the sappers' trench","damage":[{"kind":"undercut","columns":[1,8],"faces":"outer"}],"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","E........E","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,-1,-1,-1,-1,-1,-1,-1,-1,0],[0,-1,-1,-1,-1,-1,-1,-1,-1,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]},"readouts":{"thickness":{"rows":[{"key":"THINNEST","value":"2 m of 2 m, full thickness","warn":false},{"key":"WEAK POINT","value":"none","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"thinnestMeters":2,"weakCells":[]},"support":{"rows":[{"key":"WIDEST HOLE","value":"none · the stone above a hole falls at 5 m","warn":false},{"key":"LOWEST OPENING","value":"none","warn":false},{"key":"GAP UNDER FOUNDATION","value":"none across the full thickness (8 m under the outer face only) · the wall above falls at 5 m · holds","warn":false},{"key":"WEAK POINT","value":"none","warn":false},{"key":"STANDS ON","value":"earth, 2 m deep over rock","warn":false}],"readings":{"hole":{"widthMeters":0,"falls":false,"byWidth":false,"cells":[]},"opening":{"floorMeters":null,"onStone":false,"clearMeters":0,"routeNow":false,"cells":[]},"gap":{"widthMeters":0,"underOneFaceMeters":8,"falls":false,"byWidth":false,"cells":[]}},"weakReading":null,"weakCells":[],"fallWidthMeters":5}},"answer":"shut","resolution":{"ticks":[],"fallenVoxels":0,"routeBefore":null,"route":null,"front":{"near":["..........",".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","E........E","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"],"far":[".S.S.S.S.S","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","RRRRRRRRRR","BBBBBBBBBB"]},"top":{"material":["EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","SSSSSSSSSS","SSSSSSSSSS","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE","EEEEEEEEEE"],"height":[[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[6,7,6,7,6,7,6,7,6,7],[5,6,5,6,5,6,5,6,5,6],[0,-1,-1,-1,-1,-1,-1,-1,-1,0],[0,-1,-1,-1,-1,-1,-1,-1,-1,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0]]}},"literalReadings":{"thickness":"shut","asItStands":"shut","support":"shut"},"sensitivity":{"fallOutward":"shut","fallInward":"shut","fallDamage":"shut","stoneSpan1":"shut","stoneSpan3":"shut"},"checks":{"holeVerdictMatchesWidth":true,"gapVerdictMatchesWidth":true,"looseNearStructureTop":0,"looseRestingOnStructure":0,"rubbleAtGroundEdge":false}}]}</script>
+<script>
+"use strict";
+
+const DATA = JSON.parse(document.getElementById("breach-items").textContent);
+const ITEMS = DATA.items || [];
+const LEGEND = (DATA.views && DATA.views.legend) || {};
+const GROUND_ROWS = (DATA.views && DATA.views.groundRows) || 4;
+const STORE_KEY = "BreachPrediction.session." + (DATA.version || "none");
+const CONDITION_NAMES = { thickness: "Thickness readout", support: "Support readout" };
+const SKY = "#d6e6ee";
+const VOID = "#231f1c";
+const MARK = "#d99a00";
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+let g_session = null;
+let g_shownAt = 0;
+
+// ── Storage: a convenience for a reload mid-session, never the record. The record is the download. ──
+
+function SaveSession() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(g_session)); } catch (_error) { /* storage may be blocked */ }
+}
+
+function LoadSession() {
+  try { const text = localStorage.getItem(STORE_KEY); return text ? JSON.parse(text) : null; } catch (_error) { return null; }
+}
+
+function DropSession() {
+  try { localStorage.removeItem(STORE_KEY); } catch (_error) { /* nothing to do */ }
+}
+
+// ── Order ──
+
+function Mulberry32(_seed) {
+  let state = _seed >>> 0;
+  return function () {
+    state = (state + 0x6D2B79F5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function Shuffled(_ids, _seed) {
+  const random = Mulberry32(_seed);
+  const order = _ids.slice();
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return order;
+}
+
+function NewSeed() {
+  const values = new Uint32Array(1);
+  if (window.crypto && window.crypto.getRandomValues) { window.crypto.getRandomValues(values); } else { values[0] = Math.floor(Math.random() * 4294967296); }
+  return 1 + (values[0] % 999999);
+}
+
+// ── Drawing ──
+
+function El(_name, _attributes, _parent) {
+  const element = document.createElementNS(SVG_NS, _name);
+  for (const [key, value] of Object.entries(_attributes || {})) { element.setAttribute(key, value); }
+  if (_parent) { _parent.appendChild(element); }
+  return element;
+}
+
+function Html(_tag, _attributes, _text) {
+  const element = document.createElement(_tag);
+  for (const [key, value] of Object.entries(_attributes || {})) { element.setAttribute(key, value); }
+  if (_text !== undefined) { element.textContent = _text; }
+  return element;
+}
+
+function Color(_code) {
+  return LEGEND[_code] ? LEGEND[_code].hex : "#ff00ff";
+}
+
+function Shade(_hex, _factor) {
+  const value = parseInt(_hex.slice(1), 16);
+  const channel = (shift) => Math.round(((value >> shift) & 255) * _factor);
+  return "rgb(" + channel(16) + "," + channel(8) + "," + channel(0) + ")";
+}
+
+function IsLight(_hex) {
+  const value = parseInt(_hex.slice(1), 16);
+  const luminance = 0.299 * ((value >> 16) & 255) + 0.587 * ((value >> 8) & 255) + 0.114 * (value & 255);
+  return luminance > 140;
+}
+
+function IsRubble(_code) {
+  return _code === "U" || _code === "D" || _code === "K";
+}
+
+let g_patternCount = 0;
+
+function Patterns(_svg) {
+  const id = "p" + (++g_patternCount);
+  const defs = El("defs", {}, _svg);
+  const stripes = El("pattern", { id: id + "s", width: 6, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" }, defs);
+  El("rect", { width: 2, height: 6, fill: "rgba(0,0,0,0.35)" }, stripes);
+  const dots = El("pattern", { id: id + "d", width: 5, height: 5, patternUnits: "userSpaceOnUse" }, defs);
+  El("circle", { cx: 2.5, cy: 2.5, r: 1, fill: "rgba(0,0,0,0.35)" }, dots);
+  return { stripes: "url(#" + id + "s)", dots: "url(#" + id + "d)" };
+}
+
+function Label(_svg, _x, _y, _text, _anchor, _size, _fill) {
+  const text = El("text", { x: _x, y: _y, "text-anchor": _anchor || "middle", "font-size": _size || 12, fill: _fill || "#625c53", "font-family": "system-ui, sans-serif" }, _svg);
+  text.textContent = _text;
+  return text;
+}
+
+// The front view: rows top first, columns x 0-9, where 0 and 9 are the neighbouring sections.
+// _marks: [column, row] with row counted up from the ground and -1 the ground under the wall.
+function FrontSvg(_front, _marks, _cell) {
+  const cell = _cell || 30;
+  const rows = _front.near.length;
+  const columns = _front.near[0].length;
+  const left = 30, top = 8, bottom = 24;
+  const width = left + columns * cell + 8, height = top + rows * cell + bottom;
+  const svg = El("svg", { viewBox: "0 0 " + width + " " + height, width: width, height: height, role: "img", "aria-label": "Front view of the wall section" });
+  const patterns = Patterns(svg);
+  for (let r = 0; r < rows; r++) {
+    const gridY = rows - 1 - r;
+    for (let x = 0; x < columns; x++) {
+      const near = _front.near[r][x], far = _front.far[r][x];
+      const px = left + x * cell, py = top + r * cell;
+      let fill, overlay = null;
+      if (near !== "." ) {
+        fill = Color(near);
+        if (far === ".") { overlay = "nearOnly"; }
+        else if (IsRubble(near)) { overlay = "rubble"; }
+      } else if (far !== ".") {
+        fill = Shade(Color(far), 0.62);
+        overlay = IsRubble(far) ? "rubble" : "stripes";
+      } else {
+        fill = gridY >= GROUND_ROWS ? SKY : VOID;
+      }
+      El("rect", { x: px, y: py, width: cell, height: cell, fill: fill, stroke: "rgba(0,0,0,0.18)", "stroke-width": 1 }, svg);
+      if (overlay === "stripes") { El("rect", { x: px, y: py, width: cell, height: cell, fill: patterns.stripes }, svg); }
+      if (overlay === "rubble") { El("rect", { x: px, y: py, width: cell, height: cell, fill: patterns.dots }, svg); }
+      if (overlay === "nearOnly") { El("circle", { cx: px + cell / 2, cy: py + cell / 2, r: cell * 0.14, fill: "#ffffff", stroke: "rgba(0,0,0,0.5)" }, svg); }
+    }
+  }
+  for (const x of [0, columns - 1]) {
+    El("rect", { x: left + x * cell, y: top, width: cell, height: rows * cell, fill: "rgba(245,243,238,0.55)" }, svg);
+  }
+  const groundLine = top + (rows - GROUND_ROWS) * cell;
+  El("line", { x1: left, y1: groundLine, x2: left + columns * cell, y2: groundLine, stroke: "#1e1c19", "stroke-width": 2 }, svg);
+  for (let k = 0; k <= rows; k++) {
+    const meters = k - GROUND_ROWS;
+    Label(svg, left - 6, top + (rows - k) * cell + 4, String(meters), "end", 11);
+  }
+  for (let x = 1; x < columns - 1; x++) { Label(svg, left + x * cell + cell / 2, height - 7, String(x), "middle", 12); }
+  for (const mark of _marks || []) {
+    const gridY = GROUND_ROWS + mark[1];
+    const r = rows - 1 - gridY;
+    El("rect", { x: left + mark[0] * cell + 2, y: top + r * cell + 2, width: cell - 4, height: cell - 4, fill: "none", stroke: MARK, "stroke-width": 3 }, svg);
+  }
+  return svg;
+}
+
+// The top view: rows inside first, columns x 0-9. _route: [x, z] cells to mark.
+function TopSvg(_top, _route, _cell) {
+  const cell = _cell || 22;
+  const rows = _top.material.length;
+  const columns = _top.material[0].length;
+  const left = 8, top = 22, bottom = 40;
+  const width = left + columns * cell + 8, height = top + rows * cell + bottom;
+  const svg = El("svg", { viewBox: "0 0 " + width + " " + height, width: width, height: height, role: "img", "aria-label": "Top view of the wall section" });
+  const patterns = Patterns(svg);
+  Label(svg, left + columns * cell / 2, 14, "INSIDE", "middle", 12, "#1e1c19");
+  for (let r = 0; r < rows; r++) {
+    for (let x = 0; x < columns; x++) {
+      const code = _top.material[r][x];
+      const hex = code === "." ? "#ffffff" : Color(code);
+      const px = left + x * cell, py = top + r * cell;
+      El("rect", { x: px, y: py, width: cell, height: cell, fill: hex, stroke: "rgba(0,0,0,0.18)", "stroke-width": 1 }, svg);
+      if (IsRubble(code)) { El("rect", { x: px, y: py, width: cell, height: cell, fill: patterns.dots }, svg); }
+      const meters = _top.height[r][x];
+      if (meters !== 0) { Label(svg, px + cell / 2, py + cell / 2 + 4, String(meters).replace("-", "−"), "middle", 11, IsLight(hex) ? "#1e1c19" : "#ffffff"); }
+    }
+  }
+  for (const x of [0, columns - 1]) {
+    El("rect", { x: left + x * cell, y: top, width: cell, height: rows * cell, fill: "rgba(245,243,238,0.55)" }, svg);
+  }
+  for (const step of _route || []) {
+    const r = rows - 1 - step[1];
+    El("circle", { cx: left + step[0] * cell + cell / 2, cy: top + r * cell + cell / 2, r: cell * 0.18, fill: "#2c5a85", stroke: "#ffffff" }, svg);
+  }
+  for (let x = 1; x < columns - 1; x++) { Label(svg, left + x * cell + cell / 2, top + rows * cell + 14, String(x), "middle", 12); }
+  Label(svg, left + columns * cell / 2, height - 6, "OUTSIDE", "middle", 12, "#1e1c19");
+  return svg;
+}
+
+function Swatch(_fill, _overlay) {
+  const svg = El("svg", { width: 18, height: 18, viewBox: "0 0 18 18", "aria-hidden": "true" });
+  const patterns = Patterns(svg);
+  El("rect", { x: 0.5, y: 0.5, width: 17, height: 17, fill: _fill, stroke: "rgba(0,0,0,0.3)" }, svg);
+  if (_overlay === "stripes") { El("rect", { x: 0.5, y: 0.5, width: 17, height: 17, fill: patterns.stripes }, svg); }
+  if (_overlay === "dots") { El("rect", { x: 0.5, y: 0.5, width: 17, height: 17, fill: patterns.dots }, svg); }
+  if (_overlay === "near") { El("circle", { cx: 9, cy: 9, r: 3, fill: "#fff", stroke: "rgba(0,0,0,0.5)" }, svg); }
+  if (_overlay === "mark") { El("rect", { x: 2, y: 2, width: 14, height: 14, fill: "none", stroke: MARK, "stroke-width": 3 }, svg); }
+  return svg;
+}
+
+function FillLegend(_container, _withRubble) {
+  _container.textContent = "";
+  const entries = [
+    [Color("S"), null, "wall stone"],
+    [Shade(Color("S"), 0.62), "stripes", "outer face gone, inner face left"],
+    [Color("S"), "near", "outer face left, inner face gone"],
+    [SKY, null, "see-through"],
+    [Color("E"), null, "earth"],
+    [Color("R"), null, "rock"],
+    [Color("B"), null, "bedrock"],
+    [VOID, null, "gap in the ground"],
+    ["#ffffff", "mark", "weak point in the readout"],
+  ];
+  if (_withRubble) { entries.splice(4, 0, [Color("U"), "dots", "rubble"]); }
+  for (const [fill, overlay, text] of entries) {
+    const item = Html("span");
+    item.appendChild(Swatch(fill, overlay));
+    item.appendChild(document.createTextNode(text));
+    _container.appendChild(item);
+  }
+  const faded = Html("span", {}, "faded columns: the neighbouring sections");
+  _container.appendChild(faded);
+}
+
+function FillReadout(_container, _readout) {
+  _container.textContent = "";
+  _container.appendChild(Html("div", { class: "title" }, "INTEGRITY VIEW"));
+  for (const row of _readout.rows) {
+    const line = Html("div", { class: "row" });
+    line.appendChild(Html("span", { class: "key" }, row.key));
+    const value = Html("span", { class: "value" + (row.warn ? " warn" : "") });
+    const parts = row.value.split(" · ");
+    parts.forEach((part, index) => {
+      const isVerdict = index === parts.length - 1 && parts.length > 1 && /^(FALLS|holds|a route now|no footing|too low)/.test(part);
+      const span = Html("span", { class: index === 0 ? "first" : isVerdict ? "verdict" : "" }, part);
+      value.appendChild(span);
+      if (index < parts.length - 1) { value.appendChild(Html("br")); }
+    });
+    line.appendChild(value);
+    _container.appendChild(line);
+  }
+}
+
+// ── Screens ──
+
+function Show(_id) {
+  for (const screen of document.querySelectorAll(".screen")) { screen.classList.toggle("active", screen.id === _id); }
+  window.scrollTo(0, 0);
+}
+
+function UpdateStatus() {
+  const status = document.getElementById("status");
+  if (!g_session) { status.textContent = ""; return; }
+  const parts = [g_session.participant, CONDITION_NAMES[g_session.condition], "seed " + g_session.seed];
+  if (g_session.phase === "items") { parts.push("item " + (g_session.answers.length + 1) + " of " + g_session.order.length); }
+  if (g_session.phase === "practice") { parts.push("practice"); }
+  if (g_session.phase === "done") { parts.push("finished"); }
+  status.textContent = parts.join(" · ");
+}
+
+function ItemById(_id) {
+  return _id === DATA.practice.id ? DATA.practice : ITEMS.find((item) => item.id === _id);
+}
+
+function ShowItem(_item, _title) {
+  document.getElementById("item-title").textContent = _title;
+  const readout = _item.readouts[g_session.condition];
+  const front = document.getElementById("front");
+  front.textContent = "";
+  front.appendChild(FrontSvg(_item.front, readout.weakCells));
+  const top = document.getElementById("top");
+  top.textContent = "";
+  top.appendChild(TopSvg(_item.top, null));
+  FillLegend(document.getElementById("legend"), false);
+  FillReadout(document.getElementById("readout"), readout);
+  SetAnswer(null);
+  document.getElementById("reason").value = "";
+  g_shownAt = performance.now();
+  UpdateStatus();
+  Show("item");
+}
+
+let g_answer = null;
+
+function SetAnswer(_answer) {
+  g_answer = _answer;
+  document.getElementById("answer-open").setAttribute("aria-pressed", String(_answer === "open"));
+  document.getElementById("answer-shut").setAttribute("aria-pressed", String(_answer === "shut"));
+  document.getElementById("next").disabled = _answer === null;
+  document.getElementById("next-hint").textContent = _answer === null ? "Choose open or shut." : "";
+}
+
+function ShowCurrent() {
+  if (g_session.phase === "practice") {
+    ShowItem(DATA.practice, "Practice item");
+  } else if (g_session.phase === "items") {
+    const position = g_session.answers.length;
+    ShowItem(ItemById(g_session.order[position]), "Item " + (position + 1) + " of " + g_session.order.length);
+  } else if (g_session.phase === "done") {
+    ShowDone();
+  }
+}
+
+function Next() {
+  if (g_answer === null) { return; }
+  const record = {
+    answer: g_answer,
+    reason: document.getElementById("reason").value.trim(),
+    milliseconds: Math.round(performance.now() - g_shownAt),
+    answeredAt: new Date().toISOString(),
+  };
+  if (g_session.phase === "practice") {
+    g_session.practice = Object.assign({ item: DATA.practice.id, key: DATA.practice.answer }, record);
+    g_session.phase = "items";
+    SaveSession();
+    UpdateStatus();
+    Show("practice-done");
+    return;
+  }
+  const id = g_session.order[g_session.answers.length];
+  const item = ItemById(id);
+  g_session.answers.push(Object.assign({ position: g_session.answers.length + 1, item: id, key: item.answer, correct: record.answer === item.answer }, record));
+  if (g_session.answers.length === g_session.order.length) {
+    g_session.phase = "done";
+    g_session.finishedAt = new Date().toISOString();
+  }
+  SaveSession();
+  ShowCurrent();
+}
+
+function Score() {
+  const answers = g_session.answers;
+  const correct = answers.filter((answer) => answer.correct).length;
+  return {
+    correct: correct,
+    total: answers.length,
+    accuracy: answers.length ? correct / answers.length : 0,
+    openItemsCorrect: answers.filter((answer) => answer.key === "open" && answer.correct).length,
+    openItems: answers.filter((answer) => answer.key === "open").length,
+    shutItemsCorrect: answers.filter((answer) => answer.key === "shut" && answer.correct).length,
+    shutItems: answers.filter((answer) => answer.key === "shut").length,
+    answeredOpen: answers.filter((answer) => answer.answer === "open").length,
+  };
+}
+
+function ShowDone() {
+  const score = Score();
+  document.getElementById("score").textContent = score.correct + " / " + score.total + " = " + score.accuracy.toFixed(2);
+  document.getElementById("score-detail").textContent = "Right on " + score.openItemsCorrect + " of " + score.openItems + " open sections and " + score.shutItemsCorrect + " of " + score.shutItems +
+    " shut sections. Answered open " + score.answeredOpen + " times. Readout: " + CONDITION_NAMES[g_session.condition] + ". Seed " + g_session.seed + ".";
+  document.getElementById("download-hint").textContent = "The download is the record of this session. Keep it before starting the next participant.";
+  const table = document.getElementById("per-item");
+  table.hidden = true;
+  table.textContent = "";
+  const grid = Html("table");
+  const head = Html("tr");
+  for (const title of ["#", "Item", "Answer", "Key", "", "Seconds", "Reason"]) { head.appendChild(Html("th", {}, title)); }
+  grid.appendChild(head);
+  for (const answer of g_session.answers) {
+    const row = Html("tr");
+    row.appendChild(Html("td", {}, String(answer.position)));
+    row.appendChild(Html("td", {}, answer.item));
+    row.appendChild(Html("td", {}, answer.answer));
+    row.appendChild(Html("td", {}, answer.key));
+    row.appendChild(Html("td", { class: answer.correct ? "ok" : "no" }, answer.correct ? "right" : "wrong"));
+    row.appendChild(Html("td", {}, (answer.milliseconds / 1000).toFixed(0)));
+    row.appendChild(Html("td", {}, answer.reason));
+    grid.appendChild(row);
+  }
+  table.appendChild(grid);
+  UpdateStatus();
+  Show("done");
+}
+
+function Results() {
+  return {
+    instrument: "BreachPrediction",
+    instrumentVersion: DATA.version,
+    participant: g_session.participant,
+    condition: g_session.condition,
+    seed: g_session.seed,
+    order: g_session.order,
+    startedAt: g_session.startedAt,
+    finishedAt: g_session.finishedAt,
+    practice: g_session.practice,
+    answers: g_session.answers,
+    score: Score(),
+  };
+}
+
+function Download() {
+  const text = JSON.stringify(Results(), null, 2) + "\n";
+  const blob = new Blob([text], { type: "application/json" });
+  const link = document.createElement("a");
+  const safe = String(g_session.participant).replace(/[^A-Za-z0-9_-]+/g, "_") || "participant";
+  link.href = URL.createObjectURL(blob);
+  link.download = "BreachPrediction-" + safe + "-" + g_session.condition + "-" + g_session.seed + ".json";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  g_session.downloaded = true;
+  SaveSession();
+}
+
+function ShowKey() {
+  const list = document.getElementById("key-list");
+  list.textContent = "";
+  for (const item of [DATA.practice].concat(ITEMS)) {
+    const card = Html("div", { class: "card" });
+    card.appendChild(Html("h2", {}, item.id + " · " + item.answer.toUpperCase() + " · " + item.title));
+    const fell = item.resolution.fallenVoxels;
+    card.appendChild(Html("p", { class: "hint" }, (fell ? fell + " voxels fall over " + item.resolution.ticks.length + " tick(s). " : "Nothing falls. ") +
+      (item.resolution.route ? "The route after settling is marked on the top view." : "No route after settling.")));
+    const views = Html("div", { class: "keyitem" });
+    const before = Html("div", { class: "view" });
+    before.appendChild(Html("h3", {}, "FRONT, AS SHOWN"));
+    before.appendChild(FrontSvg(item.front, [], 22));
+    const after = Html("div", { class: "view" });
+    after.appendChild(Html("h3", {}, "FRONT, SETTLED"));
+    after.appendChild(FrontSvg(item.resolution.front, [], 22));
+    const plan = Html("div", { class: "view" });
+    plan.appendChild(Html("h3", {}, "TOP, SETTLED"));
+    plan.appendChild(TopSvg(item.resolution.top, item.resolution.route, 16));
+    views.appendChild(before);
+    views.appendChild(after);
+    views.appendChild(plan);
+    const readouts = Html("div", { class: "keyitem", style: "margin-top:12px" });
+    for (const condition of ["thickness", "support"]) {
+      const panel = Html("div", { class: "readout" });
+      FillReadout(panel, item.readouts[condition]);
+      panel.firstChild.textContent = "INTEGRITY VIEW · " + CONDITION_NAMES[condition].toUpperCase();
+      readouts.appendChild(panel);
+    }
+    card.appendChild(views);
+    card.appendChild(readouts);
+    list.appendChild(card);
+  }
+  const legend = Html("div", { class: "legend" });
+  FillLegend(legend, true);
+  list.prepend(legend);
+  Show("key");
+}
+
+// ── Set-up ──
+
+function SetupReady() {
+  const participant = document.getElementById("participant").value.trim();
+  const condition = document.querySelector("input[name=condition]:checked");
+  const seed = parseInt(document.getElementById("seed").value, 10);
+  const ready = participant !== "" && condition !== null && seed >= 1 && seed <= 999999;
+  document.getElementById("start").disabled = !ready;
+  document.getElementById("start-hint").textContent = ready ? "" : "Enter a participant, choose a readout and keep a seed from 1 to 999999.";
+  return ready;
+}
+
+function Start() {
+  if (!SetupReady()) { return; }
+  const seed = parseInt(document.getElementById("seed").value, 10);
+  g_session = {
+    participant: document.getElementById("participant").value.trim(),
+    condition: document.querySelector("input[name=condition]:checked").value,
+    seed: seed,
+    order: Shuffled(ITEMS.map((item) => item.id), seed),
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    phase: "practice",
+    practice: null,
+    answers: [],
+  };
+  SaveSession();
+  UpdateStatus();
+  Show("briefing");
+}
+
+function Reset() {
+  g_session = null;
+  DropSession();
+  document.getElementById("participant").value = "";
+  for (const radio of document.querySelectorAll("input[name=condition]")) { radio.checked = false; }
+  document.getElementById("seed").value = NewSeed();
+  document.getElementById("resume").hidden = true;
+  SetupReady();
+  UpdateStatus();
+  Show("setup");
+}
+
+function Initialize() {
+  document.getElementById("version").textContent = DATA.version || "missing: run Tools/PaperTests/BreachPrediction.py";
+  document.getElementById("seed").value = NewSeed();
+  if (ITEMS.length === 0) {
+    document.getElementById("start-hint").textContent = "No items in this page. Run Tools/PaperTests/BreachPrediction.py.";
+    return;
+  }
+  for (const id of ["participant", "seed"]) { document.getElementById(id).addEventListener("input", SetupReady); }
+  for (const radio of document.querySelectorAll("input[name=condition]")) { radio.addEventListener("change", SetupReady); }
+  document.getElementById("seed-new").addEventListener("click", () => { document.getElementById("seed").value = NewSeed(); SetupReady(); });
+  document.getElementById("start").addEventListener("click", Start);
+  document.getElementById("briefing-go").addEventListener("click", ShowCurrent);
+  document.getElementById("items-go").addEventListener("click", ShowCurrent);
+  document.getElementById("answer-open").addEventListener("click", () => SetAnswer("open"));
+  document.getElementById("answer-shut").addEventListener("click", () => SetAnswer("shut"));
+  document.getElementById("next").addEventListener("click", Next);
+  document.getElementById("download").addEventListener("click", Download);
+  document.getElementById("again").addEventListener("click", () => {
+    if (g_session && !g_session.downloaded && !window.confirm("The results have not been downloaded. Start the next participant anyway?")) { return; }
+    Reset();
+  });
+  document.getElementById("show-items").addEventListener("click", () => { const table = document.getElementById("per-item"); table.hidden = !table.hidden; });
+  document.getElementById("show-key").addEventListener("click", ShowKey);
+  document.getElementById("key-back").addEventListener("click", () => { UpdateStatus(); Show(g_session && g_session.phase === "done" ? "done" : "setup"); });
+  document.getElementById("resume-go").addEventListener("click", () => { document.getElementById("resume").hidden = true; ShowCurrent(); });
+  document.getElementById("resume-drop").addEventListener("click", Reset);
+  window.addEventListener("beforeunload", (_event) => {
+    if (g_session && g_session.phase !== "done") { _event.preventDefault(); _event.returnValue = ""; }
+  });
+  const saved = LoadSession();
+  if (saved && saved.order && saved.answers) {
+    g_session = saved;
+    const where = saved.phase === "done" ? "finished" : saved.phase === "practice" ? "at the practice item" : "at item " + (saved.answers.length + 1) + " of " + saved.order.length;
+    document.getElementById("resume-text").textContent = "A session was left open: " + saved.participant + ", " + CONDITION_NAMES[saved.condition] + ", seed " + saved.seed + ", " + where + ".";
+    document.getElementById("resume").hidden = false;
+    UpdateStatus();
+  }
+  SetupReady();
+}
+
+Initialize();
+</script>
+</body>
+</html>
