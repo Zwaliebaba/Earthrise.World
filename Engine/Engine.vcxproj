@@ -71,6 +71,10 @@
     <ClCompile Include="PointerInput.cpp" />
     <ClInclude Include="FrameTimer.h" />
     <ClCompile Include="FrameTimer.cpp" />
+    <ClInclude Include="OrthographicCamera.h" />
+    <ClCompile Include="OrthographicCamera.cpp" />
+    <ClInclude Include="KeyboardInput.h" />
+    <ClCompile Include="KeyboardInput.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FXCompile Include="Shader\VoxelVS.hlsl">

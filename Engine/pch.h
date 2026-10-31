@@ -9,9 +9,12 @@
 #include <dxgi1_6.h>
 #include <winrt/base.h>
 
+#include <algorithm>
 #include <array>
+#include <bitset>
 #include <chrono>
 #include <climits>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>

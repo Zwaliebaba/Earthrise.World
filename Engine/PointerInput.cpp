@@ -70,6 +70,11 @@ void PointerInput::EndFrame() noexcept
   m_wheelDelta = 0;
 }
 
+void PointerInput::ReleaseAll() noexcept
+{
+  m_down = {};
+}
+
 std::int32_t PointerInput::XPixels() const noexcept
 {
   return m_xPixels;

@@ -19,6 +19,9 @@
     <Filter Include="Shader">
       <UniqueIdentifier>{D5B7C56A-C163-5EA2-A920-499F1A7C8698}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Camera">
+      <UniqueIdentifier>{8E4A997B-2933-5059-AE68-C4146C544FB0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -131,6 +134,18 @@
     </ClInclude>
     <ClCompile Include="DepthTarget.cpp">
       <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClInclude Include="OrthographicCamera.h">
+      <Filter>Camera</Filter>
+    </ClInclude>
+    <ClCompile Include="OrthographicCamera.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
+    <ClInclude Include="KeyboardInput.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClCompile Include="KeyboardInput.cpp">
+      <Filter>Input</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

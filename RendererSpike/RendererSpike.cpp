@@ -6,6 +6,8 @@
 #include "FrameRing.h"
 #include "FrameTimer.h"
 #include "GpuDevice.h"
+#include "KeyboardInput.h"
+#include "OrthographicCamera.h"
 #include "Palette.h"
 #include "PointerInput.h"
 #include "ResourceBarrier.h"
@@ -32,13 +34,17 @@ constexpr std::uint64_t UPLOAD_RING_BYTES = std::uint64_t{32} * 1024 * 1024;
 constexpr std::array<float, 4> CLEAR_COLOR = {0.6724F, 0.6038F, 0.4910F, 1.0F};
 constexpr std::array<float, 3> SUN_TOWARDS = {-90.0F, 75.0F, 55.0F};
 
-// A fixed orthographic camera until task 6: 34 degrees down, looking north-west, 64 m of view high.
+// The camera of RendererLook.md §7: orthographic at 34 degrees, standing to the south-west, turning
+// in quarter turns eased over 0.3 s, from 12 m to 260 m of view height, 84 m by default. Azimuth is
+// measured from +z (north) towards +x (east), so the south-west is -135 degrees.
 constexpr float ELEVATION_DEGREES = 34.0F;
-constexpr float YAW_DEGREES = 45.0F;
-constexpr float VIEW_HEIGHT_METERS = 64.0F;
-constexpr float EYE_DISTANCE_METERS = 400.0F;
-constexpr float NEAR_METERS = 1.0F;
-constexpr float FAR_METERS = 800.0F;
+constexpr float AZIMUTH_DEGREES = -135.0F;
+constexpr float DEFAULT_VIEW_HEIGHT_METERS = 84.0F;
+constexpr float MIN_VIEW_HEIGHT_METERS = 12.0F;
+constexpr float MAX_VIEW_HEIGHT_METERS = 260.0F;
+constexpr float ROTATION_SECONDS = 0.3F;
+// Keys pan the view by this many view heights a second.
+constexpr float PAN_VIEWS_PER_SECOND = 0.8F;
 
 constexpr double TITLE_REFRESH_SECONDS = 0.5;
 
@@ -79,31 +85,51 @@ std::array<DirectX::XMFLOAT4, Engine::VoxelPass::PALETTE_ENTRIES> LinearPalette(
   return colors;
 }
 
-Engine::VoxelPass::FrameConstants MakeFrame(const Spike::TestScene& _scene, std::uint32_t _widthPixels, std::uint32_t _heightPixels)
+Engine::VoxelPass::FrameConstants MakeFrame(const Engine::OrthographicCamera& _camera, std::uint32_t _widthPixels,
+                                            std::uint32_t _heightPixels)
 {
-  const float elevation = DirectX::XMConvertToRadians(ELEVATION_DEGREES);
-  const float yaw = DirectX::XMConvertToRadians(YAW_DEGREES);
-  const DirectX::XMVECTOR forward =
-    DirectX::XMVectorSet(-std::cos(elevation) * std::sin(yaw), -std::sin(elevation), -std::cos(elevation) * std::cos(yaw), 0.0F);
-  const DirectX::XMVECTOR target = DirectX::XMVectorSet(_scene.centerXMeters, 6.0F, _scene.centerZMeters, 1.0F);
-  const DirectX::XMVECTOR eye = DirectX::XMVectorSubtract(target, DirectX::XMVectorScale(forward, EYE_DISTANCE_METERS));
-  const DirectX::XMMATRIX view = DirectX::XMMatrixLookToLH(eye, forward, DirectX::XMVectorSet(0.0F, 1.0F, 0.0F, 0.0F));
-  const float aspect = static_cast<float>(_widthPixels) / static_cast<float>(_heightPixels);
-  // Near and far swapped: depth 1 at the near plane, 0 at the far one (ADR-011, decision 4).
-  const DirectX::XMMATRIX projection =
-    DirectX::XMMatrixOrthographicLH(VIEW_HEIGHT_METERS * aspect, VIEW_HEIGHT_METERS, FAR_METERS, NEAR_METERS);
-  const DirectX::XMMATRIX viewProjection = DirectX::XMMatrixMultiply(view, projection);
-
+  const auto width = static_cast<float>(_widthPixels);
+  const auto height = static_cast<float>(_heightPixels);
+  const DirectX::XMMATRIX viewProjection = _camera.ViewProjection(width / height);
   Engine::VoxelPass::FrameConstants frame{};
   DirectX::XMStoreFloat4x4(&frame.viewProjection, viewProjection);
   DirectX::XMStoreFloat4x4(&frame.inverseViewProjection, DirectX::XMMatrixInverse(nullptr, viewProjection));
-  DirectX::XMStoreFloat4(&frame.rayDirection, DirectX::XMVector3Normalize(forward));
-  const auto width = static_cast<float>(_widthPixels);
-  const auto height = static_cast<float>(_heightPixels);
+  DirectX::XMStoreFloat4(&frame.rayDirection, _camera.Forward());
   frame.viewportPixels = {width, height, 1.0F / width, 1.0F / height};
   DirectX::XMStoreFloat4(&frame.lightDirection,
                          DirectX::XMVector3Normalize(DirectX::XMVectorSet(SUN_TOWARDS[0], SUN_TOWARDS[1], SUN_TOWARDS[2], 0.0F)));
   return frame;
+}
+
+/// The camera controls of Hud.md's global keys: WASD and the arrows or a middle-drag pan, the wheel
+/// and + and - zoom, and [ ] or Page Up and Page Down turn a quarter.
+void Steer(Engine::OrthographicCamera& _camera, const Engine::KeyboardInput& _keyboard, const Engine::PointerInput& _pointer,
+           std::int32_t _dragXPixels, std::int32_t _dragYPixels, std::uint32_t _heightPixels, float _seconds)
+{
+  const auto held = [&_keyboard](std::uint8_t _first, std::uint8_t _second)
+  { return _keyboard.IsDown(_first) || _keyboard.IsDown(_second) ? 1.0F : 0.0F; };
+  const float speed = PAN_VIEWS_PER_SECOND * _camera.ViewHeightMeters() * _seconds;
+  _camera.Pan(speed * (held('D', VK_RIGHT) - held('A', VK_LEFT)), speed * (held('W', VK_UP) - held('S', VK_DOWN)));
+  if (_pointer.IsDown(Engine::PointerInput::Button::Middle))
+  {
+    // A drag moves the ground with the pointer. Up the screen covers more ground than across it,
+    // by 1 / sin(elevation), because the view looks down at an angle.
+    const float metersPerPixel = _camera.ViewHeightMeters() / static_cast<float>(_heightPixels);
+    const float upScale = 1.0F / std::sin(DirectX::XMConvertToRadians(ELEVATION_DEGREES));
+    _camera.Pan(-static_cast<float>(_dragXPixels) * metersPerPixel, static_cast<float>(_dragYPixels) * metersPerPixel * upScale);
+  }
+  const bool zoomIn = _keyboard.WasPressed(VK_OEM_PLUS) || _keyboard.WasPressed(VK_ADD);
+  const bool zoomOut = _keyboard.WasPressed(VK_OEM_MINUS) || _keyboard.WasPressed(VK_SUBTRACT);
+  _camera.Zoom(_pointer.WheelNotches() + (zoomIn ? 1.0F : 0.0F) - (zoomOut ? 1.0F : 0.0F));
+  if (_keyboard.WasPressed(VK_OEM_4) || _keyboard.WasPressed(VK_PRIOR))
+  {
+    _camera.Rotate(-1);
+  }
+  if (_keyboard.WasPressed(VK_OEM_6) || _keyboard.WasPressed(VK_NEXT))
+  {
+    _camera.Rotate(1);
+  }
+  _camera.Update(_seconds);
 }
 
 /// Copies _value into the ring for this frame, at the alignment constant buffers need.
@@ -139,12 +165,28 @@ int Run()
   std::vector<Protocol::ChunkSnapshot> published = store.Publish();
   const std::array<DirectX::XMFLOAT4, Engine::VoxelPass::PALETTE_ENTRIES> palette = LinearPalette();
 
+  Engine::OrthographicCamera camera({.elevationRadians = DirectX::XMConvertToRadians(ELEVATION_DEGREES),
+                                     .azimuthRadians = DirectX::XMConvertToRadians(AZIMUTH_DEGREES),
+                                     .viewHeightMeters = DEFAULT_VIEW_HEIGHT_METERS,
+                                     .minViewHeightMeters = MIN_VIEW_HEIGHT_METERS,
+                                     .maxViewHeightMeters = MAX_VIEW_HEIGHT_METERS,
+                                     .rotationSeconds = ROTATION_SECONDS,
+                                     .targetMeters = {scene.centerXMeters, 6.0F, scene.centerZMeters}});
   Engine::PointerInput pointer;
+  Engine::KeyboardInput keyboard;
   Engine::FrameTimer timer;
+  std::int32_t lastXPixels = 0;
+  std::int32_t lastYPixels = 0;
   double titleSeconds = 0.0;
   std::uint32_t titleFrames = 0;
-  while (Engine::Window::PumpMessages(pointer))
+  while (Engine::Window::PumpMessages(pointer, keyboard))
   {
+    // A window that is not in front does not see its keys and buttons released, so it forgets them.
+    if (GetForegroundWindow() != window.Handle())
+    {
+      pointer.ReleaseAll();
+      keyboard.ReleaseAll();
+    }
     const Engine::Window::Size size = window.ClientSize();
     if (size.widthPixels == 0 || size.heightPixels == 0)
     {
@@ -160,6 +202,11 @@ int Run()
     }
 
     swapChain.WaitForFrame();
+    const double lapSeconds = timer.LapSeconds();
+    Steer(camera, keyboard, pointer, pointer.XPixels() - lastXPixels, pointer.YPixels() - lastYPixels, swapChain.HeightPixels(),
+          static_cast<float>(lapSeconds));
+    lastXPixels = pointer.XPixels();
+    lastYPixels = pointer.YPixels();
     const std::uint64_t completed = device.DirectQueue().CompletedValue();
     ring.Reclaim(completed);
     worldView.Release(completed);
@@ -172,7 +219,7 @@ int Run()
       published.clear();
     }
     const D3D12_GPU_VIRTUAL_ADDRESS frameConstants =
-      UploadConstants(ring, MakeFrame(scene, swapChain.WidthPixels(), swapChain.HeightPixels()));
+      UploadConstants(ring, MakeFrame(camera, swapChain.WidthPixels(), swapChain.HeightPixels()));
     const D3D12_GPU_VIRTUAL_ADDRESS paletteConstants = UploadConstants(ring, palette);
 
     const D3D12_RESOURCE_BARRIER toTarget =
@@ -203,18 +250,19 @@ int Run()
     worldView.Retire(fenceValue);
     swapChain.Present(true);
 
-    titleSeconds += timer.LapSeconds();
+    titleSeconds += lapSeconds;
     ++titleFrames;
     if (titleSeconds >= TITLE_REFRESH_SECONDS)
     {
-      const std::wstring title =
-        std::format(L"{} | {} | {:.2f} ms | {} voxels | pointer {}, {}", TITLE, device.AdapterName(), 1000.0 * titleSeconds / titleFrames,
-                    worldView.RecordsDrawn(), pointer.XPixels(), pointer.YPixels());
+      const std::wstring title = std::format(L"{} | {} | {:.2f} ms | {} voxels | view {:.0f} m, azimuth {:.0f}", TITLE,
+                                             device.AdapterName(), 1000.0 * titleSeconds / titleFrames, worldView.RecordsDrawn(),
+                                             camera.ViewHeightMeters(), DirectX::XMConvertToDegrees(camera.AzimuthRadians()));
       SetWindowTextW(window.Handle(), title.c_str());
       titleSeconds = 0.0;
       titleFrames = 0;
     }
     pointer.EndFrame();
+    keyboard.EndFrame();
   }
   return 0;
 }
