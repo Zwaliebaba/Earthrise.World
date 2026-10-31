@@ -1,13 +1,13 @@
 # ADR-005 — Voxel content is JSON layer files, baked into the executable
 
-**Status:** Accepted, 2026-10-31, by the owner. It closes the question of the object formats. Nothing implements it yet. Like ADR-002 to ADR-004, it is written ahead of the code it governs, and the bake tool lands in M4 ([MvpPlan.md](../MvpPlan.md)).
+**Status:** Accepted, 2026-10-31, by the owner. It closes the question of the object formats. It was amended the same day for [ADR-006](ADR-006-voxel-sizes.md)'s two voxel sizes. Nothing implements it yet. Like ADR-002 to ADR-004, it is written ahead of the code it governs, and the bake tool lands in M4 ([MvpPlan.md](../MvpPlan.md)).
 
 ## Context
 
 The owner delivered the MVP's voxel assets as a package, kept unchanged in [`Design/Reference/SiegePrototype/`](../Reference/SiegePrototype/). It holds nine building templates, models of units and siege engines, and illustrations. Each asset comes in three files: a JSON layer file, a MagicaVoxel `.vox` and a `.png` preview.
 
 These constraints bind the format:
-- **Voxels are 0.5 m,** and units are tokens with one cue each to tell them apart ([RendererLook.md](../RendererLook.md)).
+- **Voxels come in two sizes** since [ADR-006](ADR-006-voxel-sizes.md): 1 m for the world and 0.5 m for models. Units are tokens with one cue each to tell them apart ([RendererLook.md](../RendererLook.md)). Each file states its own `voxelSize`.
 - **A building costs exactly the volume it is made of.** Buildings also have critical parts with thresholds, and foundations (GameDescription.md).
 - **The simulation and the client need different views of one template.** The simulation needs how each voxel behaves and what part it belongs to. The client needs each voxel's colour.
 - **The client never includes simulation code, and one build replays its own commands** ([ADR-002](ADR-002-authoritative-simulation.md)).
@@ -22,7 +22,7 @@ These constraints bind the format:
    - `Illustrations/`: squads, earthworks and material samples, for documentation and tests, never baked;
    - `Palette.json` and `Manifest.json`, beside them.
 2. **The source of every voxel asset is its `.json` layer file.**
-   - **Fields:** `voxelSize` (0.5), `size`, and `legend`, which maps a character to a palette index. `layers[y][z]` holds strings over x, with `.` for empty. A template adds `parts[y][z]`: `1` for the critical part, `2` for foundation, `3` for stock (goods on site, not costed), and `.` for none.
+   - **Fields:** `voxelSize` (1 for world assets, 0.5 for models), `size`, and `legend`, which maps a character to a palette index. `layers[y][z]` holds strings over x, with `.` for empty. A template adds `parts[y][z]`: `1` for the critical part, `2` for foundation, `3` for stock (goods on site, not costed), and `.` for none.
    - **Axes:** y is up, and +z is the front.
    - **Origin:** a template's origin is the minimum corner of its occupied voxels; the baker trims empty padding.
    - The file is text, so it can be diffed and reviewed.
@@ -61,7 +61,7 @@ These constraints bind the format:
 8. **Models set no costs and no rules.**
    - The simulation knows a unit's footprint and statistics from its stat table, and the model is only how the client draws it.
    - **A unit model is one figure;** a squad is an illustration.
-   - Units are drawn as axis-aligned tokens. The moving parts of engines, and debris, are oriented voxels.
+   - Models are drawn as axis-aligned volumes at their entity's position, rotated in 90° steps ([ADR-006](ADR-006-voxel-sizes.md)). Engine poses are baked; debris is oriented voxels.
 9. **Baking.**
    - `Tools/BakeContent.py` reads `Assets/` and writes generated C++ headers into the build's intermediate directory. They are build output and are never committed.
    - **What it writes:** a simulation view of each template (behaviour and part for each voxel, plus the counted cost), a render view of each template and model (palette index for each voxel), and the palette.
@@ -76,8 +76,9 @@ These constraints bind the format:
   - every `.vox` agrees with its JSON;
   - every index is in the palette;
   - every decoration resolves, and no template holds a `modelOnly` index;
-  - the counted costs match `Manifest.json`, and T3 comes to exactly 72 m³;
+  - the counted costs match `Manifest.json`, and T3 comes to exactly 96 m³ (ADR-006);
   - every named critical part has voxels;
+  - every structure voxel of a template connects to its bottom layer through structure voxels, so nothing floats and nothing stands on stock (added for [ADR-006](ADR-006-voxel-sizes.md)'s converted templates, two of which failed it);
   - each figure is identical to the figures in its squad.
 - **Templates are authored facing +z.** Rotations in 90° steps are made by the baker or at placement.
 - **The format, project-file and clang-tidy checkers skip `Assets/`.**

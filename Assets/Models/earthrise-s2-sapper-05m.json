@@ -1,0 +1,52 @@
+{
+ "id": "S2",
+ "name": "Sapper",
+ "voxelSize": 0.5,
+ "size": {
+  "x": 3,
+  "y": 5,
+  "z": 1
+ },
+ "axes": "y up, +z front, layers[y][z][x]",
+ "derivedFrom": "Illustrations/earthrise-s2-sappers-05m.json, one of 6 identical figures",
+ "silhouetteCue": "Iron shoulders, raised pick",
+ "legend": {
+  "g": {
+   "material": 7,
+   "name": "timber",
+   "hex": "#7a5534"
+  },
+  "j": {
+   "material": 16,
+   "name": "faction",
+   "hex": "#b23a2e"
+  },
+  "k": {
+   "material": 18,
+   "name": "iron",
+   "hex": "#9aa0a6"
+  },
+  "p": {
+   "material": 23,
+   "name": "cloth",
+   "hex": "#3d3530"
+  }
+ },
+ "layers": [
+  [
+   "p.."
+  ],
+  [
+   "jg."
+  ],
+  [
+   "kg."
+  ],
+  [
+   "kg."
+  ],
+  [
+   ".kk"
+  ]
+ ]
+}

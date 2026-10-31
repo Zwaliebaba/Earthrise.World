@@ -1,78 +1,85 @@
 # Earthrise.World — The renderer's look
 
-**Status:** Decided by the owner, 2026-10-31. It comes from a visual prototype in three.js r160, tuned to read well from the strategy camera. That prototype and its specification are kept unchanged in [Reference/SiegePrototype/](Reference/SiegePrototype/). The owner then resolved the points where it collided with the design, and those resolutions are written in here. Nothing implements it yet. [GameDesign.md](GameDesign.md) and [GameDescription.md](GameDescription.md) govern where this document differs from them, and [ADR-001](ADR/ADR-001-direct-voxel-ray-casting.md) governs how voxels reach the screen.
+**Status:** Decided by the owner, 2026-10-31. A first version that day put everything at 0.5 m. The second, adopted later the same day, puts the world at 1 m and models at 0.5 m ([ADR-006](ADR/ADR-006-voxel-sizes.md), Proposed until the M1 spike measures it).
+
+It comes from a visual prototype in three.js r160, tuned to read well from the strategy camera. Both versions of the prototype and their specifications are kept unchanged in [Reference/SiegePrototype/](Reference/SiegePrototype/) and [Reference/SiegePrototypeV2/](Reference/SiegePrototypeV2/). The owner then resolved the points where the prototype collided with the design, and those resolutions are written in here.
+
+[GameDesign.md](GameDesign.md) and [GameDescription.md](GameDescription.md) govern where this document differs from them. [ADR-001](ADR/ADR-001-direct-voxel-ray-casting.md) governs how voxels reach the screen.
 
 This is the look specification for the voxel renderer, the first step in GameDescription.md's *How the design is proven*. It defines voxel size, colour, shading, lighting and the camera. It describes no scene, layout or content.
 
-## 1. Voxel size
+## 1. Two grids
 
-- **Every solid voxel is 0.5 m:** structures, rubble, engines, timber, trees, units and terrain. The render voxel and the simulation voxel are the same.
-- **Terrain heights come in whole metres.** The generator builds slopes from 1 m terraces made of 2 × 2 × 2 groups of voxels. Earth's slope is measured over 1 m, and earth stands at up to 45°, so a 1 m step with at least 1 m of tread is stable (GameDesign.md). Terrain that is dug or damaged follows the edits at the full 0.5 m resolution.
-- **Reference sizes:**
+| Grid | Voxel | Holds | Simulated |
+|---|---|---|---|
+| **World** | **1 m** | Terrain, every template, earthworks, quarries, craters, rubble and trees | **Yes.** Support, collapse, slump, navigation, edits and cost all run on it. |
+| **Models** | **0.5 m** | Units, rams, trebuchets, mantlets, carts, banners and debris | **No.** Units and engines are entities, and debris is spectacle. |
 
-| Thing | Size | Voxels |
-|---|---|---|
-| Standard wall | 1.5 m thick | 3 |
-| Thick wall | 2.5 m thick | 5 |
-| Unit | 0.5 × 0.5 × 2 m | 1 × 1 × 4 |
-| Merlon | 0.5 m wide, 1 m tall | 1 × 2 |
+- **The world voxel is the simulation voxel.** The 512 m MVP map, about 64 m deep, is about 17 million voxels, against about 134 million at 0.5 m.
+- **Models are drawn at their entity's position** through ADR-001's pipeline. They are rotated in 90° steps, so their voxels stay axis-aligned, and they are never written into the world grid.
+- **Debris.** A collapse's result is 1 m rubble in the world. The client scatters 0.5 m model debris over it: loose blocks of 0.5–1 m, and 0.5 m pebbles. The debris is deterministic from the collapse's id, so every client shows the same. It never blocks a path or a shot.
+- **Terrain heights come in whole metres,** which is one voxel. Earth stands at up to 45°, so no earth column stands more than one voxel above its neighbour (GameDesign.md).
 
-- **Units are tokens.** A unit is four voxels stacked one above another. From the bottom up they read as legs, body and helmet, banded in colour: cloth legs, a faction-coloured body, and a head of skin or iron. Units move as a whole, and may bob, but no limbs animate. A gap one voxel wide and four voxels high is a route.
-- **Why 0.5 m.** At 1 m, breaches, craters and units become blobs. At 0.25 m, terrain gets too busy for the strategy view.
+## 2. Sizes
 
-## 2. Material palette
+- **Walls.** A standard wall is 2 m thick, two voxels, and a section of 8 × 2 × 6 m costs 96 m³ of stone. A thick wall is 3 m, and costs half as much again.
+- **Battlements.** Merlons are 1 m wide and 1 m tall, with 1 m gaps. Arrow slits and windows are 1 × 2 m openings.
+- **Buildings.** A tower is 7 × 7 m and about 12 m high, hollow, with 2 m walls. The keep is 12 × 12 m and 16 m high, with a forebuilding. The hall is about 11 × 7 m, in timber.
+- **Earthworks.** The standard ditch is 4–5 m wide and 2 m deep, with stepped 1 m sides. Its rampart is 2 m high.
+- **Units are tokens.** A unit is 1 × 1 × 4 model voxels, 0.5 × 0.5 × 2 m.
+  - A spear, a bow, a shield or a tool sits beside the body as 0.5 m voxels, which gives each unit type its cue.
+  - Units move as a whole and may bob; no limbs animate.
+  - A gap one world voxel wide and two high is a route.
+- **Engines.** The trebuchet is about 12 m long and 13 m tall, built of 0.5 m beams; its arm switches between baked poses (cocked, released, packed). The ram is about 3 × 7 m.
+- **Why two grids.** A 0.5 m world looked restless and costs eight times as much. A 1 m world is calm, but units drawn in it lose their cues. Units are entities anyway, so they keep the finer grid.
 
-Colours are authored in sRGB and converted to linear before lighting. The output is sRGB, with no tone mapping. [`Assets/Palette.json`](../Assets/Palette.json) carries these colours, with their frozen indices and behaviours ([ADR-005](ADR/ADR-005-content-formats.md)).
+## 3. Material palette
 
-| Material | sRGB | Jitter | Jitter cell | Behaves as |
-|---|---|---|---|---|
-| Grass | #7d8b4f | 0.05 | 1 m | Earth. Only the generator makes it, on top of undisturbed earth, so digging leaves bare earth. |
-| Earth | #8a6a48 | 0.04 | 1 m | Earth |
-| Common rock | #8d8a84 | 0.04 | 1 m | Common rock |
-| Building stone (raw outcrop) | #ddd2b9 | 0.04 | 1 m | Building stone |
-| Bedrock | #4a4744 | 0.04 | 1 m | Bedrock |
-| Masonry (built walls) | #c6bca7 | 0.07 | voxel | Building stone, laid by a template |
-| Rubble of stone | #a69c8a | 0.07 | voxel | Rubble that yields stone |
-| Rubble of timber / earth / rock | #5f4530 / #7d6044 / #7f7c77 (rock is provisional) | 0.07 / 0.05 / 0.07 | voxel | Waste rubble, which yields nothing. Each is its source's colour at lower lightness. |
-| Timber | #7a5534 | 0.05 | voxel | Timber |
-| Roof | #8c4a3a | 0.05 | voxel | Timber |
-| Leaves A / B | #4f6a3a / #62803f | 0.10 | voxel | Leaves: a span as wide as a canopy, no timber yield, and they burn |
-| Water | #4f7f8c | 0.03 | voxel | Water. Shallow water is lighter, so fords show. |
-| Field A / B | #c9a95a / #a6a056 | 0.04 | 1 m | Earth |
-| Road / track | #a88e6a | 0.04 | 1 m | Earth |
-| Openings (slits, doors, windows) | #2e2a27 | 0.05 | voxel | The structure's own material. Cosmetic: nothing passes through. |
+Colours are authored in sRGB and converted to linear before lighting. The output is sRGB, with no tone mapping.
 
-**The Masons' dressed stone** is a material of its own (GameDescription.md, *Craters*). It gets a colour of its own when the Masons are built, after the MVP.
+[`Assets/Palette.json`](../Assets/Palette.json) carries these colours with their frozen indices and behaviours ([ADR-005](ADR/ADR-005-content-formats.md)). The indices follow the second package's numbering.
 
-Unit and engine colours belong to their models, not to world materials:
+| idx | Material | sRGB | Jitter | Grid | Behaves as |
+|---|---|---|---|---|---|
+| 1 | Grass | #7d8b4f | 0.05 | world | Earth. Only the generator places it, on undisturbed earth, so dug ground stays bare. |
+| 2 | Earth | #8a6a48 | 0.04 | world | Earth |
+| 3 | Common rock | #8d8a84 | 0.04 | world | Common rock |
+| 4 | Building stone (raw outcrop) | #ddd2b9 | 0.04 | world | Building stone |
+| 5 | Bedrock | #4a4744 | 0.04 | world | Bedrock |
+| 6 | Masonry (built walls; "dressed stone" in the package) | #c6bca7 | 0.07 | both | Building stone, laid by a template |
+| 7 | Timber | #7a5534 | 0.05 | both | Timber |
+| 8 | Rubble of stone | #a69c8a | 0.07 | both | Rubble that yields stone |
+| 9 | Water | #4f7f8c | 0.03 | world | Water. Shallow water is lighter, so fords show. |
+| 10 / 11 | Leaves A / B | #4f6a3a / #62803f | 0.10 | world | Leaves: a span as wide as a canopy, no timber yield, and they burn |
+| 12 | Roof | #8c4a3a | 0.05 | world | Timber |
+| 13 / 14 | Field A / B | #c9a95a / #a6a056 | 0.04 | world | Earth |
+| 15 | Road | #a88e6a | 0.04 | world | Earth |
+| 16 | Faction (red example; blue #2f5d93) | #b23a2e | 0.05 | models, banners | A decoration in a template |
+| 18 | Iron | #9aa0a6 | 0.05 | models | A decoration in a template (gate fittings) |
+| 19 | Laborer cloth | #c79a6b | 0.05 | models | Models only |
+| 20 | Opening (slits, doors, windows) | #2e2a27 | 0.05 | world | A decoration: the material around it. Nothing passes through it. |
+| 21 | Counterweight | #5b5650 | 0.05 | models | Models only |
+| 22 | Skin | #d9a57f | 0.05 | models | Models only |
+| 23 | Cloth (legs) | #3d3530 | 0.05 | models | A decoration in a template |
+| 24 | Horse | #5e4330 | 0.05 | models | Models only |
+| 25 | Rubble of timber | #5f4530 | 0.07 | both | Waste rubble, which yields nothing |
+| 26 | Rubble of earth | #7d6044 | 0.05 | both | Waste rubble |
+| 27 | Leather (hides, hoods) | #6e5a3e | 0.05 | models | Models only |
+| 28 | Rubble of rock (provisional) | #7f7c77 | 0.07 | world | Waste rubble |
 
-| Model colour | sRGB | Jitter |
-|---|---|---|
-| Iron fittings, helmets | #9aa0a6 | 0.05 |
-| Engine counterweight | #5b5650 | 0.05 |
-| Skin | #d9a57f | 0.05 |
-| Cloth (unit legs) | #3d3530 | 0.05 |
-| Faction colours (example) | #b23a2e red, #2f5d93 blue | 0.05 |
-| Laborer | #c79a6b | 0.05 |
-| Horse | #5e4330 | 0.05 |
-| Leather (hides, hoods) | #6e5a3e | 0.05 |
-
-Every model colour jitters per voxel.
+**The Masons' dressed stone** gets an index of its own when the Masons are built, after the MVP.
 
 **Rules:**
-- **Rubble of masonry** shows about 12% of its voxels in the masonry colour, mixed into the stone-rubble colour. This only picks colours: every voxel of it is still rubble of stone.
-- **Built and raw stone differ at a glance.** Masonry is darker and greyer than raw building stone, so a player can always tell what was built from what was quarried.
-- **Rubble shows what it is worth.** Rubble of stone, which yields stone, must look different from waste rubble.
-- **Faction colour appears only on units and banners.** Structures stay in their material colours.
+- **Rubble of masonry** shows about 12% of its voxels in the masonry colour. This only picks colours: every voxel of it is still rubble of stone.
+- **Built and raw stone differ at a glance.** Masonry is darker and greyer than raw building stone.
+- **Rubble shows what it is worth.** Rubble of stone, which yields stone, looks different from waste rubble.
+- **Faction colour appears only on models and banners,** never on structures.
 
-## 3. Colour jitter
-
-Jitter breaks up flat fields of colour so the grid reads as material, not plastic.
+## 4. Colour jitter
 
 - **It changes HSL lightness only,** by ±jitter/2. Hue and saturation never change.
-- **It is chosen** by a deterministic hash of the jitter cell's coordinate and the material ID, so the same voxel always gets the same shade, across frames and across edits.
-- **Terrain materials use a 1 m jitter cell,** keyed by floor(voxel / 2). That is what keeps the ground calm. Per-voxel jitter on terrain looked restless at 0.5 m and is not allowed.
-- **Everything else jitters per voxel.**
+- **The cell** is one 1 m world voxel for every world material, and one 0.5 m voxel in a model.
+- **It is chosen** by a deterministic hash of the cell's coordinate and the material ID, so a voxel always gets the same shade, across frames and across edits.
 
 The hash, in 32-bit integer arithmetic, with its result in [0, 1]:
 
@@ -84,12 +91,9 @@ r = (h ^ (h >> 16)) / 4294967295                      // as uint32
 
 Here (x, y) are (cellX·7 + cellY·131, cellZ·3), with y up, as in the prototype. That fold repeats one shade every 131 cells along a diagonal. The repeat is invisible in practice, and the fold is kept so that colours match the prototype exactly.
 
-**Implementation:**
-- The hash runs in C++ on `std::uint32_t` when a chunk's render records are built.
-- Coordinates use floor division, never truncation.
-- Material IDs are frozen, because colours depend on them.
+**Implementation:** the hash runs in C++ on `std::uint32_t` when a chunk's or a model's render records are built. Coordinates use floor division, never truncation. Material IDs are frozen, because colours depend on them.
 
-## 4. Corner shading (voxel ambient occlusion)
+## 5. Corner shading (voxel ambient occlusion)
 
 Each face gets an occlusion value at each corner. It comes from the three neighbours in front of the face at that corner: side 1, side 2 and the diagonal.
 
@@ -99,19 +103,22 @@ ao = (side1 && side2) ? 0 : 3 - (side1 + side2 + corner)
 
 | ao level | 0 | 1 | 2 | 3 |
 |---|---|---|---|---|
-| Structures, units, trees, rubble | 0.52 | 0.68 | 0.84 | 1.00 |
-| Terrain materials (those with a 1 m jitter cell) | 0.74 | 0.84 | 0.93 | 1.00 |
+| Structures, rubble, trees, models | 0.52 | 0.68 | 0.84 | 1.00 |
+| Terrain materials (indices 1–5 and 13–15) | 0.74 | 0.84 | 0.93 | 1.00 |
 
-- **The four corner values blend bilinearly** across the face, at the hit point's coordinates on that face.
-- **Terrain must use the reduced values.** This is not a tuning option: full AO on 1 m terraces makes the land read as noise.
+- **The four corner values blend bilinearly** across the face, at the hit point.
+- **Terrain must use the reduced values.** This is not a tuning option: full AO on terraces makes the land read as noise.
+- **Models see the world.** In a model, a neighbour counts as solid if the model voxel is set, or if the world voxel containing it is set. That gives contact shading where feet meet the ground and blocks meet rubble.
+- **The world ignores models.** World shading never samples them.
 - **At the edges of the world,** cells outside it count as empty, and cells below y = 0 count as solid.
-- **Implementation:** the 24 corner values (6 faces × 4 corners, 2 bits each) are computed when a chunk's records are built and stored in each voxel's record. The pixel shader only blends them.
-  - An edit rebuilds the records of the voxels around it, across chunk borders, so the voxel's own AO and its neighbours' change on the next frame.
-  - A model, such as a unit or an engine, computes its AO within itself.
+- **Implementation:**
+  - **World voxels:** the 24 corner values (6 faces × 4 corners, 2 bits each) are computed when a chunk's records are built, and stored in each voxel's record. An edit rebuilds the records around it, across chunk borders.
+  - **Models:** a model's own corner values are baked once.
+  - **Contact with the world:** this depends on where the model stands. The spike chooses between baking it per instance on the CPU and sampling an occupancy volume in the shader (ADR-006).
 
-## 5. Lighting
+## 6. Lighting
 
-Lighting is diffuse only: Lambert, with no metalness and no specular highlights on voxels.
+Lighting is diffuse only: Lambert, with no metalness and no specular highlights.
 
 | Preset | Sun colour | Sun intensity | Sun direction (towards the light) | Sky / ground (hemisphere) | Hemisphere intensity | Clear colour |
 |---|---|---|---|---|---|---|
@@ -121,33 +128,37 @@ Lighting is diffuse only: Lambert, with no metalness and no specular highlights 
 
 - **The intensities are three.js r160 physical units.** Match them by eye, not by number. Three.js's Lambert term divides by π, so the engine is expected to scale these intensities by 1/π. That has to be checked against the prototype before it is relied on.
 - **Corner AO multiplies the albedo before lighting,** as in the prototype, so AO stays visible in shadow.
-- **There is one directional shadow from the sun, soft-edged** (PCF or similar), covering everything visible. It goes through ADR-001's voxel path (decision 5), not through rays traced towards the sun, which this renderer cannot trace without a lighting ADR.
-  - A static shadow map covers terrain and structures. It is updated only when there is an edit or the sun changes.
-  - A small dynamic shadow map is redrawn every frame for units, engines and debris.
-  - Both are sampled together.
+- **There is one directional shadow from the sun, soft-edged** (PCF or similar). It goes through ADR-001's voxel path (decision 5), not through rays traced towards the sun.
+  - The world's shadow map is updated only when there is an edit or the sun changes.
+  - Models cast and receive shadows every frame, and they receive the world's shadow.
 
-## 6. Camera
+## 7. Camera and level of detail
 
 - **Orthographic and isometric,** 34° above the horizon (0.6 rad).
 - **It rotates in 90° steps,** eased over about 0.3 s. The default azimuth is −45°, from the south-west.
 - **It zooms** from about 12 m of view height (single stones) to about 260 m (a whole holding).
-- **Calibration:** at the default framing, about 84 m of view height on a 1080p frame, one voxel is about 6.4 px. At the widest zoom it is still about 2 px, so no voxel falls below a pixel and ADR-001's stochastic pruning is not used.
-- **Level of detail.** A step to 1 m voxels for structures below about 3 px per voxel is deferred until the spike shows a need for it.
-- **What this angle hides.** At 34°, each wall of a 3 m-deep ditch hides about 4.4 m of ground behind it. The floors of deep ditches and the near terraces of pits can therefore be hidden from every rotation. The owner accepted this. Units in them show as silhouettes, which stay visible behind walls, rubble and terrain.
+- **Pixel sizes at 1080p.**
+  - At the default framing of about 84 m of view height, a world voxel is about 13 px and a model voxel about 6–7 px.
+  - At the widest zoom, a world voxel is about 4 px, so the world needs no level of detail and ADR-001's stochastic pruning is not used.
+- **Model level of detail.** When a model voxel falls below about 3 px (a view height above about 180 m), each unit is drawn as a 1 × 1 × 2 world-scale impostor: faction colour, plus a helmet or a hood. Engines stay at full detail, since there are few of them.
+- **What this angle hides.** At 34°, the near wall of a ditch 2 m deep hides about 3 m of ground behind it. The floors of ditches and the near terraces of pits can therefore be hidden from every rotation. The owner accepted this. Units in them show as silhouettes, which stay visible behind walls, rubble and terrain.
+- **A mobile layout (Open).** The second package sketches a landscape phone layout: the view height scales as 128 / aspect, clamped between 58 and 120 m; tap targets are at least 44 px; and the shadow map is 2048². It binds nothing until a platform beyond the Windows PC is decided (GameDesign.md, *Open questions*).
 
-## 7. Effects that are not voxels
+## 8. Effects that are not voxels
 
-- **Debris and dust** are drawn by the client and are never part of the voxel grid (ADR-004, decision 7). Dust is at least 0.8 m across.
+- **Dust is drawn by the client and never enters the voxel grid.** It is at least 0.8 m across. Debris is 0.5 m models (§1).
 - **Water is flat and opaque.** Transparency or animation is optional, and must never hide fords.
 - **The readability overlays,** meaning the integrity view, the collapse preview, silhouettes and the passability view, are drawn separately and are never baked into albedo.
 
-## 8. Acceptance checks
+## 9. Acceptance checks
 
-1. A 128 × 128 m area of a holding at the default framing has calm ground, with no visible per-voxel speckle on grass or earth.
-2. Masonry walls and raw building stone can be told apart at the default zoom.
-3. A breach notch and its rubble ramp read as ragged at the default zoom, not as a clean rectangle. The craters' shapes come from the simulation, which stamps them irregularly but deterministically.
-4. Units read as figures at the default zoom, with legs, body and helmet as bands of colour, and their faction colour can be identified.
-5. Editing a voxel changes its colour and AO, and its neighbours' AO, on the next frame, with no seams.
-6. The same seed and edits produce the same colours on every machine.
-7. Fords can be told apart from deep water.
-8. Rubble of stone can be told apart from waste rubble.
+1. Ground at the default framing reads calm, with no speckle. One jitter cell is one 1 m world voxel.
+2. Masonry and raw building stone can be told apart at the default zoom.
+3. A breach reads as ragged: a 1 m notch, with model debris over 1 m rubble. The craters' shapes come from the simulation, which stamps them irregularly but deterministically.
+4. Every MVP unit type can be identified at the default zoom by its cue. Sappers and spearmen must differ, and faction colour must be identifiable.
+5. Units visibly stand on the ground. Contact shading is present, and no model floats above the 1 m surface or sinks into it.
+6. A world edit changes the voxel's colour and AO, and its neighbours', on the next frame, with no seams. A collapse's model debris looks the same on every client, because it comes from the collapse's id.
+7. The same seed and edits produce the same colours on every machine.
+8. Fords can be told apart from deep water.
+9. Rubble of stone can be told apart from waste rubble.
+10. The voxel pass stays within 8 ms at 1080p at the default zoom on an RTX 3060-class GPU. This is the M1 pass mark.

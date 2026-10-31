@@ -1,0 +1,57 @@
+{
+ "id": "U1",
+ "name": "Laborer",
+ "voxelSize": 0.5,
+ "size": {
+  "x": 2,
+  "y": 5,
+  "z": 1
+ },
+ "axes": "y up, +z front, layers[y][z][x]",
+ "derivedFrom": "Illustrations/earthrise-u1-laborers-05m.json, one of 6 identical figures",
+ "silhouetteCue": "Tan body, bare head, pick on shoulder",
+ "legend": {
+  "g": {
+   "material": 7,
+   "name": "timber",
+   "hex": "#7a5534"
+  },
+  "k": {
+   "material": 18,
+   "name": "iron",
+   "hex": "#9aa0a6"
+  },
+  "l": {
+   "material": 19,
+   "name": "laborer cloth",
+   "hex": "#c79a6b"
+  },
+  "o": {
+   "material": 22,
+   "name": "skin",
+   "hex": "#d9a57f"
+  },
+  "p": {
+   "material": 23,
+   "name": "cloth",
+   "hex": "#3d3530"
+  }
+ },
+ "layers": [
+  [
+   "p."
+  ],
+  [
+   "lg"
+  ],
+  [
+   "lg"
+  ],
+  [
+   "og"
+  ],
+  [
+   ".k"
+  ]
+ ]
+}
