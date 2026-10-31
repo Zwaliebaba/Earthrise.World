@@ -131,11 +131,11 @@ Skirmish is tuned to these timings:
 
 Every building is a template: a fixed shape made of voxels of set materials, with named critical parts. The player places it, and laborers build it voxel by voxel. On sloping ground, construction first levels the footprint by cut and fill. The template's foundation reaches down to firm ground. A deep foundation reaches bedrock and costs its volume in stone, its footprint times the depth to bedrock, so it is cheap on thin soil and dear on deep earth. A structure founded on bedrock cannot be undermined.
 
-A building works until one of its critical parts falls below its threshold: a gatehouse's gate, a tower's firing platform, a keep's great tower. A part's threshold is the share of its voxels that must still stand and be supported, set for each template. Below it the building is a ruin until repaired. A building that was never finished is under construction, not a ruin.
+A building works until one of its critical parts falls below its threshold: a gatehouse's gate, a tower's firing platform, a keep's great tower, a hall's frame, a drop site's shed. Towers and keeps are hollow, with floors, so they cost less than their outline. A part's threshold is the share of its voxels that must still stand and be supported, set for each template. Below it the building is a ruin until repaired. A building that was never finished is under construction, not a ruin.
 
 Repair puts back voxels that were built and later removed, and pays for their material. Repairers work from the owner's side, and each section repairs at a fixed rate, however many laborers are on it. A section is one section of a wall line, or one whole building. A section hit in the last ten seconds by an engine shot, a ram blow or a sapper's trench cannot be repaired, so repairs happen between volleys, not under them. Two engines alternating on one section keep it locked; that is what concentrating engines buys.
 
-Openings such as arrow slits, doors and windows are painted on solid voxels and let nothing through. Players build only from templates, never voxel by voxel. The skill is in placement, sequence and layering: which wall goes on rock and which on earth, how thick, what lies in front, and where the second ring goes.
+Openings such as arrow slits, doors and windows, and decorations such as gate fittings and banners, are painted on solid voxels. They let nothing through, and they behave and cost as the material around them. Players build only from templates, never voxel by voxel. The skill is in placement, sequence and layering: which wall goes on rock and which on earth, how thick, what lies in front, and where the second ring goes.
 
 ### Buildings
 

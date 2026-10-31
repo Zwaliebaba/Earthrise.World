@@ -94,6 +94,18 @@ The owner adopted a look specification from a visual prototype, and settled wher
 
    Rubble takes its colour from what it fell from, so rubble that yields stone looks different from waste rubble.
 
+### 2026-10-31: the MVP's assets and the content format
+
+1. **The MVP's voxel assets are the owner's package,** now in `Assets/` and catalogued in [MvpAssets.md](MvpAssets.md). It brings nine templates (T1–T9), unit and engine models, and illustrations, and its own choices with them:
+   - the proportions of the hall, keep, gatehouse, tower and drop sites;
+   - the hall's frame and each drop site's shed as critical parts;
+   - hollow towers and keeps;
+   - a standard ditch 5 m wide and 2 m deep, with 1:1 sides;
+   - one cue per unit type;
+   - render-only colours for horse, leather and rubble.
+2. **The content format is [ADR-005](ADR/ADR-005-content-formats.md),** which closes that question. JSON layer files are the source, with MagicaVoxel copies beside them. Decorations behave and cost as the material they sit in. Everything is baked into a `Content` library, and nothing is loaded at runtime.
+3. **The palisade gate (T7) is one of the MVP's templates.**
+
 ## Pillars (Decided)
 
 A pillar is a test every feature has to pass. A feature that serves none of them is a candidate for cutting.

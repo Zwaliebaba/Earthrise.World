@@ -1,6 +1,6 @@
 # Earthrise.World — The renderer's look
 
-**Status:** Decided by the owner, 2026-10-31. It comes from a visual prototype in three.js r160, tuned to read well from the strategy camera. The owner then resolved the points where it collided with the design, and those resolutions are written in here. Nothing implements it yet. [GameDesign.md](GameDesign.md) and [GameDescription.md](GameDescription.md) govern where this document differs from them, and [ADR-001](ADR/ADR-001-direct-voxel-ray-casting.md) governs how voxels reach the screen.
+**Status:** Decided by the owner, 2026-10-31. It comes from a visual prototype in three.js r160, tuned to read well from the strategy camera. That prototype and its specification are kept unchanged in [Reference/SiegePrototype/](Reference/SiegePrototype/). The owner then resolved the points where it collided with the design, and those resolutions are written in here. Nothing implements it yet. [GameDesign.md](GameDesign.md) and [GameDescription.md](GameDescription.md) govern where this document differs from them, and [ADR-001](ADR/ADR-001-direct-voxel-ray-casting.md) governs how voxels reach the screen.
 
 This is the look specification for the voxel renderer, the first step in GameDescription.md's *How the design is proven*. It defines voxel size, colour, shading, lighting and the camera. It describes no scene, layout or content.
 
@@ -22,7 +22,7 @@ This is the look specification for the voxel renderer, the first step in GameDes
 
 ## 2. Material palette
 
-Colours are authored in sRGB and converted to linear before lighting. The output is sRGB, with no tone mapping.
+Colours are authored in sRGB and converted to linear before lighting. The output is sRGB, with no tone mapping. [`Assets/Palette.json`](../Assets/Palette.json) carries these colours, with their frozen indices and behaviours ([ADR-005](ADR/ADR-005-content-formats.md)).
 
 | Material | sRGB | Jitter | Jitter cell | Behaves as |
 |---|---|---|---|---|
@@ -33,7 +33,7 @@ Colours are authored in sRGB and converted to linear before lighting. The output
 | Bedrock | #4a4744 | 0.04 | 1 m | Bedrock |
 | Masonry (built walls) | #c6bca7 | 0.07 | voxel | Building stone, laid by a template |
 | Rubble of stone | #a69c8a | 0.07 | voxel | Rubble that yields stone |
-| Rubble of rock, earth or timber | Its source colour, at lower lightness | 0.07 | voxel | Waste rubble, which yields nothing |
+| Rubble of timber / earth / rock | #5f4530 / #7d6044 / #7f7c77 (rock is provisional) | 0.07 / 0.05 / 0.07 | voxel | Waste rubble, which yields nothing. Each is its source's colour at lower lightness. |
 | Timber | #7a5534 | 0.05 | voxel | Timber |
 | Roof | #8c4a3a | 0.05 | voxel | Timber |
 | Leaves A / B | #4f6a3a / #62803f | 0.10 | voxel | Leaves: a span as wide as a canopy, no timber yield, and they burn |
@@ -54,6 +54,8 @@ Unit and engine colours belong to their models, not to world materials:
 | Cloth (unit legs) | #3d3530 | 0.05 |
 | Faction colours (example) | #b23a2e red, #2f5d93 blue | 0.05 |
 | Laborer | #c79a6b | 0.05 |
+| Horse | #5e4330 | 0.05 |
+| Leather (hides, hoods) | #6e5a3e | 0.05 |
 
 Every model colour jitters per voxel.
 
