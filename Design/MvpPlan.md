@@ -152,7 +152,7 @@ The order is fixed, so that one build replays the same commands to the same resu
 | M7 | Hold playtest | The verdict on H1, and so the MVP's | 1–2 |
 | | **Total** | | **34.5–60.5** |
 
-The total is a little above the build budget's 32–56 for this stage (GameDesign.md, *Build budget*). The difference is the breach lab and the split into two playtests, which buy a verdict on H2 before the economy is built, bringing up ARM64 and measuring the Surface in M1, and pulling the chunk store and the client's bake forward into M1. M0 to M5 come to 28.5–49.5 FTE-months. At 20 hours a week, half of full time, that puts the verdict on H2 about 5–8 years in, and the MVP's verdict about 6–10 years in. The spike's ratio will move both.
+The total is a little above the build budget's 32–56 for this stage (GameDesign.md, *Build budget*). The difference is the breach lab and the split into two playtests, which buy a verdict on H2 before the economy is built, bringing up ARM64 and measuring the Surface in M1, and pulling the chunk store and the client's bake forward into M1. M0 to M5 come to 28.5–49.5 FTE-months. At 20 hours a week, half of full time, that puts the verdict on H2 about 5–8 years in, and the MVP's verdict about 6–10 years in. That reading assumes a person writes the code. With Claude sessions writing it and the owner giving about 20 hours a week to running and judging it, the calendar comes from M1's measured pace instead (*The spike's own estimate*, under M1). The spike's ratio will move both.
 
 **The critical path** runs M1 → M2 → M4 → M5. The paper tests in M0, the template tool and the placeholder art can run alongside it.
 
@@ -240,6 +240,8 @@ The review asks for this in writing before the spike starts, so that its actual 
 | 12 | The 0.5 m world for ADR-006's comparison column | 4–8 | 2 | 1 |
 | 13 | The acceptance checks on screen, ADR-006's table filled in, and the M1 report | 5–10 | 4 | 1 |
 | | **Total** | **110–214, or 5–10 FTE-months** | **about 32** | **19** |
+
+**The owner can give about 20 hours a week** to running builds and judging them (owner, 2026-10-31). The owner's 32 hours are therefore under two weeks of their time, and the calendar is set by round trips instead. There are 19 pull requests, and about half of them need one to three rounds of the owner looking at the screen. **Forecast: M1 takes 4–8 calendar weeks.** This is a judgment, and the time log below measures it.
 
 **The bottom-up figure sits below the plan's 7.5–11.5 FTE-months** at its low end. The plan's figure stands until the spike's real pace says otherwise; the difference is itself a reading of how uncertain both are.
 
