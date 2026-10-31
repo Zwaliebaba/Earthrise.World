@@ -40,7 +40,8 @@ struct FlushOnExit
     }
     catch (...)
     {
-      // The device is lost; there is nothing left to wait for.
+      // The device is lost, so there is nothing left to wait for; say so to a debugger.
+      OutputDebugStringW(L"Earthrise.World: the GPU was lost before exit, so its work was not waited for.\n");
     }
   }
 };

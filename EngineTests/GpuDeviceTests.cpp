@@ -106,7 +106,7 @@ public:
   {
     constexpr std::uint64_t SIZE_BYTES = 256;
     Engine::GpuDevice device = MakeWarpDevice();
-    Engine::UploadRing ring(device.Device(), 64 * 1024);
+    Engine::UploadRing ring(device.Device(), std::uint64_t{64} * 1024);
     const std::optional<Engine::UploadRing::Allocation> allocation = ring.Allocate(SIZE_BYTES, 256);
     if (!allocation)
     {
