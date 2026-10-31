@@ -36,11 +36,14 @@ What it checks, and how each rule is read against the files:
    temporary folder, and what it writes must carry no behaviour, no part or critical-part data and no threshold.
    Its text is split into words, at underscores and changes of case, and searched for that vocabulary:
    Palette.json's behaviour names, "behavior", "part", "critical" and "threshold". Data leaked under other
-   names, such as behaviours as bare numbers, is not caught.
+   names, such as behaviours as bare numbers, is not caught. The search covers every table the bake writes: the
+   palette, the templates' client view, the models and the shared hash.
+   One exception is made, because the client rightly holds a template's counted cost (ADR-008, decision 2), and
+   timber is both a cost and a behaviour's name: the cost's two fields, the identifiers stoneM3 and timberM3, are
+   removed before the search, and nothing else is. Timber under any other name is still caught.
    Still vacuous: there is no server bake until M2, so nothing yet checks that it reads nothing under
-   GameData/Client/. And the client bake writes only the palette today, so the search covers one table. When a
-   client table rightly names a material whose name is also a behaviour, such as water for the shallow-water
-   rule, the vocabulary here changes in the same commit.
+   GameData/Client/. When a client table rightly names another material whose name is also a behaviour, such as
+   water for the shallow-water rule, the exception here grows by that name in the same commit.
 
 Usage:
   python3 Tools/CheckAssets.py              the repository this script sits in
@@ -82,6 +85,11 @@ SERVER_ONLY_WORDS = {
   "part data": [["part"], ["parts"], ["critical"]],
   "threshold": [["threshold"], ["thresholds"]],
 }
+
+# What the client's tables rightly carry under a name that shares a word with that vocabulary: a template's counted
+# cost (ADR-008, decision 2), whose timber is also a behaviour. Check 9 removes these whole identifiers before it
+# searches, and nothing else.
+CLIENT_COST_FIELDS = ("stoneM3", "timberM3")
 
 
 class Report:
@@ -462,8 +470,9 @@ def CheckClientBake(_report, _root, _behaviors):
       _report.Problem(bake, f"the client bake failed with exit code {result.returncode}: {last}")
       return 0
     outputs = sorted(path for path in Path(folder).rglob("*") if path.is_file())
+    costFields = re.compile(r"\b(?:" + "|".join(CLIENT_COST_FIELDS) + r")\b")
     for path in outputs:
-      words = Words(path.read_text(encoding="utf-8", errors="replace"))
+      words = Words(costFields.sub(" ", path.read_text(encoding="utf-8", errors="replace")))
       for category, phrases in vocabulary.items():
         found = [" ".join(phrase) for phrase in phrases if Contains(words, phrase)]
         if found:

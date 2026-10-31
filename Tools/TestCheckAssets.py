@@ -1,9 +1,10 @@
 """Tests for Tools/CheckAssets.py: a check that passes an untouched tree proves nothing on its own.
 
-The repository must pass. Each broken case copies GameData/ and Tools/BakeContent.py into a temporary folder, breaks
-one thing, and asserts that the check reports a problem naming that reason. A case is judged on the problems its
-break adds to those of an unbroken copy, so that it shows its own reason and not something already there. Further
-cases test decision 6's tie and repeated-pass rules and the cost count directly, since no real template has a tie.
+The repository must pass. Each broken case copies GameData/, Tools/BakeContent.py and the modules the bake imports into
+a temporary folder, breaks one thing, and asserts that the check reports a problem naming that reason. A case is judged
+on the problems its break adds to those of an unbroken copy, so that it shows its own reason and not something already
+there. Further cases test decision 6's tie and repeated-pass rules and the cost count directly, since no real template
+has a tie.
 
 Usage:
   python3 Tools/TestCheckAssets.py         every case
@@ -37,12 +38,14 @@ ARCHER = "Client/Models/earthrise-u3-archer-05m.json"
 MANIFEST = "Manifest.json"
 PALETTE = "Server/Palette.json"
 BAKE = "Tools/BakeContent.py"
+BAKE_IMPORTS = ("Tools/CheckAssets.py", "Tools/VoxFile.py")  # the bake counts costs with the asset check's code
 
 
 def Copy(_destination):
   shutil.copytree(ROOT / "GameData", _destination / "GameData")
   (_destination / "Tools").mkdir()
-  shutil.copy(ROOT / BAKE, _destination / BAKE)
+  for relative in (BAKE,) + BAKE_IMPORTS:
+    shutil.copy(ROOT / relative, _destination / relative)
 
 
 def Change(_root, _relative, _change):
@@ -199,6 +202,9 @@ BROKEN = {
   "a behaviour's name leaks into the client": (
     lambda r: LeakIntoBake(r, "inline constexpr std::array<bool, 256> PALETTE_MODEL_ONLY = {};\n\n"),
     "the behaviour word(s) model only"),
+  "timber leaks into the client other than as a cost": (
+    lambda r: LeakIntoBake(r, "inline constexpr std::array<bool, 256> PALETTE_TIMBER = {};\n\n"),
+    "the behaviour word(s) timber"),
   "critical parts leak into the client": (
     lambda r: LeakIntoBake(r, "inline constexpr std::uint8_t T5_CRITICAL_PART[] = {0, 1, 1};\n\n"),
     "the part data word(s) part, critical"),

@@ -1,6 +1,6 @@
 # GameData
 
-The game's content sources, split by who reads them ([ADR-008](../Design/ADR/ADR-008-server-and-client-game-data.md)). Nothing here is loaded directly. The bake, `Tools/BakeContent.py`, whose client half exists and so far writes only the palette, turns the client's content into the `Content` library, compiled in, and the server's into files in `<outputdir>\ServerData`, which the simulation reads at startup. [ADR-005](../Design/ADR/ADR-005-content-formats.md) is the format, [ADR-006](../Design/ADR/ADR-006-voxel-sizes.md) sets the two voxel sizes, and [Design/MvpAssets.md](../Design/MvpAssets.md) is the catalogue.
+The game's content sources, split by who reads them ([ADR-008](../Design/ADR/ADR-008-server-and-client-game-data.md)). Nothing here is loaded directly. The bake, `Tools/BakeContent.py`, turns the client's content into the `Content` library, compiled in, and the server's into files in `<outputdir>\ServerData`, which the simulation reads at startup. Its client half exists: it writes the palette's colours, the templates' client view, the models and the shared hash (ADR-008, decision 5). Its server half follows in M2. [ADR-005](../Design/ADR/ADR-005-content-formats.md) is the format, [ADR-006](../Design/ADR/ADR-006-voxel-sizes.md) sets the two voxel sizes, and [Design/MvpAssets.md](../Design/MvpAssets.md) is the catalogue.
 
 | Path | Holds | Voxel | Read by |
 |---|---|---|---|
