@@ -7,6 +7,7 @@ The game's voxel content. Nothing here is compiled or loaded directly: `Tools/Ba
 | `Templates/` | T1–T9, the buildings | 1 m | The simulation and the client |
 | `Models/` | One figure for each unit type (U1–U5, S2), the ram (S1) and the trebuchet (S3) | 0.5 m | The client |
 | `Illustrations/` | Squads (U1–U5, S2) at 0.5 m; earthworks (E1, E2) and material samples (M1, M2) at 1 m | Both | Nobody: documentation and tests |
+| `Fonts/` | Earthrise Mason: `EarthriseMason-glyphs.json`, the source, with atlas previews at 1×, 2× and 3× | | The font tool ([Design/Hud.md](../Design/Hud.md) §9) |
 | `Palette.json` | Material index → colour, jitter, jitter cell, AO set, grid, behaviour | | The baker |
 | `Manifest.json` | Every asset: id, kind, grid, files, size, voxel count, counted cost, critical part, known issues | | The asset check |
 
@@ -38,3 +39,5 @@ These files come from the owner's second package, kept unchanged in [`Design/Ref
   - T7's grid has 1 m of empty padding in front, which the baker trims.
 - **The legend names inside the asset files are left unchanged.** For example, they still say "dressed stone". The palette's name is the one that counts.
 - **The package's integration command** (`commands/integrate-look-v2.md`) was not installed into `.claude/commands/`. It is kept with the package as a record of what was asked.
+
+**The font** comes from the owner's HUD package, kept unchanged in [`Design/Reference/HudPrototype/`](../Design/Reference/HudPrototype/). Only `EarthriseMason-glyphs.json` and its three atlases were copied, unchanged. The glyph rows in the JSON are the source; the package's `earthrise-font.js` and `.otf` stay with the package as its own editing tools. On import, the JSON and the JavaScript agreed glyph for glyph, and each atlas matched the rows pixel for pixel. The package's `integrate-hud.md` command was not installed either.

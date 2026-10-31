@@ -20,6 +20,7 @@ These constraints bind the format:
    - `Templates/`: buildings, used by both the simulation and the client;
    - `Models/`: units and engines, used by the client only;
    - `Illustrations/`: squads, earthworks and material samples, for documentation and tests, never baked;
+   - `Fonts/`: the bitmap font's glyphs as text rows, with atlas previews ([Hud.md](../Hud.md) §9). They are baked like the rest, and the text ADR in M3 settles their baked form;
    - `Palette.json` and `Manifest.json`, beside them.
 2. **The source of every voxel asset is its `.json` layer file.**
    - **Fields:** `voxelSize` (1 for world assets, 0.5 for models), `size`, and `legend`, which maps a character to a palette index. `layers[y][z]` holds strings over x, with `.` for empty. A template adds `parts[y][z]`: `1` for the critical part, `2` for foundation, `3` for stock (goods on site, not costed), and `.` for none.

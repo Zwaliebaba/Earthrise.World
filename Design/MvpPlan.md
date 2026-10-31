@@ -41,7 +41,8 @@ The MVP ends at the verdict on stages 1 and 2 (GameDesign.md, decided 2026-10-31
   - fog with last-seen land;
   - the readout at placement: soil depth and where a dig will slump;
   - the attack cursor;
-  - the repair lock.
+  - the repair lock;
+  - the HUD of [Hud.md](Hud.md): layout A, played with mouse and keyboard.
 - **AI:**
   - the Siege defender, which fights, repairs, sallies out to a leash and shoots sappers;
   - the Hold waves, scored through the resolver with a seeded draw, plus one sapper wave.
@@ -71,6 +72,7 @@ The MVP ends at the verdict on stages 1 and 2 (GameDesign.md, decided 2026-10-31
 2. **The roster and the fixed armies** as listed above, which fix what M4 builds.
 3. **Own content only.** Every font, sound and piece of art is made for the project or is in the public domain. Text therefore needs a bitmap font drawn for the project, or one in the public domain.
 4. **Platforms and squads** (ADR-007, GameDesign.md): x64 and ARM64 from the first project, mouse and keyboard in the MVP, the Surface measured from M1, and squads as what the player commands.
+5. **The HUD** ([Hud.md](Hud.md)), from the owner's HUD package, with the bitmap font Earthrise Mason in `Assets/Fonts/`.
 
 ## Architecture
 
@@ -109,7 +111,8 @@ The edges run one way:
 | Navigation model | M2 | A height field of 2.5D tiles, a clearance grid for each class (foot, cavalry, machines), and a dirty tile rebuilt at most once a tick |
 | Content formats | Decided | [ADR-005](ADR/ADR-005-content-formats.md): JSON layer files with MagicaVoxel copies, baked into `Content` |
 | Platforms and input | Decided | [ADR-007](ADR/ADR-007-platforms-and-input.md): Windows on x64 and ARM64; two input schemes over one command layer, touch after the verdict |
-| Text rendering and how units are drawn | M4 | A bitmap font drawn for the project, baked into an atlas by a tool. Units are 0.5 m models of 1 × 1 × 4 voxels, axis-aligned and rotated in 90° steps. Engine poses are baked; debris is oriented voxels. |
+| Text rendering | M3 | Earthrise Mason ([Hud.md](Hud.md) §9): its glyph rows in `Assets/Fonts/`, baked into `Content` by a tool, drawn only at whole multiples of a font pixel |
+| How units are drawn | M4 | Units are 0.5 m models of 1 × 1 × 4 voxels, axis-aligned and rotated in 90° steps. Engine poses are baked; debris is oriented voxels. |
 
 ### One simulation tick, in order
 
@@ -133,8 +136,8 @@ The order is fixed, so that one build replays the same commands to the same resu
 | M0 | Foundations and paper tests | Checkers in CI; the revised rules pass on paper; the spike's estimate written down | 0.5–1 |
 | M1 | Renderer spike | ADR-006's measurements for the 1 m baseline and a 0.5 m world, on the RTX 3060-class machine and the Surface; the look's acceptance checks pass | 6.5–10 |
 | M2 | Headless simulation | A scripted breach and units pathing through it, replaying identically | 8.5–15 |
-| M3 | Breach lab | The first measured reading on H2's predictions | 1–2 |
-| M4 | Siege trial | A Siege trial that can be played, with its control | 10.5–19 |
+| M3 | Breach lab | The first measured reading on H2's predictions | 1.5–2.5 |
+| M4 | Siege trial | A Siege trial that can be played, with its control | 10–18.5 |
 | M5 | Siege playtest | The verdict on H2 | 1–2 |
 | M6 | Hold trial | A Hold trial that can be played, with its control | 5–9 |
 | M7 | Hold playtest | The verdict on H1, and so the MVP's | 1–2 |
@@ -221,7 +224,9 @@ If the 1 m baseline misses the pass mark, ADR-001 is revisited before any gamepl
 - the camera;
 - click-to-fire a trebuchet at a wall;
 - the integrity view read from the resolver;
-- the collapse preview and the passability view;
+- the collapse preview and the passability view, toggled by F1 and F2;
+- the text renderer and the font tool, which M4 used to hold;
+- the first of the HUD: the top bar, the mode banner, the camera buttons, the collapse alert and the attack cursor for FIRE ([Hud.md](Hud.md) §11);
 - prediction prompts, logged.
 
 Run it with six people (F-48).
@@ -236,7 +241,7 @@ Run it with six people (F-48).
 - fog with the visibility filter and last-seen land;
 - the content baker and the asset check (ADR-005), the world templates T1–T9 redrawn natively at 1 m, and the Siege castle built from them;
 - the subset of jobs the trial needs: repair and trenches;
-- the rest of the interface: squad selection, control groups, the command card, the minimap, the overlays, alerts, the attack cursor and the repair lock, with every hover reading also reachable without hover (ADR-007);
+- the rest of the interface: layout A of [Hud.md](Hud.md), with squad selection, control groups, the command card, the minimap, alerts and the repair lock, and every hover reading also reachable without hover (ADR-007);
 - the Siege defender AI;
 - the storming win and the loss rule;
 - the control version of the trial;
@@ -249,11 +254,11 @@ Run it with six people (F-48).
 | Fog | 1–1.5 |
 | Content baker, asset check and the Siege castle (the templates exist) | 1–2 |
 | Repair and trench jobs | 1–2 |
-| Interface | 2–3.5 |
+| Interface (text moved to M3) | 1.5–3 |
 | Siege AI | 1–2 |
 | Control | 0.5–1 |
 
-**Done when** the trial can be won by storming and lost by the clock or by running out of attackers, the control plays the same in everything but the wall rule, and the AGENTS.md checklist passes, including running the executable.
+**Done when** the trial can be won by storming and lost by the clock or by running out of attackers, the control plays the same in everything but the wall rule, the HUD renders without overlap or clipped text at the sizes Hud.md §11 names, and the AGENTS.md checklist passes, including running the executable.
 
 ### M5 — Siege playtest: the verdict on H2
 
@@ -270,6 +275,7 @@ Run it with six people (F-48).
 **Build:**
 - the full set of designations, with laborer jobs, hauling, drop sites and construction;
 - the readout at placement: soil depth and the slump preview;
+- the HUD's laborer cards, its placement and dig readouts, with YIELD counting only stone the player can see, and the Hold control's GATHER ([Hud.md](Hud.md) §10, §11);
 - the generator constraints for Hold maps: at least two outcrops, and mixed ground;
 - the scored waves and the sapper wave;
 - the control's node resources;

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>html,body{margin:0;padding:0;background:#1b1916}a{color:#e8b86a}a:hover{color:#f3ede2}</style>
+</helmet>
+<div style="min-height:100vh;background:#1b1916;color:#f3ede2;font-family:'IBM Plex Mono',monospace;padding:40px clamp(20px,4vw,56px) 64px;box-sizing:border-box;display:flex;flex-direction:column;gap:32px">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:10px;max-width:760px">
+      <div style="font-size:12px;letter-spacing:.18em;color:#e8b86a">EARTHRISE.WORLD — HUD TYPE</div>
+      <div style="font-family:'Earthrise Mason',monospace;font-size:60px;line-height:72px">Earthrise Mason</div>
+      <div style="font-size:14px;line-height:1.6;color:#d8d0c2;text-wrap:pretty">A 5 × 7 bitmap face drawn for the project, so the HUD uses no licensed type (MvpPlan input 3). Caps sit on 7 rows, lowercase on a 5-row x-height with 2-row descenders, and 25 command icons fill the Private Use Area from U+E000 on a 9 × 9 grid. Use it at 10, 20 or 30 px so each font pixel lands on 1, 2 or 3 screen pixels.</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button onClick="{{ dlOtf }}" style="height:40px;padding:0 16px;border:0;background:#e8b86a;color:#15130f;font-family:inherit;font-size:12px;letter-spacing:.1em;cursor:pointer">.OTF</button>
+      <button onClick="{{ dlAtlas }}" style="height:40px;padding:0 16px;border:0;background:#332e27;color:#f3ede2;font-family:inherit;font-size:12px;letter-spacing:.1em;cursor:pointer" style-hover="background:#433b31">ATLAS .PNG</button>
+      <button onClick="{{ dlJson }}" style="height:40px;padding:0 16px;border:0;background:#332e27;color:#f3ede2;font-family:inherit;font-size:12px;letter-spacing:.1em;cursor:pointer" style-hover="background:#433b31">GLYPHS .JSON</button>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:14px;background:#24211c;padding:24px">
+    <div style="font-size:11px;letter-spacing:.14em;color:#a69c8a">SIZES · {{ status }}</div>
+    <div style="font-family:'Earthrise Mason',monospace;font-size:10px;line-height:12px">10 PX · STONE 214 m³ · TIMBER 96 m³ · WAVE 3 / 5 · Raiders in 2:40</div>
+    <div style="font-family:'Earthrise Mason',monospace;font-size:20px;line-height:24px">20 PX · HOLD THE KEEP’S FOOT · 0:42 / 2:00 · Men-at-arms storm breaches.</div>
+    <div style="font-family:'Earthrise Mason',monospace;font-size:30px;line-height:36px">30 PX · W4 WILL FALL IN 6 S</div>
+    <div style="font-family:'Earthrise Mason',monospace;font-size:30px;line-height:36px;color:#e8b86a;letter-spacing:6px">{{ iconLine }}</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="font-size:11px;letter-spacing:.14em;color:#a69c8a">GLYPH SHEET · {{ count }} GLYPHS · ICONS IN AMBER</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:6px">
+      <sc-for list="{{ cells }}" as="c" hint-placeholder-count="24">
+        <div style="background:#24211c;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px 8px">
+          <canvas ref="{{ c.ref }}" width="54" height="54" style="width:54px;height:54px;image-rendering:pixelated"></canvas>
+          <div style="font-size:10px;color:#a69c8a;letter-spacing:.04em">{{ c.label }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { list: [], status: 'loading font…' };
+  async componentDidMount() {
+    try {
+      const fm = await import(new URL('earthrise-font.js', document.baseURI).href);
+      this.fm = fm; this.setState({ list: fm.allGlyphs() });
+      const otm = await import('https://esm.sh/opentype.js@1.3.4');
+      this.buf = fm.buildFont(otm.default || otm);
+      const ff = new FontFace(fm.NAME, this.buf); await ff.load(); document.fonts.add(ff);
+      this.setState({ status: 'font built in the browser from the bitmaps' });
+    } catch (e) { console.error(e); this.setState({ status: 'font build failed: ' + e.message }); }
+  }
+  save(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+  draw(el, g) {
+    if (!el) return; const x = el.getContext('2d'); x.clearRect(0, 0, 54, 54);
+    x.fillStyle = '#2f2a24'; for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) x.fillRect(c * 6, r * 6, 5, 5);
+    x.fillStyle = g.icon ? '#e8b86a' : '#f3ede2'; const oy = g.icon ? 0 : 0;
+    g.rows.forEach((row, ri) => { for (let c = 0; c < row.length; c++) if (row[c] === '#') x.fillRect(c * 6, (ri + oy) * 6, 5, 5); });
+    if (!g.icon) { x.fillStyle = 'rgba(232,184,106,.5)'; x.fillRect(0, 42, 54, 1); }
+  }
+  renderVals() {
+    const list = this.state.list;
+    return {
+      status: this.state.status, count: String(list.length),
+      iconLine: list.filter(g => g.icon).map(g => g.ch).join(''),
+      cells: list.map(g => ({ ref: el => this.draw(el, g), label: g.icon ? g.name : (g.ch === ' ' ? 'space' : g.ch + ' U+' + g.ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')) })),
+      dlOtf: () => { if (this.buf) this.save('EarthriseMason.otf', new Blob([this.buf], { type: 'font/otf' })); },
+      dlAtlas: () => { if (!this.fm) return; const { canvas } = this.fm.buildAtlas(document, 1); canvas.toBlob(b => this.save('EarthriseMason-atlas.png', b)); },
+      dlJson: () => { if (!this.fm) return; const { map } = this.fm.buildAtlas(document, 1); this.save('EarthriseMason-glyphs.json', new Blob([JSON.stringify(map, null, 1)], { type: 'application/json' })); }
+    };
+  }
+}
+</script>
+</body>
+</html>

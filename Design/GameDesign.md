@@ -130,6 +130,17 @@ The owner wants the game on a laptop with mouse and keyboard, on the Surface Pro
 4. **The Surface is measured from the renderer spike on,** at a reduced internal resolution. Its pass mark is set from those figures.
 5. **The player commands squads,** not single figures: six on foot, or three outriders. Selection, orders and control groups act on squads. Each figure is drawn, hit and killed on its own, and a squad can be split when a single figure is needed. At the default zoom a unit is a few pixels wide, so squads help the mouse as well as the finger.
 
+### 2026-10-31: the MVP's HUD
+
+The owner delivered a HUD package, kept unchanged in [Reference/HudPrototype/](Reference/HudPrototype/). [Hud.md](Hud.md) adapts it to the decisions above.
+
+1. **Hud.md is the MVP's HUD:** its layout, command cards, minimap, alerts and readouts. What Hud.md marks Proposed is tried in M3 and M4 before it is settled.
+2. **The MVP builds layout A, played with mouse and keyboard.** The package's touch layout and gestures are the starting design for touch, after the verdict.
+3. **One hotkey scheme, the mnemonic one,** with WASD to pan.
+4. **The interface scale follows the display's DPI,** in steps of 1, 1.5 and 2, and names stay larger than labels at every step.
+5. **A dig's yield counts only the building stone the player can see,** so a readout never reveals where stone lies.
+6. **The font is Earthrise Mason,** drawn for the project. Colour-blind palettes are deferred, and no state is shown by colour alone.
+
 ## Pillars (Decided)
 
 A pillar is a test every feature has to pass. A feature that serves none of them is a candidate for cutting.
