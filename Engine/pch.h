@@ -4,12 +4,14 @@
 
 #include <unknwn.h>
 
+#include <DirectXMath.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <winrt/base.h>
 
 #include <array>
 #include <chrono>
+#include <climits>
 #include <cstddef>
 #include <cstdint>
 #include <deque>

@@ -16,6 +16,9 @@
     <Filter Include="Timing">
       <UniqueIdentifier>{3F13C0B6-E2F9-5074-8579-2A0889F41DFD}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shader">
+      <UniqueIdentifier>{D5B7C56A-C163-5EA2-A920-499F1A7C8698}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -93,5 +96,23 @@
     <ClCompile Include="FrameTimer.cpp">
       <Filter>Timing</Filter>
     </ClCompile>
+    <ClInclude Include="VoxelRecord.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="VoxelPass.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="VoxelPass.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <FXCompile Include="Shader\VoxelVS.hlsl">
+      <Filter>Shader</Filter>
+    </FXCompile>
+    <FXCompile Include="Shader\VoxelPS.hlsl">
+      <Filter>Shader</Filter>
+    </FXCompile>
+    <None Include="Shader\VoxelCommon.hlsli">
+      <Filter>Shader</Filter>
+    </None>
   </ItemGroup>
 </Project>

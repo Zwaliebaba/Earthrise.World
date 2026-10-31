@@ -53,6 +53,9 @@
     <ClCompile Include="RingAllocator.cpp" />
     <ClInclude Include="UploadRing.h" />
     <ClCompile Include="UploadRing.cpp" />
+    <ClInclude Include="VoxelRecord.h" />
+    <ClInclude Include="VoxelPass.h" />
+    <ClCompile Include="VoxelPass.cpp" />
     <ClInclude Include="FrameRing.h" />
     <ClCompile Include="FrameRing.cpp" />
     <ClInclude Include="SwapChain.h" />
@@ -62,6 +65,15 @@
     <ClCompile Include="PointerInput.cpp" />
     <ClInclude Include="FrameTimer.h" />
     <ClCompile Include="FrameTimer.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <FXCompile Include="Shader\VoxelVS.hlsl">
+      <ShaderType>Vertex</ShaderType>
+    </FXCompile>
+    <FXCompile Include="Shader\VoxelPS.hlsl">
+      <ShaderType>Pixel</ShaderType>
+    </FXCompile>
+    <None Include="Shader\VoxelCommon.hlsli" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

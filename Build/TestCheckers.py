@@ -99,6 +99,16 @@ BROKEN = {
   "Release drifts from Debug": (lambda r: Edit(r, SHEET, "<Optimization>MaxSpeed</Optimization>",
                                                "<Optimization>MaxSpeed</Optimization>\n      <LanguageStandard>stdcpp20</LanguageStandard>"),
                                 "LanguageStandard differs between Debug and Release"),
+  "Debug shaders lose their embedded debug information": (
+    lambda r: Edit(r, SHEET, "      <AdditionalOptions>-Qembed_debug %(AdditionalOptions)</AdditionalOptions>\n", ""),
+    "-Qembed_debug belongs in Debug's shader options"),
+  "Release shaders embed debug information": (
+    lambda r: Edit(r, SHEET, "<EnableDebuggingInformation>false</EnableDebuggingInformation>",
+                   "<EnableDebuggingInformation>false</EnableDebuggingInformation>\n      <AdditionalOptions>-Qembed_debug</AdditionalOptions>"),
+    "-Qembed_debug belongs in Debug's shader options"),
+  "Debug shader options drift": (
+    lambda r: Edit(r, SHEET, "-Qembed_debug %(AdditionalOptions)", "-Qembed_debug -Od %(AdditionalOptions)"),
+    "shader options differ beyond -Qembed_debug"),
   "ARM64 drifts from x64": (lambda r: Edit(r, SHEET, "<AdditionalOptions>/arch:armv8.0+lse %(AdditionalOptions)",
                                            "<AdditionalOptions>/arch:armv8.0+lse /Gy %(AdditionalOptions)"),
                             "differ beyond /arch"),
