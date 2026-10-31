@@ -24,5 +24,8 @@
     <ClCompile Include="PointerInputTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="VoxelPassTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

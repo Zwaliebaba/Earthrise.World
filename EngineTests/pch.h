@@ -5,15 +5,21 @@
 
 #include <unknwn.h>
 
+#include <DirectXMath.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <winrt/base.h>
 
 #include "CppUnitTest.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <format>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <vector>
