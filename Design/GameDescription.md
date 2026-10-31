@@ -1,6 +1,6 @@
 # Earthrise.World — Game Description
 
-*A description of the whole game, written for game designers reviewing its logic. It is drawn from [GameDesign.md](GameDesign.md), which remains the record of what is decided; where the two differ, GameDesign.md governs.*
+*A description of the whole game, written for game designers reviewing its logic. The owner accepted it on 2026-10-31. [GameDesign.md](GameDesign.md) records that decision and holds what is still Proposed or Open; where the two differ, GameDesign.md governs.*
 
 ## The pitch
 
