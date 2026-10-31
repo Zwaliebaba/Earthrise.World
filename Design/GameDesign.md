@@ -165,6 +165,27 @@ The owner delivered a HUD package, kept unchanged in [Reference/HudPrototype/](R
 4. **The JSON layer file is the only committed voxel source.** A tool writes a `.vox` for MagicaVoxel and writes an edit back, so the owner can keep authoring in Claude Design and touch up in MagicaVoxel.
 5. **Shaders stay compiled into the executable.**
 
+### 2026-10-31: starting the MVP
+
+The owner settled the open items of the readiness review ([Review/MvpReadiness-2026-10-31.md](Review/MvpReadiness-2026-10-31.md)) that block M0 and M1.
+
+1. **Claude sessions write the code;** the owner runs it and judges it.
+   - Code, tools and checkers are written in Claude sessions and pushed to branches, and CI compiles Debug|x64 and Debug|ARM64.
+   - The owner runs the builds on Windows, judges the look and the measurements, and approves each milestone.
+   - The plan's estimates are rescaled from the real pace of the first milestones.
+2. **MvpPlan.md is accepted through M2,** together with the renderer spike's six questions, its pass mark and the 1 m kill criterion. M3 to M7 stay Proposed until after M1.
+3. **How the pass mark is measured:**
+   - on a desktop RTX 3060 at 1920 × 1080;
+   - as the 95th percentile of the voxel pass's GPU time, shadow passes included;
+   - over a scripted camera path at the default zoom through all four rotations;
+   - with units moving and the scripted edits running.
+4. **Hardware:** the owner has the RTX 3060-class machine but no Surface Pro yet. The Surface's measurement waits until one is available, and its pass mark stays open ([ADR-007](ADR/ADR-007-platforms-and-input.md)).
+5. **The spike's scene takes its layout from the v5 scene,** which is already on the 1 m grid ([Reference/SiegePrototypeV2/](Reference/SiegePrototypeV2/)). A seeded scene script places it. The implementer draws placeholder models for what `GameData/` lacks (trees, cottages, mantlets, banners and stock stacks), and the owner may replace them with Claude Design versions.
+6. **Two exceptions to R14** (AGENTS.md): test projects use Visual Studio's native unit-test framework, which vstest runs and which never reaches the game, and build-time tools run on Python, which never ships.
+7. **The paper tests' open values** (the stone span, the anchor depth, the questions per prediction item, how a wave scores and picks, and the repair spreadsheet's pass mark) are picked by the implementer. Each is recorded as Proposed with its reason, and the owner confirms or changes them after the results.
+8. **The MVP trebuchet switches between baked poses:** packed, cocked and released, three static models.
+9. **Skirmish has one or two AI houses.**
+
 ## Pillars (Decided)
 
 A pillar is a test every feature has to pass. A feature that serves none of them is a candidate for cutting.
@@ -280,7 +301,7 @@ The control is the same stages with walls built of segments that have health bar
 
 Each stage builds a piece the shared world needs: the Siege stage's defending AI, with the Skirmish AI's economy, becomes the steward, the Hold stage's waves become the world's raiders, and the Skirmish AI becomes the AI houses.
 
-### Kill criteria (Proposed)
+### Kill criteria (Proposed, except the renderer spike's, which is Decided)
 
 - If H2 still fails after one round of work on legibility, destruction becomes cosmetic over walls with health bars, and this document is rewritten before more content is made.
 - If H1 fails, resources become nodes that leave visible scars on the land. Ditches, trenches and pits stay dug, and Earthstone is still dug out of the Deep, because the Deep is the objective, not the economy. Whether Worlds goes ahead without pillar 1 is decided then, before Skirmish starts.
@@ -288,7 +309,7 @@ Each stage builds a piece the shared world needs: the Siege stage's defending AI
 - If the demand signal stays below its threshold (*Persistence*), Worlds is not built.
 - If the renderer spike misses its pass mark with the 1 m baseline, a new ADR revisits [ADR-001](ADR/ADR-001-direct-voxel-ray-casting.md) before any gameplay code is written.
 
-## Renderer spike (Decided: it happens, draws a changing scene and measures drawing and editing; Proposed: the rest of what it answers)
+## Renderer spike (Decided: it happens, draws a changing scene, answers the six questions below and has a pass mark)
 
 The spike is the first code in the repository. It conforms to AGENTS.md like any other code, which also means it settles the solution layout (AGENTS.md §2). It draws a generated test scene with [ADR-001](ADR/ADR-001-direct-voxel-ray-casting.md)'s method: terrain, a dense forest, and a town with walls, roughly what a late-game settlement looks like. The scene also changes while it is drawn (question 5). It answers six questions:
 
@@ -299,7 +320,7 @@ The spike is the first code in the repository. It conforms to AGENTS.md like any
 5. **Edits.** The scene runs quarrying at the peak rate the Skirmish tempo implies, back-solved from template volumes at 1 m, and one wall collapse. The spike measures the cost of rebuilding an edited chunk's render records, its neighbours' corner shading included. No world voxel falls below about 4 px anywhere in the zoom range, and units switch to impostors below 3 px. So ADR-001's stochastic pruning is not used, and the problem of finding a pruning key that survives edits does not arise.
 6. **Simulation cost** at 1 m, and at 0.5 m for comparison: memory for the MVP map, one support search on the test town after a breach, and one navigation tile rebuild. It measures the same on a synthetic, headless world of 2 km × 2 km that carries a season's edits and a dozen sieges at once.
 
-The pass mark is decided: an RTX 3060-class GPU at 1920×1080 and 60 frames a second, with the voxel pass inside 8 ms of the 16.7 ms frame at the default zoom. The Surface's pass mark is set from the spike's figures.
+The pass mark is decided: an RTX 3060-class GPU at 1920×1080 and 60 frames a second, with the voxel pass inside 8 ms of the 16.7 ms frame at the default zoom. It is measured on a desktop RTX 3060 as the 95th percentile of the voxel pass's GPU time, shadow passes included, over a scripted camera path at the default zoom through all four rotations, with units moving and the scripted edits running. The Surface's pass mark is set from the spike's figures once a Surface is available.
 
 Its output is ADR-006's table of measurements, for the 1 m baseline and for a 0.5 m world, plus the same measurements on the Surface. If question 4 calls for one, a lighting ADR follows. The spike needs Windows and a Direct3D 12 GPU to build and run, and a Snapdragon X Surface Pro for its ARM64 figures.
 

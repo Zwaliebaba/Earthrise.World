@@ -51,7 +51,7 @@ The owner also plans the Surface Pro, whose integrated GPU the spike measures, a
 
 | Measure | 1 m world + 0.5 m models | 0.5 m world |
 |---|---|---|
-| Voxel pass, default zoom, 1080p, RTX 3060-class (ms) | | |
+| Voxel pass, 95th percentile, shadows included, scripted path at the default zoom, 1080p, desktop RTX 3060 (ms) | | |
 | Edit-to-screen latency (frames) | | |
 | Support search over a breach region (ms) | | |
 | Navigation tile rebuild (ms) | | |

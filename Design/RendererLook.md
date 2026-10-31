@@ -161,5 +161,5 @@ Lighting is diffuse only: Lambert, with no metalness and no specular highlights.
 7. The same seed and edits produce the same colours on every machine.
 8. Fords can be told apart from deep water.
 9. Rubble of stone can be told apart from waste rubble.
-10. The voxel pass stays within 8 ms at 1080p at the default zoom on an RTX 3060-class GPU. This is the M1 pass mark.
+10. The voxel pass stays within 8 ms at 1080p at the default zoom on an RTX 3060-class GPU. This is the M1 pass mark, measured as GameDesign.md states it: the 95th percentile on a desktop RTX 3060, shadow passes included, over a scripted camera path through all four rotations, with units moving and edits running.
 11. Shadows land where the sun puts them: no acne on lit faces, no gap between a wall, tower, tree or unit and its shadow at the default zoom, and an edit's shadow changes within a frame of the edit.

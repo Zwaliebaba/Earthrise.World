@@ -94,7 +94,7 @@ These constraints bind the format:
 
 ## Left open
 
-- Rigid parts and animation for engine models, such as the trebuchet's arm. MVP engines are static models.
+- Rigid parts and animation for engine models, such as the trebuchet's arm. In the MVP an engine switches between baked poses, each a static model: the trebuchet is packed, cocked or released.
 - Models with voxels finer than 0.5 m. The format carries `voxelSize`, so a later integer ratio fits it.
 - Compressing the baked tables.
 - Palette indices for materials outside the MVP: iron ore, Earthstone and the Masons' dressed stone.

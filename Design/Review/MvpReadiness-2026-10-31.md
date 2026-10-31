@@ -180,3 +180,27 @@ These are mechanical fixes, except where marked as the owner's choice.
 - palette indices for later materials;
 - engine animation;
 - the Earthstone race.
+
+## Resolution, 2026-10-31
+
+- **A, the owner's decisions:** settled (GameDesign.md, *Starting the MVP*):
+  - the plan is accepted through M2;
+  - the pass mark's measurement is defined;
+  - the RTX 3060 machine is available, and the Surface is not yet;
+  - the v5 layout, with placeholder models;
+  - CppUnitTest and Python are allowed;
+  - the paper tests' values are picked by the implementer, as Proposed.
+
+  The spike's estimate is still to be written in M0. Also decided: Claude sessions write the code and the owner runs and judges it, the trebuchet switches between baked poses, and Skirmish has one or two AI houses.
+- **B, the sequencing defects:** all applied. M1 gains:
+  - the chunk store;
+  - a scene script;
+  - the client bake and the asset check;
+  - units and debris;
+  - the water rule and the shadow check.
+
+  Also applied: ADR-006 is accepted after M3, the server bake moves to M2, generator parameters are compiled into the generator, ADR-009 adds queries, and CI runs the asset check.
+- **D, the stale text:** fixed. AGENTS.md's missing R13 is left as it is, since the numbering came over from the sibling repositories.
+- **Still open:**
+  - C, the engineering decisions for M1's first commit, to be drafted as an ADR before that commit;
+  - E and F, which are due later or after the MVP.

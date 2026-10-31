@@ -21,7 +21,7 @@ It is for players of classic historical RTS games who know their counters and bu
 | Genre | Real-time strategy in persistent, seasonal shared worlds |
 | Setting | A fictional high-medieval land, before gunpowder |
 | Modes | Trials (single-player siege challenges), Skirmish (against AI houses), Worlds (shared seasons online) |
-| Skirmish | One human against one to three AI houses, 40–60 minutes, maps of 512 m to 768 m square |
+| Skirmish | One human against one or two AI houses, 40–60 minutes, maps of 512 m to 768 m square |
 | Worlds | 8–32 seats, at least half of them human lords when the world opens, AI houses in the rest; land sized to the seats, up to about 2 km × 2 km; an eight-week season |
 | Population cap | 150 per faction in Skirmish, 120 per lord in Worlds |
 | Resources | Provisions, timber, stone and iron; Earthstone in Worlds |
@@ -310,7 +310,7 @@ The first release ships the Masons with the common roster. Worlds open with all 
 - **Siege:** take a pre-built, garrisoned castle whose defenders fight and repair.
 - **Hold:** quarry and build for a set time, then survive waves of raiders that choose their breach by reading your walls and the ground beneath them. One wave brings sappers.
 
-**Skirmish** pits one human against one to three AI houses on a generated map, in matches of 40 to 60 minutes. Every house plays for itself, and the last with a working keep wins. A second mode, the Earthstone race, plays a season's objective in an hour; it comes after the first release.
+**Skirmish** pits one human against one or two AI houses on a generated map, in matches of 40 to 60 minutes. Every house plays for itself, and the last with a working keep wins. A second mode, the Earthstone race, plays a season's objective in an hour; it comes after the first release.
 
 **Worlds** are the game's home: shared seasons online, described below.
 

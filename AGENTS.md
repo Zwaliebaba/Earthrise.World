@@ -193,7 +193,7 @@ The concrete layout — the solution, the projects and the edges between them �
 
 **Filters are functional.** A `.filters` file groups a project by what the code *does* — `Rendering`, `Audio`, `Input`, `Shader` — never by what kind of file it is. The Visual Studio defaults `Source Files`, `Header Files` and `Resource Files` are deleted when a project is created and never come back, and a `.h` sits in the same filter as its `.cpp`.
 
-**There are no vendored SDKs and no package manager.** The build depends on the Windows SDK and the MSVC standard library, and on nothing else. See R14.
+**There are no vendored SDKs and no package manager.** The build depends on the Windows SDK, the MSVC toolset and standard library, and Python for the build-time tools under `Build/` and `Tools/`, and on nothing else. See R14.
 
 **`Design/` holds no code.** Its top level holds the game design, the renderer's look, the HUD, and the MVP plan and its assets, `Design/ADR/` holds the decisions (§6), `Design/Review/` holds design reviews, and `Design/Reference/` holds the papers and prototypes the decisions cite, each committed unchanged with any licence notice intact.
 
@@ -272,6 +272,8 @@ python Build\RunClangTidy.py          # needs a Developer PowerShell (INCLUDE mu
 **R12 — Graphics is Direct3D 12.** COM lifetimes are RAII from the first line — a raw `AddRef`/`Release` pair in new code is a defect, not a style. The COM smart pointer is `winrt::com_ptr`, and a failed `HRESULT` goes through `winrt::check_hresult`, both from `<winrt/base.h>`; `Microsoft::WRL::ComPtr` and `<wrl/client.h>` are not used. `check_hresult` throws `winrt::hresult_error`, so a function that calls it is not `noexcept`. **How voxels reach the screen is settled by [ADR-001](Design/ADR/ADR-001-direct-voxel-ray-casting.md).** Each voxel is a screen-space quad sized by its projected bounds. A ray-box test in the pixel shader finds the exact hit, and depth is written conservatively. The world is never converted to triangle meshes. Work that would change any of that is a new ADR, not a refactor. The rest of the renderer's shape is not settled here: passes, render targets, resolution, scaling, window style, multisampling, text, and everything ADR-001 lists as open. Each is a design and engineering decision taken when the renderer is built, and recorded as an ADR (§6).
 
 **R14 — No third-party dependencies and no package manager.** The Windows SDK and the MSVC standard library, and nothing else. If you believe something is unavoidable, propose it in your report with what it buys and what it costs — do not add it. This is a closed list, not a high bar.
+
+**Two exceptions are decided** (GameDesign.md, 2026-10-31): test projects use Visual Studio's native unit-test framework (`CppUnitTest.h`), which vstest runs and which never reaches the game; and build-time tools run on Python, which never ships.
 
 **It binds what the executable is built from, not what a development tool needs.** Scripts under `Build/` and `Tools/` never ship and never link, so a baker that needs Pillow does not reopen this rule. **Third-party *content* is a different question and it is the owner's**: art, fonts and sound are allowed, and anything under a licence needs the owner's approval before it lands, with the licence text travelling with the bytes.
 

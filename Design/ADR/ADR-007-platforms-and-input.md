@@ -40,7 +40,7 @@ These facts bear on that:
    - **The MVP** is played with mouse and keyboard, on both architectures.
    - **The touch scheme** follows a positive MVP verdict.
    - **Android** has no date and is not a target. R12 and R14 stand. An Android port needs its own ADR reopening them, for a Vulkan backend, a toolchain other than MSVC, and HLSL compiled to SPIR-V.
-6. **The Surface Pro is measured from M1.**
+6. **The Surface Pro is measured from M1,** once one is available: the owner has none yet (GameDesign.md, 2026-10-31).
    - The renderer spike runs natively on a Snapdragon X Surface Pro beside the RTX 3060-class machine, and records the voxel pass's cost on both.
    - The Surface is measured at a reduced internal resolution, so the render resolution is separate from the display's from the start.
    - The owner sets the Surface's pass mark from those figures.

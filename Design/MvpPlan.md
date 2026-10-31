@@ -1,6 +1,8 @@
 # Earthrise.World — MVP implementation plan
 
-**Status:** Proposed, 2026-10-31. Nothing here is implemented. [GameDesign.md](GameDesign.md) defines the MVP and governs where this plan differs from it. [AGENTS.md](../AGENTS.md) governs how the code is written. Every estimate is the design review's judgment estimate (F-52), in FTE-months for one experienced developer; none is a measurement. The renderer spike's actual time against its own written estimate rescales all of them.
+**Status:** Accepted by the owner for M0 to M2, 2026-10-31; M3 to M7 stay Proposed until after M1 (GameDesign.md, *Starting the MVP*). Nothing here is implemented. [GameDesign.md](GameDesign.md) defines the MVP and governs where this plan differs from it. [AGENTS.md](../AGENTS.md) governs how the code is written. Every estimate is the design review's judgment estimate (F-52), in FTE-months for one experienced developer; none is a measurement. The renderer spike's actual time against its own written estimate rescales all of them.
+
+**How the work is done.** Claude sessions write the code, tools and checkers and push them to branches. CI compiles Debug|x64 and Debug|ARM64 and runs the x64 tests. The owner runs the builds on Windows, judges the look and the measurements, and approves each milestone. Because an AI writes the code, the estimates below describe the work rather than predict the calendar; the pace of M0 and M1 rescales them.
 
 ## Scope
 
@@ -74,6 +76,7 @@ The MVP ends at the verdict on stages 1 and 2 (GameDesign.md, decided 2026-10-31
 4. **Platforms and squads** (ADR-007, GameDesign.md): x64 and ARM64 from the first project, mouse and keyboard in the MVP, the Surface measured from M1, and squads as what the player commands.
 5. **The HUD** ([Hud.md](Hud.md)), from the owner's HUD package, with the bitmap font Earthrise Mason in `GameData/Client/Fonts/`.
 6. **Game data** ([ADR-008](ADR/ADR-008-server-and-client-game-data.md)): sources split into `GameData/Server/` and `GameData/Client/`; the client has everything compiled in, and the server reads baked files from `<outputdir>\ServerData`.
+7. **Starting the MVP** (GameDesign.md, 2026-10-31): the plan accepted through M2; how the pass mark is measured; the RTX 3060 machine is available, a Surface is not yet; the v5 layout for the test scene; CppUnitTest and Python allowed; the paper tests' values picked by the implementer as Proposed; the trebuchet's baked poses.
 
 ## Architecture
 
@@ -139,7 +142,7 @@ The order is fixed, so that one build replays the same commands to the same resu
 | | Milestone | Ends with | FTE-months |
 |---|---|---|---|
 | M0 | Foundations and paper tests | Checkers in CI; the revised rules pass on paper; the spike's estimate written down | 0.5–1 |
-| M1 | Renderer spike | ADR-006's measurements for the 1 m baseline and a 0.5 m world, on the RTX 3060-class machine and the Surface; the look's acceptance checks pass | 7.5–11.5 |
+| M1 | Renderer spike | ADR-006's measurements for the 1 m baseline and a 0.5 m world, on the RTX 3060-class machine, and on the Surface once one is available; the look's acceptance checks pass | 7.5–11.5 |
 | M2 | Headless simulation | A scripted breach and units pathing through it, replaying identically | 8.5–15 |
 | M3 | Breach lab | The first measured reading on H2's predictions | 1.5–2.5 |
 | M4 | Siege trial | A Siege trial that can be played, with its control | 9.5–17.5 |
@@ -161,7 +164,7 @@ The total is a little above the build budget's 32–56 for this stage (GameDesig
 
 Each CI guard is removed once its input is there.
 
-**Run on paper, before any gameplay code** (review, *Cheapest tests*):
+**Run on paper, before any gameplay code** (review, *Cheapest tests*). Values the design leaves open are picked by the implementer and recorded as Proposed in GameDesign.md, with their reasons:
 - the Hold rule test with three quarry layouts (F-45);
 - the breach-prediction prototype comparing a thickness readout with a support readout (F-04, F-47);
 - the Siege castle's route table and range circles (F-01, F-02);
@@ -173,7 +176,8 @@ Each CI guard is removed once its input is there.
 - the checkers run in CI;
 - under the revised rules, the breach moves with where the player quarried in at least two of the three layouts;
 - the support readout reaches a median accuracy of 0.65 or better;
-- no route dominates in the table.
+- no route dominates in the table;
+- the repair spreadsheet meets the pass mark the implementer proposes (the review suggested 1.3–2×, F-03).
 
 ### M1 — Renderer spike
 
@@ -192,16 +196,16 @@ Each CI guard is removed once its input is there.
   - units as 0.5 m models and impostors, and a collapse's model debris keyed on its id (RendererLook.md, checks 3 and 6);
   - the shallow-water rule and the shadow check (RendererLook.md, §3 and check 11).
 - **The test scene:** the key scene, "The Breach at the West Wall".
-  - **Its layout** comes from [Siege Scene Prompt.md](Reference/SiegePrototype/Siege%20Scene%20Prompt.md). **Its target look** is the v5 scene in [Reference/SiegePrototypeV2/](Reference/SiegePrototypeV2/), matched by eye, not pixel for pixel.
+  - **Its layout and its target look** come from the v5 scene in [Reference/SiegePrototypeV2/](Reference/SiegePrototypeV2/), which is already on the 1 m grid. The look is matched by eye, not pixel for pixel.
   - **What it holds:** a 128 m holding, forest, a walled castle with a breach and its rubble ramp, a ditch and rampart, a terraced quarry, trebuchets, and about 95 units as 0.5 m models.
-  - **What it is built from:** a scene script in `RendererSpike`, with a seeded integer height field and the templates and models in `GameData/` placed by coordinate. The generator is M2 work, so the spike does not wait for it. The templates and models are used where they exist. Where the prompt's sizes differ from them, the templates win: it gives walls 1.5 m thick, and T3 is 2 m.
-  - **What is left out:** the prompt's overlay of title, markers and legend, which uses licensed fonts, because the MVP uses only its own content.
+  - **What it is built from:** a scene script in `RendererSpike`, with a seeded integer height field and the templates and models in `GameData/` placed by coordinate. The generator is M2 work, so the spike does not wait for it. The templates and models are used where they exist, and where the v5 scene's sizes differ from them, the templates win. What `GameData/` lacks (trees, cottages, mantlets, banners and stock stacks) the implementer draws as placeholder models, which the owner may replace.
+  - **What is left out:** the reference scene's overlay of title, markers and legend, which uses licensed fonts, because the MVP uses only its own content.
 - **Scripted edits:** quarrying at the peak rate back-solved from the tempo, and one wall collapse.
 - **A render resolution of its own,** scaled to the display, so the Surface can be measured below its panel's resolution (ADR-007).
 - **In `SimulationBench`:** a first support search and a navigation tile rebuild, run on the MVP map and on a synthetic 2 km world carrying a season's edits.
 
 **Done when:**
-- the spike answers questions 1–6 with figures measured on the stated hardware: the RTX 3060-class machine, and natively on a Snapdragon X Surface Pro;
+- the spike answers questions 1–6 with figures measured on the stated hardware: the RTX 3060-class machine, with the pass mark measured as GameDesign.md states it, and natively on a Snapdragon X Surface Pro once one is available;
 - RendererLook.md's acceptance checks pass on screen;
 - ADR-006's M1 measurements are filled in for the 1 m baseline and for a 0.5 m world, and an ADR records the solution layout. ADR-006 itself is accepted after M3.
 

@@ -37,7 +37,7 @@ Drawn by the client only. Models set no costs and no rules (ADR-005, decision 8)
 | U5 | Man-at-arms | 2 × 4 × 2 | 1 × 2 × 1 | All iron, with a faction shield in front |
 | S2 | Sapper | 3 × 5 × 1 | 1.5 × 2.5 × 0.5 | Iron shoulders, raised pick |
 | S1 | Battering ram | 6 × 7 × 15 | 3 × 3.5 × 7.5 | Hide roof, iron-headed log |
-| S3 | Trebuchet | 23 × 26 × 7 | 11.5 × 13 × 3.5 | 12 m arm, counterweight. A static model in the MVP. |
+| S3 | Trebuchet | 23 × 26 × 7 | 11.5 × 13 × 3.5 | 12 m arm, counterweight. In the MVP it switches between three baked poses, packed, cocked and released. The package draws one; the other two are still to draw. |
 
 The figures are the same as in the first package, which already drew them at 0.5 m.
 
