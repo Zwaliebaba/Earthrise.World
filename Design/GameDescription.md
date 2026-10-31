@@ -295,11 +295,11 @@ Each culture is built around one of the three building materials. All share the 
 - **Wealdfolk (timber).** Their timber building is faster, their timber is a material of its own that spans further, and their outriders and archers are stronger. They have fire from the Keep era, one era earlier than the others. They struggle once enemy fire and trebuchets arrive.
 - **Delvers (earth and iron).** They dig faster, can train sappers from the Hall era, paying timber in place of iron, and build stronger ramparts. Iron costs them less, and their prospecting reveals veins at once. They are slow to wall in stone.
 
-The first release ships one culture with the common roster. Worlds open with all three.
+The first release ships the Masons with the common roster. Worlds open with all three.
 
 ## Modes
 
-**Trials** are single-player challenges that teach the game and test its core:
+**Trials** are single-player challenges that teach the game and test its core. Each gives the player a fixed army:
 
 - **Siege:** take a pre-built, garrisoned castle whose defenders fight and repair.
 - **Hold:** quarry and build for a set time, then survive waves of raiders that choose their breach by reading your walls and the ground beneath them. One wave brings sappers.
@@ -324,7 +324,7 @@ Units move and fight at full speed, and so do repair and siege fire. Gathering a
 
 ### Holdings and siege windows
 
-Each lord holds a valley. **Inside it, nobody else can change anything except during the lord's siege window.** Each world sets a home time zone and a contest band of evening hours, for example 18:00 to 24:00. A lord's window is two hours a day and starts inside the band, at a time the lord chooses. It can be moved once a week, within the band, and a move takes effect the next day. The window grows by thirty minutes for every 25 blocks of Earthstone the lord held at any moment of the previous day, up to twelve hours, so the richer a lord gets, the more exposed they are.
+Each lord holds a valley. **Inside it, nobody else can change anything except during the lord's siege window.** Each world sets a home time zone and a contest band of six evening hours, for example 18:00 to 24:00. A lord's window is two hours a day and starts inside the band, at a time the lord chooses. It can be moved once a week, within the band, and a move takes effect the next day. The window grows by thirty minutes for every 25 blocks of Earthstone the lord held at any moment of the previous day, up to twelve hours, so the richer a lord gets, the more exposed they are.
 
 Outside the window, no other faction can remove or add a voxel inside the holding, whatever the cause: shot, sappers, laborers, fire, a slump or a falling piece. A collapse that starts inside the window runs to its end. Raider bands keep the same windows as lords. Armies and carts can be attacked anywhere at any time.
 
@@ -336,7 +336,7 @@ Outside the window, no other faction can remove or add a voxel inside the holdin
 
 ### The steward
 
-While a lord is offline, their steward runs the holding. The steward is an AI that works the lord's standing orders: gathering priorities, repair policy, garrison policy, a cart order that sends Earthstone home with an escort once enough is waiting, and an alarm radius that brings laborers inside while enemies who could reach them are near. It defends: its soldiers and garrisons fight enemies inside the holding and its alarm radius, and sally against engines out to a set distance from its walls. It repairs. It never attacks another lord. The steward uses the same commands a player does. When the lord returns, it hands over a chronicle of what happened while they were away. The chronicle opens on the map, with whether the keep held, what changed and whether the stockpile will cover the next window.
+While a lord is offline, their steward runs the holding. The steward is an AI that works the lord's standing orders: gathering priorities, repair policy, garrison policy, a cart order that sends Earthstone home with an escort once enough is waiting, and an alarm radius that brings laborers inside while enemies who could reach them are near. It defends: its soldiers and garrisons fight enemies inside the holding and its alarm radius, and sally against engines out to a set distance from its walls. It repairs. On its own, against an attacker who has spent the same, it holds about half of declared sieges, and the banner tips the balance. It never attacks another lord. The steward uses the same commands a player does. When the lord returns, it hands over a chronicle of what happened while they were away. The chronicle opens on the map, with whether the keep held, what changed and whether the stockpile will cover the next window.
 
 ### Earthstone, carts and sacking
 
@@ -354,7 +354,7 @@ AI houses fill the seats humans do not. They play the whole game and compete for
 
 ### Banners
 
-Up to four lords form a banner. Banner members share vision, can garrison each other's towers, repair each other's walls and trade by cart through markets. Banners can agree truces with one another, which the game enforces until either side ends them with a day's notice. Membership is fixed when Contest begins: a lord may leave a banner after that, but joins no other and plays on as a banner of one.
+Up to four lords form a banner. Banner members share vision, can garrison each other's towers, repair each other's walls and trade by cart through markets. Banners can agree truces with one another. A banner can be in one enforced truce at a time: the game enforces it until either side ends it with a day's notice, and it lapses after seven days unless renewed. Membership is fixed when Contest begins: a lord may leave a banner after that, but joins no other and plays on as a banner of one.
 
 ### Upkeep
 

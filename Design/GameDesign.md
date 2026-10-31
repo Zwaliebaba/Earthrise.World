@@ -67,6 +67,17 @@ The [review](Review/GameDescription-2026-10-31.md) of the game description kept 
    - **Wording.** The smaller fixes from the review's table of contradictions are applied too.
 10. **ADR-002 to ADR-004 are accepted.** ADR-004 gains three consequences from the review: more callers of the resolver, rubble that keeps its material, and holding protection on the resolver's edits.
 
+### 2026-10-31: the MVP's open questions
+
+1. **The spike's pass mark.** An RTX 3060-class GPU at 1920×1080 and 60 frames a second. A frame is 16.7 ms, of which the voxel pass may take 8 ms at the default zoom.
+2. **The Trials' roster.** Each trial gives the player a fixed army of spearmen, archers, outriders and men-at-arms, with the ram, sappers and the trebuchet. The Trials need no unit training, provisions, iron or fields.
+3. **Content.** The MVP uses only art, fonts and sound made for the project or in the public domain, and no licensed assets.
+4. **The MVP ends at the verdict on the Trials.** Skirmish is built after it, under its own plan, once both pillars pass.
+5. **The first culture is the Masons.**
+6. **The steward's strength.** On its own, against an attacker who has spent the same, the steward holds about half of declared sieges, and the banner tips the balance.
+7. **The contest band** is six evening hours, for example 18:00 to 24:00.
+8. **Truces.** A banner can be in one enforced truce at a time, and a truce lapses after seven days unless renewed.
+
 ## Pillars (Decided)
 
 A pillar is a test every feature has to pass. A feature that serves none of them is a candidate for cutting.
@@ -124,15 +135,16 @@ At 20 hours a week that puts the Trials verdict 5–9 years out. The spike's own
 3. Banners share vision and truces only (1–2).
 4. Fire stays out of the first season (1–1.5).
 
-## MVP (Decided: the stages, the hypotheses and the control; Proposed: the rest)
+## MVP (Decided: the stages, the hypotheses, the control, the roster and where the MVP ends; Proposed: the rest)
 
-The MVP exists to prove that pillars 1 and 2 are fun. It does not try to prove persistence or networking, only to keep both possible. The simulation sits behind a server boundary ([ADR-002](ADR/ADR-002-authoritative-simulation.md)), and the world is a seed plus edits ([ADR-003](ADR/ADR-003-world-as-seed-plus-edits.md)). It is built in stages (below), so the test of the pillars does not wait for an AI that plays the whole game. [MvpPlan.md](MvpPlan.md) plans the build up to the verdict on stages 1 and 2 (Proposed).
+The MVP exists to prove that pillars 1 and 2 are fun. It does not try to prove persistence or networking, only to keep both possible. The simulation sits behind a server boundary ([ADR-002](ADR/ADR-002-authoritative-simulation.md)), and the world is a seed plus edits ([ADR-003](ADR/ADR-003-world-as-seed-plus-edits.md)). It is built in stages (below), so the test of the pillars does not wait for an AI that plays the whole game. The MVP ends with the verdict on stages 1 and 2; Skirmish, stage 3, comes after it under its own plan. [MvpPlan.md](MvpPlan.md) plans the MVP's build (Proposed).
 
 **In:**
 
 - One map, 512 m × 512 m, generated from a seed and held entirely in memory.
-- One human player. Stages 1 and 2 have one AI faction; the skirmish has one or two.
-- One faction type shared by everyone. Its roster is workers, a small military roster built around counters, the ram and at least one lobbed engine. The period is the high medieval, before gunpowder. Proposed: the military roster is spearmen, archers, outriders and men-at-arms; the siege roster is the ram, sappers and the trebuchet; and each trial gives the player a fixed army, so the Trials need no unit training, provisions or iron.
+- One human player against one AI faction.
+- One faction type shared by everyone. Its roster is workers, a small military roster built around counters, the ram and at least one lobbed engine. The period is the high medieval, before gunpowder. Decided: the military roster is spearmen, archers, outriders and men-at-arms; the siege roster is the ram, sappers and the trebuchet; and each trial gives the player a fixed army, so the Trials need no unit training, provisions or iron.
+- Only art, fonts and sound made for the project or in the public domain (Decided).
 - Gathering by excavation, construction and repair from templates, and rule-based collapse.
 - Fog of war as a vision radius, enforced by the simulation ([ADR-002](ADR/ADR-002-authoritative-simulation.md), decision 4). A fogged area shows what the player last saw.
 - A win condition for each stage.
@@ -147,7 +159,9 @@ The MVP exists to prove that pillars 1 and 2 are fun. It does not try to prove p
 - Worlds larger than memory, and streaming.
 - Technology progression beyond what the MVP roster needs.
 - AI factions that plan undermining. They shoot sappers and repair, and the Hold trial's scripted sapper wave is the one exception.
-- In the Trials: provisions, iron, unit training, the mangonel, the mantlet, crossbowmen, knights and thick walls (Proposed; they come with Skirmish).
+- In the Trials: provisions, iron, unit training, the mangonel, the mantlet, crossbowmen, knights and thick walls (Decided; they come with Skirmish).
+- Skirmish itself (Decided). It is built after the MVP, under its own plan.
+- Licensed art, fonts and sound (Decided).
 
 ### Hypotheses (Decided)
 
@@ -175,7 +189,7 @@ The control is the same stages with walls built of segments that have health bar
    - **Sappers.** One wave brings sappers, which trench beside a section standing on earth.
    - **Maps.** Every Hold map has at least two outcrops within reach of the hall, on different sides.
    - **Winning.** The player wins if the keep still works when the last unit of the last wave is dead or gone.
-3. **Skirmish.** One or two AI factions that play the whole game. It is built only after stages 1 and 2 have passed. Every faction plays for itself. A faction loses when its keep is broken, or when all its trained units, garrisoned ones included, are dead.
+3. **Skirmish.** One or two AI factions that play the whole game. It is built only after stages 1 and 2 have passed, and lies outside the MVP. Every faction plays for itself. A faction loses when its keep is broken, or when all its trained units, garrisoned ones included, are dead.
 
 Each stage builds a piece the shared world needs: the Siege stage's defending AI, with the Skirmish AI's economy, becomes the steward, the Hold stage's waves become the world's raiders, and the Skirmish AI becomes the AI houses.
 
@@ -198,16 +212,12 @@ The spike is the first code in the repository. It conforms to AGENTS.md like any
 5. **Edits.** The scene runs quarrying at the peak rate the Skirmish tempo implies, back-solved from template volumes for each candidate voxel size, and one wall collapse. The spike measures the cost of rebuilding an edited chunk's render buffer, and checks distant chunks for voxels that pop in or out. The stochastic pruning in ADR-001's source keys on a voxel's position in the render buffer (its Listing 3), which an edit reorders; the spike's ADR records a key that survives edits.
 6. **Simulation cost** for each candidate size: memory for the MVP map, one support search on the test town after a breach, and one navigation tile rebuild. It measures the same on a synthetic, headless world of 2 km × 2 km that carries a season's edits and a dozen sieges at once.
 
-The pass mark — target GPU, resolution and frame budget — is written down before the spike measures anything.
+The pass mark is decided: an RTX 3060-class GPU at 1920×1080 and 60 frames a second, with the voxel pass inside 8 ms of the 16.7 ms frame at the default zoom.
 
 Its output is an ADR on the two voxel sizes and the camera's projection, with measured figures. If question 4 calls for one, a lighting ADR follows. The spike needs Windows and a Direct3D 12 GPU to build and run.
 
 ## Open questions
 
 - The skirmish AI's capabilities, in detail.
-- The target hardware and frame budget, which the spike's pass mark needs before it measures.
 - Unit statistics, costs, gather rates and every other number behind the description's targets. The Trials and Skirmish tune them. The review named the ones the rules now lean on: a shot's stone price, each template's critical-part threshold, the repair rate per section, and the warning time before a collapse.
-- **The steward's target strength**, as a number, written down before the Siege trial's AI is designed.
-- **The sizes behind the Worlds rules:** the daily work allowance, deposits per holding, the Deep's yield by phase, the contest band's width and the distance the steward sallies.
-- **The first culture:** which one the first release ships.
-- **Truces:** any limits on truces between banners.
+- **The sizes behind the Worlds rules:** the daily work allowance, deposits per holding, the Deep's yield by phase and the distance the steward sallies.

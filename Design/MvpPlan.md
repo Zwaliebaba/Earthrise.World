@@ -8,7 +8,7 @@
 
 The MVP proves pillars 1 and 2. They are stated as H1 and H2 (GameDesign.md, *Hypotheses*), and each is tested against the health-bar control. It ends with that verdict. It proves neither persistence nor networking, but it keeps both possible: the simulation sits behind the server boundary of [ADR-002](ADR/ADR-002-authoritative-simulation.md), and the world is a seed plus edits ([ADR-003](ADR/ADR-003-world-as-seed-plus-edits.md)).
 
-GameDesign.md lists Skirmish as the MVP's third stage, built only once stages 1 and 2 have passed. This plan stops at the verdict on stages 1 and 2. Skirmish gets its own plan once that verdict is in, because its largest item, the Skirmish AI, is research-grade, and building it is only worth doing if the pillars hold.
+The MVP ends at the verdict on stages 1 and 2 (GameDesign.md, decided 2026-10-31). Skirmish, stage 3, gets its own plan once that verdict is in: its largest item, the Skirmish AI, is research-grade, and building it is only worth doing if the pillars hold.
 
 ### In
 
@@ -28,7 +28,7 @@ GameDesign.md lists Skirmish as the MVP's third stage, built only once stages 1 
   - spearmen, archers, outriders and men-at-arms;
   - the ram, sappers and the trebuchet.
 
-  Each trial gives the player a fixed army (GameDesign.md, MVP, Proposed). Combat is stat-based with physical shots. Arrows and bolts get elevation steps, towers take garrisons, climb limits differ by unit class, and units drop when their ground goes.
+  Each trial gives the player a fixed army (GameDesign.md, MVP). Combat is stat-based with physical shots. Arrows and bolts get elevation steps, towers take garrisons, climb limits differ by unit class, and units drop when their ground goes.
 - **Win rules:** the keep falls only to storming, and the Siege trial has a loss rule.
 - **Readability:**
   - the camera;
@@ -60,15 +60,13 @@ GameDesign.md lists Skirmish as the MVP's third stage, built only once stages 1 
 - **The mangonel, the mantlet, crossbowmen, knights and thick walls.**
 - **AI that plans undermining.** The scripted sapper wave is the one exception.
 - **Streaming, and worlds larger than memory.**
-- **Final art.** Placeholder art and sound are enough for the playtests.
+- **Final art, and any licensed content.** Placeholder art and sound are enough for the playtests. Every asset in the MVP is made for the project or is in the public domain.
 
-### Inputs the owner gives before work starts
+### Inputs the owner has given (2026-10-31)
 
-1. **The spike's pass mark:** target GPU, resolution and frame budget, which are Open in GameDesign.md.
-   - Proposed: an RTX 3060-class GPU at 1920×1080, 16.7 ms a frame, of which the voxel pass may take 8 ms at the default zoom.
-   - It is written down before anything is measured.
-2. **The MVP roster and the fixed armies** (GameDesign.md, MVP, Proposed). Accepting or changing them fixes what M4 builds.
-3. **Licensed content.** Any font or sound under a licence needs approval before it lands, with its licence text (R14).
+1. **The spike's pass mark:** an RTX 3060-class GPU at 1920×1080 and 60 frames a second. A frame is 16.7 ms, of which the voxel pass may take 8 ms at the default zoom.
+2. **The roster and the fixed armies** as listed above, which fix what M4 builds.
+3. **Own content only.** Every font, sound and piece of art is made for the project or is in the public domain. Text therefore needs a bitmap font drawn for the project, or one in the public domain.
 
 ## Architecture
 
@@ -103,7 +101,7 @@ The edges run one way:
 | Chunk dimensions and edit encoding | M2 | 32³ voxels; a sparse list of edits, replaced by a full copy past a threshold |
 | Navigation model | M2 | A height field of 2.5D tiles, a clearance grid for each class (foot, cavalry, machines), and a dirty tile rebuilt at most once a tick |
 | Template format and how templates are authored | M4 | Voxel layers with material and critical-part tags, written by a Python tool under `Tools/` |
-| Text rendering and how units are drawn | M4 | A bitmap font atlas baked by a tool; units as small oriented voxel models drawn through the ADR-001 pipeline |
+| Text rendering and how units are drawn | M4 | A bitmap font drawn for the project, baked into an atlas by a tool; units as small oriented voxel models drawn through the ADR-001 pipeline |
 
 ### One simulation tick, in order
 
@@ -124,7 +122,7 @@ The order is fixed, so that one build replays the same commands to the same resu
 
 | | Milestone | Ends with | FTE-months |
 |---|---|---|---|
-| M0 | Foundations and paper tests | Checkers in CI; the revised rules pass on paper; the pass mark and the spike's estimate written down | 0.5–1 |
+| M0 | Foundations and paper tests | Checkers in CI; the revised rules pass on paper; the spike's estimate written down | 0.5–1 |
 | M1 | Renderer spike | An ADR on voxel sizes and projection, with measured figures | 6–9 |
 | M2 | Headless simulation | A scripted breach and units pathing through it, replaying identically | 8.5–15 |
 | M3 | Breach lab | The first measured reading on H2's predictions | 1–2 |
@@ -153,7 +151,7 @@ Each CI guard is removed once its input is there.
 - the Siege castle's route table and range circles (F-01, F-02);
 - the repair spreadsheet (F-03).
 
-**Write down** the spike's pass mark and the spike's own estimate.
+**Write down** the spike's own estimate. The pass mark is already decided (GameDesign.md, *Renderer spike*).
 
 **Done when:**
 - the checkers run in CI;
