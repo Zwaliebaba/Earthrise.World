@@ -65,24 +65,60 @@ winrt::com_ptr<ID3D12RootSignature> MakeRootSignature(ID3D12Device* _device)
 VoxelPass::VoxelPass(ID3D12Device* _device, const Desc& _desc)
   : m_rootSignature(MakeRootSignature(_device))
 {
-  D3D12_GRAPHICS_PIPELINE_STATE_DESC desc{};
-  desc.pRootSignature = m_rootSignature.get();
-  desc.VS = {.pShaderBytecode = g_VoxelVS, .BytecodeLength = sizeof(g_VoxelVS)};
-  desc.PS = {.pShaderBytecode = g_VoxelPS, .BytecodeLength = sizeof(g_VoxelPS)};
-  desc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-  desc.SampleMask = UINT_MAX;
-  desc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-  desc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-  desc.RasterizerState.DepthClipEnable = TRUE;
-  // Reversed Z: cleared to 0, nearer is larger (ADR-011, decision 4).
-  desc.DepthStencilState.DepthEnable = TRUE;
-  desc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-  desc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_GREATER_EQUAL;
-  desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-  desc.NumRenderTargets = 1;
-  desc.RTVFormats[0] = _desc.colorFormat;
-  desc.DSVFormat = _desc.depthFormat;
-  desc.SampleDesc = {.Count = 1, .Quality = 0}; // no MSAA in M1 (ADR-011, decision 5)
+  // Every enum is named, because several of D3D12's have no zero value (no d3dx12.h defaults, R14).
+  constexpr D3D12_RENDER_TARGET_BLEND_DESC OPAQUE_TARGET{.BlendEnable = FALSE,
+                                                         .LogicOpEnable = FALSE,
+                                                         .SrcBlend = D3D12_BLEND_ONE,
+                                                         .DestBlend = D3D12_BLEND_ZERO,
+                                                         .BlendOp = D3D12_BLEND_OP_ADD,
+                                                         .SrcBlendAlpha = D3D12_BLEND_ONE,
+                                                         .DestBlendAlpha = D3D12_BLEND_ZERO,
+                                                         .BlendOpAlpha = D3D12_BLEND_OP_ADD,
+                                                         .LogicOp = D3D12_LOGIC_OP_NOOP,
+                                                         .RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL};
+  constexpr D3D12_DEPTH_STENCILOP_DESC NO_STENCIL{.StencilFailOp = D3D12_STENCIL_OP_KEEP,
+                                                  .StencilDepthFailOp = D3D12_STENCIL_OP_KEEP,
+                                                  .StencilPassOp = D3D12_STENCIL_OP_KEEP,
+                                                  .StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS};
+  const D3D12_GRAPHICS_PIPELINE_STATE_DESC desc{
+    .pRootSignature = m_rootSignature.get(),
+    .VS = {.pShaderBytecode = g_VoxelVS, .BytecodeLength = sizeof(g_VoxelVS)},
+    .PS = {.pShaderBytecode = g_VoxelPS, .BytecodeLength = sizeof(g_VoxelPS)},
+    .BlendState = {.AlphaToCoverageEnable = FALSE,
+                   .IndependentBlendEnable = FALSE,
+                   .RenderTarget = {OPAQUE_TARGET, OPAQUE_TARGET, OPAQUE_TARGET, OPAQUE_TARGET, OPAQUE_TARGET, OPAQUE_TARGET, OPAQUE_TARGET,
+                                    OPAQUE_TARGET}},
+    .SampleMask = UINT_MAX,
+    .RasterizerState = {.FillMode = D3D12_FILL_MODE_SOLID,
+                        .CullMode = D3D12_CULL_MODE_NONE,
+                        .FrontCounterClockwise = FALSE,
+                        .DepthBias = 0,
+                        .DepthBiasClamp = 0.0F,
+                        .SlopeScaledDepthBias = 0.0F,
+                        .DepthClipEnable = TRUE,
+                        .MultisampleEnable = FALSE,
+                        .AntialiasedLineEnable = FALSE,
+                        .ForcedSampleCount = 0,
+                        .ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF},
+    // Reversed Z: cleared to 0, nearer is larger (ADR-011, decision 4).
+    .DepthStencilState = {.DepthEnable = TRUE,
+                          .DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL,
+                          .DepthFunc = D3D12_COMPARISON_FUNC_GREATER_EQUAL,
+                          .StencilEnable = FALSE,
+                          .StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK,
+                          .StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK,
+                          .FrontFace = NO_STENCIL,
+                          .BackFace = NO_STENCIL},
+    .InputLayout = {.pInputElementDescs = nullptr, .NumElements = 0},
+    .IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED,
+    .PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+    .NumRenderTargets = 1,
+    .RTVFormats = {_desc.colorFormat},
+    .DSVFormat = _desc.depthFormat,
+    .SampleDesc = {.Count = 1, .Quality = 0}, // no MSAA in M1 (ADR-011, decision 5)
+    .NodeMask = 0,
+    .CachedPSO = {.pCachedBlob = nullptr, .CachedBlobSizeInBytes = 0},
+    .Flags = D3D12_PIPELINE_STATE_FLAG_NONE};
   winrt::check_hresult(_device->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(m_pipelineState.put())));
 }
 
