@@ -357,6 +357,13 @@ def CheckItems(_report, _project, _names):
   path, folder = _project.path, _project.folder
   registered = {}
   for item in _project.items:
+    if item.kind == "BakeInput":
+      # The bake's inputs (ADR-010, decision 7): content sources, read by Content's bake target only.
+      if _project.name != "Content":
+        _report.Error(path, f"BakeInput {item.include}: only Content bakes (ADR-010, decision 7)")
+      elif not item.include.startswith((r"$(SolutionDir)GameData" + "\\", r"$(SolutionDir)Tools" + "\\")) or item.metadata:
+        _report.Error(path, f"BakeInput {item.include}: bake inputs are files under GameData\\ or Tools\\")
+      continue
     if item.kind == "ProjectReference":
       target = item.include.replace("\\", "/")
       match = re.fullmatch(r"\.\./([A-Za-z0-9]+)/([A-Za-z0-9]+)\.vcxproj", target)

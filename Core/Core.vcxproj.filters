@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Build">
+      <UniqueIdentifier>{BDB01C16-74BD-53AC-B193-2E011ADCE911}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Hashing">
+      <UniqueIdentifier>{3047428C-B6F5-5110-A36A-2C9F26A6EAF7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h">
+      <Filter>Build</Filter>
+    </ClInclude>
+    <ClCompile Include="pch.cpp">
+      <Filter>Build</Filter>
+    </ClCompile>
+    <ClInclude Include="Hash.h">
+      <Filter>Hashing</Filter>
+    </ClInclude>
+    <ClCompile Include="Hash.cpp">
+      <Filter>Hashing</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

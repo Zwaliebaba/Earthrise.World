@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Build">
+      <UniqueIdentifier>{913A6AB8-3322-598F-8251-4CD642EE1849}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Suites">
+      <UniqueIdentifier>{B076C103-9423-5720-969B-9EF1B5ACC28D}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h">
+      <Filter>Build</Filter>
+    </ClInclude>
+    <ClCompile Include="pch.cpp">
+      <Filter>Build</Filter>
+    </ClCompile>
+    <ClCompile Include="ChunkCoordinateTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
