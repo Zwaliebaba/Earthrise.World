@@ -128,7 +128,7 @@ The owner wants the game on a laptop with mouse and keyboard, on the Surface Pro
    - **Touch** follows a positive MVP verdict.
    - **Android** is an ambition with no date. AGENTS.md's rules on Direct3D 12 and on dependencies stand until an ADR reopens them. Keeping Windows and Direct3D inside the engine keeps Android possible.
 4. **The Surface is measured from the renderer spike on,** at a reduced internal resolution. Its pass mark is set from those figures.
-5. **The player commands squads,** not single figures: six on foot, or three outriders. Selection, orders and control groups act on squads. Each figure is drawn, hit and killed on its own, and a squad can be split when a single figure is needed. At the default zoom a unit is a few pixels wide, so squads help the mouse as well as the finger.
+5. **The player commands squads,** not single figures: six on foot, or three outriders. Selection, orders and control groups act on squads. Each figure is drawn, hit and killed on its own, and a squad can be split when a single figure is needed. At the default zoom a unit is a few pixels wide, so squads help the mouse as well as the finger. (Extended the same day, below.)
 
 ### 2026-10-31: the MVP's HUD
 
@@ -140,6 +140,20 @@ The owner delivered a HUD package, kept unchanged in [Reference/HudPrototype/](R
 4. **The interface scale follows the display's DPI,** in steps of 1, 1.5 and 2, and names stay larger than labels at every step.
 5. **A dig's yield counts only the building stone the player can see,** so a readout never reveals where stone lies.
 6. **The font is Earthrise Mason,** drawn for the project. Colour-blind palettes are deferred, and no state is shown by colour alone.
+
+### 2026-10-31: squads, the Hold start and confirmations
+
+1. **Squads are trained whole,** and the population cap counts figures, so a squad of six takes six. A worn squad refills figure by figure at the building that trains it.
+2. **MERGE combines squads of one type** up to full size, and any figures left over stay a squad. It is how a split figure rejoins, and how worn squads are made whole in the field.
+3. **Laborers are not in squads.** Each one takes jobs from designations, and selecting a laborer selects one.
+4. **Knights ride in threes,** like outriders. Every mounted squad is three, and every squad on foot is six.
+5. **The Hold trial starts with the hall and a finished keep,** so the build window goes into quarries, walls, towers and ditches, the choices H1 tests.
+6. **Confirmed as Decided:**
+   - the ARM64 floor of `/arch:armv8.0+lse` (ADR-007);
+   - AGENTS.md R16's correction on contraction;
+   - ADR-005's amendments: the asset check that every structure voxel connects to its template's base, and `Assets/Fonts/`;
+   - Hud.md's additions: the cards, the cell widths, BLOCKED, GROUND from the resolver, section names in the scenario, and F1 and F2.
+7. **The prototypes' support code is the owner's.** `support.js` in Design/Reference/ was produced with Claude Design by the owner, as were all the packages' assets ([Reference/README.md](Reference/README.md)).
 
 ## Pillars (Decided)
 
@@ -247,7 +261,7 @@ The control is the same stages with walls built of segments that have health bar
    - The player wins by breaking the keep: it has stopped working, and their soldiers have held its foot for two minutes without a repair.
    - They lose when no attacking unit is left, or when a time limit runs out.
    - The castle's nearest section is not its weakest, so choosing the nearest point and choosing the weakest can be told apart.
-2. **Hold.** The player quarries and builds for a set time, then scripted waves attack.
+2. **Hold.** The player starts with the hall and a finished keep, quarries and builds for a set time, then scripted waves attack.
    - **How a wave picks its breach.** A wave scores each stretch of wall it can reach on the four reasons an attacker reads (GameDescription.md, *How a siege plays*): how close the section is to opening, which it asks the collapse resolver; whether it stands on earth with no ditch in front; how far it is from the towers; and whether it is a gate. It picks among the best few with a seeded draw.
    - **Sappers.** One wave brings sappers, which trench beside a section standing on earth.
    - **Maps.** Every Hold map has at least two outcrops within reach of the hall, on different sides.
@@ -283,7 +297,6 @@ Its output is ADR-006's table of measurements, for the 1 m baseline and for a 0.
 
 - The skirmish AI's capabilities, in detail.
 - **Craters at 1 m:** can players tell a ram, a mangonel and a trebuchet apart by the size and depth of their craters? Tested in the M3 breach lab.
-- **Squads, beyond who is commanded:** whether squads are trained and reinforced as a whole, whether the population cap counts figures or squads, whether laborers form squads or take designation jobs one by one, and how many knights make a squad. The MVP's fixed armies need none of these answers; Skirmish does.
 - **The Surface's pass mark,** set from the renderer spike's figures ([ADR-007](ADR/ADR-007-platforms-and-input.md)).
 - **The touch scheme:** its gestures and layout, designed after the MVP's verdict. The second package's landscape layout is a starting point ([RendererLook.md](RendererLook.md)).
 - Unit statistics, costs, gather rates and every other number behind the description's targets. The Trials and Skirmish tune them. The review named the ones the rules now lean on: a shot's stone price, each template's critical-part threshold, the repair rate per section, and the warning time before a collapse.

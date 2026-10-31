@@ -114,7 +114,7 @@ Each designation has a drop site: a quarry yard, a lumber camp, a mine head or a
 
 ### Population
 
-Housing sets the population cap: cottages, plus the hall and its successors. The cap is 150 in Skirmish and 120 in Worlds. Every unit costs provisions to train. In Worlds, soldiers also eat provisions each day (see Upkeep).
+Housing sets the population cap: cottages, plus the hall and its successors. The cap is 150 in Skirmish and 120 in Worlds, and it counts figures, so a squad of six takes six. Soldiers are trained as whole squads. Every unit costs provisions to train. In Worlds, soldiers also eat provisions each day (see Upkeep).
 
 ### Economic tempo in a match
 
@@ -220,7 +220,7 @@ Shots are physical. Every arrow, bolt and stone travels through the voxel grid a
 
 **Soldiers never change the land.** Only engines, sappers, laborers on a designation, collapses and fire remove voxels.
 
-**Squads.** Soldiers fight in squads of one type: six on foot, or three outriders. The player selects and orders squads, and control groups hold squads. Each figure has its own hit points and is drawn, hit and killed on its own, so a squad that loses figures fights on with fewer. A squad can be split when a single figure is needed. Engines, mantlets and carts are ordered one at a time.
+**Squads.** Soldiers fight in squads of one type: six on foot, or three riders, outriders and knights alike. The player selects and orders squads, and control groups hold squads. Each figure has its own hit points and is drawn, hit and killed on its own, so a squad that loses figures fights on with fewer. A squad can be split when a single figure is needed, and squads of one type merge back up to full size. A worn squad also refills figure by figure at the building that trains it. Laborers are not in squads: each takes jobs from designations on its own. Engines, mantlets and carts are ordered one at a time.
 
 ### Roster
 

@@ -1,6 +1,6 @@
 # Earthrise.World — the MVP's HUD
 
-**Status:** Decided by the owner, 2026-10-31, where marked; Proposed elsewhere. This is the HUD for the Siege and Hold trials. It comes from the owner's HUD package, kept unchanged in [Reference/HudPrototype/](Reference/HudPrototype/). Its live prototype is `reference/MVP HUD Prototype.dc.html` there, which needs an internet connection. The package was drawn before the owner decided on squads and on platforms ([ADR-007](ADR/ADR-007-platforms-and-input.md)), so this document adapts it. Each change from the package is listed in *What changed from the package*.
+**Status:** Decided by the owner, 2026-10-31, except where marked Proposed. This is the HUD for the Siege and Hold trials. It comes from the owner's HUD package, kept unchanged in [Reference/HudPrototype/](Reference/HudPrototype/). Its live prototype is `reference/MVP HUD Prototype.dc.html` there, which needs an internet connection. The package was drawn before the owner decided on squads and on platforms ([ADR-007](ADR/ADR-007-platforms-and-input.md)), so this document adapts it. Each change from the package is listed in *What changed from the package*.
 
 [GameDesign.md](GameDesign.md) and [GameDescription.md](GameDescription.md) govern rules, and where this document differs from them they win. [RendererLook.md](RendererLook.md) governs the world's look, and [AGENTS.md](../AGENTS.md) governs code. Read the prototype for behaviour; do not port its code.
 
@@ -85,17 +85,17 @@ The package's touch-first layout puts the minimap and camera buttons top right, 
 
 ## 5. Selection panel
 
-**The player selects squads** (GameDesign.md, 2026-10-31). Clicking any figure selects its squad. The click is tested against the squad's footprint on the ground, not against a figure's voxels: a figure is 6–7 px wide at the default zoom (Proposed).
+**The player selects squads** (GameDesign.md, 2026-10-31). Laborers are the exception: they are not in squads, and clicking one selects that laborer. Clicking any other figure selects its squad. The click is tested against the squad's footprint on the ground, not against a figure's voxels: a figure is 6–7 px wide at the default zoom (Proposed).
 
 - **Nothing selected:** NOTHING SELECTED, and three hint lines: CLICK A SQUAD, DRAG TO BOX-SELECT, 1–9 GROUPS. Each fits the panel's 340 px minimum.
-- **One squad, engine or structure:**
+- **One squad, laborer, engine or structure:**
   - a 96 × 96 portrait: a render of the figure's 0.5 m model, or the icon glyph for structures;
   - the name at 30 px and the owner tag on one line: YOURS in accent, ENEMY in bad;
-  - for a squad, its figures as **n / 6** (or n / 3) and the figures' average hit points as a bar of 120 × 10 with "hp / max", shown only for things with hit points; a lone engine shows its own;
+  - for a squad, its figures as **n / 6** (or n / 3) and the figures' average hit points as a bar of 120 × 10 with "hp / max", shown only for things with hit points; a lone laborer or engine shows its own;
   - **up to three stat rows**, each `KEY value` on one line, at most about 220 px at 20 px, which is about 17 characters with the key.
 - **Several:**
   - the title **N SQUADS · TAB CYCLES TYPE**;
-  - one tile per type, 80 × 84, with a portrait, the squad count in accent, the type's figure total, its average hit-point bar and a short label;
+  - one tile per type, 80 × 84, with a portrait, the squad count in accent (the count of laborers for laborers), the type's figure total, its average hit-point bar and a short label;
   - the **active type** has an accent border and drives the command card. Clicking a tile or pressing Tab moves it on.
 - **The order of types:** trebuchet, ram, tower, gatehouse, keep, wall, men-at-arms, spearmen, archers, outriders, sappers, laborers.
 - **Short labels:** TREB, RAM, TOWER, GATE, KEEP, WALL, ARMS, SPEAR, ARCHER, RIDER, SAPPER, LABOR.
@@ -137,7 +137,7 @@ A 4 × 3 grid. Each cell shows:
 - an icon glyph at 30 px in the centre;
 - its label at 20 px along the bottom.
 
-**A label fits its cell.** A cell is 100–112 logical px wide, and a label is at most 90 logical px at 20 px, which every label below meets. A test measures every label with the font's metrics (Proposed). The package's 72 px cells were too narrow for GARRISON and PALISADE, which are 90.
+**A label fits its cell.** A cell is 100–112 logical px wide, and a label is at most 90 logical px at 20 px, which every label below meets. A test measures every label with the font's metrics. The package's 72 px cells were too narrow for GARRISON and PALISADE, which are 90.
 
 | State | Look |
 |---|---|
@@ -151,8 +151,8 @@ Hovering a cell shows the tooltip: hotkey, label and a one-line rule.
 
 | Kind | Slots |
 |---|---|
-| Spearmen, archers, outriders, men-at-arms | MOVE, STOP, HOLD, ATTACK, STORM (attacker only), SPLIT |
-| Sappers | MOVE, STOP, HOLD, —, —, SPLIT, —, TRENCH |
+| Spearmen, archers, outriders, men-at-arms | MOVE, STOP, HOLD, ATTACK, STORM (attacker only), SPLIT, MERGE |
+| Sappers | MOVE, STOP, HOLD, —, —, SPLIT, MERGE, TRENCH |
 | Laborers, page 1 | MOVE, STOP, —, —, QUARRY, PIT, DITCH, TRENCH, FELL, CLEAR, REPAIR, BUILD |
 | Laborers, page 2 (BUILD) | WALL, TOWER, GATE, PALISADE, PAL.GATE, YARD, CAMP, DEEP, —, —, —, BACK |
 | Ram | MOVE, STOP, ATTACK |
@@ -160,19 +160,22 @@ Hovering a cell shows the tooltip: hotkey, label and a one-line rule.
 | Tower, gatehouse, keep | GARRISON, EJECT, —, —, REPAIR |
 | Wall section | —, —, —, —, REPAIR |
 
-- **GATE** places a gatehouse (T5), and **PAL.GATE** a palisade gate (T7).
+- **GATE** places a gatehouse (T5), and **PAL.GATE** a palisade gate (T7). There is no hall or keep to place: the Hold trial starts with both (GameDesign.md, 2026-10-31).
 - **DEEP** toggles a deep foundation for the next placement. The readout then shows DEEP FDN and its cost (GameDescription.md, *Undermining*).
-- **SPLIT** detaches one figure from the squad as a squad of its own (Proposed). How a figure rejoins is open.
+- **SPLIT** detaches one figure from the squad as a squad of its own.
+- **MERGE** combines the selected squads of the active type up to full size, six on foot or three mounted; any figures left over stay a squad. It is how a split figure rejoins (GameDesign.md, 2026-10-31).
 
 **When a command is disabled:**
 - FIRE: no deployed trebuchet is selected, or the stockpile is below one shot's stone.
 - PACK: the trebuchet is already packing or deploying.
 - EJECT: the garrison is empty.
 - GARRISON: the building is full.
+- SPLIT: the squad has one figure.
+- MERGE: fewer than two squads of the active type are selected, or all of them are full.
 - A template: there is not enough stone or timber.
 
 **Hotkeys are mnemonic, and there is one scheme (Decided).** The positional grid is not built in the MVP.
-- **On the cards:** MOVE M, STOP X, HOLD H, ATTACK T, STORM R, SPLIT P, FIRE F, PACK P, GARRISON G, EJECT E, REPAIR R, QUARRY Q, PIT P, DITCH I, TRENCH T, FELL F, CLEAR L, BUILD B.
+- **On the cards:** MOVE M, STOP X, HOLD H, ATTACK T, STORM R, SPLIT P, MERGE G, FIRE F, PACK P, GARRISON G, EJECT E, REPAIR R, QUARRY Q, PIT P, DITCH I, TRENCH T, FELL F, CLEAR L, BUILD B.
 - **On the build page:** WALL L, TOWER T, GATE G, PALISADE P, PAL.GATE E, YARD Y, CAMP C, DEEP F, BACK B.
 - **Letters are unique within a card.** W, A, S and D are never command keys, because they pan.
 - **Global keys:**
@@ -187,8 +190,8 @@ Hovering a cell shows the tooltip: hotkey, label and a one-line rule.
 | Tab | Cycle the active type |
 | Esc | Cancel the mode, or deselect |
 | Space | Jump to the newest alert |
-| F1 | Integrity view, on by default (Proposed) |
-| F2 | Passability view (Proposed) |
+| F1 | Integrity view, on by default |
+| F2 | Passability view |
 
 ## 8. Input with mouse and keyboard
 
@@ -265,7 +268,7 @@ minimap             { baseDirty, squadDots[], viewQuad, pings[] }
 
 **The repair lock** shows on a section, tower or gatehouse as "Locked · n s" for ten seconds after a hit.
 
-**Section names** such as W5 belong to the scenario, not to a template: T3 is one section. The Siege castle's scenario names each placed section, and saves keep the name with the structure (ADR-005, decision 10) (Proposed).
+**Section names** such as W5 belong to the scenario, not to a template: T3 is one section. The Siege castle's scenario names each placed section, and saves keep the name with the structure (ADR-005, decision 10).
 
 **The MVP's alerts:**
 
@@ -293,21 +296,20 @@ minimap             { baseDirty, squadDots[], viewQuad, pings[] }
 
 ## What changed from the package
 
-- **Squads** are selected, tiled and grouped in place of single units (§5, §10).
+- **Squads** are selected, tiled and grouped in place of single units, laborers excepted, with SPLIT and MERGE (§5, §7, §10).
 - **Touch and layout B** wait for the verdict (§1, §4); M4 builds layout A only.
 - **One hotkey scheme,** mnemonic; the grid scheme and its arrows-only panning are not built (§7).
 - **The UI scale follows DPI,** and names draw at 4 px at 1.5× (§2).
 - **YIELD counts visible stone only** (§10).
-- **Proposed by this integration:**
-  - **cards:** cards for outriders, the ram, the gatehouse, the keep's garrison and wall sections; PAL.GATE, DEEP and SPLIT;
-  - **sizes:** cells 100–112 wide, so labels fit; the deck's coverage and camera framing; the minimap built at its drawn size and limited to what the player knows;
+- **Added by this integration, and confirmed by the owner:**
+  - **cards:** cards for outriders, the ram, the gatehouse, the keep's garrison and wall sections; PAL.GATE, DEEP, SPLIT and MERGE;
+  - **sizes:** cells 100–112 wide, so labels fit;
   - **readings:** BLOCKED for every ranged attack, the trebuchet included, as GameDescription.md requires; the archer's row, which the package gave as "+15% per 3 m" of range when height gives one band of range and +15% damage; GROUND from the resolver in place of the package's 1.2 m soil rule;
-  - **where things live:** section names in the scenario rather than the template; F1 and F2 for the integrity and passability views; the Hold control's GATHER.
+  - **where things live:** section names in the scenario rather than the template; F1 and F2 for the integrity and passability views.
+- **Still Proposed:** the DPI bands; selecting by a squad's footprint; the deck's coverage and camera framing; the minimap built at its drawn size; the glyph coverage test; the Hold control's GATHER.
 - **The font's source** is the JSON in `Assets/Fonts/`, not the package's JavaScript (§9).
 
 ## Open
 
-- Whether the Hold player builds the hall or keep, or starts with them; the build page has neither.
-- How a split figure rejoins its squad.
 - The real figures behind the placeholders in §5.
 - The touch scheme: its gestures, layout B, and press-and-hold for the tooltip and the attack cursor (ADR-007).

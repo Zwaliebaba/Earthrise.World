@@ -279,7 +279,7 @@ Run it with six people (F-48).
 - the generator constraints for Hold maps: at least two outcrops, and mixed ground;
 - the scored waves and the sapper wave;
 - the control's node resources;
-- the Hold content.
+- the Hold content, whose maps start with the hall and a finished keep.
 
 | Part | FTE-months |
 |---|---|

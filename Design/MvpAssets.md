@@ -44,7 +44,7 @@ The figures are the same as in the first package, which already drew them at 0.5
 ## Illustrations
 
 These are for documentation and tests, and are never baked:
-- **Squads** (0.5 m): U1–U5 and S2, in groups of six (outriders in threes).
+- **Squads** (0.5 m): U2–U5 and S2, in groups of six (outriders in threes). U1 shows six laborers together, though laborers are not in squads (GameDesign.md, 2026-10-31).
 - **E1, ditch and rampart** (1 m): the standard ditch, with its spoil as a rampart 2 m high on the side towards the keep.
 - **E2, deep foundation** (1 m): a 56 m³ wall on a 48 m³ foundation that reaches bedrock 3 m down, cut away at the front.
 - **M1, ground strata** (1 m): grass, earth, common rock, a lens of building stone, and bedrock.
