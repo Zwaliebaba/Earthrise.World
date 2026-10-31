@@ -27,7 +27,11 @@
 # INCLUDE variable is what makes the Windows SDK visible to clang):
 #
 #   clang-tidy --quiet <Project>/YourNewFile.cpp -- --driver-mode=cl /std:c++latest /EHsc `
-#     /DUNICODE /D_UNICODE /DWIN32_LEAN_AND_MEAN /DNOMINMAX /D_DEBUG /I <Project>
+#     /DUNICODE /D_UNICODE /D_DEBUG /I <Project>
+#
+# Build/RunClangTidy.py builds this command from the project files and Build/Earthrise.props, so
+# use it rather than typing flags. Never pass /DWIN32_LEAN_AND_MEAN or /DNOMINMAX: Engine/framework.h
+# owns those macros, and a second definition is fatal under WarningsAsErrors (ADR-010).
 #
 # UNICODE and _UNICODE are not optional in that command. Every project sets CharacterSet=Unicode,
 # so `IDC_ARROW` is `MAKEINTRESOURCEW`; without the defines clang-tidy reports a type error at
@@ -102,14 +106,18 @@ WarningsAsErrors: '*'
 # compare this list against the solution rather than trusting anyone to remember.
 #
 # Only the `<Something>Tests` convention is seeded, because that is all this repository has agreed
-# on so far. The first project to be created adds its own name here, as `(<Project>|[A-Za-z0-9]+Tests)`.
+# on so far. Each project adds its own name to the alternation when it is created, and
+# Build/CheckProjectFiles.py fails until the list matches the solution exactly (ADR-010).
+#
+# `(^|[/\\])` anchors a name to a whole path segment, so build output such as
+# `Intermediate\Content\Generated\Palette.h` never matches `Content` (ADR-010, decision 8).
 #
 # [/\\], not '/'. On a Windows Clang build the paths arrive with backslashes, so a filter anchored
 # on a forward slash matches no header at all and silently suppresses every in-build diagnostic.
 # The pattern matches headers sitting DIRECTLY in a project folder, which is every hand-written
 # one (AGENTS.md §2's flat-directory rule). A bare `.*` would also match build output and the
 # Windows SDK, and most of what it reported would be from headers nobody here wrote.
-HeaderFilterRegex: '([A-Za-z0-9]+Tests)[/\\][A-Za-z0-9]+\.h$'
+HeaderFilterRegex: '(^|[/\\])([A-Za-z0-9]+Tests)[/\\][A-Za-z0-9]+\.h$'
 
 # A `Resource.h` is written by the Visual Studio resource editor, not by hand. Its
 # `#define IDC_STATIC -1` trips bugprone-macro-parentheses, and the fix would be undone the next

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Build">
+      <UniqueIdentifier>{0F4C9B5E-1D7A-4E3B-8C21-7A1B2C3D4E01}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Rendering">
+      <UniqueIdentifier>{0F4C9B5E-1D7A-4E3B-8C21-7A1B2C3D4E02}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shader">
+      <UniqueIdentifier>{0F4C9B5E-1D7A-4E3B-8C21-7A1B2C3D4E03}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h">
+      <Filter>Build</Filter>
+    </ClInclude>
+    <ClCompile Include="pch.cpp">
+      <Filter>Build</Filter>
+    </ClCompile>
+    <ClInclude Include="VoxelRecord.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="VoxelRecord.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <FXCompile Include="Shader\VoxelVS.hlsl">
+      <Filter>Shader</Filter>
+    </FXCompile>
+    <FXCompile Include="Shader\VoxelPS.hlsl">
+      <Filter>Shader</Filter>
+    </FXCompile>
+    <None Include="Shader\RayBox.hlsli">
+      <Filter>Shader</Filter>
+    </None>
+  </ItemGroup>
+</Project>

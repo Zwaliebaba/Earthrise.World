@@ -1,0 +1,2 @@
+# The fixture's registry: its one library and the test-suite convention (ADR-010).
+HeaderFilterRegex: '(^|[/\\])(Sample|[A-Za-z0-9]+Tests)[/\\][A-Za-z0-9]+\.h$'
