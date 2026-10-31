@@ -170,8 +170,7 @@ Readback Render(Engine::GpuDevice& _device, const Engine::VoxelPass::FrameConsta
   const std::optional<Engine::UploadRing::Allocation> records = ring.Allocate(_records.size_bytes(), 256);
   if (!frame || !palette || !records)
   {
-    Assert::Fail(L"the upload ring refused a test scene");
-    return {};
+    throw std::runtime_error("the upload ring refused a test scene");
   }
   std::memcpy(frame->bytes.data(), &_frame, sizeof(_frame));
   std::array<DirectX::XMFLOAT4, Engine::VoxelPass::PALETTE_ENTRIES> colors{};
