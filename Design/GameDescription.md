@@ -27,7 +27,8 @@ It is for players of classic historical RTS games who know their counters and bu
 | Resources | Provisions, timber, stone and iron; Earthstone in Worlds |
 | Eras | Hall, Keep and Citadel, each built from quarried stone |
 | Cultures | Masons, Wealdfolk and Delvers, each built around one material |
-| Camera | An isometric strategy view that rotates in 90° steps and zooms from single stones to a whole holding |
+| Camera | An orthographic isometric view at 34° that rotates in 90° steps and zooms from single stones to a whole holding |
+| Voxels | 0.5 m for everything solid; terrain in 1 m terraces |
 
 ## The objective
 
@@ -49,20 +50,22 @@ Every feature has to serve at least one of these. The classic RTS layer they sit
 
 ### Materials
 
-Everything solid is made of voxels small enough that a crater, a ditch or a breach has the shape of whatever made it. Each voxel is one material, and the materials behave differently.
+Everything solid is made of voxels small enough that a crater, a ditch or a breach has the shape of whatever made it. Every voxel is 0.5 m. The generator shapes the land in 1 m terraces, and digging works at the full 0.5 m. Each voxel is one material, and the materials behave differently.
 
 | Material | Where it is | Behavior |
 |---|---|---|
-| Earth | The soil over the rock, of varying depth | Dug quickly. Slumps to a maximum slope, so earth never stands steeper than that. Absorbs shot: craters slump closed, and earthworks flatten instead of holing. |
+| Grass | The top of undisturbed earth | Earth in every rule. Only the generator makes it, so dug ground stays bare. |
+| Earth | The soil over the rock, of varying depth | Dug quickly. Slumps to 45°, measured over 1 m, so earth never stands steeper than that and the generator's 1 m terraces stand. Absorbs shot: craters slump closed, and earthworks flatten instead of holing. |
 | Common rock | Under the earth and in cliffs | Dug slowly and yields nothing. Holds vertical faces and overhangs up to its span. |
 | Building stone | Sparse outcrops | Quarried for stone. The only source of new stone besides rubble. |
 | Bedrock | Deep down, nearer the surface in places | Cannot be dug. Anything founded on it cannot be undermined. |
 | Iron ore | Veins in the rock, hidden until prospected | Dug at a mine head and smelted into iron. |
 | Timber | Forests | Felled for timber. Burns when fire reaches it; fire arrives in the Citadel era, and in the Keep era for the Wealdfolk. |
+| Leaves | Tree canopies | Spans as wide as a canopy, so trees stand. Yields no timber when felled, and burns. |
 | Rubble | What collapses leave behind | Loose: slumps like earth and can be walked over slowly. It keeps the material it fell from: rubble of building stone is cleared for stone at half its volume, and rubble of timber, earth or common rock yields nothing. |
 | Earthstone | The Deep, in Worlds and the Earthstone race | Dug in blocks. Counts toward winning the season. Stays Earthstone when it falls. |
 
-Water is part of the terrain and does not flow. Rivers and lakes are barriers with fords. A ditch stays dry.
+Water is part of the terrain and does not flow. Rivers and lakes are barriers with fords, and shallow water shows lighter, so a ford can be seen. A ditch stays dry.
 
 Loose material never comes to rest on top of a standing structure, and a heap against one stays a set height below its top: earth or rubble that would rise higher slumps away. No pile of spoil or rubble ever makes a ramp over an intact wall.
 
@@ -132,7 +135,7 @@ A building works until one of its critical parts falls below its threshold: a ga
 
 Repair puts back voxels that were built and later removed, and pays for their material. Repairers work from the owner's side, and each section repairs at a fixed rate, however many laborers are on it. A section is one section of a wall line, or one whole building. A section hit in the last ten seconds by an engine shot, a ram blow or a sapper's trench cannot be repaired, so repairs happen between volleys, not under them. Two engines alternating on one section keep it locked; that is what concentrating engines buys.
 
-Players build only from templates, never voxel by voxel. The skill is in placement, sequence and layering: which wall goes on rock and which on earth, how thick, what lies in front, and where the second ring goes.
+Openings such as arrow slits, doors and windows are painted on solid voxels and let nothing through. Players build only from templates, never voxel by voxel. The skill is in placement, sequence and layering: which wall goes on rock and which on earth, how thick, what lies in front, and where the second ring goes.
 
 ### Buildings
 
@@ -212,7 +215,7 @@ Shots are physical. Every arrow, bolt and stone travels through the voxel grid a
 
 **Garrisons.** Towers and keeps hold units. Garrisoned ranged units fire from height, and garrisoned units heal slowly. When a tower stops working, its garrison is put out at the foot of the tower, on its owner's side and clear of where the tower would fall.
 
-**Units and the land.** Units walk on ground, wade fords, and cross rubble slowly. Foot soldiers climb slopes as steep as settled earth; cavalry, carts, rams and engines climb less, so a ditch or a rampart stops them. Units stand on ramparts, which are earth, but never on structures, and the space under a rock overhang is not walkable. A gap a unit fits through is a route. When a breach opens, every unit that is ordered inside will path through it. A unit whose ground is dug away drops to the ground below it and takes crush damage if the drop is more than 3 m. A unit buried by a collapse is placed on top of the rubble and takes the collapse's damage.
+**Units and the land.** Units walk on ground, wade fords, and cross rubble slowly. Foot soldiers climb slopes as steep as settled earth; cavalry, carts, rams and engines climb less, so a ditch or a rampart stops them. Units stand on ramparts, which are earth, but never on structures, and the space under a rock overhang is not walkable. A unit stands 2 m tall on a 0.5 m square, so a gap one voxel wide and four high is a route. When a breach opens, every unit that is ordered inside will path through it. A unit whose ground is dug away drops to the ground below it and takes crush damage if the drop is more than 3 m. A unit buried by a collapse is placed on top of the rubble and takes the collapse's damage.
 
 **Soldiers never change the land.** Only engines, sappers, laborers on a designation, collapses and fire remove voxels.
 
@@ -397,7 +400,7 @@ Sessions of 30 to 90 minutes are the norm, mostly inside the contest band. A lor
 
 ## Readability
 
-The camera is an isometric strategy view. It rotates in 90° steps, because walls and rubble hide units, and zooms from single stones to a whole holding. The tools that make physical siege legible are part of the game, not an afterthought:
+The camera is an orthographic isometric view, 34° above the horizon. It rotates in 90° steps, because walls and rubble hide units, and zooms from single stones to a whole holding. At that angle the floors of deep ditches and the near terraces of pits can be hidden; units in them show as silhouettes. [RendererLook.md](RendererLook.md) gives the look in full. The tools that make physical siege legible are part of the game, not an afterthought:
 
 - **Integrity view:** on by default. For each wall section, how close it is to opening, read from the collapse rule: its widest hole against the width at which the stone above falls, its lowest opening against what foot soldiers can climb, and any gap under its foundation. It also shows the ground the section stands on, marks its weak point, where that reading is closest to open, and shows the repair lock on a section hit in the last ten seconds.
 - **Collapse preview:** where a damaged piece will fall, before it falls, and a warning and a minimap alert when it starts to go.
