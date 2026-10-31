@@ -2,8 +2,14 @@
 
 It answers findings F-01, F-02 and F-03 of Design/Review/GameDescription-2026-10-31.md ("Cheapest
 tests", item 4). The write-up is Design/Review/PaperTests/SiegeRouteTable.md, which marks every value
-chosen here as Proposed and gives its reason. The templates' sizes, volumes and voxels are read from
-GameData/Server/Templates, so the castle is drawn from the real T1-T5.
+as Decided or Proposed and gives its reason. The templates' sizes and voxels are read from
+GameData/Server/Templates and their materials from GameData/Server/Palette.json, so the castle is drawn
+from the real T1-T5.
+
+Revised on the owner's decisions of 2026-10-31. Stone spans 2 m, so T2's floors and roof are now timber.
+Masonry, palette index 6, is what the package calls dressed stone, and it takes the ordinary stone rules.
+Repair's pass mark is for one engine, and the ten-second lock stays. The script then checks four
+Proposed fixes, (a) to (d), for the Decided rules the first run broke.
 
 The model, in one paragraph. The castle sits on a 1 m grid, north up, with the attacker's camp to the
 south. A garrison reaches a ground target if the horizontal distance from its building's outer face
@@ -11,7 +17,7 @@ is within the archers' range plus one band per elevation step, and, where line o
 for, if the straight line from its platform to the target clears every other structure. Engines lob,
 so they need range and nothing else. A wall section opens when the trebuchet has removed a fixed net
 volume; repair restores volume at a fixed rate per section whenever the section has not been hit for
-ten seconds. Collapses use ADR-004's support rule on the T3 voxels, with a Proposed stone span.
+ten seconds. Collapses use ADR-004's support rule on the T3 voxels, and earth slumps to 45 degrees.
 
 Standard library only.
 
@@ -27,20 +33,26 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATES = ROOT / "GameData" / "Server" / "Templates"
+PALETTE = ROOT / "GameData" / "Server" / "Palette.json"
 
 # ── Decided values, and the placeholders the documents give ─────────────────────────────────────
 SECTION_METRES = 8  # T3, MvpAssets.md
+STONE_SPAN = 2  # Decided by the owner, 2026-10-31: stone spans 2 m, two voxels (ADR-004 decision 2)
 TREBUCHET_MIN_METRES = 12.0  # Hud.md placeholder
 TREBUCHET_MAX_METRES = 70.0  # Hud.md placeholder
 SHOT_STONE_M3 = 6.0  # Hud.md placeholder
+SHOT_PRICE_TARGET = 0.5  # GameDesign.md: a breach costs the attacker about half the defender's rebuild
 BREACH_TARGET_SECONDS = 180.0  # GameDescription.md, balance targets: one trebuchet, a standard section
 GATE_TARGET_SECONDS = 240.0  # GameDescription.md, balance targets: a ram on a gatehouse's gate, under fire
-REPAIR_LOCK_SECONDS = 10.0  # GameDescription.md, Templates
+REPAIR_LOCK_SECONDS = 10.0  # GameDescription.md, Templates; kept by the owner, 2026-10-31
 STEP_METRES = 3.0  # GameDescription.md, Combat model
 MAX_STEPS = 2
 SQUAD_ON_FOOT = 6
-REPAIR_BAND = (1.3, 2.0)  # the review's pass mark for F-03, which MvpPlan.md M0 takes up
-RELOAD_RANGE = range(6, 31)  # the plausible reloads F-03 names, in whole seconds
+SAPPER_FACTOR = 2.0  # sappers dig at twice a laborer's speed
+RUBBLE_STONE_SHARE = 0.5  # rubble of building stone clears for stone at half its volume
+REPAIR_BAND = (1.3, 2.0)  # the pass mark for one engine, as the owner restated it on 2026-10-31
+SWEEP_RELOADS = (6, 8, 10, 12, 15, 20, 25, 30)  # the plausible reloads F-03 names, 6-30 s
+RELOAD_RANGE = range(6, 31)
 
 # ── Proposed by this test (each reason is in the write-up) ──────────────────────────────────────
 ARCHER_RANGE_METRES = 30.0  # on the level: six bands of 5 m
@@ -51,35 +63,57 @@ SALLY_LEASH_METRES = 70.0  # the defender sallies out to this distance from its 
 RELOAD_SECONDS = 20.0  # the trebuchet's reload: nine shots in the three-minute target
 OPEN_VOLUME_M3 = 20.0  # net volume removed before a section opens: 5 m x 2 m x 2 m at its base
 OPEN_HOLE = (2, 7, 2)  # that hole, in a section's own columns: x from 2 to 6, the bottom 2 m
-STONE_SPAN = 2  # voxels of unsupported horizontal run that stone holds (ADR-004 decision 2)
 REPAIR_MULTIPLIER = 1.5  # the repair rate is set so that one engine at RELOAD_SECONDS takes this long
 RAM_BLOW_SECONDS = 5.0  # a blow every 5 s, inside the lock, as F-02 assumed
 RAM_TIMBER_CRATER = 4  # voxels: the ram's "large" crater in timber
 GATE_KEEPS = 0.5  # a gate works while at least half its voxels stand
 LABORER_EARTH_M3_PER_SECOND = 0.1
-SAPPER_FACTOR = 2.0  # Decided: sappers dig at twice a laborer's speed
-TRENCH_M = (8, 2, 3)  # length along the section, width, depth
+FOUNDATION_METRES = 1  # a standard foundation: it reaches rock under thin soil and rests on earth over deep earth
 WARNING_SECONDS_PER_METRE = 1.0  # a collapse warns for 1 s per metre of the falling piece's height
 SIDE_SECTIONS = 6  # sections on the east, west and north curtains
 CAMP_SOUTH_METRES = 100.0  # the attacker's camp, south of the castle
 SCAN_MARGIN_METRES = 130  # how far out the trebuchet's stands are searched
+ABOUT = 0.25  # "about" a target time means within a quarter of it
+SHOT_PRICE_BAND = (0.4, 0.6)  # "about half"
+REPAIR_RATES = (0.06, 0.08, 0.10)  # the repair rates a fix must hold at, around the Proposed 0.08 m³/s
+LOB_DEGREES = (15, 20, 25, 30, 35, 40, 45, 50, 60, 70)  # the descents swept for the gate
+
+# ── The Proposed fixes (a) to (d) ───────────────────────────────────────────────────────────────
+FIX_TREBUCHET_MAX_METRES = 50.0  # (a) the trebuchet's longest range
+DESCENT_DEGREES = 45.0  # (b) a trebuchet's shot descends at 45 degrees or steeper
+FIX_RAM_BLOW_SECONDS = 15.0  # (c) a ram's blow every 15 s
+FIX_DEEP_EARTH_FOUNDATION_METRES = 4  # (c) a standard foundation reaches 4 m down on deep earth
+FIX_SHOT_STONE_M3 = 1.5  # (d) a shot's stone
 
 ERA_ORDER = {"Hall": 0, "Keep": 1, "Citadel": 2}
-DECORATIONS = ("opening", "faction")
-TIMBERS = ("timber", "roof")
+KIND_BY_BEHAVIOR = {"buildingStone": "stone", "timber": "timber"}  # palette behaviors; any other is a decoration
+DECORATION = "decoration"
 
 
 # ── Templates ───────────────────────────────────────────────────────────────────────────────────
 
 
+def ReadPalette():
+  palette = json.loads(PALETTE.read_text(encoding="utf-8"))
+  return {material["index"]: material for material in palette["materials"]}
+
+
 def ReadTemplate(_stem):
-  """A template's JSON and its voxels as {(x, y, z): (material, part)}, stock left out."""
+  """A template's JSON, its voxels as {(x, y, z): (kind, part)} with stock left out, and its palette materials
+  counted. The kind is stone or timber, from the palette's behavior. Masonry (index 6, the package's "dressed
+  stone") has the behavior of building stone, so it is ordinary stone. A decoration, such as an opening, behaves
+  and costs as the material around it (ADR-005), here the template's main kind."""
+  palette = ReadPalette()
   data = json.loads((TEMPLATES / f"earthrise-{_stem}-1m.json").read_text(encoding="utf-8"))
+  kinds = {}
   names = {}
   for char, entry in data["legend"].items():
-    names[char] = entry["name"] if isinstance(entry, dict) else str(entry)
+    material = palette[entry["material"]]
+    kinds[char] = KIND_BY_BEHAVIOR.get(material["behavior"], DECORATION)
+    names[char] = f"{material['name']} ({material['index']})"
   parts = data.get("parts")
-  voxels = {}
+  raw = {}
+  counts = {}
   for y, layer in enumerate(data["layers"]):
     for z, row in enumerate(layer):
       for x, char in enumerate(row):
@@ -88,29 +122,29 @@ def ReadTemplate(_stem):
         part = parts[y][z][x] if parts else "."
         if part == "3":
           continue
-        voxels[(x, y, z)] = (names[char], part)
-  return data, voxels
+        raw[(x, y, z)] = (kinds[char], part)
+        counts[names[char]] = counts.get(names[char], 0) + 1
+  plain = [kind for kind, _ in raw.values() if kind != DECORATION]
+  main = "timber" if 2 * plain.count("timber") > len(plain) else "stone"
+  voxels = {voxel: (main if kind == DECORATION else kind, part) for voxel, (kind, part) in raw.items()}
+  return data, voxels, counts
 
 
 def TemplateFacts(_stem):
-  data, voxels = ReadTemplate(_stem)
+  data, voxels, counts = ReadTemplate(_stem)
   width = len(data["layers"][0][0])
   depth = len(data["layers"][0])
   height = max(y for _, y, _ in voxels) + 1
-  # Openings and faction colours are painted on solid voxels and cost as the material around them
-  # (ADR-005), so they count as the template's main material.
-  materials = [material for material, _ in voxels.values()]
-  plain = [material for material in materials if material not in DECORATIONS]
-  timberMain = 2 * sum(1 for material in plain if material in TIMBERS) > len(plain)
-  timber = sum(1 for material in materials if material in TIMBERS or (timberMain and material in DECORATIONS))
+  kinds = [kind for kind, _ in voxels.values()]
   return {
     "id": data["id"],
     "name": data["name"],
     "size": (width, height, depth),
-    "stone": len(voxels) - timber,
-    "timber": timber,
+    "stone": kinds.count("stone"),
+    "timber": kinds.count("timber"),
     "critical": sum(1 for _, part in voxels.values() if part == "1"),
     "criticalName": data.get("criticalPart"),
+    "materials": counts,
     "voxels": voxels,
   }
 
@@ -346,22 +380,57 @@ def KeepToCurtain(_castle):
   return outer, inner
 
 
+def CuspBound(_castle):
+  """A closed form for fix (a): the distance from the great tower to the nearest point where the reaches of two
+  neighboring garrisons on one side of the castle meet outside it. Their gap is measured between their facing
+  sides along the line of their outer faces. Where two reaches do not meet, the point is on that line."""
+  size = _castle["size"]
+  best = math.inf
+  for side in "SNWE":
+    along = []
+    for garrison in _castle["garrisons"]:
+      x0, y0, x1, y1 = garrison["rect"]
+      if side in "SN" and (y0 == 0 if side == "S" else y1 == size):
+        along.append((x0, x1, garrison["reach"]))
+      elif side in "WE" and (x0 == 0 if side == "W" else x1 == size):
+        along.append((y0, y1, garrison["reach"]))
+    along.sort()
+    for (_, first, firstReach), (second, _, secondReach) in zip(along, along[1:]):
+      reach = min(firstReach, secondReach)
+      out = math.sqrt(max(0.0, reach * reach - ((second - first) / 2) ** 2))
+      mid = (first + second) / 2
+      point = {"S": (mid, -out), "N": (mid, size + out), "W": (-out, mid), "E": (size + out, mid)}[side]
+      best = min(best, RectDistance(_castle["greatTower"], *point))
+  return best
+
+
 # ── Collapses on the T3 voxels (ADR-004 decision 2) ─────────────────────────────────────────────
 
 
-def WallStrip(_castle):
-  """Three T3 sections end to end; the middle one is the section under test. {(x, y, z)}"""
+def WallStrip(_castle, _foundation=0):
+  """Three T3 sections end to end; the middle one is the section under test. With _foundation, the middle
+  section's foundation goes that far down, and its neighbors' FOUNDATION_METRES, to the rock under them.
+  Returns ({(x, y, z)}, {x: the bottom voxel's y}); the foundation matters only where the ground goes."""
   voxels = _castle["templates"]["T3"]["voxels"]
-  return {(x + SECTION_METRES * index, y, z) for index in range(3) for (x, y, z) in voxels}
+  strip = {(x + SECTION_METRES * index, y, z) for index in range(3) for (x, y, z) in voxels}
+  bottoms = {}
+  if _foundation:
+    for x in range(3 * SECTION_METRES):
+      depth = _foundation if SECTION_METRES <= x < 2 * SECTION_METRES else FOUNDATION_METRES
+      bottoms[x] = -depth
+      strip |= {(x, y, z) for y in range(-depth, 0) for z in (0, 1)}
+  return strip, bottoms
 
 
-def Unsupported(_solid, _groundless, _span=STONE_SPAN):
-  """The voxels whose support distance exceeds the span. A bottom voxel rests on the ground unless
-  its column is in _groundless; a path moves only down or sideways, and only sideways steps count."""
+def SupportDistances(_solid, _groundless=frozenset(), _bottoms=None):
+  """Each voxel's support distance (ADR-004 decision 2): the fewest sideways steps on a path that moves only down
+  or sideways through solid voxels to the ground. A column's bottom voxel, at y = 0 or at _bottoms[x], rests on
+  the ground unless its column is in _groundless."""
   distance = {}
   queue = []
   for voxel in _solid:
-    if voxel[1] == 0 and voxel[0] not in _groundless:
+    bottom = 0 if _bottoms is None else _bottoms.get(voxel[0], 0)
+    if voxel[1] == bottom and voxel[0] not in _groundless:
       distance[voxel] = 0
       queue.append((0, voxel))
   heapq.heapify(queue)
@@ -377,20 +446,36 @@ def Unsupported(_solid, _groundless, _span=STONE_SPAN):
       if neighbor in _solid and cost + step < distance.get(neighbor, math.inf):
         distance[neighbor] = cost + step
         heapq.heappush(queue, (cost + step, neighbor))
+  return distance
+
+
+def Unsupported(_solid, _groundless, _span=STONE_SPAN, _bottoms=None):
+  """The voxels whose support distance exceeds the span. The strips are all stone, so one span serves."""
+  distance = SupportDistances(_solid, _groundless, _bottoms)
   return {voxel for voxel in _solid if distance.get(voxel, math.inf) > _span}
+
+
+def WidestSupport(_template):
+  """The widest support distance among each kind's voxels, with the template whole on flat ground."""
+  voxels = _template["voxels"]
+  distance = SupportDistances(set(voxels))
+  widest = {}
+  for voxel, (kind, _) in voxels.items():
+    widest[kind] = max(widest.get(kind, 0), distance.get(voxel, math.inf))
+  return widest
 
 
 def PieceHeight(_piece):
   return max(y for _, y, _ in _piece) - min(y for _, y, _ in _piece) + 1 if _piece else 0
 
 
-def Settle(_solid, _groundless, _span=STONE_SPAN):
+def Settle(_solid, _groundless, _span=STONE_SPAN, _bottoms=None):
   """Drops every unsupported piece, and whatever its loss leaves unsupported in turn (a cascade).
   Returns the voxels that fell and the height of the tallest piece, which sets the warning."""
   fallen = set()
   tallest = 0
   while True:
-    piece = Unsupported(_solid, _groundless, _span)
+    piece = Unsupported(_solid, _groundless, _span, _bottoms)
     if not piece:
       return fallen, tallest
     _solid -= piece
@@ -408,11 +493,72 @@ def Route(_solid, _columns):
   return False
 
 
+def TrenchDig(_foundation):
+  """The earth sappers dig, per metre of wall, before the ground has gone from under a foundation _foundation
+  metres deep across the wall's 2 m (GameDescription.md, Undermining). Earth slumps to 45 degrees: no column
+  of earth stands more than one voxel above its neighbor, and one that does gives a voxel to it. The sappers
+  dig at the wall's foot and carry out whatever slumps in. Columns 0 and 1 are under the wall, so earth can
+  fill them only up to the foundation. The bailey's first column is deep earth, as is the ground outside;
+  the rest of the bailey is 1 m of soil over rock, which does not slump. Returns the voxels dug."""
+  heights = {}
+  floors = {}
+  caps = {}
+  for z in range(-12, 24):
+    heights[z] = -_foundation if z in (0, 1) else 0
+    caps[z] = heights[z]
+    floors[z] = -1 if z < -1 else -math.inf
+  columns = sorted(heights)
+
+  def Slump():
+    moved = True
+    while moved:
+      moved = False
+      for z in columns:
+        for neighbor in (z - 1, z + 1):
+          if neighbor not in heights:
+            continue
+          if heights[z] - heights[neighbor] > 1 and heights[z] > floors[z] and heights[neighbor] < caps[neighbor]:
+            heights[z] -= 1
+            heights[neighbor] += 1
+            moved = True
+
+  dug = 0
+  while heights[0] > -_foundation - 1 or heights[1] > -_foundation - 1:
+    heights[2] -= 1
+    dug += 1
+    Slump()
+  return dug
+
+
+def Undermine(_castle, _foundation, _span=STONE_SPAN):
+  """The sappers at the weak section, whose foundation goes _foundation metres down into deep earth. The trench
+  runs the section's length; its neighbors stand on rock, which holds a vertical face at the trench's ends."""
+  strip, bottoms = WallStrip(_castle, _foundation)
+  columns = range(SECTION_METRES, 2 * SECTION_METRES)
+  solid = set(strip)
+  fallen, tallest = Settle(solid, set(columns), _span, bottoms)
+  dig = TrenchDig(_foundation) * SECTION_METRES
+  squadRate = SQUAD_ON_FOOT * LABORER_EARTH_M3_PER_SECOND * SAPPER_FACTOR
+  route = Route(solid, columns)
+  warning = WARNING_SECONDS_PER_METRE * tallest
+  return {
+    "foundation": _foundation,
+    "dig": dig,
+    "squadRate": squadRate,
+    "digSeconds": dig / squadRate,
+    "warning": warning,
+    "seconds": dig / squadRate + warning if route else math.inf,
+    "fallen": len(fallen),
+    "foundationStone": 2 * SECTION_METRES * _foundation,
+    "width": len({v[0] for v in fallen if v[1] >= 0}),
+    "route": route,
+  }
+
+
 def BreachMechanics(_castle, _span=STONE_SPAN):
   """What each breaker removes and what falls, on the section under test (the strip's middle one).
-  The ram may carry its slot on into the next section; the sappers' trench is the section's length,
-  because the castle's other sections stand on rock."""
-  strip = WallStrip(_castle)
+  The ram may carry its slot on into the next section."""
+  strip, _ = WallStrip(_castle)
   base = SECTION_METRES
   columns = range(base, base + SECTION_METRES)
   every = range(0, 3 * SECTION_METRES)
@@ -449,35 +595,14 @@ def BreachMechanics(_castle, _span=STONE_SPAN):
     "width": len(gap),
     "route": Route(solid, every),
   }
-
-  # The sappers: the trench takes the ground from under the whole section.
-  solid = set(strip)
-  fallen, tallest = Settle(solid, set(columns), _span)
-  length, width, depth = TRENCH_M
-  trench = length * width * depth
-  squadRate = SQUAD_ON_FOOT * LABORER_EARTH_M3_PER_SECOND * SAPPER_FACTOR
-  results["sappers"] = {
-    "fallen": len(fallen),
-    "trench": trench,
-    "squadRate": squadRate,
-    "dig": trench / squadRate,
-    "warning": WARNING_SECONDS_PER_METRE * tallest,
-    "width": len({v[0] for v in fallen}),
-    "route": Route(solid, columns),
-  }
+  results["sappers"] = Undermine(_castle, FOUNDATION_METRES, _span)
   return results
-
-
-def SpanToStand(_template):
-  """The smallest stone span at which a template stands whole on flat ground."""
-  solid = set(_template["voxels"])
-  return next(span for span in range(0, 13) if not Unsupported(solid, set(), span))
 
 
 def SpanSensitivity(_castle, _span):
   """The three breakers again at another stone span. The ram may carry its slot on into the next
   section, and the undercut is centred on the section under test and lengthened until a route opens."""
-  strip = WallStrip(_castle)
+  strip, _ = WallStrip(_castle)
   base = SECTION_METRES
   every = range(0, 3 * SECTION_METRES)
   x0, x1, height = OPEN_HOLE
@@ -511,31 +636,129 @@ def SpanSensitivity(_castle, _span):
   }
 
 
-def GateByTrebuchet(_castle, _rate):
-  """Two hits of a very large crater (a voxel and its six neighbors) on T5's gate, aimed at the
-  middle of its lower and its upper half, with repair at the per-building rate between them."""
-  voxels = _castle["templates"]["T5"]["voxels"]
-  solid = dict(voxels)
-  gate = [v for v, (_, part) in voxels.items() if part == "1"]
+def RamOnStone(_ram, _cadence, _rate):
+  """The ram at a section's base, a blow every _cadence seconds, each taking one voxel: (seconds unrepaired,
+  seconds repaired, blows repaired, m³ repaired). Repair restores _rate m³ a second in what the lock leaves
+  between blows; the expected count is worked as for the trebuchet (Bombard)."""
+  blows = _ram["blows"]
+  repair = _rate * max(0.0, _cadence - REPAIR_LOCK_SECONDS)
+  unrepaired = blows * _cadence + _ram["warning"]
+  if repair >= 1.0:
+    return unrepaired, math.inf, math.inf, math.inf
+  expected = (blows - repair) / (1.0 - repair)
+  return unrepaired, expected * _cadence + _ram["warning"], expected, (expected - 1) * repair
+
+
+# ── The gate ────────────────────────────────────────────────────────────────────────────────────
+
+
+def RecessedGate(_voxels):
+  """Fix (b), in memory only: T5 with its 12 gate voxels moved from the front of its passage to the inner end."""
+  gate = [voxel for voxel, (_, part) in _voxels.items() if part == "1"]
+  back = min(z for _, _, z in _voxels)
+  moved = {voxel: entry for voxel, entry in _voxels.items() if voxel not in gate}
+  for x, y, _ in gate:
+    assert (x, y, back) not in moved, "the passage's inner end is not open"
+    moved[(x, y, back)] = ("timber", "1")
+  return moved
+
+
+def LobPath(_aim, _degrees):
+  """The cells a lobbed shot crosses in its last 20 m, coming along the passage from the front (+z), aimed at the
+  middle of voxel _aim's front face and descending at _degrees. It ends at _aim, or at None on the ground."""
+  x, y, z = _aim
+  slope = math.tan(math.radians(_degrees))
+  cells = []
+  for step in range(2000, -6, -1):
+    ahead = step / 100
+    height = y + 0.5 + ahead * slope
+    if height < 0:
+      cells.append(None)
+      return cells
+    cell = (x, math.floor(height), math.floor(z + 1 + ahead))
+    if not cells or cells[-1] != cell:
+      cells.append(cell)
+    if cell == _aim:
+      return cells
+  return cells
+
+
+def Cross(_voxel):
+  x, y, z = _voxel
+  return ((x, y, z), (x + 1, y, z), (x - 1, y, z), (x, y + 1, z), (x, y - 1, z), (x, y, z + 1), (x, y, z - 1))
+
+
+def GateByLob(_voxels, _degrees, _rate, _notch=False):
+  """A trebuchet against T5's gate, its shots descending at _degrees along the passage, with repair at the
+  per-building rate between them. A shot that first meets the gate takes a very large crater of timber: the
+  voxel struck and its six neighbors, timber only, because the stone beside the gate takes the trebuchet's
+  medium crater, which reaches no sideways neighbor. With _notch, the trebuchet first cuts away the stone in
+  the path of its cheapest next shot. Returns None if no shot reaches the gate at all."""
+  solid = dict(_voxels)
+  gate = sorted(voxel for voxel, (_, part) in _voxels.items() if part == "1")
   keeps = math.ceil(GATE_KEEPS * len(gate))
-  front = max(z for _, _, z in gate)
-  middle = sorted({x for x, _, _ in gate})[1]
-  timber = stone = 0
+  shots = notch = timber = 0
   repaired = 0.0
-  for shot, (x, y, z) in enumerate([(middle, 1, front), (middle, 3, front)], 1):
-    crater = ((x, y, z), (x + 1, y, z), (x - 1, y, z), (x, y + 1, z), (x, y - 1, z), (x, y, z + 1), (x, y, z - 1))
-    for neighbor in crater:
-      if neighbor in solid:
-        material, _ = solid.pop(neighbor)
-        if material == "timber":
-          timber += 1
-        else:
-          stone += 1
-    if sum(1 for v in gate if v in solid) + repaired < keeps:
-      return {"shots": shot, "seconds": shot * RELOAD_SECONDS, "timber": timber, "stone": stone, "gate": len(gate),
-              "keeps": keeps}
+  while shots < 60:
+    best = None
+    for aim in gate:
+      if aim not in solid:
+        continue
+      path = LobPath(aim, _degrees)
+      if path[-1] != aim:
+        continue
+      blockers = [cell for cell in path[:-1] if cell in solid]
+      if any(solid[cell][0] != "stone" for cell in blockers) or (blockers and not _notch):
+        continue
+      crater = [cell for cell in Cross(aim) if cell in solid and solid[cell][0] == "timber"]
+      key = (len(blockers), -len(crater))
+      if best is None or key < best[0]:
+        best = (key, blockers, crater)
+    if best is None:
+      break
+    _, blockers, crater = best
+    for cell in blockers + crater:
+      del solid[cell]
+    notch += len(blockers)
+    timber += len(crater)
+    shots += 1
+    if sum(1 for voxel in gate if voxel in solid) + repaired < keeps:
+      return {"broken": True, "shots": shots, "notch": notch, "timber": timber, "gate": len(gate), "keeps": keeps}
     repaired += min(_rate * max(0.0, RELOAD_SECONDS - REPAIR_LOCK_SECONDS), timber - repaired)
-  return None
+  if shots == 0:
+    return None
+  return {"broken": False, "shots": shots, "notch": notch, "timber": timber, "gate": len(gate), "keeps": keeps}
+
+
+def SteepestReach(_voxels):
+  """The steepest descent at which any shot along the passage reaches the intact gate, by bisection."""
+
+  def Reaches(_degrees):
+    for aim, (_, part) in _voxels.items():
+      if part != "1":
+        continue
+      path = LobPath(aim, _degrees)
+      if path[-1] == aim and not any(cell in _voxels for cell in path[:-1]):
+        return True
+    return False
+
+  low, high = 1.0, 89.0
+  for _ in range(40):
+    middle = (low + high) / 2
+    if Reaches(middle):
+      low = middle
+    else:
+      high = middle
+  return low
+
+
+def StoneShots(_volume, _rate):
+  """Expected shots for the trebuchet to cut _volume m³ of stone at the section rate, unrepaired and repaired."""
+  hit = OPEN_VOLUME_M3 / ShotsToOpen(RELOAD_SECONDS)
+  repair = _rate * max(0.0, RELOAD_SECONDS - REPAIR_LOCK_SECONDS)
+  if _volume <= 0:
+    return 0.0, 0.0
+  return _volume / hit, max(_volume / hit, (_volume - repair) / (hit - repair))
 
 
 def GateByRam(_castle, _craterVoxels, _blowSeconds, _rate):
@@ -563,28 +786,25 @@ SCHEDULES = {
 }
 
 
-def ShotsToOpen(_reload, _fixed=None):
-  """Shots one engine needs, unrepaired: the three-minute target at every reload, or a fixed count."""
-  return _fixed if _fixed is not None else max(1, round(BREACH_TARGET_SECONDS / _reload))
+def ShotsToOpen(_reload):
+  """Shots one engine needs, unrepaired: the three-minute target holds at every reload."""
+  return max(1, round(BREACH_TARGET_SECONDS / _reload))
 
 
-def Bombard(_reload, _schedule, _rate, _lock=REPAIR_LOCK_SECONDS, _share=None, _fixed=None):
+def Bombard(_reload, _schedule, _rate):
   """The expected breach: (seconds unrepaired, seconds repaired, shots repaired, m³ repaired).
 
   Landings come every gap seconds and each removes `together` craters of OPEN_VOLUME_M3 / shots.
-  After each landing, repair is locked for _lock seconds and then restores _rate m³ a second until
-  the next one; with _share it never restores more than that share of each landing. The section
-  opens on the landing that brings the net removed volume to OPEN_VOLUME_M3. This is the review's
-  working for F-03, c / (c - r), with the lock and a per-section rate. It counts landings as a real
-  number, which averages over where in its last shot a section opens; one siege moves in whole
-  shots."""
-  shots = ShotsToOpen(_reload, _fixed)
+  After each landing, repair is locked for ten seconds and then restores _rate m³ a second until
+  the next one. The section opens on the landing that brings the net removed volume to OPEN_VOLUME_M3.
+  This is the review's working for F-03, c / (c - r), with the lock and a per-section rate. It counts
+  landings as a real number, which averages over where in its last shot a section opens; one siege
+  moves in whole shots."""
+  shots = ShotsToOpen(_reload)
   together, spacing = SCHEDULES[_schedule]
   gap = _reload * spacing
   hit = together * OPEN_VOLUME_M3 / shots
-  repair = _rate * max(0.0, gap - _lock)
-  if _share is not None:
-    repair = min(repair, _share * hit)
+  repair = _rate * max(0.0, gap - REPAIR_LOCK_SECONDS)
   landings0 = OPEN_VOLUME_M3 / hit
   if repair >= hit:
     return landings0 * gap, math.inf, math.inf, math.inf
@@ -592,9 +812,17 @@ def Bombard(_reload, _schedule, _rate, _lock=REPAIR_LOCK_SECONDS, _share=None, _
   return landings0 * gap, landings * gap, landings * together, (landings - 1) * repair
 
 
-def Multiplier(_reload, _schedule, _rate, _lock=REPAIR_LOCK_SECONDS, _share=None, _fixed=None):
-  unrepaired, repaired, _, _ = Bombard(_reload, _schedule, _rate, _lock, _share, _fixed)
+def Multiplier(_reload, _schedule, _rate):
+  unrepaired, repaired, _, _ = Bombard(_reload, _schedule, _rate)
   return repaired / unrepaired
+
+
+def WholeShots(_reload, _rate):
+  """One engine's multiplier when the section opens on a whole shot: the expected count rounded up."""
+  _, _, landings, _ = Bombard(_reload, "one", _rate)
+  if landings == math.inf:
+    return math.inf
+  return math.ceil(landings - 1e-9) / ShotsToOpen(_reload)
 
 
 def RateFor(_multiplier, _reload, _schedule="one"):
@@ -609,20 +837,16 @@ def RateFor(_multiplier, _reload, _schedule="one"):
   return b
 
 
-def RateWindow(_reload, _schedule, _lock=REPAIR_LOCK_SECONDS, _share=None, _fixed=None):
+def RateWindow(_reload, _schedule="one"):
   """The repair rates (m³/s per section) that give a multiplier inside REPAIR_BAND, or None."""
   low, high = REPAIR_BAND
   top = 20.0
-
-  def M(_rate):
-    return Multiplier(_reload, _schedule, _rate, _lock, _share, _fixed)
-
-  if M(top) < low:
+  if Multiplier(_reload, _schedule, top) < low:
     return None
   a, b = 0.0, top
   for _ in range(50):
     mid = (a + b) / 2
-    if M(mid) >= low:
+    if Multiplier(_reload, _schedule, mid) >= low:
       b = mid
     else:
       a = mid
@@ -630,7 +854,7 @@ def RateWindow(_reload, _schedule, _lock=REPAIR_LOCK_SECONDS, _share=None, _fixe
   a, b = 0.0, top
   for _ in range(50):
     mid = (a + b) / 2
-    if M(mid) <= high:
+    if Multiplier(_reload, _schedule, mid) <= high:
       a = mid
     else:
       b = mid
@@ -646,16 +870,13 @@ def Intersect(_windows):
   return (low, high) if low <= high else None
 
 
-def WorksFrom(_schedules, _lock=REPAIR_LOCK_SECONDS, _share=None, _fixed=None):
-  """The shortest reload R for which one rate serves every reload from R to 30 s, for all the given
-  schedules at once, with that rate window; None if not even 30 s alone works."""
-  windows = {}
-  for reload in RELOAD_RANGE:
-    for schedule in _schedules:
-      windows[(reload, schedule)] = RateWindow(reload, schedule, _lock, _share, _fixed)
+def WorksFrom():
+  """The shortest reload R for which one rate gives one engine 1.3-2x at every reload from R to 30 s, with that
+  rate window; None if not even 30 s alone works."""
+  windows = {reload: RateWindow(reload) for reload in RELOAD_RANGE}
   best = None
   for start in reversed(RELOAD_RANGE):
-    joint = Intersect([windows[(r, s)] for r in RELOAD_RANGE if r >= start for s in _schedules])
+    joint = Intersect([windows[r] for r in RELOAD_RANGE if r >= start])
     if joint is None:
       break
     best = (start, joint)
@@ -779,23 +1000,52 @@ def Window(_window):
   return f"{_window[0]:.3f}–{_window[1]:.3f}"
 
 
+def About(_seconds, _target=BREACH_TARGET_SECONDS):
+  return abs(_seconds - _target) <= ABOUT * _target
+
+
+def Mark(_passed):
+  return "PASS" if _passed else "FAIL"
+
+
 # ── The test ────────────────────────────────────────────────────────────────────────────────────
 
 
 def PrintInputs(_castle, _rate):
-  print("== Templates read from GameData/Server/Templates ==")
+  print("== Templates read from GameData/Server/Templates, materials from GameData/Server/Palette.json ==")
   rows = []
   for key, facts in _castle["templates"].items():
     width, height, depth = facts["size"]
     critical = f"{facts['criticalName']}: {facts['critical']}"
-    rows.append([key, facts["name"], f"{width} x {height} x {depth}", facts["stone"], facts["timber"], critical])
-  print(Table(["Id", "Template", "W x H x D (m)", "Stone m³", "Timber m³", "Critical part: voxels"], rows))
+    materials = ", ".join(f"{name} {count}" for name, count in sorted(facts["materials"].items()))
+    widest = WidestSupport(facts)
+    support = ", ".join(f"{kind} {widest[kind]}" for kind in ("stone", "timber") if kind in widest)
+    rows.append([key, facts["name"], f"{width} x {height} x {depth}", facts["stone"], facts["timber"], critical,
+                 materials, support])
+  print(Table(["Id", "Template", "W x H x D (m)", "Stone m³", "Timber m³", "Critical part: voxels",
+               "Palette materials (index): voxels", "Widest support distance (m)"], rows))
+  widest = {key: WidestSupport(facts) for key, facts in _castle["templates"].items()}
+  stoneWidest = max(support.get("stone", 0) for support in widest.values())
+  timber = ", ".join(f"{key} {support['timber']} m" for key, support in widest.items() if support.get("timber"))
+  print(f"Every template's stone stands at the Decided stone span of {STONE_SPAN} m: "
+        f"{'yes' if stoneWidest <= STONE_SPAN else 'no'} (the widest is {stoneWidest} m).")
+  print("Masonry is stone like any other: craters from the stone column, rubble that yields stone.")
+  print(f"Timber spans furthest. The timber span each template needs to stand whole: {timber}.")
+  print()
+  print("== Values Decided by the owner on 2026-10-31 ==")
+  decided = [
+    ("Stone span", f"{STONE_SPAN} m; T2's floors and roof are timber"),
+    ("Masonry (palette 6)", "the package's \"dressed stone\": stone laid by a template, under the ordinary "
+                            "stone rules"),
+    ("Repair's pass mark", "one engine: repair adds 1.3–2x to the time to open a section, at the Proposed reload"),
+    ("Repair lock", f"{REPAIR_LOCK_SECONDS:.0f} s after each hit; two engines alternating keep a section locked"),
+  ]
+  print(Table(["Value", "Decided"], decided))
   print()
   print("== Values this test chose (Proposed) ==")
   platform = _castle["templates"]["T4"]["size"][1] - 1
   squadRate = SQUAD_ON_FOOT * LABORER_EARTH_M3_PER_SECOND * SAPPER_FACTOR
   shots = ShotsToOpen(RELOAD_SECONDS)
-  length, width, depth = TRENCH_M
   proposed = [
     ("Archers' range on the level", f"{ARCHER_RANGE_METRES:.0f} m, six bands of {BAND_METRES:.0f} m"),
     ("Elevation", f"towers and gatehouse fire from {platform} m, the keep from 16 m: two steps each"),
@@ -805,20 +1055,38 @@ def PrintInputs(_castle, _rate):
     ("Trebuchet reload", f"{RELOAD_SECONDS:.0f} s, so {shots} shots open a standard section in "
                          f"{BREACH_TARGET_SECONDS:.0f} s"),
     ("Volume to open a section", f"{OPEN_VOLUME_M3:.0f} m³ net: 5 m x 2 m through the wall at its base"),
-    ("Stone span", f"{STONE_SPAN} voxels"),
     ("Repair rate", f"{_rate} m³/s a section ({_rate * 60:.1f} m³ a minute): one engine at {RELOAD_SECONDS:.0f} s "
                     f"then takes {REPAIR_MULTIPLIER}x as long"),
     ("Ram", f"a blow every {RAM_BLOW_SECONDS:.0f} s; 1 voxel of stone a blow, bottom metre only; "
             f"{RAM_TIMBER_CRATER} voxels of timber"),
-    ("Very large crater (trebuchet, timber)", "a voxel and its six neighbors"),
+    ("Very large crater (trebuchet, timber)", "a voxel and its six neighbors, of timber only"),
     ("Gate threshold", f"the gate works while at least {GATE_KEEPS:.0%} of its voxels stand"),
     ("Sappers", f"a laborer digs earth at {LABORER_EARTH_M3_PER_SECOND} m³/s, so six sappers dig {squadRate:.1f} m³/s"),
-    ("Trench to undermine", f"{length} m x {width} m x {depth} m along the section's foot"),
+    ("Standard foundation", f"{FOUNDATION_METRES} m deep: on rock under thin soil, on earth over deep earth"),
     ("Collapse warning", f"{WARNING_SECONDS_PER_METRE:.0f} s per metre of the falling piece's height"),
     ("Ground", "1 m of soil over common rock, except deep earth under the weak section"),
     ("Camp", f"{CAMP_SOUTH_METRES:.0f} m south of the castle"),
+    ("\"About\" a target time", f"within {ABOUT:.0%} of it; \"about half\" is "
+                                 f"{SHOT_PRICE_BAND[0]}–{SHOT_PRICE_BAND[1]}"),
   ]
   print(Table(["Value", "Proposed"], proposed))
+  print()
+  print("== Values the Proposed fixes change ==")
+  fixes = [
+    ("(a) Trebuchet range", f"{TREBUCHET_MIN_METRES:.0f}–{TREBUCHET_MAX_METRES:.0f} m (Hud.md placeholder)",
+     f"{TREBUCHET_MIN_METRES:.0f}–{FIX_TREBUCHET_MAX_METRES:.0f} m"),
+    ("(a) Range guard", "engine range < tower reach + keep-to-curtain distance",
+     "no stand outside every garrison's reach is in engine range of the great tower"),
+    ("(b) T5's gate", "the front row of its passage, flush with the outer face",
+     "the inner end of its passage (a template change, proposed only)"),
+    ("(b) Trebuchet's descent", "not stated", f"{DESCENT_DEGREES:.0f} degrees or steeper"),
+    ("(c) Targets", "none for undermining or a ram at a wall's base",
+     f"each opens a standard section in about {BREACH_TARGET_SECONDS:.0f} s, unopposed"),
+    ("(c) Ram", f"a blow every {RAM_BLOW_SECONDS:.0f} s", f"a blow every {FIX_RAM_BLOW_SECONDS:.0f} s"),
+    ("(c) Standard foundation on deep earth", f"{FOUNDATION_METRES} m", f"{FIX_DEEP_EARTH_FOUNDATION_METRES} m"),
+    ("(d) A shot's stone", f"{SHOT_STONE_M3:.0f} m³ (Hud.md placeholder)", f"{FIX_SHOT_STONE_M3} m³"),
+  ]
+  print(Table(["Value", "As the documents stand", "Proposed fix"], fixes))
   print()
 
 
@@ -841,7 +1109,11 @@ def PrintPlan(_castle):
   print()
 
 
-def PrintRanges(_castle, _stands):
+def CoveringArea(_stands, _maxRange):
+  return sum(1 for s in _stands if s[2] > 0 and CoversGreatTower(s, _maxRange))
+
+
+def PrintRanges(_castle, _stands, _variants):
   """F-01: can a trebuchet outside every garrison's reach hit the great tower?"""
   size = _castle["size"]
   weak = _castle["weak"]
@@ -898,12 +1170,10 @@ def PrintRanges(_castle, _stands):
   print(Table(["Archer range (m)", "Garrison reach (m)", "Stands covering the great tower (m²)"], rows))
   print()
   rows = []
-  for sides in (6, 7, 8, 9, 10, 11, 12):
-    other = BuildCastle(sides)
-    otherStands = ScanStands(other)
-    area = sum(1 for s in otherStands if s[2] > 0 and CoversGreatTower(s))
+  for sides, (other, otherStands) in _variants.items():
     otherOuter, _ = KeepToCurtain(other)
     guard = "holds" if TREBUCHET_MAX_METRES < reach + otherOuter else "violated"
+    area = CoveringArea(otherStands, TREBUCHET_MAX_METRES)
     rows.append([sides, f"{other['size']} m", f"{otherOuter:.0f}", guard, area, len(other["sections"]) * 96])
   print(Table(["Sections a side", "Castle", "Keep to curtain (m)", "Guard", "Stands covering the great tower (m²)",
                "Curtain walls (m³)"], rows))
@@ -913,11 +1183,15 @@ def PrintRanges(_castle, _stands):
   rows = []
   for garrison in _castle["garrisons"]:
     rect = garrison["rect"]
-    candidates = [s for s in safe if RectFarthest(rect, s[0], s[1]) >= TREBUCHET_MIN_METRES
-                  and RectDistance(rect, s[0], s[1]) <= TREBUCHET_MAX_METRES]
-    best = min((RectDistance(rect, s[0], s[1]) for s in candidates), default=None)
-    rows.append([garrison["id"], f"{len(candidates)} m²", "—" if best is None else f"{best:.1f}"])
-  print(Table(["Target", "Safe stands in range", "Closest (m)"], rows))
+    cells = []
+    for maxRange in (TREBUCHET_MAX_METRES, FIX_TREBUCHET_MAX_METRES):
+      candidates = [s for s in safe if RectFarthest(rect, s[0], s[1]) >= TREBUCHET_MIN_METRES
+                    and RectDistance(rect, s[0], s[1]) <= maxRange]
+      cells.append(f"{len(candidates)} m²")
+    best = min((RectDistance(rect, s[0], s[1]) for s in safe), default=None)
+    rows.append([garrison["id"]] + cells + ["—" if best is None else f"{best:.1f}"])
+  print(Table(["Target", f"Safe stands in range at {TREBUCHET_MAX_METRES:.0f} m",
+               f"At {FIX_TREBUCHET_MAX_METRES:.0f} m (fix a)", "Closest (m)"], rows))
   print()
   print("Range map, 3 m x 6 m a character, north up: # castle, K great tower, ~ earthworks, C camp,")
   print("o inside a garrison's reach, * outside every reach with the great tower in trebuchet range,")
@@ -946,7 +1220,7 @@ def PrintSections(_castle, _stands):
     standoffs = [math.hypot(s[0] - fx, s[1] - fy) for s in safe]
     standoff = min((d for d in standoffs if TREBUCHET_MIN_METRES <= d <= TREBUCHET_MAX_METRES), default=None)
     toKeep = RectDistance(_castle["keepRect"], *section["inner"])
-    facts[section["id"]] = {"foot": foot, "mouth": mouth, "toKeep": toKeep}
+    facts[section["id"]] = {"foot": foot, "mouth": mouth, "toKeep": toKeep, "standoff": standoff}
     mark = " (nearest)" if section is nearest else " (weak)" if section is weak else ""
     rows.append([
       section["id"] + mark,
@@ -973,33 +1247,38 @@ def PrintSections(_castle, _stands):
   print(f"Every stand that covers the great tower lies within {farthest:.0f} m of the castle's outer faces, inside the")
   print(f"sally's Proposed leash of {SALLY_LEASH_METRES:.0f} m; so does every closest stand in the table above.")
   print()
-  return nearest, facts
+  return nearest, facts, gateStand
 
 
 def PrintMechanics(_castle, _rate):
   mechanics = BreachMechanics(_castle)
   treb, ram, sappers = mechanics["trebuchet"], mechanics["ram"], mechanics["sappers"]
-  print(f"== Breach mechanics on T3, from ADR-004's support rule with a stone span of {STONE_SPAN} voxels ==")
+  print(f"== Breach mechanics on T3, from ADR-004's support rule with the Decided stone span of {STONE_SPAN} m ==")
+  print("T3 is masonry (palette 6), which takes the ordinary stone rules: what falls is stone rubble, which clears")
+  print(f"for stone at {RUBBLE_STONE_SHARE:.0%} of its volume.")
   print(f"Trebuchet: a hole of {treb['removed']} m³ ({OPEN_HOLE[1] - OPEN_HOLE[0]} m x {OPEN_HOLE[2]} m through 2 m) "
         f"at the base is a route ({'yes' if treb['route'] else 'no'}); {treb['fallen']} m³ above it then falls.")
   print(f"Ram: {ram['blows']} blows cut a slot along the bottom metre; the stone above it falls in pieces, "
         f"{ram['fallen']} m³ in all,")
   print(f"  leaving a gap {ram['width']} m wide over the rubble, the last piece after a {ram['warning']:.0f} s "
         f"warning. Route: {'yes' if ram['route'] else 'no'}.")
-  print(f"Sappers: a trench of {sappers['trench']} m³ at {sappers['squadRate']:.1f} m³/s for a squad takes "
-        f"{sappers['dig']:.0f} s; {sappers['fallen']} m³ falls,")
-  print(f"  {sappers['width']} m of the section, after a {sappers['warning']:.0f} s warning. The ends within "
-        f"{STONE_SPAN} m of sound sections stay up. Route: {'yes' if sappers['route'] else 'no'}.")
-  gate = GateByTrebuchet(_castle, _rate)
+  print(f"Sappers: under the slump rule, a squad digs {sappers['dig']} m³ ({sappers['dig'] // SECTION_METRES} m³ a "
+        f"metre) before the ground has gone from under")
+  print(f"  {_castle['weak']['id']}'s {sappers['foundation']} m foundation along its {SECTION_METRES} m; at "
+        f"{sappers['squadRate']:.1f} m³/s that takes {sappers['digSeconds']:.0f} s. {sappers['fallen']} m³ falls, "
+        f"{sappers['width']} m of the section,")
+  print(f"  after a warning of {sappers['warning']:.0f} s. The ends within {STONE_SPAN} m of sound sections stay up. "
+        f"Route: {'yes' if sappers['route'] else 'no'}.")
+  gate = GateByLob(_castle["templates"]["T5"]["voxels"], DESCENT_DEGREES, _rate)
   print(f"Gate by trebuchet: {gate['shots']} very large craters take {gate['timber']} of the gate's {gate['gate']} "
-        f"timber voxels and {gate['stone']} m³ of stone;")
-  print(f"  the gate works while {gate['keeps']} stand, so it is broken after {gate['seconds']:.0f} s, "
+        "timber voxels, and no stone;")
+  print(f"  the gate works while {gate['keeps']} stand, so it is broken after {gate['shots'] * RELOAD_SECONDS:.0f} s, "
         "repair between the shots included.")
   fast = GateByRam(_castle, RAM_TIMBER_CRATER, RAM_BLOW_SECONDS, _rate)
   print(f"Gate by ram, checked against the craters: a large crater of {RAM_TIMBER_CRATER} voxels a blow, every "
         f"{RAM_BLOW_SECONDS:.0f} s, breaks the gate")
   print(f"  in {fast[0]} blows, {fast[1]:.0f} s, against the Decided target of {GATE_TARGET_SECONDS:.0f} s.")
-  for cadence in (30.0, 60.0, 120.0):
+  for cadence in (FIX_RAM_BLOW_SECONDS, 30.0, 60.0, 120.0):
     slow = GateByRam(_castle, RAM_TIMBER_CRATER, cadence, _rate)
     result = "repair keeps up, the gate never breaks." if slow is None else f"{slow[0]} blows, {slow[1]:.0f} s."
     print(f"  A blow every {cadence:.0f} s: {result}")
@@ -1007,30 +1286,27 @@ def PrintMechanics(_castle, _rate):
         "only if the passage attack")
   print("  keeps the ram off the gate most of the time.")
   print()
-  needs = ", ".join(f"{key} {SpanToStand(_castle['templates'][key])}" for key in ("T2", "T3", "T4", "T5"))
-  print(f"The stone span decides what falls. The span each template needs to stand whole: {needs}.")
-  print("At each span, on T3 sections end to end:")
+  print("At each span, on T3 sections end to end (the Decided span, and 4 m as a sensitivity only):")
   rows = []
-  for span in (2, 3, 4):
+  for span in (STONE_SPAN, 4):
     result = SpanSensitivity(_castle, span)
     ram = "no route" if result["ramBlows"] is None else f"{result['ramBlows']} blows, {result['ramSeconds']:.0f} s"
     length, fell = result["undercut"] if result["undercut"] else (None, 0)
     undercut = "never" if length is None else f"{length} m ({fell} m³ falls)"
     within = "—" if length is None else ("yes" if length <= SECTION_METRES else "no: it reaches into the neighbours")
-    rows.append([span, result["trebuchetFallen"], ram, undercut, within])
+    label = f"{span} (Decided)" if span == STONE_SPAN else f"{span} (sensitivity)"
+    rows.append([label, result["trebuchetFallen"], ram, undercut, within])
   print(Table(["Span (voxels)", "Falls above the trebuchet's 5 m hole (m³)", "Ram at the base, to a route",
                "Shortest undercut that opens a route", "Within one 8 m section?"], rows))
   print()
   return mechanics, gate
 
 
-def PrintRoutes(_castle, _rate, _mechanics, _gate, _nearest, _facts, _title="Route table"):
-  print(f"== {_title} ==")
+def BuildRoutes(_castle, _rate, _mechanics, _nearest, _facts, _fixed):
+  """Every way in: as the documents stand, or with the Proposed fixes (a) to (d)."""
   weak = _castle["weak"]
-  treb, ram, sappers = _mechanics["trebuchet"], _mechanics["ram"], _mechanics["sappers"]
-  time0, timeR, shotsR, repairedR = Bombard(RELOAD_SECONDS, "one", _rate)
-  shots0 = ShotsToOpen(RELOAD_SECONDS)
-  rebuild = treb["removed"] + treb["fallen"]
+  treb, ram = _mechanics["trebuchet"], _mechanics["ram"]
+  price = FIX_SHOT_STONE_M3 if _fixed else SHOT_STONE_M3
   routes = []
 
   def AddRoute(_name, _open, _openRepaired, _stone, _stoneRepaired, _defender, _note, _hurt, _era, _reasons):
@@ -1039,29 +1315,46 @@ def PrintRoutes(_castle, _rate, _mechanics, _gate, _nearest, _facts, _title="Rou
                    "reasons": _reasons})
 
   AddRoute("Gate · ram", GATE_TARGET_SECONDS, GATE_TARGET_SECONDS, 0, 0, 0, "+7 timber", ["GH (passage)", "sally"],
-           "Hall", "it is the gate; no stone; the ram's roof stops tower arrows; blows keep repair locked")
-  gateStone = _gate["shots"] * SHOT_STONE_M3
-  AddRoute("Gate · trebuchet", _gate["seconds"], _gate["seconds"], gateStone, gateStone, _gate["stone"],
-           f"+{_gate['timber']} timber", ["sally"], "Citadel",
-           "it is the gate; two shots from outside every reach; breaking the gate puts out the gatehouse's garrison")
+           "Hall", "it is the gate; no stone; the ram's roof stops tower arrows")
+  t5 = _castle["templates"]["T5"]["voxels"]
+  if not _fixed:
+    gate = GateByLob(t5, DESCENT_DEGREES, _rate)
+    seconds = gate["shots"] * RELOAD_SECONDS
+    AddRoute("Gate · trebuchet", seconds, seconds, gate["shots"] * price, gate["shots"] * price, 0,
+             f"+{gate['timber']} timber", ["sally"], "Citadel",
+             "it is the gate; two shots from outside every reach; breaking the gate puts out the gatehouse's garrison")
+  else:
+    gate = GateByLob(RecessedGate(t5), DESCENT_DEGREES, _rate, _notch=True)
+    plain, repaired = StoneShots(gate["notch"], _rate)
+    AddRoute("Gate · trebuchet (notch, then gate)", (plain + gate["shots"]) * RELOAD_SECONDS,
+             (repaired + gate["shots"]) * RELOAD_SECONDS, (plain + gate["shots"]) * price,
+             (repaired + gate["shots"]) * price, gate["notch"], f"+{gate['timber']} timber", ["sally"], "Citadel",
+             "it is the gate, but the arch over the passage must be cut back first")
+  time0, timeR, shotsR, repairedR = Bombard(RELOAD_SECONDS, "one", _rate)
+  shots0 = ShotsToOpen(RELOAD_SECONDS)
+  rebuild = treb["removed"] + treb["fallen"]
   note = f"{repairedR:.0f} repaired + {rebuild} rebuilt"
-  trebStone = (shots0 * SHOT_STONE_M3, shotsR * SHOT_STONE_M3)
+  trebStone = (shots0 * price, shotsR * price)
   AddRoute(f"{_nearest['id']} · trebuchet (nearest)", time0, timeR, *trebStone, rebuild + repairedR, note, ["sally"],
            "Citadel", "nearest the camp; stand-off outside every reach")
   AddRoute(f"{weak['id']} · trebuchet (weak)", time0, timeR, *trebStone, rebuild + repairedR, note, ["sally"],
            "Citadel", "on earth, no ditch, far from towers; stand-off outside every reach")
   AddRoute("Other sections · trebuchet", time0, timeR, *trebStone, rebuild + repairedR, note, ["sally"], "Citadel",
            "the same in every scored column as the two above; the storm leg differs")
-  undermine = sappers["dig"] + sappers["warning"] if sappers["route"] else math.inf
-  if sappers["route"]:
-    why = "the only section on earth; no ditch to cross; no stone; the most for the defender to rebuild"
-  else:
-    why = f"never opens: every voxel of an {SECTION_METRES} m undercut is within the span of a sound neighbor"
-  AddRoute(f"{weak['id']} · sappers (undermining)", undermine, undermine, 0, 0, sappers["fallen"],
+  sappers = Undermine(_castle, FIX_DEEP_EARTH_FOUNDATION_METRES if _fixed else FOUNDATION_METRES)
+  why = "the only section on earth; no ditch to cross; no stone; the most for the defender to rebuild"
+  AddRoute(f"{weak['id']} · sappers (undermining)", sappers["seconds"], sappers["seconds"], 0, 0, sappers["fallen"],
            "+ the ground under it", _facts[weak["id"]]["foot"] + ["sally"], "Keep", why)
-  ramTime = ram["blows"] * RAM_BLOW_SECONDS + ram["warning"] if ram["route"] else math.inf
-  AddRoute(f"{weak['id']} · ram at the base", ramTime, ramTime, 0, 0, ram["blows"] + ram["fallen"], "", ["sally"],
-           "Hall", "no ditch, so the ram can reach the foot; arrow-proof; blows keep repair locked")
+  cadence = FIX_RAM_BLOW_SECONDS if _fixed else RAM_BLOW_SECONDS
+  plain, repaired, _, restored = RamOnStone(ram, cadence, _rate)
+  locked = "blows keep repair locked" if cadence <= REPAIR_LOCK_SECONDS else "repair works between its blows"
+  AddRoute(f"{weak['id']} · ram at the base", plain, repaired, 0, 0, ram["blows"] + ram["fallen"] + restored, "",
+           ["sally"], "Hall", f"no ditch, so the ram can reach the foot; arrow-proof; {locked}")
+  return routes, sappers
+
+
+def PrintRoutes(_title, _routes, _rate, _fixed):
+  print(f"== {_title} ==")
 
   def Score(_route):
     return {
@@ -1073,18 +1366,18 @@ def PrintRoutes(_castle, _rate, _mechanics, _gate, _nearest, _facts, _title="Rou
       "Era": ERA_ORDER[_route["era"]],
     }
 
-  scores = [Score(route) for route in routes]
+  scores = [Score(route) for route in _routes]
   columns = list(scores[0].keys())
   best = {column: min(score[column] for score in scores) for column in columns}
-  for route, score in zip(routes, scores):
+  for route, score in zip(_routes, scores):
     route["wins"] = [column for column in columns if score[column] == best[column]]
     route["dominatedBy"] = [
-      other["name"] for other, otherScore in zip(routes, scores)
+      other["name"] for other, otherScore in zip(_routes, scores)
       if otherScore is not score
       and all(otherScore[c] <= score[c] for c in columns) and any(otherScore[c] < score[c] for c in columns)
     ]
   rows = []
-  for route in routes:
+  for route in _routes:
     defender = f"{route['defender']:.0f}" + (f" ({route['note']})" if route["note"] else "")
     won = f"{len(route['wins'])}/{len(columns)}" + (" DOMINANT" if len(route["wins"]) == len(columns) else "")
     rows.append([
@@ -1103,23 +1396,21 @@ def PrintRoutes(_castle, _rate, _mechanics, _gate, _nearest, _facts, _title="Rou
                "Defender stone m³", "Defenders who can hurt the breakers", "Era (breaker)", "Columns won", "Dominated",
                "Why pick it"], rows))
   print()
-  dominant = [route["name"] for route in routes if len(route["wins"]) == len(columns)]
+  dominant = [route["name"] for route in _routes if len(route["wins"]) == len(columns)]
   print("Dominant route: " + (", ".join(dominant) if dominant else "none"))
-  for route in routes:
+  for route in _routes:
     print(f"  {route['name']}: wins {', '.join(route['wins']) or 'nothing'}")
-  print("Not dominated by any other route: " + ", ".join(r["name"] for r in routes if not r["dominatedBy"]))
-  for route in routes:
+  print("Not dominated by any other route: " + ", ".join(r["name"] for r in _routes if not r["dominatedBy"]))
+  for route in _routes:
     if route["dominatedBy"]:
       print(f"Dominated: {route['name']}, by {', '.join(route['dominatedBy'])}")
   print("Times and stone with repair are expected values (see the repair model); one siege moves in whole shots.")
-  print(f"Repair at {_rate} m³/s a section; one trebuchet at a {RELOAD_SECONDS:.0f} s reload; "
-        f"{SHOT_STONE_M3:.0f} m³ a shot.")
-  print(f"Shot price check: a trebuchet breach costs the attacker {shots0 * SHOT_STONE_M3:.0f} m³ against {rebuild} m³ "
-        "to rebuild, a ratio of")
-  print(f"  {shots0 * SHOT_STONE_M3 / rebuild:.2f}; the Decided target is about 0.5, which at {shots0} shots means "
-        f"{0.5 * rebuild / shots0:.1f} m³ a shot.")
+  price = FIX_SHOT_STONE_M3 if _fixed else SHOT_STONE_M3
+  cadence = FIX_RAM_BLOW_SECONDS if _fixed else RAM_BLOW_SECONDS
+  print(f"Repair at {_rate} m³/s a section; one trebuchet at a {RELOAD_SECONDS:.0f} s reload; {price} m³ a shot; "
+        f"a ram blow every {cadence:.0f} s.")
   print()
-  return routes, dominant
+  return dominant
 
 
 def PrintStorm(_castle, _mechanics, _nearest, _facts):
@@ -1155,105 +1446,278 @@ def PrintStorm(_castle, _mechanics, _nearest, _facts):
   print()
 
 
-def Summary(_label, _schedules, _lock=REPAIR_LOCK_SECONDS, _share=None, _fixed=None):
-  whole = Intersect([RateWindow(r, s, _lock, _share, _fixed) for r in RELOAD_RANGE for s in _schedules])
-  if whole is not None:
-    return [_label, "yes", Window(whole), "6 s"]
-  tail = WorksFrom(_schedules, _lock, _share, _fixed)
-  if tail is None:
-    return [_label, "no", "none", "no reload"]
-  return [_label, "no", Window(tail[1]), f"{tail[0]} s"]
-
-
 def PrintRepair(_rate):
-  """F-03: does any per-section repair rate give 1.3-2x across the plausible reloads?"""
+  """F-03, restated by the owner: with one engine, repair adds 1.3-2x to the time to open a section."""
   print("== Repair model (F-03) ==")
   print(f"A section opens at {OPEN_VOLUME_M3:.0f} m³ net. The three-minute target holds at every reload, so one engine")
   print(f"needs round(180 / reload) shots and each removes {OPEN_VOLUME_M3:.0f} m³ / shots. Repair is locked for "
         f"{REPAIR_LOCK_SECONDS:.0f} s after every hit.")
-  print("A multiplier is the breach time with repair over the time without, for the same engines.")
+  print("A multiplier is the breach time with repair over the time without, for the same engines. The pass mark")
+  print("is for one engine (owner, 2026-10-31); two engines are shown as the behaviour the lock intends.")
   print(f"Repair: {_rate} m³/s.")
   print()
-  reloads = (6, 8, 10, 12, 15, 20, 25, 30)
   rows = []
-  for reload in reloads:
+  for reload in SWEEP_RELOADS:
     shots = ShotsToOpen(reload)
-    cells = [reload, shots, f"{OPEN_VOLUME_M3 / shots:.2f}", f"{Bombard(reload, 'one', 0.0)[0]:.0f}"]
-    for schedule in SCHEDULES:
+    one = Multiplier(reload, "one", _rate)
+    whole = WholeShots(reload, _rate)
+    inBand = REPAIR_BAND[0] <= one <= REPAIR_BAND[1]
+    cells = [reload, shots, f"{OPEN_VOLUME_M3 / shots:.2f}", f"{Bombard(reload, 'one', 0.0)[0]:.0f}", f"{one:.2f}",
+             f"{whole:.2f}", "yes" if inBand else "no", Window(RateWindow(reload))]
+    for schedule in ("step", "offset"):
       m = Multiplier(reload, schedule, _rate)
       cells.append("never" if m == math.inf else f"{m:.2f}")
     rows.append(cells)
-  print(Table(["Reload (s)", "Shots", "m³ a shot", "One engine, unrepaired (s)", "x one engine", "x two in step",
-               "x two offset"], rows))
+  print(Table(["Reload (s)", "Shots", "m³ a shot", "One engine, unrepaired (s)", "x one engine",
+               "x one engine, whole shots", "In 1.3–2x?", "Rates for 1.3–2x, one engine (m³/s)",
+               "x two in step (intended)", "x two offset (intended)"], rows))
   print()
-  print("Repair rates (m³/s per section) that give 1.3–2x:")
+  holds = [reload for reload in RELOAD_RANGE if REPAIR_BAND[0] <= Multiplier(reload, "one", _rate) <= REPAIR_BAND[1]]
+  dead = [reload for reload in RELOAD_RANGE if Multiplier(reload, "one", _rate) == 1.0]
+  locked = [reload for reload in RELOAD_RANGE if Multiplier(reload, "offset", _rate) == 1.0]
+  span = f"{holds[0]}–{holds[-1]} s" if holds and holds == list(range(holds[0], holds[-1] + 1)) else str(holds)
+  print(f"At {_rate} m³/s, one engine's multiplier is inside 1.3–2x at reloads of {span}.")
+  print(f"Repair does nothing for one engine at reloads of {dead[-1]} s or less: no landing leaves the section "
+        "unlocked.")
+  print(f"Two engines firing alternately keep repair locked out (x1.00) at every reload up to {locked[-1]} s.")
+  tail = WorksFrom()
+  print(f"One rate serves one engine at every reload from {tail[0]} s to 30 s: {Window(tail[1])} m³/s.")
+  print()
+  return (Multiplier(RELOAD_SECONDS, "one", _rate), WholeShots(RELOAD_SECONDS, _rate),
+          Multiplier(RELOAD_SECONDS, "step", _rate), Multiplier(RELOAD_SECONDS, "offset", _rate))
+
+
+def PrintFixRange(_variants, _facts):
+  """Fix (a): the trebuchet's range, and the guard restated as what it measures."""
+  print("== Proposed fix (a): the engine range guard ==")
+  print(f"The trebuchet's longest range becomes {FIX_TREBUCHET_MAX_METRES:.0f} m, and the guard reads: no stand "
+        "outside every garrison's reach")
+  print("is within an engine's range of the great tower, measured on the castle's plan.")
+  reach = ARCHER_RANGE_METRES + BAND_METRES * MAX_STEPS
   rows = []
-  for reload in reloads:
-    windows = [RateWindow(reload, schedule) for schedule in SCHEDULES]
-    rows.append([reload] + [Window(w) for w in windows] + [Window(Intersect(windows[:2])), Window(Intersect(windows))])
-  print(Table(["Reload (s)", "One engine", "Two in step", "Two offset", "One and two in step", "All three"], rows))
+  results = {}
+  for sides, (castle, stands) in _variants.items():
+    outer, _ = KeepToCurtain(castle)
+    formula = reach + outer
+    measured = min(s[3] for s in stands if s[2] > 0)
+    cusp = CuspBound(castle)
+    now = CoveringArea(stands, TREBUCHET_MAX_METRES)
+    fixed = CoveringArea(stands, FIX_TREBUCHET_MAX_METRES)
+    results[sides] = (formula, measured, cusp, now, fixed)
+    rows.append([sides, f"{castle['size']} m", f"{formula:.0f}", f"{cusp:.1f}", f"{measured:.1f}", now,
+                 "holds" if TREBUCHET_MAX_METRES < formula else "violated", fixed,
+                 "holds" if FIX_TREBUCHET_MAX_METRES < formula else "violated", "holds" if fixed == 0 else "violated"])
+  print(Table(["Sections a side", "Castle", "Formula: reach + keep to curtain (m)",
+               "Closed form: nearest meeting of two reaches (m)", "Measured: nearest stand outside reach (m)",
+               f"Covering m² at {TREBUCHET_MAX_METRES:.0f} m", f"Guard as written at {TREBUCHET_MAX_METRES:.0f} m",
+               f"Covering m² at {FIX_TREBUCHET_MAX_METRES:.0f} m",
+               f"Guard as written at {FIX_TREBUCHET_MAX_METRES:.0f} m",
+               f"Measured guard at {FIX_TREBUCHET_MAX_METRES:.0f} m"], rows))
+  siege = results[SIDE_SECTIONS]
+  castle, stands = _variants[SIDE_SECTIONS]
+  print(f"The Siege castle ({SIDE_SECTIONS} a side): no stand covers the great tower at "
+        f"{FIX_TREBUCHET_MAX_METRES:.0f} m, {siege[1] - FIX_TREBUCHET_MAX_METRES:.1f} m inside the measured bound.")
+  insufficient = [(r, CoveringArea(stands, r)) for r in range(math.ceil(siege[1]), math.ceil(siege[0]))]
+  insufficient = [(r, area) for r, area in insufficient if area > 0]
+  if insufficient:
+    (first, firstArea), (last, lastArea) = insufficient[0], insufficient[-1]
+    print(f"The formula is not sufficient: on the Siege castle it holds at {first}–{last} m, where "
+          f"{firstArea}–{lastArea} m² of stands cover the great tower.")
+  large = [sides for sides, r in results.items() if TREBUCHET_MAX_METRES < r[0] and r[3] > 0]
+  print("At 70 m it holds on castles of " + ", ".join(str(s) for s in large) + " sections a side, which leave stands "
+        "in range.")
+  worst = [(sides, r[4]) for sides, r in results.items() if r[4] > 0]
+  if worst:
+    print("At the fixed range, the measured guard still fails on castles of "
+          + ", ".join(f"{s} a side ({a} m²)" for s, a in worst) + ": a castle the Skirmish AI builds")
+    print("must add a tower to a long side, or keep its keep further in.")
+  sufficient = all(r[2] <= r[1] + 0.5 for r in results.values())
+  print(f"The closed form is no larger than the measured bound, within the 1 m grid, on every castle here: "
+        f"{'yes' if sufficient else 'no'}.")
+  farthest = max(fact["standoff"] for fact in _facts.values())
+  print(f"Every section still has a safe stand within {farthest:.0f} m of its face, inside the fixed range.")
   print()
-  header = ["Engines", "One rate for 6–30 s?", "Rate window (m³/s)", "Shortest reload a single rate serves, up to 30 s"]
-  print("As decided (ten-second lock, a fixed rate per section):")
-  decided = [
-    Summary("One engine", ["one"]),
-    Summary("Two in step", ["step"]),
-    Summary("Two offset", ["offset"]),
-    Summary("One, and two in step", ["one", "step"]),
-    Summary("One, and two either way", ["one", "step", "offset"]),
-  ]
-  print(Table(header, decided))
+  return siege[4] == 0 and siege[0] > FIX_TREBUCHET_MAX_METRES
+
+
+def PrintFixGate(_castle, _rate):
+  """Fix (b): the gate at the inner end of T5's passage."""
+  t5 = _castle["templates"]["T5"]["voxels"]
+  recessed = RecessedGate(t5)
+  gate = [voxel for voxel, (_, part) in t5.items() if part == "1"]
+  front = max(z for _, _, z in gate)
+  print("== Proposed fix (b): T5's gate at the inner end of its passage ==")
+  print(f"T5's gate is row z = {front} of 0–{front}, its front face, so nothing stands between it and a lobbed shot. "
+        "The fix moves its")
+  print(f"{len(gate)} timber voxels to row z = 0 and leaves the 3 m x 4 m passage open in front of it, under 5 m of "
+        "the gatehouse's stone.")
+  print(f"The template keeps {_castle['templates']['T5']['stone']} m³ of stone and "
+        f"{_castle['templates']['T5']['timber']} m³ of timber. Shots come along the passage, the attacker's best line.")
+  rows = []
+  for degrees in LOB_DEGREES:
+    cells = []
+    for voxels in (t5, recessed):
+      result = GateByLob(voxels, degrees, _rate)
+      if result is None:
+        cells.append("no shot reaches it")
+      elif result["broken"]:
+        cells.append(f"broken in {result['shots']} shots, {result['shots'] * RELOAD_SECONDS:.0f} s")
+      else:
+        shots = f"{result['shots']} shots take" if result["shots"] > 1 else "1 shot takes"
+        cells.append(f"stands: {shots} {result['timber']} voxels, and no later shot reaches it")
+    rows.append([degrees] + cells)
+  print(Table(["Descent (degrees)", "T5 as drawn", "T5 with the gate at the inner end"], rows))
+  smaller = []
+  for crater in (RAM_TIMBER_CRATER, 3, 2):
+    result = GateByRam(_castle, crater, RELOAD_SECONDS, _rate)
+    smaller.append(f"{crater} voxels, {result[0]} shots ({result[1]:.0f} s)" if result else f"{crater} voxels, never")
+  print("Tuning the crater alone does not do it. If the trebuchet's very large crater in timber were no larger than")
+  print("the ram's large one, each shot taking that many gate voxels, the gate as drawn would break at:")
+  print(f"  {'; '.join(smaller)}.")
+  steepest = SteepestReach(recessed)
+  print(f"The steepest descent at which any shot reaches the recessed gate: {steepest:.1f} degrees.")
+  notched = GateByLob(recessed, DESCENT_DEGREES, _rate, _notch=True)
+  plain, repaired = StoneShots(notched["notch"], _rate)
+  print(f"At the Proposed {DESCENT_DEGREES:.0f} degrees the trebuchet must first cut back the arch: "
+        f"{notched['notch']} m³ of stone, about {plain:.1f} shots at the section rate")
+  print(f"({repaired:.1f} with repair); then {notched['shots']} shots break the gate. Expected: "
+        f"{(plain + notched['shots']) * RELOAD_SECONDS:.0f} s unrepaired and "
+        f"{(repaired + notched['shots']) * RELOAD_SECONDS:.0f} s with repair,")
+  section0, sectionR, _, _ = Bombard(RELOAD_SECONDS, "one", _rate)
+  print(f"against {section0:.0f} s and {sectionR:.0f} s for a section. A ram must now enter the passage to reach "
+        "the gate, where the gatehouse's")
+  print("passage attack reaches it, as GameDescription.md (Buildings) describes.")
   print()
-  fixed = Summary("One engine, nine shots at every reload", ["one"], _fixed=9)
-  print("Variant with the crater fixed instead (nine shots at every reload, so the unrepaired time is 9 x reload):")
-  print(f"  one rate for 6–30 s: {fixed[1]}; a single rate serves from {fixed[3]}.")
+  return (steepest < DESCENT_DEGREES, notched, (plain + notched["shots"]) * RELOAD_SECONDS,
+          (repaired + notched["shots"]) * RELOAD_SECONDS)
+
+
+def PrintFixTargets(_castle, _mechanics):
+  """Fix (c): balance targets for undermining and for a ram at a wall's base, and the tuning that meets them."""
+  ram = _mechanics["ram"]
+  low, high = BREACH_TARGET_SECONDS * (1 - ABOUT), BREACH_TARGET_SECONDS * (1 + ABOUT)
+  print("== Proposed fix (c): targets for undermining and for a ram at a wall's base ==")
+  print(f"Target: each opens a standard section in about {BREACH_TARGET_SECONDS:.0f} s ({low:.0f}–{high:.0f} s), "
+        "unopposed and without repair, like one")
+  print(f"trebuchet; repair at most doubles that, at every repair rate from {REPAIR_RATES[0]:.2f} to "
+        f"{REPAIR_RATES[-1]:.2f} m³/s.")
+  print(f"The ram takes {ram['blows']} voxels from the bottom metre of {_castle['weak']['id']} before the stone above "
+        f"falls and a route opens, after a {ram['warning']:.0f} s warning.")
+  rows = []
+  ramPass = {}
+  ramOpen = {}
+  for cadence in (5, 8, 10, 12, 13, 14, 15, 16, 17, 20):
+    plain = RamOnStone(ram, cadence, REPAIR_RATES[0])[0]
+    repaired = [RamOnStone(ram, cadence, rate)[1] for rate in REPAIR_RATES]
+    worst = max(repaired) / plain
+    ramPass[cadence] = About(plain) and worst <= REPAIR_BAND[1]
+    ramOpen[cadence] = plain
+    rows.append([cadence, f"{plain:.0f}"] + [Seconds(t) for t in repaired]
+                + ["never opens" if worst == math.inf else f"{worst:.2f}", "yes" if ramPass[cadence] else "no"])
+  repairColumns = [f"With repair at {rate:.2f} m³/s (s)" for rate in REPAIR_RATES]
+  print(Table(["Ram blow every (s)", "Open, unrepaired (s)"] + repairColumns + ["Worst x", "Meets the target"], rows))
+  rows = []
+  sapPass = {}
+  sapOpen = {}
+  for depth in range(1, 7):
+    result = Undermine(_castle, depth)
+    sapPass[depth] = About(result["seconds"])
+    sapOpen[depth] = result["seconds"]
+    rows.append([depth, result["dig"], f"{result['digSeconds']:.0f}", f"{result['warning']:.0f}",
+                 Seconds(result["seconds"]), result["fallen"], result["foundationStone"],
+                 "yes" if sapPass[depth] else "no"])
+  print(Table(["Foundation on deep earth (m)", "Earth the sappers dig (m³)", "Digging (s)", "Warning (s)", "Open (s)",
+               "Stone that falls (m³)", "Foundation stone a section (m³)", "Meets the target"], rows))
+  base = Undermine(_castle, FOUNDATION_METRES)
+  rate = base["dig"] / (SQUAD_ON_FOOT * SAPPER_FACTOR * (BREACH_TARGET_SECONDS - base["warning"]))
+  print(f"Keeping the {FOUNDATION_METRES} m foundation instead, a laborer would have to dig earth at {rate:.3f} m³/s, "
+        f"{rate / LABORER_EARTH_M3_PER_SECOND:.0%} of the")
+  print("Proposed 0.1 m³/s that the tempo's quarrying already needs, against \"Earth: dug quickly\"")
+  print("(GameDescription.md, Materials).")
+  cadences = [c for c, ok in ramPass.items() if ok]
+  depths = [d for d, ok in sapPass.items() if ok]
+  print(f"Ram cadences that meet the target: {', '.join(f'{c} s' for c in cadences) or 'none'}. Foundations that meet "
+        f"it: {', '.join(f'{d} m' for d in depths) or 'none'}.")
+  nearestCadence = min(cadences, key=lambda c: abs(ramOpen[c] - BREACH_TARGET_SECONDS), default=None)
+  nearestDepth = min(depths, key=lambda d: abs(sapOpen[d] - BREACH_TARGET_SECONDS), default=None)
+  print(f"The passing values nearest {BREACH_TARGET_SECONDS:.0f} s: a blow every {nearestCadence} s and a "
+        f"{nearestDepth} m foundation. The smallest: {cadences[0]} s and {depths[0]} m.")
+  fixedRam = RamOnStone(ram, FIX_RAM_BLOW_SECONDS, REPAIR_RATES[1])
+  fixedSappers = Undermine(_castle, FIX_DEEP_EARTH_FOUNDATION_METRES)
+  print(f"Proposed: a blow every {FIX_RAM_BLOW_SECONDS:.0f} s ({fixedRam[0]:.0f} s, {fixedRam[1]:.0f} s with repair) "
+        f"and a {FIX_DEEP_EARTH_FOUNDATION_METRES} m foundation on deep earth ({fixedSappers['seconds']:.0f} s).")
   print()
-  options = [
-    ("Option A: no lock", 0.0, None),
-    ("Option A': a 3 s lock", 3.0, None),
-    ("Option B: no lock, and repair restores at most a third of each hit", 0.0, 1 / 3),
-  ]
-  for label, lock, share in options:
-    print(f"{label}:")
-    print(Table(header, [
-      Summary("One engine", ["one"], lock, share),
-      Summary("Two in step", ["step"], lock, share),
-      Summary("Two offset", ["offset"], lock, share),
-      Summary("One, and two either way", ["one", "step", "offset"], lock, share),
-    ]))
-    print()
-  print("Option B at a repair rate of 0.5 m³/s, multipliers:")
-  rows = [[reload] + [f"{Multiplier(reload, s, 0.5, 0.0, 1 / 3):.2f}" for s in SCHEDULES] for reload in (6, 10, 20, 30)]
-  print(Table(["Reload (s)", "x one engine", "x two in step", "x two offset"], rows))
+  passed = ramPass.get(int(FIX_RAM_BLOW_SECONDS), False) and sapPass.get(FIX_DEEP_EARTH_FOUNDATION_METRES, False)
+  return passed, fixedRam, fixedSappers
+
+
+def PrintFixPrice(_mechanics, _rate):
+  """Fix (d): the shot price that makes a breach cost the attacker about half the defender's rebuild."""
+  treb = _mechanics["trebuchet"]
+  rebuild = treb["removed"] + treb["fallen"]
+  rubble = RUBBLE_STONE_SHARE * treb["fallen"]
+  _, _, shotsR, repairedR = Bombard(RELOAD_SECONDS, "one", _rate)
+  shots0 = ShotsToOpen(RELOAD_SECONDS)
+  print("== Proposed fix (d): the shot price ==")
+  print(f"A breach is {shots0} shots unrepaired and {shotsR:.1f} with repair. The defender rebuilds {rebuild} m³ "
+        f"({treb['removed']} m³ of crater and {treb['fallen']} m³ that fell),")
+  print(f"and repairs {repairedR:.1f} m³ under fire. The {treb['fallen']} m³ that fell is stone rubble, which clears "
+        f"for {rubble:.1f} m³ of stone (net columns).")
+  rows = []
+  passed = {}
+  for price in (SHOT_STONE_M3, 3.0, 2.0, FIX_SHOT_STONE_M3, 1.0):
+    ratios = [
+      shots0 * price / rebuild,
+      shotsR * price / (rebuild + repairedR),
+      shots0 * price / (rebuild - rubble),
+      shotsR * price / (rebuild + repairedR - rubble),
+    ]
+    passed[price] = all(SHOT_PRICE_BAND[0] <= r <= SHOT_PRICE_BAND[1] for r in ratios[:2])
+    rows.append([price, f"{shots0 * price:.1f}", f"{shotsR * price:.1f}"] + [f"{r:.2f}" for r in ratios]
+                + ["yes" if passed[price] else "no"])
+  print(Table(["Shot (m³)", "Attacker, unrepaired (m³)", "Attacker, repaired (m³)", "Ratio", "Ratio, repaired",
+               "Ratio, net of rubble", "Ratio, net and repaired", f"About {SHOT_PRICE_TARGET} (first two)?"], rows))
+  exact = SHOT_PRICE_TARGET * rebuild / shots0
+  print(f"Exactly {SHOT_PRICE_TARGET} unrepaired needs {exact:.2f} m³ a shot; exactly {SHOT_PRICE_TARGET} with repair "
+        f"needs {SHOT_PRICE_TARGET * (rebuild + repairedR) / shotsR:.2f} m³.")
   print()
-  return decided
+  return passed[FIX_SHOT_STONE_M3]
 
 
 def Main():
   castle = BuildCastle()
   rate = round(RateFor(REPAIR_MULTIPLIER, RELOAD_SECONDS), 3)
   print("SIEGE CASTLE ROUTE TABLE · M0 paper test for review findings F-01, F-02, F-03")
+  print("Revised on the owner's decisions of 2026-10-31, with Proposed fixes (a) to (d)")
   print()
   PrintInputs(castle, rate)
   PrintPlan(castle)
   stands = ScanStands(castle)
-  danger = PrintRanges(castle, stands)
-  nearest, facts = PrintSections(castle, stands)
-  mechanics, gate = PrintMechanics(castle, rate)
-  routes, dominant = PrintRoutes(castle, rate, mechanics, gate, nearest, facts)
-  wide = BreachMechanics(castle, 4)
-  wideRoutes, wideDominant = PrintRoutes(castle, rate, wide, gate, nearest, facts,
-                                         "Route table again with a stone span of 4, at which T2 stands")
+  variants = {SIDE_SECTIONS: (castle, stands)}
+  for sides in range(SIDE_SECTIONS + 1, 13):
+    other = BuildCastle(sides)
+    variants[sides] = (other, ScanStands(other))
+  danger = PrintRanges(castle, stands, variants)
+  nearest, facts, _ = PrintSections(castle, stands)
+  mechanics, _ = PrintMechanics(castle, rate)
+  routes, _ = BuildRoutes(castle, rate, mechanics, nearest, facts, False)
+  dominant = PrintRoutes("Route table, as the documents stand", routes, rate, False)
   PrintStorm(castle, mechanics, nearest, facts)
-  decided = PrintRepair(rate)
+  one, whole, step, offset = PrintRepair(rate)
+  fixA = PrintFixRange(variants, facts)
+  fixB, _, gateOpen, gateRepaired = PrintFixGate(castle, rate)
+  fixC, fixedRam, fixedSappers = PrintFixTargets(castle, mechanics)
+  fixD = PrintFixPrice(mechanics, rate)
+  fixedRoutes, _ = BuildRoutes(castle, rate, mechanics, nearest, facts, True)
+  fixedDominant = PrintRoutes("Route table with the Proposed fixes (a) to (d)", fixedRoutes, rate, True)
 
   print("== Verdict ==")
-  for label, these, top in ((f"span {STONE_SPAN}", routes, dominant), ("span 4", wideRoutes, wideDominant)):
-    verdict = "PASS" if not top else "FAIL (" + ", ".join(top) + ")"
-    print(f"1. No breach route wins every column, at a stone {label}: {verdict}.")
-    fastest = sorted(these, key=lambda r: r["openRepaired"])[:3]
-    print("   Fastest: " + ", ".join(f"{r['name']} {Seconds(r['openRepaired'])} s" for r in fastest) + ".")
-    print(f"   Dominated: {', '.join(r['name'] for r in these if r['dominatedBy']) or 'none'}.")
+  print("As the documents stand, with the owner's decisions of 2026-10-31:")
+  verdict = "PASS" if not dominant else "FAIL (" + ", ".join(dominant) + ")"
+  print(f"1. No breach route wins every column: {verdict}.")
+  fastest = sorted(routes, key=lambda r: r["openRepaired"])[:3]
+  print("   Fastest: " + ", ".join(f"{r['name']} {Seconds(r['openRepaired'])} s" for r in fastest) + ".")
+  print(f"   Dominated: {', '.join(r['name'] for r in routes if r['dominatedBy']) or 'none'}.")
   if danger:
     print(f"2. Engine circles from outside tower range over the great tower: {len(danger)} m² of stands cover it.")
     print("   The win rule needs the attacker's soldiers to hold the keep's foot for two minutes, so shelling")
@@ -1261,9 +1725,21 @@ def Main():
     print("   storming rule, PASS on the second clause. The placeholder 70 m range violates the Decided guard.")
   else:
     print("2. No engine circle from outside tower range covers the great tower: PASS.")
-  passed = decided[-1][1] == "yes"
-  print("3. One repair rate giving 1.3–2x for one and two engines over reloads of 6–30 s: "
-        f"{'PASS' if passed else 'FAIL'}.")
+  passed = REPAIR_BAND[0] <= one <= REPAIR_BAND[1] and REPAIR_BAND[0] <= whole <= REPAIR_BAND[1]
+  print(f"3. With one engine at the Proposed {RELOAD_SECONDS:.0f} s reload, repair adds {one:.2f}x "
+        f"({whole:.2f}x in whole shots): {Mark(passed)}.")
+  print(f"   Two engines at {RELOAD_SECONDS:.0f} s: x{step:.2f} in step, x{offset:.2f} offset; the lock intends this.")
+  print("The Proposed fixes:")
+  print(f"(a) Trebuchet range {FIX_TREBUCHET_MAX_METRES:.0f} m and the guard measured: {Mark(fixA)} on the Siege "
+        "castle.")
+  print(f"(b) T5's gate at the inner end of its passage: {Mark(fixB)}; the gate takes {gateOpen:.0f} s by trebuchet "
+        f"({gateRepaired:.0f} s with repair).")
+  print(f"(c) A ram blow every {FIX_RAM_BLOW_SECONDS:.0f} s, a {FIX_DEEP_EARTH_FOUNDATION_METRES} m foundation on deep "
+        f"earth: {Mark(fixC)}; {fixedRam[0]:.0f} s and {fixedSappers['seconds']:.0f} s.")
+  print(f"(d) A shot at {FIX_SHOT_STONE_M3} m³: {Mark(fixD)}.")
+  verdict = "PASS" if not fixedDominant else "FAIL (" + ", ".join(fixedDominant) + ")"
+  print(f"With all four: 1. no route wins every column: {verdict}. 2. no stand outside every reach covers the great")
+  print(f"tower: {Mark(fixA)}. 3. is unchanged by them.")
   return 0
 
 

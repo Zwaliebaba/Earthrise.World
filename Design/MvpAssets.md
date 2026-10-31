@@ -15,7 +15,7 @@ Buildings, used by both the simulation and the client. The costs are counted und
 | Id | Template | Size (m) | Cost | Critical part | Notes |
 |---|---|---|---|---|---|
 | T1 | Hall | 11 × 7 × 7 | 188 m³ timber | Hall frame (the whole building) | The drop site for everything. The hall is the keep until the keep is complete. The roof costs as timber. |
-| T2 | Keep | 12 × 19 × 15 | 1,722 m³ stone | Great tower | A 12 × 12 m great tower with a forebuilding in front. Hollow: 2 m walls, with a floor every 5 m. |
+| T2 | Keep | 12 × 19 × 15 | 1,530 m³ stone, 192 m³ timber | Great tower | A 12 × 12 m great tower with a forebuilding in front. Hollow: 2 m stone walls, with a timber floor every 5 m and a timber roof, because stone spans 2 m (GameDesign.md, *2026-10-31: the paper tests' values*). |
 | T3 | Stone wall, standard | 8 × 7 × 2 | 96 m³ stone | None: a section opens by the breach rule | 5 m of solid wall and 2 m of crenellation above it. That is the same 96 m³ as GameDescription.md's 8 × 2 × 6 m. |
 | T4 | Tower | 7 × 12 × 7 | 479 m³ stone | Firing platform | Hollow, with 2 m walls. The platform is the top 3 m, merlons included. |
 | T5 | Gatehouse | 9 × 12 × 7 | 585 m³ stone + 12 m³ timber | Gate | The gate is 3 m wide and 4 m high. The garrison fires down into the passage. |
@@ -64,7 +64,7 @@ The packages made choices the design documents had not fixed. The owner adopted 
 ## Known issues
 
 - **The world assets are automatic conversions.** The package made each 1 m voxel from the majority of 2 × 2 × 2 voxels of the 0.5 m drawing. T1–T7 are to be redrawn natively at 1 m before the M4 Siege castle is final, and T8 and T9 before M6.
-- **T8's and T9's sheds had no posts** (fixed 2026-10-31, the owner's decision). The conversion dropped the 0.5 m posts, so T9's roof touched nothing and T8's stood only on its stone stack, which is stock ([ADR-004](ADR/ADR-004-rule-based-destruction.md)). Each now stands on four timber corner posts 2 m tall, and T8's stray post, all that the conversion left of its lifting frame, is joined to the ground by one voxel. The asset check tests for this (ADR-005). Their `.png` previews predate the posts.
+- **T8's and T9's sheds had no posts** (fixed 2026-10-31, the owner's decision). The conversion dropped the 0.5 m posts, so T9's roof touched nothing and T8's stood only on its stone stack, which is stock ([ADR-004](ADR/ADR-004-rule-based-destruction.md)). Each now stands on four timber corner posts 2 m tall, and T8's stray post, all that the conversion left of its lifting frame, is joined to the ground by one voxel. The asset check tests for this (ADR-005). Their previews in `Design/Previews/` predate the posts.
 - **E1 does not hold its own spoil.** The rampart holds 48 m³ against 32 m³ dug, and the spoil and the rampart must be equal (GameDescription.md). The conversion flattened the ditch to 3 m wide and 1 m deep, with a 1 m slot 2 m deep. Redrawing the ditch at the decided profile digs exactly 48 m³ for its 8 m, which fixes both without touching the rampart.
 - **E1's new rampart is topped with grass.** Only the generator places grass (RendererLook.md), so a fresh rampart is bare earth. E1 is an illustration, so this affects nothing that is baked.
 - **T2's banner was removed.** The conversion dropped its pole and left two faction voxels floating. Banners are 0.5 m models (ADR-006). T2's preview still shows the banner.
@@ -73,26 +73,26 @@ The packages made choices the design documents had not fixed. The owner adopted 
 
 ## Previews
 
-The previews are the package's own renderings; nothing reads them.
+The previews are the package's own renderings, kept in [Previews/](Previews/) rather than beside their sources in `GameData/`; nothing reads them.
 
-![T1 Hall](../GameData/Server/Templates/earthrise-t1-hall-1m.png)
-![T2 Keep](../GameData/Server/Templates/earthrise-t2-keep-1m.png)
-![T3 Stone wall](../GameData/Server/Templates/earthrise-t3-stone-wall-standard-1m.png)
-![T4 Tower](../GameData/Server/Templates/earthrise-t4-tower-1m.png)
-![T5 Gatehouse](../GameData/Server/Templates/earthrise-t5-gatehouse-1m.png)
-![T6 Palisade](../GameData/Server/Templates/earthrise-t6-palisade-1m.png)
-![T7 Palisade gate](../GameData/Server/Templates/earthrise-t7-palisade-gate-1m.png)
-![T8 Quarry yard](../GameData/Server/Templates/earthrise-t8-quarry-yard-1m.png)
-![T9 Lumber camp](../GameData/Server/Templates/earthrise-t9-lumber-camp-1m.png)
-![S1 Battering ram](../GameData/Client/Models/earthrise-s1-battering-ram-05m.png)
-![S3 Trebuchet](../GameData/Client/Models/earthrise-s3-trebuchet-05m.png)
-![U1 Laborers](../GameData/Illustrations/earthrise-u1-laborers-05m.png)
-![U2 Spearmen](../GameData/Illustrations/earthrise-u2-spearmen-05m.png)
-![U3 Archers](../GameData/Illustrations/earthrise-u3-archers-05m.png)
-![U4 Outriders](../GameData/Illustrations/earthrise-u4-outriders-05m.png)
-![U5 Men-at-arms](../GameData/Illustrations/earthrise-u5-men-at-arms-05m.png)
-![S2 Sappers](../GameData/Illustrations/earthrise-s2-sappers-05m.png)
-![E1 Ditch and rampart](../GameData/Illustrations/earthrise-e1-ditch-rampart-1m.png)
-![E2 Deep foundation](../GameData/Illustrations/earthrise-e2-deep-foundation-1m.png)
-![M1 Ground strata](../GameData/Illustrations/earthrise-m1-ground-strata-1m.png)
-![M2 Rubble keeps its material](../GameData/Illustrations/earthrise-m2-rubble-keeps-its-material-1m.png)
+![T1 Hall](Previews/earthrise-t1-hall-1m.png)
+![T2 Keep](Previews/earthrise-t2-keep-1m.png)
+![T3 Stone wall](Previews/earthrise-t3-stone-wall-standard-1m.png)
+![T4 Tower](Previews/earthrise-t4-tower-1m.png)
+![T5 Gatehouse](Previews/earthrise-t5-gatehouse-1m.png)
+![T6 Palisade](Previews/earthrise-t6-palisade-1m.png)
+![T7 Palisade gate](Previews/earthrise-t7-palisade-gate-1m.png)
+![T8 Quarry yard](Previews/earthrise-t8-quarry-yard-1m.png)
+![T9 Lumber camp](Previews/earthrise-t9-lumber-camp-1m.png)
+![S1 Battering ram](Previews/earthrise-s1-battering-ram-05m.png)
+![S3 Trebuchet](Previews/earthrise-s3-trebuchet-05m.png)
+![U1 Laborers](Previews/earthrise-u1-laborers-05m.png)
+![U2 Spearmen](Previews/earthrise-u2-spearmen-05m.png)
+![U3 Archers](Previews/earthrise-u3-archers-05m.png)
+![U4 Outriders](Previews/earthrise-u4-outriders-05m.png)
+![U5 Men-at-arms](Previews/earthrise-u5-men-at-arms-05m.png)
+![S2 Sappers](Previews/earthrise-s2-sappers-05m.png)
+![E1 Ditch and rampart](Previews/earthrise-e1-ditch-rampart-1m.png)
+![E2 Deep foundation](Previews/earthrise-e2-deep-foundation-1m.png)
+![M1 Ground strata](Previews/earthrise-m1-ground-strata-1m.png)
+![M2 Rubble keeps its material](Previews/earthrise-m2-rubble-keeps-its-material-1m.png)

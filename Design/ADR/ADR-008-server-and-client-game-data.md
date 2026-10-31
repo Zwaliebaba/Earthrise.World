@@ -5,6 +5,8 @@
 - decision 3, on committing a `.vox` copy beside each source;
 - decision 9, on baking, for the server only.
 
+Amended 2026-10-31: the `.png` previews moved out of `GameData/` to `Design/Previews/` (decision 7).
+
 ADR-005's format, palette, decorations, counted costs and saves stand. Like ADR-002 to ADR-007, this ADR is written ahead of the code it governs, except for the `.vox` tools, which land with it.
 
 ## Context
@@ -41,7 +43,7 @@ ADR-005's format, palette, decorations, counted costs and saves stand. Like ADR-
 7. **The `.json` layer file is the only committed voxel source.**
    - **`Tools/ExportVox.py`** writes a `.vox` beside each layer file for MagicaVoxel. `.gitignore` keeps those copies out of the repository.
    - **`Tools/ImportVox.py`** writes an edited `.vox` back into its `.json`. It keeps each remaining voxel's part, leaves added voxels without one for the author to set, and adds legend entries for new colours.
-   - **The committed `.vox` copies and the check that they agree are removed.** The `.png` previews stay; nothing reads them, and they may lag an edit.
+   - **The committed `.vox` copies and the check that they agree are removed.** The `.png` previews stay, in `Design/Previews/` rather than beside their sources, so `GameData/` holds only what the game is built from; nothing reads them, and they may lag an edit.
 8. **Shaders stay compiled into the executable** (AGENTS.md §2). They are code, versioned with the executable that binds them.
 
 ## How the tools were checked

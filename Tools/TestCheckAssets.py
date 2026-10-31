@@ -32,7 +32,7 @@ T5 = "Server/Templates/earthrise-t5-gatehouse-1m.json"
 T6 = "Server/Templates/earthrise-t6-palisade-1m.json"
 T7 = "Server/Templates/earthrise-t7-palisade-gate-1m.json"
 E1 = "Illustrations/earthrise-e1-ditch-rampart-1m.json"
-M1_PREVIEW = "Illustrations/earthrise-m1-ground-strata-1m.png"
+M1_LAYER_FILE = "Illustrations/earthrise-m1-ground-strata-1m.json"
 SPEARMAN = "Client/Models/earthrise-u2-spearman-05m.json"
 ARCHER = "Client/Models/earthrise-u3-archer-05m.json"
 MANIFEST = "Manifest.json"
@@ -188,7 +188,7 @@ BROKEN = {
   # 8. The manifest.
   "an unlisted layer file": (lambda r: shutil.copy(r / "GameData" / T3, r / "GameData" / T3.replace("t3-", "t10-")),
                              "is a layer file that Manifest.json does not list"),
-  "a listed file is missing": (lambda r: (r / "GameData" / M1_PREVIEW).unlink(), f"lists {M1_PREVIEW}, which does not"),
+  "a listed file is missing": (lambda r: (r / "GameData" / M1_LAYER_FILE).unlink(), f"lists {M1_LAYER_FILE}, which does not"),
   "a wrong voxelCount": (lambda r: Change(r, MANIFEST, lambda m: Entry(m, "T6").update(voxelCount=36)),
                          "T6 gives its voxelCount 36, but"),
   "sizeVoxels of the padded grid": (lambda r: Change(r, MANIFEST, lambda m: Entry(m, "S3").update(

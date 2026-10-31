@@ -176,7 +176,10 @@ Each CI guard is removed once its input is there.
 **Progress (2026-10-31):**
 - The three checkers and the property sheet have landed, with `Build/TestCheckers.py`: the good fixture and the repository pass, and 40 broken variants each fail for their own reason.
 - CI runs them: the project checker in the Windows job, and the format check and the checker tests in the Linux job.
-- The paper tests are in progress; their reports go in `Design/Review/PaperTests/`.
+- The three paper tests have run; their reports are in `Design/Review/PaperTests/`, and their values are in GameDesign.md, *2026-10-31: the paper tests' values*:
+  - **The Siege route table** passes all three criteria under the owner's decisions and its Proposed fixes.
+  - **The Hold rule test** passes in 3 of 3 layouts under the owner's choices: three rule changes, and a quarry's undermining outweighing its ditch reason. Layout A passes exactly at the bar.
+  - **The breach-prediction prototype** is built, and waits for its twelve people. Their median accuracy is M0's remaining gate.
 
 **Done when:**
 - the checkers run in CI;
@@ -263,6 +266,7 @@ At the end of M1:
 | 2 | 2026-10-31 | | #10 | | The engine base, and ADR-012 on render tests on WARP |
 | 3 | 2026-10-31 | | #9 | | The chunk store with copy-on-write snapshots |
 | 4 | 2026-10-31 | | #12 | | The client half of the bake, and the asset check |
+| 5 | 2026-10-31 | | #13 | | ADR-001's pipeline: the voxel pass and its render tests |
 
 ### M2 — Headless simulation
 
