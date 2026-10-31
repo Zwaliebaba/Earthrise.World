@@ -259,6 +259,7 @@ At the end of M1:
 | # | Started | Finished | PRs | Owner hours | Notes |
 |---|---|---|---|---|---|
 | 1 | 2026-10-31 | | | | The scaffold, with each project's first piece |
+| 4 | 2026-10-31 | | #12 | | The client half of the bake, and the asset check |
 
 ### M2 — Headless simulation
 
