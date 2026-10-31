@@ -188,37 +188,43 @@ The owner settled the open items of the readiness review ([Review/MvpReadiness-2
 
 ### 2026-10-31: the paper tests' values
 
-M0's three paper tests ran: the [Hold rule test](Review/PaperTests/HoldRuleTest.md), the [breach-prediction prototype](Review/PaperTests/BreachPrediction.md) and the [Siege route table](Review/PaperTests/SiegeRouteTable.md). After their first run the owner settled the values below marked Decided. The rest are the implementer's, Proposed with their reasons in the reports, for the owner to confirm or change (*Starting the MVP*, item 7).
+M0's three paper tests ran: the [Hold rule test](Review/PaperTests/HoldRuleTest.md), the [breach-prediction prototype](Review/PaperTests/BreachPrediction.md) and the [Siege route table](Review/PaperTests/SiegeRouteTable.md). After their runs the owner settled the values below marked Decided. The rest are the implementer's, Proposed with their reasons in the reports, for the owner to confirm or change (*Starting the MVP*, item 7).
 
 **Decided (owner, 2026-10-31):**
 1. **Stone spans 2 m.** T2's two floors and its roof are timber: 192 voxels, which make the keep 1,530 m³ of stone and 192 m³ of timber. Every template's stone now stands at that span.
 2. **Masonry is ordinary stone.** Palette index 6, masonry, is the stone a template lays, which the asset package calls dressed stone. It uses the crater table's stone column, and its rubble yields stone. The Masons' dressed-stone upgrade gets a palette index of its own.
 3. **Repair's pass mark is for one engine.** With one engine, repair adds 1.3–2× to the time to open a section, at the trebuchet's reload. The ten-second lock stays, so two engines firing alternately keep a section locked, as intended (GameDescription.md, the repair lock). The Siege table measures 1.50× at a 20 s reload.
+4. **The Hold's wave rule takes three changes.** An open section is always taken ahead of any intact one. The open term reads the trench a sapper would still need, so undermining shows before collapse. The gate scores only for waves that bring a ram.
+5. **A quarry's undermining outweighs its ditch reason.** A quarry in front of a wall still counts as a ditch in front, as pillar 1 says; where it also undermines the wall, the undermining weighs more. The rerun passes in all three M0 layouts, one of them exactly at the bar.
 
 **Proposed, from the breach-prediction prototype:**
-4. **The anchor depth is 8 m** below the generated surface, deeper than any siege dig the MVP draws.
-5. **Foot soldiers climb 1 m in each 1 m step**, the slope of settled earth.
-6. **Loose material comes to rest at most 1 m below a structure's top.**
-7. **A breach-prediction item shows the damage as done (N = 0)** and asks one question, "open or shut?", with a free-text reason.
-8. **Six people take each readout**, twelve in all. The prototype's key splits 8 open and 8 shut. M0 asks the support readout to reach a median accuracy of 0.65, and nobody has taken the test yet.
+6. **The anchor depth is 8 m** below the generated surface, deeper than any siege dig the MVP draws.
+7. **Foot soldiers climb 1 m in each 1 m step**, the slope of settled earth.
+8. **Loose material comes to rest at most 1 m below a structure's top.**
+9. **A breach-prediction item shows the damage as done (N = 0)** and asks one question, "open or shut?", with a free-text reason.
+10. **Six people take each readout**, twelve in all. The prototype's key splits 8 open and 8 shut. M0 asks the support readout to reach a median accuracy of 0.65, and nobody has taken the test yet.
 
 **Proposed, from the Siege route table:**
-9. **The engine-range guard is measured, not computed.** No point outside every garrison's reach lies within an engine's range of the great tower, on the Siege castle or on any castle the Skirmish AI builds. It is measured on the castle's plan, because between towers their reach ends closer to the curtain than the formula assumes. When confirmed, this replaces the guard sentence in decision 2 of *2026-10-31: the design review*.
-10. **The trebuchet's range is 12–50 m**, in place of Hud.md's placeholder of 12–70 m.
-11. **A trebuchet's shot descends at 45° or steeper.**
-12. **T5's gate stands at the inner end of its passage.** The gatehouse then fires into the passage in front of the gate. A lobbed shot cannot reach the gate until the arch over the passage is cut back. T5 is redrawn with it before M4.
-13. **Undermining, and a ram at a wall's base, each open a standard section in about three minutes, unopposed,** as one trebuchet does. Repair at most doubles that.
-14. **A ram strikes every 15 s, and a standard foundation on deep earth reaches 4 m down.** These are the values that meet item 13.
-15. **A shot costs 1.5 m³ of stone,** so that a breach costs the attacker about half of what the defender pays to rebuild it.
+11. **The engine-range guard is measured, not computed.** No point outside every garrison's reach lies within an engine's range of the great tower, on the Siege castle or on any castle the Skirmish AI builds. It is measured on the castle's plan, because between towers their reach ends closer to the curtain than the formula assumes. When confirmed, this replaces the guard sentence in decision 2 of *2026-10-31: the design review*.
+12. **The trebuchet's range is 12–50 m**, in place of Hud.md's placeholder of 12–70 m.
+13. **A trebuchet's shot descends at 45° or steeper.**
+14. **T5's gate stands at the inner end of its passage.** The gatehouse then fires into the passage in front of the gate. A lobbed shot cannot reach the gate until the arch over the passage is cut back. T5 is redrawn with it before M4.
+15. **Undermining, and a ram at a wall's base, each open a standard section in about three minutes, unopposed,** as one trebuchet does. Repair at most doubles that.
+16. **A ram strikes every 15 s, and a standard foundation on deep earth reaches 4 m down.** These are the values that meet item 13.
+17. **A shot costs 1.5 m³ of stone,** so that a breach costs the attacker about half of what the defender pays to rebuild it.
+
+**Proposed, from the Hold rule test:**
+18. **How close to opening** is 1 − T ÷ T₀. T is the least volume a sapper's trench must still dig to drop the section, and T₀ is the same section's need in undug ground. It is 1 when the section is open, and 0 when no trench can drop it. A sapper's trench, for this reading, is 2 m wide against the section's outer face, along any part of it, to any whole depth above bedrock. It cuts whatever it meets, and its spoil leaves play.
+19. **The weights are 2 for how close the section is to opening, and 1 each for the other three reasons.** At these values the breach moves with the quarry in all three M0 layouts, for 1/3, 13/30 and 11/18 of the waves, against a bar of 1/3.
+20. **The reasons' measures.** Earth counts 1 when any column under the stretch is earth and no cut at least 2 m deep lies within 10 m of its face along half its length or more. Distance from the towers runs centre to centre, to the nearest tower or keep, divided by the largest such distance; the gatehouse is not a tower. The gate's reason is 1 for a gatehouse.
+21. **The draw.** The stretches are shuffled with the wave's seed from SplitMix64 and sorted by score, ties keeping the shuffle, and one of the best 3 is drawn uniformly. When any stretch is open, the draw is among the open ones only.
+22. **Rams.** Of the waves other than the sapper wave, every second one brings a ram, starting with the second. A wave without a ram leaves the gatehouse out unless it is open.
+23. **The sapper wave** brings sappers and no ram, and picks among the sections standing on earth by the same score and rule.
+24. **Reach.** A wave can reach every outer stretch, sections and gatehouses alike; towers are not scored.
+25. **The test's own inputs.** Standard foundations draw nothing below the levelled surface. Digs cut once to their depth and then slump. Quarries are 8 m deep, and the near quarry stops at the closest berm at which the slump drops nothing. The breach moves when at least 1/3 of the waves breach elsewhere, averaged over waves with and without a ram.
 
 **Open:**
-16. **The Hold's wave rule.** The owner chose three changes:
-    - an open section is always taken;
-    - the open term reads the trench a sapper would still need, so undermining shows before collapse;
-    - the gate scores only for waves that bring a ram.
-
-    With all three, the breach moves with the quarry in 1 of 3 layouts, against a bar of 2. The open-term change is what fails it: beside a quarry it cancels the quarry's ditch reason. Without that change, the other two pass in 3 of 3. Which of a quarry's two effects a wave weighs more, the ditch or the undermining, is the owner's to settle. No Hold value is recorded until then.
-17. **Timber's span.** T1's roof needs 5 m and T2's timber floors 4 m.
+26. **Timber's span.** T1's roof needs 5 m and T2's timber floors 4 m.
 
 ## Pillars (Decided)
 
@@ -327,7 +333,7 @@ The control is the same stages with walls built of segments that have health bar
    - They lose when no attacking unit is left, or when a time limit runs out.
    - The castle's nearest section is not its weakest, so choosing the nearest point and choosing the weakest can be told apart.
 2. **Hold.** The player starts with the hall and a finished keep, quarries and builds for a set time, then scripted waves attack.
-   - **How a wave picks its breach.** A wave scores each stretch of wall it can reach on the four reasons an attacker reads (GameDescription.md, *How a siege plays*): how close the section is to opening, which it asks the collapse resolver; whether it stands on earth with no ditch in front; how far it is from the towers; and whether it is a gate. It picks among the best few with a seeded draw.
+   - **How a wave picks its breach.** A wave scores each stretch of wall it can reach on the four reasons an attacker reads (GameDescription.md, *How a siege plays*): how close the section is to opening, which it asks the collapse resolver as the trench a sapper would still need; whether it stands on earth with no ditch in front; how far it is from the towers; and whether it is a gate. A quarry in front of a wall counts as a ditch in front, and where it undermines the wall the undermining weighs more. An open section is always taken ahead of any intact one; otherwise the wave picks among the best few with a seeded draw. The gate scores only for waves that bring a ram. (Decided, 2026-10-31; the values are Proposed in *2026-10-31: the paper tests' values*.)
    - **Sappers.** One wave brings sappers, which trench beside a section standing on earth.
    - **Maps.** Every Hold map has at least two outcrops within reach of the hall, on different sides.
    - **Winning.** The player wins if the keep still works when the last unit of the last wave is dead or gone.

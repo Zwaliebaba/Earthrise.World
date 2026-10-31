@@ -78,7 +78,8 @@ class Rules:
   """The wave rule's open values. The defaults are the revised set; the sensitivity runs change one at a time."""
 
   label: str = "Proposed"
-  weightOpen: Fraction = Fraction(1)
+  # The owner's direction (2026-10-31): a quarry's undermining outweighs its ditch reason. The value is Proposed.
+  weightOpen: Fraction = Fraction(2)
   weightEarth: Fraction = Fraction(1)
   weightTowers: Fraction = Fraction(1)
   weightGate: Fraction = Fraction(1)
@@ -1031,9 +1032,13 @@ def PrintLayout(_layout, _rules, _scale):
     print(f"      {detail}")
   print(f"      The curtain costs {CurtainStoneM3()} m^3 of stone.")
   print()
-  print("  Scores: open + earth + towers + gate = score. A wave without a ram reads the same score for every section")
-  print("  and leaves the gatehouse out unless it is open (rule (c)). * marks the best few of a wave without a ram,")
-  print("  + of a wave with one. ditch: a ditch in front, which zeroes earth.")
+  weighted = [(_rules.weightOpen, "open"), (_rules.weightEarth, "earth"), (_rules.weightTowers, "towers"),
+              (_rules.weightGate, "gate")]
+  formula = " + ".join(name if weight == 1 else f"{weight} x {name}" for weight, name in weighted)
+  print(f"  Scores: {formula} = score; the columns are the terms before weighting. A wave without a ram")
+  print("  reads the same score for every section and leaves the gatehouse out unless it is open (rule (c)). *"
+        " marks the")
+  print("  best few of a wave without a ram, + of a wave with one. ditch: a ditch in front, which zeroes earth.")
   header = "    stretch " + "".join(f"| {placement.key:<29}" for placement in _layout.placements)
   print(header.rstrip())
   for name in STRETCH_ORDER:
@@ -1130,8 +1135,8 @@ def SensitivityRules():
   half, double = Fraction(1, 2), Fraction(2)
   return [
     PROPOSED,
-    replace(PROPOSED, label="open weight x2", weightOpen=double),
-    replace(PROPOSED, label="open weight x1/2", weightOpen=half),
+    replace(PROPOSED, label="open weight 1 (earlier value)", weightOpen=Fraction(1)),
+    replace(PROPOSED, label="open weight 4", weightOpen=Fraction(4)),
     replace(PROPOSED, label="earth weight x2", weightEarth=double),
     replace(PROPOSED, label="earth weight x1/2", weightEarth=half),
     replace(PROPOSED, label="towers weight x2", weightTowers=double),
@@ -1149,12 +1154,11 @@ def SensitivityRules():
     replace(PROPOSED, label="(a) open first, intact fill", openWins="first"),
     replace(PROPOSED, label="(b) trench 1 m wide", trenchWidthMeters=1),
     replace(PROPOSED, label="(c) rams with 3 waves in 4", ramShare=Fraction(3, 4)),
-    replace(PROPOSED, label="only ditches, open x2", quarryIsDitch=False, weightOpen=double),
   ]
 
 
 def AblationRules():
-  old = replace(PROPOSED, openWins="off", openReading="support", ramShare=Fraction(1))
+  old = replace(PROPOSED, openWins="off", openReading="support", ramShare=Fraction(1))  # at the open weight of 2
   return [
     replace(PROPOSED, label="revised: (a), (b) and (c)"),
     replace(PROPOSED, label="without (a): score alone", openWins="off"),
@@ -1162,7 +1166,7 @@ def AblationRules():
     replace(PROPOSED, label="without (c): a ram every wave", ramShare=Fraction(1)),
     replace(PROPOSED, label="(c) as the gate's reason only", gateWithoutRam="term"),
     replace(old, label="none of the three"),
-    replace(old, label="none, span 4 m (the first run)", stoneSpanMeters=4),
+    replace(old, label="none, weight 1, span 4 m: run 1", weightOpen=Fraction(1), stoneSpanMeters=4),
   ]
 
 
@@ -1189,6 +1193,8 @@ def Main(_arguments):
   print("Hold rule test (review F-45), revised 2026-10-31. Values:")
   print(f"  weights open {rules.weightOpen}, earth {rules.weightEarth}, towers {rules.weightTowers},"
         f" gate {rules.weightGate}; best few N = {rules.topFew}; stone span {rules.stoneSpanMeters} m (Decided)")
+  print("  the open weight follows the owner's direction (2026-10-31): a quarry's undermining outweighs its ditch"
+        " reason")
   print(f"  a ditch in front: a cut {rules.ditchDepthMeters} m deep within {rules.ditchBandMeters} m of the face along"
         f" {rules.ditchShare} of the section; quarry pits count (Decided)")
   print("  (a) an open stretch always wins: when any candidate is open, the wave draws among the open ones only")
@@ -1221,7 +1227,7 @@ def Main(_arguments):
   PrintBermSweep(layouts, rules)
   PrintRulesTable("Sensitivity: one value changed at a time; share of waves elsewhere for each quarry pair",
                   SensitivityRules(), layouts)
-  PrintRulesTable("Each revision undone or read another way, at the decided span and ditch reading",
+  PrintRulesTable("Each revision undone or read another way, at the decided span, ditch reading and weight 2",
                   AblationRules(), layouts)
   return 0
 

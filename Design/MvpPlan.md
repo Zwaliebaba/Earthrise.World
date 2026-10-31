@@ -178,7 +178,7 @@ Each CI guard is removed once its input is there.
 - CI runs them: the project checker in the Windows job, and the format check and the checker tests in the Linux job.
 - The three paper tests have run; their reports are in `Design/Review/PaperTests/`, and their values are in GameDesign.md, *2026-10-31: the paper tests' values*:
   - **The Siege route table** passes all three criteria under the owner's decisions and its Proposed fixes.
-  - **The Hold rule test** fails under the owner's three rule changes (1 of 3 layouts). Which of a quarry's two effects wins is open with the owner.
+  - **The Hold rule test** passes in 3 of 3 layouts under the owner's choices: three rule changes, and a quarry's undermining outweighing its ditch reason. Layout A passes exactly at the bar.
   - **The breach-prediction prototype** is built, and waits for its twelve people. Their median accuracy is M0's remaining gate.
 
 **Done when:**
