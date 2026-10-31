@@ -171,7 +171,12 @@ Each CI guard is removed once its input is there.
 - the Siege castle's route table and range circles (F-01, F-02);
 - the repair spreadsheet (F-03).
 
-**Write down** the spike's own estimate. The pass mark is already decided (GameDesign.md, *Renderer spike*).
+**Write down** the spike's own estimate. The pass mark is already decided (GameDesign.md, *Renderer spike*). Written 2026-10-31: see *The spike's own estimate*, under M1.
+
+**Progress (2026-10-31):**
+- The three checkers and the property sheet have landed, with `Build/TestCheckers.py`: the good fixture and the repository pass, and 36 broken variants each fail for their own reason.
+- CI runs them: the project checker in the Windows job, and the format check and the checker tests in the Linux job.
+- The paper tests are in progress; their reports go in `Design/Review/PaperTests/`.
 
 **Done when:**
 - the checkers run in CI;
@@ -211,6 +216,47 @@ Each CI guard is removed once its input is there.
 - ADR-006's M1 measurements are filled in for the 1 m baseline and for a 0.5 m world, and an ADR records the solution layout. ADR-006 itself is accepted after M3.
 
 If the 1 m baseline misses the pass mark, ADR-001 is revisited before any gameplay code, which is the kill criterion. The spike's estimate is then compared with its actual time, and this plan is rescaled.
+
+### The spike's own estimate (written 2026-10-31, before M1 starts)
+
+The review asks for this in writing before the spike starts, so that its actual time can rescale the plan (F-52; GameDesign.md, *Build budget*). It is a judgment estimate, not a measurement. It is given in three units:
+- **Work content,** in FTE-days for one experienced developer, the plan's own unit, so it can be compared with M1's 7.5–11.5 FTE-months.
+- **Owner hours:** the owner's time to run builds on Windows, judge the look and take the measurements. Claude sessions write the code (GameDesign.md, *Starting the MVP*).
+- **Pull requests:** the number of changes, each green in CI before it merges.
+
+| # | Task | Work (FTE-days) | Owner hours | PRs |
+|---|---|---|---|---|
+| 1 | The scaffold of ADR-010: the solution, ten projects, the sheet, `framework.h`, the precompiled headers, `SuiteSmoke`, built in CI on both architectures | 2–4 | 1 | 1 |
+| 2 | The engine base: the DPI-aware window, pointer input, the timer, the device and debug layer, the flip-model swap chain, frames in flight, descriptor heaps, the upload ring and hand-written barriers (ADR-011) | 8–15 | 2 | 2 |
+| 3 | A minimal chunk store with copy-on-write snapshots in `Simulation`, its `Protocol` handles and tests | 6–12 | 0 | 1 |
+| 4 | The client half of the bake and the asset check (ADR-005, ADR-008), with the CI step | 5–8 | 0.5 | 1 |
+| 5 | ADR-001's pipeline: per-chunk records, instanced quads for the orthographic camera, the ray-box test, reversed-Z with `SV_DepthLessEqual`, world chunks and 0.5 m models in one pass | 15–30 | 4 | 2 |
+| 6 | The camera: orthographic at 34°, rotation in 90° steps, zoom from about 12 m to about 260 m | 2–5 | 1 | 1 |
+| 7 | The look: jitter, baked corner shading, contact shading, Lambert and hemisphere light, the two shadow maps, impostors, debris keyed on the collapse id, the shallow-water rule | 25–45 | 8 | 3 |
+| 8 | The render scale and its bilinear upscale | 2–4 | 1 | 1 |
+| 9 | The test scene: a seeded scene script with the v5 layout, T1–T7, placeholder models, about 95 units, the quarrying and the wall collapse | 12–25 | 4 | 2 |
+| 10 | Measurement: timestamp queries, the scripted camera path, the CSV reduced to the 95th percentile, edit-to-screen latency | 4–8 | 3 | 1 |
+| 11 | In `SimulationBench`: a first support search and a navigation tile rebuild, on the MVP map and on the synthetic 2 km world | 20–40 | 1 | 2 |
+| 12 | The 0.5 m world for ADR-006's comparison column | 4–8 | 2 | 1 |
+| 13 | The acceptance checks on screen, ADR-006's table filled in, and the M1 report | 5–10 | 4 | 1 |
+| | **Total** | **110–214, or 5–10 FTE-months** | **about 32** | **19** |
+
+**The bottom-up figure sits below the plan's 7.5–11.5 FTE-months** at its low end. The plan's figure stands until the spike's real pace says otherwise; the difference is itself a reading of how uncertain both are.
+
+**The biggest risk to the estimate is debugging the renderer without eyes on the screen.** A Claude session cannot see a frame, so every visual defect costs a round trip through the owner. To keep that cheap, the spike writes a screenshot and its GPU timings to files on demand, which the owner can attach to an issue or a session.
+
+**How the actual pace is recorded:**
+- each task's start and finish dates;
+- its pull requests;
+- the owner's hours, logged per task below as the work proceeds.
+
+At the end of M1:
+- the ratio of the actual owner hours and calendar weeks to this estimate rescales M2 to M7, as GameDesign.md's build budget asks;
+- the work-content figures stay as the measure of scope.
+
+| # | Started | Finished | PRs | Owner hours | Notes |
+|---|---|---|---|---|---|
+| 1 | | | | | |
 
 ### M2 — Headless simulation
 
