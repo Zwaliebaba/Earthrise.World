@@ -213,7 +213,7 @@ The concrete layout — the solution, the projects and the edges between them �
 
 That alignment matters more than it looks, because **CI builds Debug only** (§6). Release is compiled by whoever ships, and a Release that quietly lost an include directory or sat on an older language standard would not be discovered until then. A static check of the two configurations is what stands in for the build nobody runs.
 
-**x64 and ARM64 are aligned the same way.** Every setting that is not about the architecture reads identically on both platforms. They differ in the platform name, `/arch`, and the output directories MSBuild names after the platform, and nothing else. CI compiles both but can run only the x64 tests (§6), so before you claim anything about ARM64 behaviour, run the suites on an ARM64 machine and say so.
+**x64 and ARM64 are aligned the same way.** Every setting that is not about the architecture reads identically on both platforms. They differ in the platform name, `/arch`, and the output directories MSBuild names after the platform, and nothing else. CI builds and tests only x64 (§6), so before you claim that ARM64 builds, build it, and before you claim anything about ARM64 behaviour, run the suites on an ARM64 machine, and say so.
 
 **Build through the solution, never a `.vcxproj` directly.** Output paths and cross-project include directories are anchored on `$(SolutionDir)`, and MSBuild defines `SolutionDir` only for a solution build. Building a project file directly resolves every one of those paths against the *project* folder instead of the repository root. **It does not fail — that is the problem.** Output lands in the wrong folder, so the next solution build links against whichever copy is staler, and every cross-project include path becomes a directory that does not exist. The breakage is latent: it bites the first time a file reaches across projects, which may be weeks after someone got into the habit. To build one project, use `/t:<ProjectName>` on the solution.
 
@@ -227,7 +227,7 @@ msbuild <Solution>.slnx /t:<ProjectName> /p:Configuration=Debug /p:Platform=x64 
 # Release, before you claim anything about it.
 msbuild <Solution>.slnx /p:Configuration=Release /p:Platform=x64 /m /v:minimal /nologo
 
-# ARM64, which CI cross-compiles and you run on an ARM64 machine (ADR-007).
+# ARM64, which CI does not build: build it yourself, and run it on an ARM64 machine (ADR-007).
 msbuild <Solution>.slnx /p:Configuration=Debug /p:Platform=ARM64 /m /v:minimal /nologo
 ```
 
@@ -302,9 +302,11 @@ For Direct3D that list means what the Windows SDK installs: `d3d12.h`, `dxgi1_6.
 
 **The checkers come first.** `Build/CheckFormat.py`, `Build/CheckProjectFiles.py` and `Build/RunClangTidy.py` are what §1, §2 and §3 lean on, and they landed in M0, before any C++. `Build/TestCheckers.py` runs in CI beside them. A rule they do not cover is review's problem until a check covers it.
 
-**What CI runs.** [`.github/workflows/build.yml`](.github/workflows/build.yml) has three jobs: a Windows job that checks the build shape, builds **Debug|x64**, runs the test suites and then clang-tidy; a Windows job that cross-compiles **Debug|ARM64**, which an x64 runner cannot run; and a Linux job that checks formatting on a pinned clang-format and runs the asset check (`Tools/CheckAssets.py`) over `GameData/`. **Every step that has something to run blocks; a step whose input does not exist yet is skipped, not faked.** Each gate is guarded on the file it needs — the checker script, the solution, the built test DLLs — so the workflow is honest about today's empty tree and starts gating the moment that file lands. The guards are the only concession: nothing is `continue-on-error`, and a script that exists and fails still fails the build. Remove a guard once its input is permanently there, not before, and never add one to get past a red build.
+**What CI runs.** [`.github/workflows/build.yml`](.github/workflows/build.yml) has two jobs: a Windows job that checks the build shape, builds **Debug|x64**, runs the test suites and then clang-tidy; and a Linux job that checks formatting on a pinned clang-format and runs the asset check (`Tools/CheckAssets.py`) over `GameData/`. **Every step that has something to run blocks; a step whose input does not exist yet is skipped, not faked.** Each gate is guarded on the file it needs — the checker script, the solution, the built test DLLs — so the workflow is honest about today's empty tree and starts gating the moment that file lands. The guards are the only concession: nothing is `continue-on-error`, and a script that exists and fails still fails the build. Remove a guard once its input is permanently there, not before, and never add one to get past a red build.
 
 **CI does not build Release.** The Windows build is the slow half of the pipeline and a second configuration roughly doubles it for a tree where the two differ only in optimisation. What stands in for it is the static alignment check on the two configurations (§3) — and, before a release, an actual `Configuration=Release` build by whoever is shipping. If you change something that could plausibly break only under optimisation, build Release yourself and say so.
+
+**CI does not build ARM64 either** (the owner's decision, [ADR-007](Design/ADR/ADR-007-platforms-and-input.md), amended). The build-shape check still fails when x64 and ARM64 drift apart on a setting, but code that only compiles on one architecture, such as an intrinsic with no path for the other, is caught only by an ARM64 build. If you touch intrinsics, `/arch`, or anything conditioned on the platform, build Debug|ARM64 yourself and say so.
 
 **Commits and PRs.** Branch off `main`; small, focused commits with an imperative subject describing the change, not the process. One change per PR. CI must be green. Never commit build output, `.vs/` or `.user` files.
 
@@ -319,7 +321,7 @@ For Direct3D that list means what the Windows SDK installs: `d3d12.h`, `dxgi1_6.
 - [ ] Debug and Release, and x64 and ARM64, still agree on everything §3 says they must.
 - [ ] No new third-party dependency (R14).
 - [ ] The checkers pass — or, for one not yet written, the report says which and why.
-- [ ] It builds Debug|x64 and Debug|ARM64, and every test suite runs and passes on x64.
+- [ ] It builds Debug|x64, and every test suite runs and passes on x64. Debug|ARM64 too, if it touches intrinsics, `/arch` or anything conditioned on the platform.
 - [ ] If it touches rendering, input, audio or presentation: it was **run**, not just built.
 - [ ] `Design/ADR/` has a new file if the change *was* a decision.
 - [ ] Your report states plainly what you verified, what you assumed, and any rule here you had to bend.

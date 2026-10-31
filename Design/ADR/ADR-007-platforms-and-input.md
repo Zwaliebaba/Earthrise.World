@@ -48,7 +48,7 @@ These facts bear on that:
 ## Consequences for the code
 
 - **AGENTS.md changes:** two platforms (§3), the ARM64 floor and the corrected note on contraction (R16), what CI builds (§6), and the checklist (§7).
-- **CI cross-compiles Debug|ARM64** on the x64 runner, beside Debug|x64. It cannot run ARM64 binaries there, so the test suites run on x64 in CI. Before anyone claims something about ARM64 behaviour, the suites are run on the Surface by hand.
+- **CI builds Debug|x64 only** (amended 2026-10-31, by the owner; CI first cross-compiled Debug|ARM64 beside it). The test suites run on x64 in CI. Debug|ARM64 is built by hand before anyone claims it builds, and the suites are run on the Surface by hand before anyone claims something about ARM64 behaviour. `Build/CheckProjectFiles.py` still holds the two platforms to the same settings in CI, but code for one architecture only, which this ADR forecloses, is caught only by an ARM64 build.
 - **`Build/CheckProjectFiles.py`** checks that x64 and ARM64 agree on every setting outside decision 1's list, as it checks Debug against Release.
 - **The spike needs two machines:** a Snapdragon X Surface Pro as well as the RTX 3060-class one.
 - **The renderer has a render resolution of its own** and scales to the display. AGENTS.md R12 leaves resolution and scaling to be decided when the renderer is built; this settles that the two resolutions are separate, not their values or the scaling method.
