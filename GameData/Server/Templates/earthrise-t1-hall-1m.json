@@ -10,11 +10,6 @@
  },
  "axes": "y up, +z front, layers[y][z][x]",
  "criticalPart": "Hall frame",
- "costM3": {
-  "stone": 0,
-  "timber": 185,
-  "foundation": 0
- },
  "legend": {
   "g": {
    "material": 7,

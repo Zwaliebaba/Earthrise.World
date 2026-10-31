@@ -54,13 +54,13 @@ Colours are authored in sRGB and converted to linear before lighting. The output
 | 12 | Roof | #8c4a3a | 0.05 | world | Timber |
 | 13 / 14 | Field A / B | #c9a95a / #a6a056 | 0.04 | world | Earth |
 | 15 | Road | #a88e6a | 0.04 | world | Earth |
-| 16 | Faction (red example; blue #2f5d93) | #b23a2e | 0.05 | models, banners | A decoration in a template |
-| 18 | Iron | #9aa0a6 | 0.05 | models | A decoration in a template (gate fittings) |
+| 16 | Faction (red example; blue #2f5d93) | #b23a2e | 0.05 | models | Models only, banners included; never on structures |
+| 18 | Iron | #9aa0a6 | 0.05 | both | A decoration in a template (gate fittings) |
 | 19 | Laborer cloth | #c79a6b | 0.05 | models | Models only |
 | 20 | Opening (slits, doors, windows) | #2e2a27 | 0.05 | world | A decoration: the material around it. Nothing passes through it. |
 | 21 | Counterweight | #5b5650 | 0.05 | models | Models only |
 | 22 | Skin | #d9a57f | 0.05 | models | Models only |
-| 23 | Cloth (legs) | #3d3530 | 0.05 | models | A decoration in a template |
+| 23 | Cloth (legs) | #3d3530 | 0.05 | models | Models only |
 | 24 | Horse | #5e4330 | 0.05 | models | Models only |
 | 25 | Rubble of timber | #5f4530 | 0.07 | both | Waste rubble, which yields nothing |
 | 26 | Rubble of earth | #7d6044 | 0.05 | both | Waste rubble |
@@ -73,7 +73,7 @@ Colours are authored in sRGB and converted to linear before lighting. The output
 - **Rubble of masonry** shows about 12% of its voxels in the masonry colour. This only picks colours: every voxel of it is still rubble of stone.
 - **Built and raw stone differ at a glance.** Masonry is darker and greyer than raw building stone.
 - **Rubble shows what it is worth.** Rubble of stone, which yields stone, looks different from waste rubble.
-- **Faction colour appears only on models and banners,** never on structures.
+- **Faction colour appears only on models,** banners included, never on structures.
 
 ## 4. Colour jitter
 

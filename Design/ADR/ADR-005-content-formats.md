@@ -49,10 +49,10 @@ These constraints bind the format:
    | `modelOnly` | Appears only in models, never in the world grid |
 
 5. **A world voxel stores its palette index.** That lets the client draw masonry apart from an outcrop, and rubble by its source. Simulation rules read only the behaviour, never the index. Only the generator places grass (index 1).
-6. **Decorations behave as their host.** Openings, iron fittings, banners and cloth are decorations.
+6. **Decorations behave as their host.** Openings and iron fittings are decorations. Banners and cloth are models ([ADR-006](ADR-006-voxel-sizes.md)), so their colours never appear in a template.
    - **Its host:** a decoration takes the most common behaviour among its six face neighbours that are not decorations and are of its own kind. Structure looks at structure, and stock at stock.
    - **Ties** go to the lower palette index.
-   - **Decorations touching only decorations** resolve in repeated passes, so a banner inherits through the cloth it hangs from.
+   - **Decorations touching only decorations** resolve in repeated passes, so a fitting set into an opening still finds its host.
    - **Errors:** a decoration that never resolves is an error, and so is a `modelOnly` index in a template.
 7. **A template's cost is counted, never copied.**
    - **Stone** is the volume of its building-stone voxels, and **timber** the volume of its timber voxels.
@@ -69,7 +69,7 @@ These constraints bind the format:
    - **Where it goes:** the headers compile into a `Content` static library. It depends only on `Core`, and both `Simulation` and `Client` depend on it. `Content` holds data and accessors, and no rules.
    - **Only path into the executable:** like shaders, assets reach the executable only this way. Nothing is loaded from disk at runtime, and changing an asset means a rebuild, so a replay's build always carries its own templates (ADR-002, decision 6).
    - **Python** runs at build time only. It never ships and never links (R14).
-10. **Saves and replays store a structure** as its template id, its origin, its rotation (0, 90, 180 or 270°) and a mask of which of its voxels have been built. The mask is what lets repair restore only voxels that were once built. Entity state is a versioned binary, written with the same encoder as the commands (ADR-002, decision 3). This closes [ADR-003](ADR-003-world-as-seed-plus-edits.md)'s open item on the format of entity state.
+10. **Saves and replays store a structure** as its template id, its origin, its rotation (0, 90, 180 or 270°) and a mask of which of its voxels have been built, plus the name the scenario gives it, if any, such as a wall section's W5 ([Hud.md](../Hud.md) §10). The mask is what lets repair restore only voxels that were once built. Entity state is a versioned binary, written with the same encoder as the commands (ADR-002, decision 3). This closes [ADR-003](ADR-003-world-as-seed-plus-edits.md)'s open item on the format of entity state.
 
 ## Consequences for the code
 
@@ -87,7 +87,7 @@ These constraints bind the format:
 ## What this forecloses
 
 - Asset sources that are binary-only or editor-only.
-- Loading content from disk at runtime, and with it mods made of files, until a later ADR. ADR-008 allows it for the server's data only.
+- Loading content from disk at runtime, and with it mods made of files, until a later ADR. ADR-008 allows it for the server's data, and for client audio in `<outputdir>\GameData`.
 - Costs taken from metadata, or from the volume of a model.
 - Render-only indices in simulation rules.
 - Meshes for units and engines, unless a later ADR allows them (ADR-001 allows meshes in general).

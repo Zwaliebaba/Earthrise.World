@@ -10,11 +10,6 @@
  },
  "axes": "y up, +z front, layers[y][z][x]",
  "criticalPart": "Gate",
- "costM3": {
-  "stone": 0,
-  "timber": 28,
-  "foundation": 0
- },
  "legend": {
   "g": {
    "material": 7,

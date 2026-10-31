@@ -318,7 +318,7 @@
    "kind": "template",
    "knownIssues": [
     "The shed's roof stands only on the stone stack, which is stock, and a 2-voxel timber post beside it touches nothing: the conversion to 1 m dropped the 0.5 m posts. Hauling the stock away would leave the roof, the critical part, unsupported (ADR-004). To be redrawn before M6.",
-    "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before the M4 Siege castle is final."
+    "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before M6, where the Hold trial first uses it."
    ]
   },
   {
@@ -354,7 +354,7 @@
    "kind": "template",
    "knownIssues": [
     "The shed's roof touches nothing below it: the conversion to 1 m dropped the 0.5 m posts, so the critical part is unsupported the moment it is placed (ADR-004). To be redrawn before M6.",
-    "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before the M4 Siege castle is final."
+    "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before M6, where the Hold trial first uses it."
    ]
   },
   {

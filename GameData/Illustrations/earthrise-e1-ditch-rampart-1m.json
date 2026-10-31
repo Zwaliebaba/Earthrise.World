@@ -10,11 +10,6 @@
  },
  "axes": "y up, +z front, layers[y][z][x]",
  "criticalPart": "None",
- "costM3": {
-  "stone": 0,
-  "timber": 0,
-  "foundation": 0
- },
  "legend": {
   "c": {
    "material": 3,

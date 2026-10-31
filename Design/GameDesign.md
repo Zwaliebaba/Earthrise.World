@@ -103,7 +103,7 @@ The owner adopted a look specification from a visual prototype, and settled wher
    - a standard ditch 5 m wide and 2 m deep, with 1:1 sides;
    - one cue per unit type;
    - render-only colours for horse, leather and rubble.
-2. **The content format is [ADR-005](ADR/ADR-005-content-formats.md),** which closes that question. JSON layer files are the source, with MagicaVoxel copies beside them. Decorations behave and cost as the material they sit in. Everything is baked into a `Content` library, and nothing is loaded at runtime.
+2. **The content format is [ADR-005](ADR/ADR-005-content-formats.md),** which closes that question. JSON layer files are the source, with MagicaVoxel copies beside them. Decorations behave and cost as the material they sit in. Everything is baked into a `Content` library, and nothing is loaded at runtime. (Changed the same day by [ADR-008](ADR/ADR-008-server-and-client-game-data.md): the `.vox` copies are no longer committed, and the server reads its data from baked files.)
 3. **The palisade gate (T7) is one of the MVP's templates.**
 
 ### 2026-10-31: the 1 m world
@@ -114,7 +114,7 @@ The owner adopted a second asset package and its proposed change of voxel sizes 
 2. **Models use 0.5 m voxels:** units, siege engines, mantlets, carts, banners and debris. They are drawn over the world, never written into it, and never simulated.
 3. **Walls.** A standard wall is 2 m thick, so a section of 8 × 2 × 6 m costs 96 m³ of stone. A thick wall is 3 m thick and costs half as much again. The balance targets stay as they are, and are now tuned for these walls.
 4. **Craters show their weapon by size and depth** rather than by shape, and the client's debris adds texture. Whether players can still tell the weapons apart is an open question for the M3 breach lab.
-5. **The second package replaces the first in `Assets/`** ([MvpAssets.md](MvpAssets.md)). Its world templates are automatic conversions from 0.5 m, to be redrawn natively at 1 m before the M4 Siege castle is final.
+5. **The second package replaces the first in `Assets/`** (now `GameData/`, ADR-008) ([MvpAssets.md](MvpAssets.md)). Its world templates are automatic conversions from 0.5 m, to be redrawn natively at 1 m before the M4 Siege castle is final.
 6. **Rendering.** Models shade where they touch the world, and units far away are drawn as impostors ([RendererLook.md](RendererLook.md)).
 
 ### 2026-10-31: platforms, input and squads
@@ -206,7 +206,7 @@ A classic RTS match ends; a world lasts a season, and the season replaces the ma
 
 ## Build budget (Decided: there is one, with a cut order; Proposed: its figures and the order)
 
-The review estimated the plan at 79–137 FTE-months of work for one experienced developer. These are judgment estimates, not measurements (review finding F-52). The two cuts taken in the design review save about 3–6 of them.
+The review estimated the plan at 79–137 FTE-months of work for one experienced developer. These are judgment estimates, not measurements (review finding F-52). The two cuts taken in the design review save about 3–5 of them.
 
 | Stage | FTE-months (estimate) |
 |---|---|
@@ -308,6 +308,6 @@ Its output is ADR-006's table of measurements, for the 1 m baseline and for a 0.
 - The skirmish AI's capabilities, in detail.
 - **Craters at 1 m:** can players tell a ram, a mangonel and a trebuchet apart by the size and depth of their craters? Tested in the M3 breach lab.
 - **The Surface's pass mark,** set from the renderer spike's figures ([ADR-007](ADR/ADR-007-platforms-and-input.md)).
-- **The touch scheme:** its gestures and layout, designed after the MVP's verdict. The second package's landscape layout is a starting point ([RendererLook.md](RendererLook.md)).
+- **The touch scheme:** its gestures and layout, designed after the MVP's verdict. The HUD package's layout B and the second asset package's landscape phone layout are the starting points ([Hud.md](Hud.md) §4, [RendererLook.md](RendererLook.md)).
 - Unit statistics, costs, gather rates and every other number behind the description's targets. The Trials and Skirmish tune them. The review named the ones the rules now lean on: a shot's stone price, each template's critical-part threshold, the repair rate per section, and the warning time before a collapse.
 - **The sizes behind the Worlds rules:** the daily work allowance, deposits per holding, the Deep's yield by phase and the distance the steward sallies.

@@ -15,7 +15,7 @@ The MVP ends at the verdict on stages 1 and 2 (GameDesign.md, decided 2026-10-31
 - **The look** of [RendererLook.md](RendererLook.md): 1 m world voxels and 0.5 m models ([ADR-006](ADR/ADR-006-voxel-sizes.md)), and its palette, jitter, corner shading, lighting and camera.
 - **Platforms:** Windows on x64 and ARM64, played with mouse and keyboard ([ADR-007](ADR/ADR-007-platforms-and-input.md)). The interface keeps to ADR-007's rule that hover is never the only way to see something.
 - **One map**, 512 m × 512 m, generated from its seeds by the integer-only generator and held in memory. The Siege castle and the Hold maps are scenarios, which means saves of seeds, edits and entities.
-- **Materials:** earth, common rock, building stone, bedrock, timber, and rubble that keeps the material it fell from.
+- **Materials:** earth, common rock, building stone, bedrock, timber, and rubble that keeps the material it fell from; also grass, which only the generator places, leaves and water (GameDesign.md, 2026-10-31).
 - **Economy, used by Hold only:** stone and timber, counted by volume. Six designations: quarry, pit, ditch, trench, felling and clearance. Two drop sites, the quarry yard and the lumber camp, with laborers hauling to them.
 - **Templates:** hall and keep, palisade and palisade gate, standard stone wall, tower, gatehouse with its passage attack, quarry yard and lumber camp. These are T1–T9 in `GameData/Server/Templates/`, catalogued in [MvpAssets.md](MvpAssets.md). Ditch and rampart as earthworks. Deep foundations, priced by their volume.
 - **Construction and repair:** construction voxel by voxel, after the footprint is levelled. Repair at a fixed rate per section with the ten-second lock. Critical parts with thresholds.
@@ -226,7 +226,7 @@ If the 1 m baseline misses the pass mark, ADR-001 is revisited before any gamepl
 - the camera;
 - click-to-fire a trebuchet at a wall;
 - the integrity view read from the resolver;
-- the collapse preview and the passability view, toggled by F1 and F2;
+- the collapse preview and the passability view, with F1 toggling the integrity view and F2 the passability view;
 - the text renderer and the font tool, which M4 used to hold;
 - the first of the HUD: the top bar, the mode banner, the camera buttons, the collapse alert and the attack cursor for FIRE ([Hud.md](Hud.md) §11);
 - prediction prompts, logged.
@@ -241,7 +241,7 @@ Run it with six people (F-48).
 - units, stats and combat, physical shots, elevation, garrisons and the gatehouse's passage attack;
 - drawing units and buildings;
 - fog with the visibility filter and last-seen land;
-- the content baker, writing the client's tables into `Content` and the server's data to `ServerData`, with the two hashes, and the asset check (ADR-005, ADR-008); the world templates T1–T9 redrawn natively at 1 m, and the Siege castle built from them;
+- the content baker, writing the client's tables into `Content` and the server's data to `ServerData`, with the two hashes, and the asset check (ADR-005, ADR-008); the world templates T1–T7 redrawn natively at 1 m, and the Siege castle built from them;
 - the subset of jobs the trial needs: repair and trenches;
 - the rest of the interface: layout A of [Hud.md](Hud.md), with squad selection, control groups, the command card, the minimap, alerts and the repair lock, and every hover reading also reachable without hover (ADR-007);
 - the Siege defender AI;
@@ -277,6 +277,7 @@ Run it with six people (F-48).
 **Build:**
 - the full set of designations, with laborer jobs, hauling, drop sites and construction;
 - the readout at placement: soil depth and the slump preview;
+- T8 and T9 redrawn natively at 1 m, with posts under their sheds;
 - the HUD's laborer cards, its placement and dig readouts, with YIELD counting only stone the player can see, and the Hold control's GATHER ([Hud.md](Hud.md) §10, §11);
 - the generator constraints for Hold maps: at least two outcrops, and mixed ground;
 - the scored waves and the sapper wave;

@@ -10,11 +10,6 @@
  },
  "axes": "y up, +z front, layers[y][z][x]",
  "criticalPart": "Great tower",
- "costM3": {
-  "stone": 1718,
-  "timber": 0,
-  "foundation": 0
- },
  "legend": {
   "f": {
    "material": 6,

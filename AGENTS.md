@@ -172,7 +172,7 @@ SceneTarget SceneTarget::Create(const winrt::com_ptr<ID3D12Device>& _device, con
 | R2 affixes, R7 file names and project registration, R11 spellings, §2 flat directories, shader names and functional filters | `Build/CheckProjectFiles.py`, gated in CI |
 | R4, R6, R9, R10 | Review. Check your own diff against the table before handing it back. |
 
-**Neither checker exists yet** (§6). `.clang-tidy` is configured and gates the moment there is a translation unit to run it over; `Build/CheckProjectFiles.py` has to be written, and until it is, the four rules in its row are review's problem and nothing else. A rule nobody can run is a rule that rots, so writing that checker is early work rather than housekeeping.
+**Neither checker script exists yet** (§6). `.clang-tidy` is configured, and gates through `Build/RunClangTidy.py` the moment there is a translation unit to run it over; `Build/CheckProjectFiles.py` has to be written, and until it is, the rules in its row are review's problem and nothing else. A rule nobody can run is a rule that rots, so writing that checker is early work rather than housekeeping.
 
 ---
 
@@ -248,7 +248,7 @@ python Build\RunClangTidy.py          # needs a Developer PowerShell (INCLUDE mu
 **A green build says nothing about whether the game draws.** For anything touching rendering, input, audio or presentation, launch the executable and look at it. For the voxel renderer, look where the paper itself says the method is fragile:
 
 - voxels close enough to cross the near plane, which must clip cleanly and must not vanish or smear;
-- distant voxels under stochastic pruning, which must stay put while the camera moves; a pruning hash that is not stable shows up as shimmer on silhouettes against the sky.
+- distant voxels at the farthest zoom, about 4 px each, which must stay put while the camera moves; unstable quad bounds or colour jitter show up as shimmer on silhouettes against the sky. Stochastic pruning is not used ([ADR-006](Design/ADR/ADR-006-voxel-sizes.md)), and units switch to impostors below 3 px, which must not pop.
 
 **Report what you actually did.** "Builds clean, not run" and "builds and runs" are different claims. Never imply the second when you only did the first, and say which configurations you built.
 

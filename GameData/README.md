@@ -1,6 +1,6 @@
 # GameData
 
-The game's content sources, split by who reads them ([ADR-008](../Design/ADR/ADR-008-server-and-client-game-data.md)). Nothing here is loaded directly. `Tools/BakeContent.py` bakes the client's content into the `Content` library, compiled in, and the server's into files in `<outputdir>\ServerData`, which the simulation reads at startup. [ADR-005](../Design/ADR/ADR-005-content-formats.md) is the format, [ADR-006](../Design/ADR/ADR-006-voxel-sizes.md) sets the two voxel sizes, and [Design/MvpAssets.md](../Design/MvpAssets.md) is the catalogue.
+The game's content sources, split by who reads them ([ADR-008](../Design/ADR/ADR-008-server-and-client-game-data.md)). Nothing here is loaded directly. The bake, `Tools/BakeContent.py`, which is not written yet, turns the client's content into the `Content` library, compiled in, and the server's into files in `<outputdir>\ServerData`, which the simulation reads at startup. [ADR-005](../Design/ADR/ADR-005-content-formats.md) is the format, [ADR-006](../Design/ADR/ADR-006-voxel-sizes.md) sets the two voxel sizes, and [Design/MvpAssets.md](../Design/MvpAssets.md) is the catalogue.
 
 | Path | Holds | Voxel | Read by |
 |---|---|---|---|
@@ -22,7 +22,7 @@ The game's content sources, split by who reads them ([ADR-008](../Design/ADR/ADR
 - **A file's name says its voxel size:** `-1m` for the world grid, `-05m` for models. Its `voxelSize` field must agree.
 - **A palette index belongs to a grid.** `Server/Palette.json` marks each index `world`, `models` or `both`, and a world asset uses only `world` and `both` indices.
 - **The `.png`** is a preview only, and may lag an edit.
-- **Costs are counted, not typed.** If a template changes, its expected cost in `Manifest.json` changes in the same commit.
+- **Costs are counted, not typed.** Layer files carry no costs. `Manifest.json` holds the expected counts, and if a template changes, its expected cost there changes in the same commit.
 - **Shared content lives in `Server/`.** A template or the palette is read by both sides, and has its one source on the server's side (ADR-008).
 
 ## Where these came from

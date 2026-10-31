@@ -211,8 +211,8 @@
    "jitterCell": "voxel",
    "aoSet": "structure",
    "grid": "models",
-   "behavior": "inherit",
-   "note": "Faction colour, swapped per owner at draw time. Banners are 0.5 m models (ADR-006); in a template it behaves as its host."
+   "behavior": "modelOnly",
+   "note": "Faction colour, swapped per owner at draw time. Models only, banners included (ADR-006); never on structures."
   },
   {
    "index": 18,
@@ -275,8 +275,7 @@
    "jitterCell": "voxel",
    "aoSet": "structure",
    "grid": "models",
-   "behavior": "inherit",
-   "note": "In a template it behaves as its host."
+   "behavior": "modelOnly"
   },
   {
    "index": 24,
