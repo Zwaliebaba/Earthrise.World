@@ -41,6 +41,11 @@
     </ClCompile>
     <ClInclude Include="Palette.h" />
     <ClCompile Include="Palette.cpp" />
+    <ClInclude Include="VoxelGrid.h" />
+    <ClInclude Include="Catalog.h" />
+    <ClCompile Include="Catalog.cpp" />
+    <ClInclude Include="SharedHash.h" />
+    <ClCompile Include="SharedHash.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

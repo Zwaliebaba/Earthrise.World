@@ -14,5 +14,6 @@
   <Project Path="SimulationBench/SimulationBench.vcxproj" />
   <Project Path="CoreTests/CoreTests.vcxproj" />
   <Project Path="ProtocolTests/ProtocolTests.vcxproj" />
+  <Project Path="ContentTests/ContentTests.vcxproj" />
   <Project Path="SimulationTests/SimulationTests.vcxproj" />
 </Solution>
