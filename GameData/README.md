@@ -1,6 +1,6 @@
 # GameData
 
-The game's content sources, split by who reads them ([ADR-008](../Design/ADR/ADR-008-server-and-client-game-data.md)). Nothing here is loaded directly. The bake, `Tools/BakeContent.py`, which is not written yet, turns the client's content into the `Content` library, compiled in, and the server's into files in `<outputdir>\ServerData`, which the simulation reads at startup. [ADR-005](../Design/ADR/ADR-005-content-formats.md) is the format, [ADR-006](../Design/ADR/ADR-006-voxel-sizes.md) sets the two voxel sizes, and [Design/MvpAssets.md](../Design/MvpAssets.md) is the catalogue.
+The game's content sources, split by who reads them ([ADR-008](../Design/ADR/ADR-008-server-and-client-game-data.md)). Nothing here is loaded directly. The bake, `Tools/BakeContent.py`, turns the client's content into the `Content` library, compiled in, and the server's into files in `<outputdir>\ServerData`, which the simulation reads at startup. Its client half exists: it writes the palette's colours, the templates' client view, the models and the shared hash (ADR-008, decision 5). Its server half follows in M2. [ADR-005](../Design/ADR/ADR-005-content-formats.md) is the format, [ADR-006](../Design/ADR/ADR-006-voxel-sizes.md) sets the two voxel sizes, and [Design/MvpAssets.md](../Design/MvpAssets.md) is the catalogue.
 
 | Path | Holds | Voxel | Read by |
 |---|---|---|---|
@@ -37,10 +37,10 @@ These files come from the owner's second package, kept unchanged in [`Design/Ref
   - It gained a `behavior` for every index, and seven entries from [RendererLook.md](../Design/RendererLook.md): water (9), leaves A and B (10, 11), fields A and B (13, 14), road (15), and rock rubble (28). The colour for rock rubble is provisional.
   - **Three indices moved** to match the package's look spec: water is now 9, and leaves A and B are 10 and 11. The first import had leaves at 9 and 10 and water at 11. Nothing had been baked, so nothing depended on the old numbers; from here on the indices are frozen (ADR-005).
   - Index 6 is renamed from "dressed stone" to "masonry".
-  - **Six indices are marked `both`** where the package said `world` or `models`: masonry, timber and the three rubbles (6, 7, 8, 25, 26), because engines and debris are drawn in them, and iron (18), because templates carry iron fittings. That follows the package's own look spec over its `palette.json`.
+  - **Seven indices are marked `both`** where the package said `world` or `models`: masonry, timber and the three rubbles (6, 7, 8, 25, 26), because engines and debris are drawn in them; iron (18), because templates carry iron fittings; and opening (20), because S1's wheels are drawn in it. The first six follow the package's own look spec over its `palette.json`. Both of the package's files mark opening `world`; the owner marked it `both` on 2026-10-31, when the asset check found S1's wheels in it.
 - **Known issues** are recorded on the entries they concern, in `knownIssues`:
   - every world asset is an automatic conversion, to be redrawn natively at 1 m;
-  - T8's and T9's shed roofs have no posts under them;
+  - T8's and T9's sheds gained posts on 2026-10-31, which their `.png` previews predate;
   - E1's rampart holds 48 m³ against 32 m³ dug, and is topped with grass;
   - T7's grid has 1 m of empty padding in front, which the baker trims.
 - **The package's `.vox` copies were dropped** when the `.json` became the only committed source (ADR-008). `Tools/ExportVox.py` reproduces their voxels; the package keeps the originals.

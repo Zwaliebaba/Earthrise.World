@@ -242,7 +242,7 @@
    "jitter": 0.05,
    "jitterCell": "voxel",
    "aoSet": "structure",
-   "grid": "world",
+   "grid": "both",
    "behavior": "inherit",
    "packageSimulationMaterial": "building stone (built)",
    "note": "Painted on a solid voxel; behaves as its host."
