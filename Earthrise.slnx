@@ -13,6 +13,7 @@
   <Project Path="RendererSpike/RendererSpike.vcxproj" />
   <Project Path="SimulationBench/SimulationBench.vcxproj" />
   <Project Path="CoreTests/CoreTests.vcxproj" />
+  <Project Path="EngineTests/EngineTests.vcxproj" />
   <Project Path="ProtocolTests/ProtocolTests.vcxproj" />
   <Project Path="SimulationTests/SimulationTests.vcxproj" />
 </Solution>

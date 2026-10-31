@@ -211,6 +211,7 @@ Each CI guard is removed once its input is there.
   - **What is left out:** the reference scene's overlay of title, markers and legend, which uses licensed fonts, because the MVP uses only its own content.
 - **Scripted edits:** quarrying at the peak rate back-solved from the tempo, and one wall collapse.
 - **A render resolution of its own,** scaled to the display, so the Surface can be measured below its panel's resolution (ADR-007).
+- **Render tests on WARP** ([ADR-012](ADR/ADR-012-render-tests-on-warp.md)). Each pass ships with a test that draws a known scene offscreen in CI and checks its coverage, colour and depth against values computed from the scene. Speed and the look are still measured and judged on the stated hardware.
 - **In `SimulationBench`:** a first support search and a navigation tile rebuild, run on the MVP map and on a synthetic 2 km world carrying a season's edits.
 
 **Done when:**
@@ -248,7 +249,7 @@ The review asks for this in writing before the spike starts, so that its actual 
 
 **The bottom-up figure sits below the plan's 7.5–11.5 FTE-months** at its low end. The plan's figure stands until the spike's real pace says otherwise; the difference is itself a reading of how uncertain both are.
 
-**The biggest risk to the estimate is debugging the renderer without eyes on the screen.** A Claude session cannot see a frame, so every visual defect costs a round trip through the owner. To keep that cheap, the spike writes a screenshot and its GPU timings to files on demand, which the owner can attach to an issue or a session.
+**The biggest risk to the estimate is debugging the renderer without eyes on the screen.** A Claude session cannot see a frame, so every visual defect costs a round trip through the owner. To keep that cheap, the spike writes a screenshot and its GPU timings to files on demand, which the owner can attach to an issue or a session. CI also renders each pass on WARP and checks the result by number (ADR-012), so a defect in coverage, colour or depth should reach CI before it reaches the owner. That leaves the owner's round trips for the look and the timings.
 
 **How the actual pace is recorded:**
 - each task's start and finish dates;
@@ -262,6 +263,7 @@ At the end of M1:
 | # | Started | Finished | PRs | Owner hours | Notes |
 |---|---|---|---|---|---|
 | 1 | 2026-10-31 | | #8 | | The scaffold, with each project's first piece |
+| 2 | 2026-10-31 | | #10 | | The engine base, and ADR-012 on render tests on WARP |
 | 3 | 2026-10-31 | | #9 | | The chunk store with copy-on-write snapshots |
 
 ### M2 — Headless simulation

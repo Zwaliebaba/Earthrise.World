@@ -7,6 +7,15 @@
     <Filter Include="Window">
       <UniqueIdentifier>{0C06BEC9-AA99-5C23-B365-5BAE2BE4A13F}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Rendering">
+      <UniqueIdentifier>{1E9247CB-C127-5C19-9CF0-8026CEE0DA7C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Input">
+      <UniqueIdentifier>{4FF5973F-DA87-5255-AE8F-9EA23E917666}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Timing">
+      <UniqueIdentifier>{3F13C0B6-E2F9-5074-8579-2A0889F41DFD}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -26,6 +35,63 @@
     </ClInclude>
     <ClCompile Include="Window.cpp">
       <Filter>Window</Filter>
+    </ClCompile>
+    <ClInclude Include="GpuDevice.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="GpuDevice.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClInclude Include="CommandQueue.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="CommandQueue.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClInclude Include="DescriptorHeap.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="DescriptorHeap.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClInclude Include="RingAllocator.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="RingAllocator.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClInclude Include="UploadRing.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="UploadRing.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClInclude Include="FrameRing.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="FrameRing.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClInclude Include="SwapChain.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="SwapChain.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClInclude Include="ResourceBarrier.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="PointerInput.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClCompile Include="PointerInput.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
+    <ClInclude Include="FrameTimer.h">
+      <Filter>Timing</Filter>
+    </ClInclude>
+    <ClCompile Include="FrameTimer.cpp">
+      <Filter>Timing</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
