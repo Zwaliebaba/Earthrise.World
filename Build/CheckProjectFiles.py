@@ -84,7 +84,10 @@ ALLOWED_DEBUG_RELEASE = {
   ("Link", "OptimizeReferences"),
   ("FXCompile", "DisableOptimizations"),
   ("FXCompile", "EnableDebuggingInformation"),
+  ("FXCompile", "AdditionalOptions"),
 }
+# Debug's shaders carry their debug information inside them, and dxc refuses the option without it.
+DEBUG_SHADER_OPTION = "-Qembed_debug"
 ALLOWED_PLATFORM = {("ClCompile", "AdditionalOptions")}
 
 WINDOWS_MACROS = {"NOMINMAX", "WIN32_LEAN_AND_MEAN", "NOMCX", "NOSERVICE", "NOHELP"}
@@ -217,6 +220,8 @@ def CheckSheet(_report, _root):
       _report.Error(path, f"{where}: PreprocessorDefinitions must hold {DEBUG_DEFINE[configuration]} and not the other")
     for macro in sorted(defines & (WINDOWS_MACROS | {"UNICODE", "_UNICODE"})):
       _report.Error(path, f"{where}: {macro} is defined in the sheet; framework.h or CharacterSet owns it (AGENTS.md §4)")
+    if (DEBUG_SHADER_OPTION in values.get(("FXCompile", "AdditionalOptions"), [])) != (configuration == "Debug"):
+      _report.Error(path, f"{where}: {DEBUG_SHADER_OPTION} belongs in Debug's shader options and nowhere else (ADR-011)")
 
   for platform in Model.PLATFORMS:
     debug, release = evaluated[("Debug", platform)], evaluated[("Release", platform)]
@@ -228,6 +233,9 @@ def CheckSheet(_report, _root):
       elif key == ("ClCompile", "PreprocessorDefinitions"):
         if (set(debug.get(key, [])) ^ set(release.get(key, []))) - {"_DEBUG", "NDEBUG"}:
           _report.Error(path, f"{platform}: Debug and Release defines differ beyond _DEBUG and NDEBUG")
+      elif key == ("FXCompile", "AdditionalOptions"):
+        if (set(debug.get(key, [])) ^ set(release.get(key, []))) - {DEBUG_SHADER_OPTION}:
+          _report.Error(path, f"{platform}: Debug and Release shader options differ beyond {DEBUG_SHADER_OPTION}")
   for configuration in Model.CONFIGURATIONS:
     x64, arm64 = evaluated[(configuration, "x64")], evaluated[(configuration, "ARM64")]
     for key in sorted(set(x64) | set(arm64)):

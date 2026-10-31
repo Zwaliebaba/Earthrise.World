@@ -31,7 +31,9 @@ StructuredBuffer<uint2> g_records : register(t0);
 
 struct VoxelInterpolants
 {
-  float4 position : SV_Position;
+  // A pixel shader that writes SV_DepthLessEqual must read the position at the centroid, without
+  // perspective (DXIL validation); with one sample per pixel that is the pixel's centre.
+  noperspective centroid float4 position : SV_Position;
   nointerpolation float3 boxCenter : BOX_CENTER;
   nointerpolation float boxRadius : BOX_RADIUS;
   nointerpolation uint paletteIndex : PALETTE_INDEX;
