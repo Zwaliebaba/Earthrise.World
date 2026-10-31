@@ -260,6 +260,7 @@ At the end of M1:
 | # | Started | Finished | PRs | Owner hours | Notes |
 |---|---|---|---|---|---|
 | 1 | 2026-10-31 | | #8 | | The scaffold, with each project's first piece |
+| 2 | 2026-10-31 | | #10 | | The engine base, and ADR-012 on render tests on WARP |
 | 3 | 2026-10-31 | | #9 | | The chunk store with copy-on-write snapshots |
 
 ### M2 — Headless simulation
