@@ -174,9 +174,12 @@ Each CI guard is removed once its input is there.
 **Write down** the spike's own estimate. The pass mark is already decided (GameDesign.md, *Renderer spike*). Written 2026-10-31: see *The spike's own estimate*, under M1.
 
 **Progress (2026-10-31):**
-- The three checkers and the property sheet have landed, with `Build/TestCheckers.py`: the good fixture and the repository pass, and 36 broken variants each fail for their own reason.
+- The three checkers and the property sheet have landed, with `Build/TestCheckers.py`: the good fixture and the repository pass, and 37 broken variants each fail for their own reason.
 - CI runs them: the project checker in the Windows job, and the format check and the checker tests in the Linux job.
-- The paper tests are in progress; their reports go in `Design/Review/PaperTests/`.
+- The three paper tests have run; their reports are in `Design/Review/PaperTests/`, and their values are in GameDesign.md, *2026-10-31: the paper tests' values*:
+  - **The Siege route table** passes all three criteria under the owner's decisions and its Proposed fixes.
+  - **The Hold rule test** passes in 3 of 3 layouts under the owner's choices: three rule changes, and a quarry's undermining outweighing its ditch reason. Layout A passes exactly at the bar.
+  - **The breach-prediction prototype** is built, and waits for its twelve people. Their median accuracy is M0's remaining gate.
 
 **Done when:**
 - the checkers run in CI;
@@ -208,6 +211,7 @@ Each CI guard is removed once its input is there.
   - **What is left out:** the reference scene's overlay of title, markers and legend, which uses licensed fonts, because the MVP uses only its own content.
 - **Scripted edits:** quarrying at the peak rate back-solved from the tempo, and one wall collapse.
 - **A render resolution of its own,** scaled to the display, so the Surface can be measured below its panel's resolution (ADR-007).
+- **Render tests on WARP** ([ADR-012](ADR/ADR-012-render-tests-on-warp.md)). Each pass ships with a test that draws a known scene offscreen in CI and checks its coverage, colour and depth against values computed from the scene. Speed and the look are still measured and judged on the stated hardware.
 - **In `SimulationBench`:** a first support search and a navigation tile rebuild, run on the MVP map and on a synthetic 2 km world carrying a season's edits.
 
 **Done when:**
@@ -245,7 +249,7 @@ The review asks for this in writing before the spike starts, so that its actual 
 
 **The bottom-up figure sits below the plan's 7.5–11.5 FTE-months** at its low end. The plan's figure stands until the spike's real pace says otherwise; the difference is itself a reading of how uncertain both are.
 
-**The biggest risk to the estimate is debugging the renderer without eyes on the screen.** A Claude session cannot see a frame, so every visual defect costs a round trip through the owner. To keep that cheap, the spike writes a screenshot and its GPU timings to files on demand, which the owner can attach to an issue or a session.
+**The biggest risk to the estimate is debugging the renderer without eyes on the screen.** A Claude session cannot see a frame, so every visual defect costs a round trip through the owner. To keep that cheap, the spike writes a screenshot and its GPU timings to files on demand, which the owner can attach to an issue or a session. CI also renders each pass on WARP and checks the result by number (ADR-012), so a defect in coverage, colour or depth should reach CI before it reaches the owner. That leaves the owner's round trips for the look and the timings.
 
 **How the actual pace is recorded:**
 - each task's start and finish dates;
@@ -258,7 +262,9 @@ At the end of M1:
 
 | # | Started | Finished | PRs | Owner hours | Notes |
 |---|---|---|---|---|---|
-| 1 | 2026-10-31 | | | | The scaffold, with each project's first piece |
+| 1 | 2026-10-31 | | #8 | | The scaffold, with each project's first piece |
+| 2 | 2026-10-31 | | #10 | | The engine base, and ADR-012 on render tests on WARP |
+| 3 | 2026-10-31 | | #9 | | The chunk store with copy-on-write snapshots |
 | 4 | 2026-10-31 | | #12 | | The client half of the bake, and the asset check |
 
 ### M2 — Headless simulation

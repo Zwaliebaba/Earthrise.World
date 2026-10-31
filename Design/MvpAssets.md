@@ -15,7 +15,7 @@ Buildings, used by both the simulation and the client. The costs are counted und
 | Id | Template | Size (m) | Cost | Critical part | Notes |
 |---|---|---|---|---|---|
 | T1 | Hall | 11 × 7 × 7 | 188 m³ timber | Hall frame (the whole building) | The drop site for everything. The hall is the keep until the keep is complete. The roof costs as timber. |
-| T2 | Keep | 12 × 19 × 15 | 1,722 m³ stone | Great tower | A 12 × 12 m great tower with a forebuilding in front. Hollow: 2 m walls, with a floor every 5 m. |
+| T2 | Keep | 12 × 19 × 15 | 1,530 m³ stone, 192 m³ timber | Great tower | A 12 × 12 m great tower with a forebuilding in front. Hollow: 2 m stone walls, with a timber floor every 5 m and a timber roof, because stone spans 2 m (GameDesign.md, *2026-10-31: the paper tests' values*). |
 | T3 | Stone wall, standard | 8 × 7 × 2 | 96 m³ stone | None: a section opens by the breach rule | 5 m of solid wall and 2 m of crenellation above it. That is the same 96 m³ as GameDescription.md's 8 × 2 × 6 m. |
 | T4 | Tower | 7 × 12 × 7 | 479 m³ stone | Firing platform | Hollow, with 2 m walls. The platform is the top 3 m, merlons included. |
 | T5 | Gatehouse | 9 × 12 × 7 | 585 m³ stone + 12 m³ timber | Gate | The gate is 3 m wide and 4 m high. The garrison fires down into the passage. |

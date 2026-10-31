@@ -78,8 +78,8 @@
    },
    "voxelCount": 1722,
    "costM3": {
-    "stone": 1722,
-    "timber": 0,
+    "stone": 1530,
+    "timber": 192,
     "foundation": 0
    },
    "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
@@ -93,6 +93,7 @@
     "foundation": 0
    },
    "knownIssues": [
+    "The two floors and the roof are timber, 192 voxels, since 2026-10-31: stone spans 2 m (the owner's decision on the M0 paper tests). Its preview in Design/Previews/ still shows a stone roof.",
     "Two banner voxels removed: the conversion to 1 m dropped the pole and left them floating. Banners are 0.5 m models (ADR-006). Its preview in Design/Previews/ still shows them.",
     "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before the M4 Siege castle is final."
    ]

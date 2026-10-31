@@ -33,7 +33,7 @@ name: Build
 # X64 AND ARM64 (ADR-007). Debug|x64 is built, tested and linted. Debug|ARM64 is cross-compiled
 # on the same kind of x64 runner, which cannot execute it, so it is a compile gate only: it
 # catches what a static check cannot see, such as an x64 intrinsic with no ARM64 path. The suites
-# run on ARM64 by hand, on the owner's Surface, before anyone claims ARM64 behaviour.
+# run on ARM64 by hand, on an ARM64 machine, before anyone claims ARM64 behaviour.
 #
 # ── Why the toolchain is not pinned to an image ────────────────────────────────────────────
 #

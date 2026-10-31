@@ -11,7 +11,7 @@ This repository is a greenfield C++23 game and a hobby project with one develope
 **What is authoritative, in order:**
 
 1. **This file** — conformance: naming, style, build settings, and how to work here.
-2. **`Design/ADR/`** — engineering decisions taken while building, one file per decision (§6). There are eleven so far: `ADR-001` on how voxels are drawn, `ADR-002` on the authoritative simulation, `ADR-003` on the world as a seed plus its edits, `ADR-004` on rule-based destruction, `ADR-005` on the format of voxel content, `ADR-006` on voxel sizes, `ADR-007` on platforms and input, `ADR-008` on server and client game data, `ADR-009` on queries across the server boundary, `ADR-010` on the solution and build layout, and `ADR-011` on the renderer's first choices. Numbering started at `ADR-001` in this repository and does not continue another's, so the next is `ADR-012`.
+2. **`Design/ADR/`** — engineering decisions taken while building, one file per decision (§6). There are twelve so far: `ADR-001` on how voxels are drawn, `ADR-002` on the authoritative simulation, `ADR-003` on the world as a seed plus its edits, `ADR-004` on rule-based destruction, `ADR-005` on the format of voxel content, `ADR-006` on voxel sizes, `ADR-007` on platforms and input, `ADR-008` on server and client game data, `ADR-009` on queries across the server boundary, `ADR-010` on the solution and build layout, `ADR-011` on the renderer's first choices, and `ADR-012` on render tests on WARP in CI. Numbering started at `ADR-001` in this repository and does not continue another's, so the next is `ADR-013`.
 3. **The surrounding code** — for anything neither of the above covers, match the file you are editing.
 
 The design sits alongside rather than above: [`Design/GameDesign.md`](Design/GameDesign.md) and [`Design/GameDescription.md`](Design/GameDescription.md) say what is built, and this file says how. Where the two differ, GameDesign.md governs, and it marks each item Decided, Proposed or Open. A task that needs a design answer they do not give, or that rests on something only Proposed or Open, asks the owner and gets the answer written down before the code is.
@@ -246,7 +246,7 @@ python Build\RunClangTidy.py          # needs a Developer PowerShell (INCLUDE mu
 python Build\TestCheckers.py          # the checkers' own tests, when you change a checker
 ```
 
-**A green build says nothing about whether the game draws.** For anything touching rendering, input, audio or presentation, launch the executable and look at it. For the voxel renderer, look where the paper itself says the method is fragile:
+**A green build says nothing about whether the game draws.** The render tests on WARP ([ADR-012](Design/ADR/ADR-012-render-tests-on-warp.md)) check what a number can check, such as coverage, colour and depth, and nothing about the look or the speed. For anything touching rendering, input, audio or presentation, launch the executable and look at it. For the voxel renderer, look where the paper itself says the method is fragile:
 
 - voxels close enough to cross the near plane, which must clip cleanly and must not vanish or smear;
 - distant voxels at the farthest zoom, about 4 px each, which must stay put while the camera moves; unstable quad bounds or colour jitter show up as shimmer on silhouettes against the sky. Stochastic pruning is not used ([ADR-006](Design/ADR/ADR-006-voxel-sizes.md)), and units switch to impostors below 3 px, which must not pop.
