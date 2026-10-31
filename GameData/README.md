@@ -7,7 +7,7 @@ The game's content sources, split by who reads them ([ADR-008](../Design/ADR/ADR
 | `Server/Templates/` | T1–T9, the buildings | 1 m | The simulation; the client gets their shape, colours and cost from the bake |
 | `Server/Palette.json` | Material index → colour, jitter, jitter cell, AO set, grid, behaviour | | The simulation (behaviours); the client gets the colours from the bake |
 | `Client/Models/` | One figure for each unit type (U1–U5, S2), the ram (S1) and the trebuchet (S3) | 0.5 m | The client |
-| `Client/Fonts/` | Earthrise Mason: `EarthriseMason-glyphs.json`, the source, with atlas previews at 1×, 2× and 3× | | The client ([Design/Hud.md](../Design/Hud.md) §9) |
+| `Client/Fonts/` | Earthrise Mason: `EarthriseMason-glyphs.json`, the source | | The client ([Design/Hud.md](../Design/Hud.md) §9) |
 | `Illustrations/` | Squads (U2–U5, S2) and six laborers at 0.5 m; earthworks (E1, E2) and material samples (M1, M2) at 1 m | Both | Nobody: documentation and tests |
 | `Manifest.json` | Every asset: id, kind, grid, files, size, voxel count, counted cost, critical part, known issues. Paths are relative to this folder | | The asset check |
 
@@ -21,7 +21,7 @@ The game's content sources, split by who reads them ([ADR-008](../Design/ADR/ADR
 - **A model or template is one MagicaVoxel object.** Merge objects before saving, or the import refuses.
 - **A file's name says its voxel size:** `-1m` for the world grid, `-05m` for models. Its `voxelSize` field must agree.
 - **A palette index belongs to a grid.** `Server/Palette.json` marks each index `world`, `models` or `both`, and a world asset uses only `world` and `both` indices.
-- **The `.png`** is a preview only, and may lag an edit.
+- **Previews are not kept here.** The `.png` renderings live in [`Design/Previews/`](../Design/Previews/); nothing reads them, and they may lag an edit.
 - **Costs are counted, not typed.** Layer files carry no costs. `Manifest.json` holds the expected counts, and if a template changes, its expected cost there changes in the same commit.
 - **Shared content lives in `Server/`.** A template or the palette is read by both sides, and has its one source on the server's side (ADR-008).
 
@@ -32,7 +32,7 @@ These files come from the owner's second package, kept unchanged in [`Design/Ref
 - **Sorted** into templates, models and illustrations, and **re-pathed** in `Manifest.json`. They moved from `Assets/` to this folder's server and client trees on 2026-10-31 (ADR-008).
 - **One figure for each unit type** (`Client/Models/earthrise-u*-05m.json` and `earthrise-s2-sapper-05m.json`), cut from each squad. Each figure is the squad's first connected figure. Every squad's figures were checked to be identical first.
 - **Template costs recounted** under ADR-005, with decorations costed as the material they sit in. The package left openings and fittings out, so T1, T2, T4 and T7 cost slightly more than the package said. Each of those entries keeps the package's figure as `packageCostM3`.
-- **T2's two banner voxels removed.** The conversion dropped the banner's pole and left them floating. The `.png` still shows the banner.
+- **T2's two banner voxels removed.** The conversion dropped the banner's pole and left them floating. Its preview still shows the banner.
 - **The palette:**
   - It gained a `behavior` for every index, and seven entries from [RendererLook.md](../Design/RendererLook.md): water (9), leaves A and B (10, 11), fields A and B (13, 14), road (15), and rock rubble (28). The colour for rock rubble is provisional.
   - **Three indices moved** to match the package's look spec: water is now 9, and leaves A and B are 10 and 11. The first import had leaves at 9 and 10 and water at 11. Nothing had been baked, so nothing depended on the old numbers; from here on the indices are frozen (ADR-005).
@@ -40,11 +40,11 @@ These files come from the owner's second package, kept unchanged in [`Design/Ref
   - **Seven indices are marked `both`** where the package said `world` or `models`: masonry, timber and the three rubbles (6, 7, 8, 25, 26), because engines and debris are drawn in them; iron (18), because templates carry iron fittings; and opening (20), because S1's wheels are drawn in it. The first six follow the package's own look spec over its `palette.json`. Both of the package's files mark opening `world`; the owner marked it `both` on 2026-10-31, when the asset check found S1's wheels in it.
 - **Known issues** are recorded on the entries they concern, in `knownIssues`:
   - every world asset is an automatic conversion, to be redrawn natively at 1 m;
-  - T8's and T9's sheds gained posts on 2026-10-31, which their `.png` previews predate;
+  - T8's and T9's sheds gained posts on 2026-10-31, which their previews in `Design/Previews/` predate;
   - E1's rampart holds 48 m³ against 32 m³ dug, and is topped with grass;
   - T7's grid has 1 m of empty padding in front, which the baker trims.
 - **The package's `.vox` copies were dropped** when the `.json` became the only committed source (ADR-008). `Tools/ExportVox.py` reproduces their voxels; the package keeps the originals.
 - **The legend names inside the asset files are left unchanged.** For example, they still say "dressed stone". The palette's name is the one that counts.
 - **The package's integration command** (`commands/integrate-look-v2.md`) was not installed into `.claude/commands/`. It is kept with the package as a record of what was asked.
 
-**The font** comes from the owner's HUD package, kept unchanged in [`Design/Reference/HudPrototype/`](../Design/Reference/HudPrototype/). Only `EarthriseMason-glyphs.json` and its three atlases were copied, unchanged. The glyph rows in the JSON are the source; the package's `earthrise-font.js` and `.otf` stay with the package as its own editing tools. On import, the JSON and the JavaScript agreed glyph for glyph, and each atlas matched the rows pixel for pixel. The package's `integrate-hud.md` command was not installed either.
+**The font** comes from the owner's HUD package, kept unchanged in [`Design/Reference/HudPrototype/`](../Design/Reference/HudPrototype/). Only `EarthriseMason-glyphs.json` and its three atlases were copied, unchanged; the atlases are previews and now live in `Design/Previews/`. The glyph rows in the JSON are the source; the package's `earthrise-font.js` and `.otf` stay with the package as its own editing tools. On import, the JSON and the JavaScript agreed glyph for glyph, and each atlas matched the rows pixel for pixel. The package's `integrate-hud.md` command was not installed either.

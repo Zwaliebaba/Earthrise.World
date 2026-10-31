@@ -45,8 +45,7 @@
    },
    "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
    "files": {
-    "json": "Server/Templates/earthrise-t1-hall-1m.json",
-    "png": "Server/Templates/earthrise-t1-hall-1m.png"
+    "json": "Server/Templates/earthrise-t1-hall-1m.json"
    },
    "kind": "template",
    "packageCostM3": {
@@ -79,14 +78,13 @@
    },
    "voxelCount": 1722,
    "costM3": {
-    "stone": 1722,
-    "timber": 0,
+    "stone": 1530,
+    "timber": 192,
     "foundation": 0
    },
    "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
    "files": {
-    "json": "Server/Templates/earthrise-t2-keep-1m.json",
-    "png": "Server/Templates/earthrise-t2-keep-1m.png"
+    "json": "Server/Templates/earthrise-t2-keep-1m.json"
    },
    "kind": "template",
    "packageCostM3": {
@@ -95,7 +93,8 @@
     "foundation": 0
    },
    "knownIssues": [
-    "Two banner voxels removed: the conversion to 1 m dropped the pole and left them floating. Banners are 0.5 m models (ADR-006). The .png still shows them.",
+    "The two floors and the roof are timber, 192 voxels, since 2026-10-31: stone spans 2 m (the owner's decision on the M0 paper tests). Its preview in Design/Previews/ still shows a stone roof.",
+    "Two banner voxels removed: the conversion to 1 m dropped the pole and left them floating. Banners are 0.5 m models (ADR-006). Its preview in Design/Previews/ still shows them.",
     "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before the M4 Siege castle is final."
    ]
   },
@@ -126,8 +125,7 @@
    },
    "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
    "files": {
-    "json": "Server/Templates/earthrise-t3-stone-wall-standard-1m.json",
-    "png": "Server/Templates/earthrise-t3-stone-wall-standard-1m.png"
+    "json": "Server/Templates/earthrise-t3-stone-wall-standard-1m.json"
    },
    "kind": "template",
    "knownIssues": [
@@ -161,8 +159,7 @@
    },
    "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
    "files": {
-    "json": "Server/Templates/earthrise-t4-tower-1m.json",
-    "png": "Server/Templates/earthrise-t4-tower-1m.png"
+    "json": "Server/Templates/earthrise-t4-tower-1m.json"
    },
    "kind": "template",
    "packageCostM3": {
@@ -201,8 +198,7 @@
    },
    "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
    "files": {
-    "json": "Server/Templates/earthrise-t5-gatehouse-1m.json",
-    "png": "Server/Templates/earthrise-t5-gatehouse-1m.png"
+    "json": "Server/Templates/earthrise-t5-gatehouse-1m.json"
    },
    "kind": "template",
    "knownIssues": [
@@ -236,8 +232,7 @@
    },
    "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
    "files": {
-    "json": "Server/Templates/earthrise-t6-palisade-1m.json",
-    "png": "Server/Templates/earthrise-t6-palisade-1m.png"
+    "json": "Server/Templates/earthrise-t6-palisade-1m.json"
    },
    "kind": "template",
    "knownIssues": [
@@ -271,8 +266,7 @@
    },
    "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
    "files": {
-    "json": "Server/Templates/earthrise-t7-palisade-gate-1m.json",
-    "png": "Server/Templates/earthrise-t7-palisade-gate-1m.png"
+    "json": "Server/Templates/earthrise-t7-palisade-gate-1m.json"
    },
    "kind": "template",
    "packageCostM3": {
@@ -312,12 +306,11 @@
    },
    "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
    "files": {
-    "json": "Server/Templates/earthrise-t8-quarry-yard-1m.json",
-    "png": "Server/Templates/earthrise-t8-quarry-yard-1m.png"
+    "json": "Server/Templates/earthrise-t8-quarry-yard-1m.json"
    },
    "kind": "template",
    "knownIssues": [
-    "Posts added on 2026-10-31: four 2 m timber posts at the corners of the shed, whose roof had stood only on the stone stack, which is stock; and one voxel under the 2 m timber post beside it, which the conversion left of the 0.5 m drawing's lifting frame, so that it stands on the ground. Every structure voxel now reaches the ground through structure (ADR-005). The .png preview predates them.",
+    "Posts added on 2026-10-31: four 2 m timber posts at the corners of the shed, whose roof had stood only on the stone stack, which is stock; and one voxel under the 2 m timber post beside it, which the conversion left of the 0.5 m drawing's lifting frame, so that it stands on the ground. Every structure voxel now reaches the ground through structure (ADR-005). Its preview in Design/Previews/ predates them.",
     "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before M6, where the Hold trial first uses it."
    ]
   },
@@ -348,12 +341,11 @@
    },
    "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
    "files": {
-    "json": "Server/Templates/earthrise-t9-lumber-camp-1m.json",
-    "png": "Server/Templates/earthrise-t9-lumber-camp-1m.png"
+    "json": "Server/Templates/earthrise-t9-lumber-camp-1m.json"
    },
    "kind": "template",
    "knownIssues": [
-    "Posts added on 2026-10-31: four 2 m timber posts at the corners of the shed, as in the 0.5 m drawing, whose roof had touched nothing below it. The roof now reaches the ground through structure (ADR-005). The .png preview predates them.",
+    "Posts added on 2026-10-31: four 2 m timber posts at the corners of the shed, as in the 0.5 m drawing, whose roof had touched nothing below it. The roof now reaches the ground through structure (ADR-005). Its preview in Design/Previews/ predates them.",
     "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before M6, where the Hold trial first uses it."
    ]
   },
@@ -384,8 +376,7 @@
    },
    "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
    "files": {
-    "json": "Illustrations/earthrise-e1-ditch-rampart-1m.json",
-    "png": "Illustrations/earthrise-e1-ditch-rampart-1m.png"
+    "json": "Illustrations/earthrise-e1-ditch-rampart-1m.json"
    },
    "kind": "illustration",
    "knownIssues": [
@@ -421,8 +412,7 @@
    },
    "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
    "files": {
-    "json": "Illustrations/earthrise-e2-deep-foundation-1m.json",
-    "png": "Illustrations/earthrise-e2-deep-foundation-1m.png"
+    "json": "Illustrations/earthrise-e2-deep-foundation-1m.json"
    },
    "kind": "illustration",
    "knownIssues": [
@@ -451,8 +441,7 @@
    "voxelCount": 48,
    "authoring": "native 0.5 m",
    "files": {
-    "json": "Illustrations/earthrise-u1-laborers-05m.json",
-    "png": "Illustrations/earthrise-u1-laborers-05m.png"
+    "json": "Illustrations/earthrise-u1-laborers-05m.json"
    },
    "kind": "illustration",
    "figure": {
@@ -488,8 +477,7 @@
    "voxelCount": 66,
    "authoring": "native 0.5 m",
    "files": {
-    "json": "Illustrations/earthrise-u2-spearmen-05m.json",
-    "png": "Illustrations/earthrise-u2-spearmen-05m.png"
+    "json": "Illustrations/earthrise-u2-spearmen-05m.json"
    },
    "kind": "illustration",
    "figure": {
@@ -525,8 +513,7 @@
    "voxelCount": 42,
    "authoring": "native 0.5 m",
    "files": {
-    "json": "Illustrations/earthrise-u3-archers-05m.json",
-    "png": "Illustrations/earthrise-u3-archers-05m.png"
+    "json": "Illustrations/earthrise-u3-archers-05m.json"
    },
    "kind": "illustration",
    "figure": {
@@ -562,8 +549,7 @@
    "voxelCount": 36,
    "authoring": "native 0.5 m",
    "files": {
-    "json": "Illustrations/earthrise-u4-outriders-05m.json",
-    "png": "Illustrations/earthrise-u4-outriders-05m.png"
+    "json": "Illustrations/earthrise-u4-outriders-05m.json"
    },
    "kind": "illustration",
    "figure": {
@@ -599,8 +585,7 @@
    "voxelCount": 54,
    "authoring": "native 0.5 m",
    "files": {
-    "json": "Illustrations/earthrise-u5-men-at-arms-05m.json",
-    "png": "Illustrations/earthrise-u5-men-at-arms-05m.png"
+    "json": "Illustrations/earthrise-u5-men-at-arms-05m.json"
    },
    "kind": "illustration",
    "figure": {
@@ -636,8 +621,7 @@
    "voxelCount": 176,
    "authoring": "native 0.5 m",
    "files": {
-    "json": "Client/Models/earthrise-s1-battering-ram-05m.json",
-    "png": "Client/Models/earthrise-s1-battering-ram-05m.png"
+    "json": "Client/Models/earthrise-s1-battering-ram-05m.json"
    },
    "kind": "model"
   },
@@ -663,8 +647,7 @@
    "voxelCount": 54,
    "authoring": "native 0.5 m",
    "files": {
-    "json": "Illustrations/earthrise-s2-sappers-05m.json",
-    "png": "Illustrations/earthrise-s2-sappers-05m.png"
+    "json": "Illustrations/earthrise-s2-sappers-05m.json"
    },
    "kind": "illustration",
    "figure": {
@@ -700,8 +683,7 @@
    "voxelCount": 223,
    "authoring": "native 0.5 m",
    "files": {
-    "json": "Client/Models/earthrise-s3-trebuchet-05m.json",
-    "png": "Client/Models/earthrise-s3-trebuchet-05m.png"
+    "json": "Client/Models/earthrise-s3-trebuchet-05m.json"
    },
    "kind": "model"
   },
@@ -732,8 +714,7 @@
    },
    "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
    "files": {
-    "json": "Illustrations/earthrise-m1-ground-strata-1m.json",
-    "png": "Illustrations/earthrise-m1-ground-strata-1m.png"
+    "json": "Illustrations/earthrise-m1-ground-strata-1m.json"
    },
    "kind": "illustration",
    "knownIssues": [
@@ -767,8 +748,7 @@
    },
    "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
    "files": {
-    "json": "Illustrations/earthrise-m2-rubble-keeps-its-material-1m.json",
-    "png": "Illustrations/earthrise-m2-rubble-keeps-its-material-1m.png"
+    "json": "Illustrations/earthrise-m2-rubble-keeps-its-material-1m.json"
    },
    "kind": "illustration",
    "knownIssues": [
