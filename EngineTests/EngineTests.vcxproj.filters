@@ -27,5 +27,8 @@
     <ClCompile Include="VoxelPassTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="VoxelGridViewTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

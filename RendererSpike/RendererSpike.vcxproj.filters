@@ -7,6 +7,12 @@
     <Filter Include="Program">
       <UniqueIdentifier>{53C2F161-E1AE-5288-9583-63CB9EDD5D1C}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Scene">
+      <UniqueIdentifier>{D89DDBB5-9B30-5B0F-A941-94C4B921E772}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Rendering">
+      <UniqueIdentifier>{FA6AD17C-6058-58E0-9FD8-9397B638616F}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -20,6 +26,18 @@
     </Manifest>
     <ClCompile Include="RendererSpike.cpp">
       <Filter>Program</Filter>
+    </ClCompile>
+    <ClInclude Include="SceneScript.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClCompile Include="SceneScript.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
+    <ClInclude Include="WorldView.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="WorldView.cpp">
+      <Filter>Rendering</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

@@ -56,6 +56,12 @@
     <ClInclude Include="VoxelRecord.h" />
     <ClInclude Include="VoxelPass.h" />
     <ClCompile Include="VoxelPass.cpp" />
+    <ClInclude Include="VoxelGridView.h" />
+    <ClCompile Include="VoxelGridView.cpp" />
+    <ClInclude Include="StaticBuffer.h" />
+    <ClCompile Include="StaticBuffer.cpp" />
+    <ClInclude Include="DepthTarget.h" />
+    <ClCompile Include="DepthTarget.cpp" />
     <ClInclude Include="FrameRing.h" />
     <ClCompile Include="FrameRing.cpp" />
     <ClInclude Include="SwapChain.h" />

@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 #include "ChunkCoordinate.h"
 
@@ -28,6 +29,12 @@ public:
 
   /// How many voxels are not empty.
   [[nodiscard]] std::size_t SolidCount() const noexcept;
+
+  /// Every voxel, x fastest, then z, then y, as Engine::VoxelGridView and the layer files lay them out.
+  [[nodiscard]] std::span<const std::uint8_t> Voxels() const noexcept
+  {
+    return m_voxels;
+  }
 
 private:
   [[nodiscard]] static std::size_t IndexOf(std::int32_t _xVoxels, std::int32_t _yVoxels, std::int32_t _zVoxels);

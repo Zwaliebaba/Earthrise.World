@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <format>
+#include <functional>
 #include <optional>
 #include <span>
 #include <stdexcept>

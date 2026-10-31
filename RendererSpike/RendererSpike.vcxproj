@@ -44,6 +44,10 @@
     </ClCompile>
     <Manifest Include="RendererSpike.manifest" />
     <ClCompile Include="RendererSpike.cpp" />
+    <ClInclude Include="SceneScript.h" />
+    <ClCompile Include="SceneScript.cpp" />
+    <ClInclude Include="WorldView.h" />
+    <ClCompile Include="WorldView.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
