@@ -267,6 +267,7 @@ At the end of M1:
 | 3 | 2026-10-31 | | #9 | | The chunk store with copy-on-write snapshots |
 | 4 | 2026-10-31 | | #12 | | The client half of the bake, and the asset check |
 | 5 | 2026-10-31 | | #13, #15 | | ADR-001's pipeline: the voxel pass and its render tests, then the spike's first scene of chunks and models |
+| 6 | 2026-10-31 | | #16 | | The strategy camera and its controls |
 
 ### M2 — Headless simulation
 
