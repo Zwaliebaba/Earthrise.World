@@ -28,6 +28,9 @@ public:
   /// Clears what lasts one frame, the presses and the wheel. Call once the frame has used them.
   void EndFrame() noexcept;
 
+  /// Forgets every held button, for when the window loses the pointer and will not see the releases.
+  void ReleaseAll() noexcept;
+
   [[nodiscard]] std::int32_t XPixels() const noexcept;
   [[nodiscard]] std::int32_t YPixels() const noexcept;
   [[nodiscard]] bool IsDown(Button _button) const noexcept;

@@ -2,6 +2,7 @@
 
 #include "Window.h"
 
+#include "KeyboardInput.h"
 #include "PointerInput.h"
 
 namespace Engine
@@ -76,15 +77,20 @@ Window::Size Window::ClientSize() const noexcept
 
 bool Window::PumpMessages() noexcept
 {
-  return Pump(nullptr);
+  return Pump(nullptr, nullptr);
 }
 
 bool Window::PumpMessages(PointerInput& _pointer) noexcept
 {
-  return Pump(&_pointer);
+  return Pump(&_pointer, nullptr);
 }
 
-bool Window::Pump(PointerInput* _pointer) noexcept
+bool Window::PumpMessages(PointerInput& _pointer, KeyboardInput& _keyboard) noexcept
+{
+  return Pump(&_pointer, &_keyboard);
+}
+
+bool Window::Pump(PointerInput* _pointer, KeyboardInput* _keyboard) noexcept
 {
   MSG message{};
   while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE))
@@ -96,6 +102,10 @@ bool Window::Pump(PointerInput* _pointer) noexcept
     if (_pointer != nullptr)
     {
       _pointer->Observe(message);
+    }
+    if (_keyboard != nullptr)
+    {
+      _keyboard->Observe(message);
     }
     TranslateMessage(&message);
     DispatchMessageW(&message);

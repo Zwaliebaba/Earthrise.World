@@ -13,6 +13,7 @@
 #include "CppUnitTest.h"
 
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>

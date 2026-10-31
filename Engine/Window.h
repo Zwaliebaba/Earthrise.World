@@ -7,6 +7,7 @@
 namespace Engine
 {
 
+class KeyboardInput;
 class PointerInput;
 
 /// A top-level window for the renderer: resizable, sized for the monitor's DPI, and closed by the
@@ -51,8 +52,11 @@ public:
   /// As above, and shows each message to _pointer before it is dispatched.
   [[nodiscard]] static bool PumpMessages(PointerInput& _pointer) noexcept;
 
+  /// As above, and shows each message to _pointer and _keyboard.
+  [[nodiscard]] static bool PumpMessages(PointerInput& _pointer, KeyboardInput& _keyboard) noexcept;
+
 private:
-  [[nodiscard]] static bool Pump(PointerInput* _pointer) noexcept;
+  [[nodiscard]] static bool Pump(PointerInput* _pointer, KeyboardInput* _keyboard) noexcept;
   static LRESULT CALLBACK Procedure(HWND _window, UINT _message, WPARAM _wParam, LPARAM _lParam) noexcept;
 
   HWND m_handle = nullptr;
