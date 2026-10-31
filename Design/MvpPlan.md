@@ -2,7 +2,7 @@
 
 **Status:** Accepted by the owner for M0 to M2, 2026-10-31; M3 to M7 stay Proposed until after M1 (GameDesign.md, *Starting the MVP*). Nothing here is implemented. [GameDesign.md](GameDesign.md) defines the MVP and governs where this plan differs from it. [AGENTS.md](../AGENTS.md) governs how the code is written. Every estimate is the design review's judgment estimate (F-52), in FTE-months for one experienced developer; none is a measurement. The renderer spike's actual time against its own written estimate rescales all of them.
 
-**How the work is done.** Claude sessions write the code, tools and checkers and push them to branches. CI compiles Debug|x64 and Debug|ARM64 and runs the x64 tests. The owner runs the builds on Windows, judges the look and the measurements, and approves each milestone. Because an AI writes the code, the estimates below describe the work rather than predict the calendar; the pace of M0 and M1 rescales them.
+**How the work is done.** Claude sessions write the code, tools and checkers and push them to branches. CI builds Debug|x64 and runs its tests; Debug|ARM64 is built by hand (ADR-007). The owner runs the builds on Windows, judges the look and the measurements, and approves each milestone. Because an AI writes the code, the estimates below describe the work rather than predict the calendar; the pace of M0 and M1 rescales them.
 
 ## Scope
 
