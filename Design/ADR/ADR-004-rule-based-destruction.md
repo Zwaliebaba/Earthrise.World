@@ -1,6 +1,6 @@
 # ADR-004 — Destruction is resolved by rules in the simulation; debris is cosmetic
 
-**Status:** Proposed, 2026-10-30, revised the same day after a design review (decisions 2, 3, 4 and 6). Awaiting the owner's acceptance. Nothing implements it yet.
+**Status:** Accepted, 2026-10-31. Proposed 2026-10-30 and revised the same day after a design review (decisions 2, 3, 4 and 6); accepted by the owner after the review of the game description, which added three consequences below. Nothing implements it yet.
 
 ## Context
 
@@ -27,6 +27,9 @@ Destruction is the reason the world is made of voxels, and Teardown is the refer
 - The collapse resolver is one interface with one implementation. Nothing else in the simulation knows how a collapse is computed.
 - The support search covers structures and stone terrain, and only the region an edit can affect (decision 2). Nothing searches the world as one connected structure. Earth and rubble carry support but are not judged by span: they follow the slump rule, a material rule (GameDesign.md).
 - Navigation updates from edits, rubble included.
+- Three more callers ask the resolver under decision 5, all from the review of the game description: the integrity view, the preview of where a dig will slump, and the Hold trial's waves when they score the sections they can reach.
+- Rubble keeps the material it fell from, so rubble is several materials, not one; only rubble of building stone yields stone when cleared ([GameDesign.md](../GameDesign.md)).
+- The resolver's edits pass the same check for holding protection as every other edit, and a collapse that starts inside a holding's window runs to its end (GameDescription.md, *Holdings and siege windows*).
 - Cosmetic debris lives entirely in the client and is excluded from saves, replays and network traffic.
 - A later physics resolver has to put bodies that come to rest back into the voxel grid, because loose bodies do not persist (ADR-003). A body at rest is generally rotated, so that is a resampling step the rule never needs, and it changes the rubble's shape.
 - The cost of switching to physics is mostly design, not code. Siege weapons, building templates and the AI's siege planning are tuned against the rule's outcomes, and a physics resolver changes those outcomes. The more content is tuned, the more the switch costs. If physics is wanted, the time to decide is before content grows beyond the MVP.
@@ -42,6 +45,6 @@ Destruction is the reason the world is made of voxels, and Teardown is the refer
 
 ## Left open
 
-- The resolver's rules: the direction of a fall, how rubble settles and whether it blocks movement, and what a fall damages. GameDesign.md proposes them.
+- The numbers in the resolver's rules, such as warning times and fall lengths. The rules themselves, covering the direction of a fall, how rubble settles and slows movement, and what a fall damages, are decided in GameDesign.md (*Where RTS logic meets destruction*).
 - Each material's span. It is tuning, and it is counted in voxels, so it waits on the simulation voxel size.
 - How cosmetic debris is simulated and drawn, including whether it uses ADR-001's oriented voxels.

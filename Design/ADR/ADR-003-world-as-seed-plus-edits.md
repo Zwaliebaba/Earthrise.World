@@ -1,6 +1,6 @@
 # ADR-003 — The world is a seed plus the edits made to it
 
-**Status:** Proposed, 2026-10-30, revised the same day after a design review (a second seed for resources, and the slope invariant). Awaiting the owner's acceptance. Nothing implements it yet.
+**Status:** Accepted, 2026-10-31. Proposed 2026-10-30 and revised the same day after a design review (a second seed for resources, and the slope invariant); accepted by the owner after the review of the game description. Nothing implements it yet.
 
 ## Context
 
@@ -35,5 +35,5 @@ The world is generated procedurally. Every voxel in it can be removed or added, 
 - Chunk dimensions, which depend on the simulation voxel size the renderer spike settles.
 - The edit encoding: a list of changed voxels, or a full copy of a chunk once it has been edited past some threshold. Also compression.
 - The format of the entity state in a save.
-- The world's extent, and whether it is bounded at all.
+- Whether the generator supports unbounded worlds. The design bounds every world it uses: the MVP map is 512 m square, and a shared world is sized to its seats, up to about 2 km × 2 km ([GameDesign.md](../GameDesign.md)).
 - Streaming chunks in and out of memory, which [ADR-001](ADR-001-direct-voxel-ray-casting.md) also leaves open.

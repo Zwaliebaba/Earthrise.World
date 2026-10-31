@@ -1,6 +1,6 @@
 # ADR-002 — The simulation is authoritative and sits behind a server boundary from the first line
 
-**Status:** Proposed, 2026-10-30, revised the same day after a design review (decisions 3 and 6). Awaiting the owner's acceptance. Nothing implements it yet.
+**Status:** Accepted, 2026-10-31. Proposed 2026-10-30 and revised the same day after a design review (decisions 3 and 6); accepted by the owner after the review of the game description. Nothing implements it yet.
 
 ## Context
 
