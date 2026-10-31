@@ -13,6 +13,7 @@
 #include "StaticBuffer.h"
 #include "UploadRing.h"
 #include "VoxelPass.h"
+#include "VoxelRecord.h"
 
 #include <cstdint>
 #include <map>
