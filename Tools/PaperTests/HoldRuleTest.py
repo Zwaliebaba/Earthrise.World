@@ -6,14 +6,19 @@ the breach moves with quarry placement in at least two of three layouts.
 
 The script builds three Hold layouts as plans of 1 m columns and applies to each the digs a player might choose.
 It then scores every stretch of curtain on the four reasons GameDesign.md (Stages, Hold) gives a wave:
-- how close the section is to opening;
+- how close the section is to opening, read as the sapper's trench it would still need;
 - whether it stands on earth with no ditch in front;
 - how far it is from the towers;
-- whether it is a gate.
-Finally it picks among the best few with a seeded draw.
+- whether it is a gate, which counts only for a wave that brings a ram.
+A stretch that is already open is taken ahead of every intact one. Otherwise the wave picks among the best few
+with a seeded draw.
+
+Revised on the owner's decisions of 2026-10-31. The stone span is 2 m, now that T2's floors and roof are timber,
+and the script checks that against the templates. A quarry in front of a wall is a ditch in front. Rules (a), (b)
+and (c), the Rules fields of those names below, are the three rule changes the first run's report suggested.
 
 Every value the design leaves open is a constant or a Rules field below. Design/Review/PaperTests/HoldRuleTest.md
-marks each one Proposed and gives its reason.
+marks each one Decided or Proposed and gives its reason.
 
 Standard library only. Scores are Fractions and distances are integers, so a run is exact and repeats on every
 machine.
@@ -24,11 +29,28 @@ Usage:
 """
 
 import argparse
+import json
 import sys
 from collections import deque
 from dataclasses import dataclass, field, replace
 from fractions import Fraction
 from math import isqrt
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent.parent
+PALETTE_PATH = ROOT / "GameData" / "Server" / "Palette.json"
+TEMPLATE_DIR = ROOT / "GameData" / "Server" / "Templates"
+
+# The templates the castle is built from, with the plan piece whose footprint each must match. The plans draw the
+# hall as its 11 x 7 bounds rather than T1's frame; no dig in the test reaches it.
+CASTLE_TEMPLATES = (
+  ("earthrise-t1-hall-1m.json", None),
+  ("earthrise-t2-keep-1m.json", "Keep"),
+  ("earthrise-t3-stone-wall-standard-1m.json", "N1"),
+  ("earthrise-t4-tower-1m.json", "SW"),
+  ("earthrise-t5-gatehouse-1m.json", "G"),
+)
 
 # The curtain's prices, from Design/MvpAssets.md (Decided).
 SECTION_STONE_M3 = 96
@@ -43,7 +65,8 @@ DITCH_DEPTHS_METERS = (1, 2, 2, 1)  # Decided: the standard ditch, 2 m deep with
 RAMPART_HEIGHTS_METERS = (1, 2, 2, 1)  # the ditch's own spoil, 6 m^3 per metre, on the side towards the keep
 RAMPART_BERM_METERS = 1  # level ground between the rampart and the ditch, so that neither slumps
 MAX_BERM_METERS = 8  # the widest berm the near quarries try
-SEEDS = tuple(range(1, 9))  # the wave seeds printed for each placement
+SWEEP_BERMS_METERS = tuple(range(1, 7))  # the berms the sweep prints
+SEEDS = tuple(range(1, 9))  # the waves printed for each placement; wave n draws with seed n
 
 SIDES = {"N": (0, 1), "S": (0, -1), "E": (1, 0), "W": (-1, 0)}
 NEIGHBORS = ((1, 0), (-1, 0), (0, 1), (0, -1))
@@ -52,22 +75,34 @@ UNREACHED = 10**6
 
 @dataclass(frozen=True)
 class Rules:
-  """The wave rule's open values. The defaults are the Proposed set; the sensitivity runs change one at a time."""
+  """The wave rule's open values. The defaults are the revised set; the sensitivity runs change one at a time."""
 
   label: str = "Proposed"
-  weightOpen: Fraction = Fraction(1)
+  # The owner's direction (2026-10-31): a quarry's undermining outweighs its ditch reason. The value is Proposed.
+  weightOpen: Fraction = Fraction(2)
   weightEarth: Fraction = Fraction(1)
   weightTowers: Fraction = Fraction(1)
   weightGate: Fraction = Fraction(1)
   topFew: int = 3  # N, the size of "the best few"
-  stoneSpanMeters: int = 4  # the smallest span at which T2's 8 m stone floors stand
+  stoneSpanMeters: int = 2  # Decided (owner, 2026-10-31); every template's stone stands at 2 m
   ditchBandMeters: int = 10  # how far in front of the face a cut counts as "a ditch in front"
   ditchDepthMeters: int = 2  # how deep a cut must be to count, the standard ditch's depth
   ditchShare: Fraction = Fraction(1, 2)  # how much of the section's length the cut must cover
-  quarryIsDitch: bool = True  # any cut in the band counts, not only a ditch designation
+  quarryIsDitch: bool = True  # Decided (owner, 2026-10-31): any cut in the band counts, a quarry pit included
   digsSlump: bool = True  # a dig's earth faces slump at 45 degrees into it and past its rim
   towerScale: str = "max"  # "max": distance / farthest; "range": (distance - nearest) / (farthest - nearest)
   moveShare: Fraction = Fraction(1, 3)  # the share of waves that must land elsewhere for the breach to have moved
+  # (a) "only": when any candidate is open, the wave draws among the open ones alone; "first": open candidates
+  # lead the best few and intact ones fill the rest; "off": the score alone, as before the revision.
+  openWins: str = "only"
+  # (b) "trench": 1 - the trench still needed / the same stretch's need in undug ground; "support": the widest
+  # support distance / (span + 1), as before the revision.
+  openReading: str = "trench"
+  trenchWidthMeters: int = 2  # (b) how wide the sapper's trench is, against the stretch's outer face
+  ramShare: Fraction = Fraction(1, 2)  # (c) the share of waves that bring a ram, spread evenly: waves 2, 4, 6...
+  # (c) "out": a wave without a ram leaves the gatehouse out unless it is open; "term": it scores the gatehouse,
+  # without the gate's reason.
+  gateWithoutRam: str = "out"
 
 
 PROPOSED = Rules()
@@ -136,6 +171,7 @@ def BuildCastle():
 CASTLE = BuildCastle()
 STRETCHES = [piece for piece in CASTLE if piece.kind in ("section", "gate")]
 CURTAIN_KINDS = ("section", "gate", "tower")
+CURTAIN_OWNER = {cell: piece for piece in CASTLE if piece.kind in CURTAIN_KINDS for cell in piece.cells}
 TOWERS = [piece for piece in CASTLE if piece.kind in ("tower", "keep")]
 STRETCH_ORDER = ["N1", "N2", "N3", "E1", "E2", "E3", "S2", "G", "S1", "W1", "W2", "W3"]
 
@@ -157,6 +193,83 @@ def OuterFace(_piece):
   if side == "E":
     return [(rect.x1, y) for y in range(rect.y0, rect.y1 + 1)]
   return [(rect.x0, y) for y in range(rect.y0, rect.y1 + 1)]
+
+
+def TemplateSupport(_template, _behaviors):
+  """Each palette behaviour's voxel count and widest support distance, for a template on level, undug ground.
+
+  ADR-004 decision 2: the fewest sideways steps on a path that moves only down or sideways through solid voxels to
+  the ground under the bottom layer. It is searched from the ground up, where a step up is free and a step sideways
+  costs one. Every voxel that is not empty is solid; an opening is painted on a solid voxel (Palette.json).
+  """
+  legend = {key: _behaviors[entry["material"]] for key, entry in _template["legend"].items()}
+  solid = {}
+  for y, layer in enumerate(_template["layers"]):
+    for z, row in enumerate(layer):
+      for x, key in enumerate(row):
+        if key != ".":
+          solid[(x, y, z)] = legend[key]
+  distance = {cell: 0 for cell in solid if cell[1] == 0}
+  queue = deque(sorted(distance))
+  while queue:
+    cell = queue.popleft()
+    x, y, z = cell
+    steps = (((x, y + 1, z), 0), ((x + 1, y, z), 1), ((x - 1, y, z), 1), ((x, y, z + 1), 1), ((x, y, z - 1), 1))
+    for other, cost in steps:
+      if other in solid and distance.get(other, UNREACHED) > distance[cell] + cost:
+        distance[other] = distance[cell] + cost
+        if cost:
+          queue.append(other)
+        else:
+          queue.appendleft(other)
+  counts, widest = {}, {}
+  for cell, behavior in solid.items():
+    counts[behavior] = counts.get(behavior, 0) + 1
+    widest[behavior] = max(widest.get(behavior, 0), distance.get(cell, UNREACHED))
+  footprint = {(x, z) for x, y, z in solid if y == 0}
+  return counts, widest, footprint
+
+
+def Canonical(_cells):
+  """A footprint's shape with its position, rotation and mirroring taken out, so two footprints compare equal."""
+  forms = []
+  for swap in (False, True):
+    for flipX in (1, -1):
+      for flipY in (1, -1):
+        moved = [((b if swap else a) * flipX, (a if swap else b) * flipY) for a, b in _cells]
+        left, bottom = min(p[0] for p in moved), min(p[1] for p in moved)
+        forms.append(tuple(sorted((a - left, b - bottom) for a, b in moved)))
+  return min(forms)
+
+
+def PrintTemplates(_rules):
+  palette = json.loads(PALETTE_PATH.read_text(encoding="utf-8"))
+  behaviors = {material["index"]: material["behavior"] for material in palette["materials"]}
+  reported = {"buildingStone": "stone", "timber": "timber"}
+  print("  The templates (GameData/Server/Templates), on level ground: voxels of stone (palette behaviour")
+  print("  buildingStone, which masonry has) and of timber (roofs included), and the widest support distance of each")
+  stoneWidest = 0
+  mismatched = []
+  for fileName, pieceName in CASTLE_TEMPLATES:
+    template = json.loads((TEMPLATE_DIR / fileName).read_text(encoding="utf-8"))
+    counts, widest, footprint = TemplateSupport(template, behaviors)
+    stoneWidest = max(stoneWidest, widest.get("buildingStone", 0))
+    if pieceName is not None:
+      piece = next(piece for piece in CASTLE if piece.name == pieceName)
+      if Canonical(footprint) != Canonical(piece.cells):
+        mismatched.append(template["id"])
+    parts = [f"{name} {counts[key]:>4} voxels, widest {widest[key]} m"
+             for key, name in reported.items() if key in counts]
+    print(f"    {template['id']} {template['name']:<20} {';  '.join(parts)}")
+  stands = "yes" if stoneWidest <= _rules.stoneSpanMeters else "no"
+  matches = "yes" if not mismatched else "no: " + ", ".join(mismatched)
+  print(f"  Every template's stone stands at the {_rules.stoneSpanMeters} m stone span: {stands} (the widest is"
+        f" {stoneWidest} m).")
+  print(f"  The plans' keep, sections, towers and gatehouse have the footprints of T2-T5's bottom layers: {matches}.")
+  print("  The plans hold each structure as its footprint on the ground, and T2's bottom layer is stone, so the stone")
+  print("  span is the one that applies to it. Its timber floors and roof rest on its walls, which no dig here")
+  print("  reaches.")
+  print()
 
 
 @dataclass(frozen=True)
@@ -213,6 +326,9 @@ class Placement:
 
   def Chases(self):
     return any(pit.towardFace for pit in self.pits)
+
+
+UNDUG = Placement("undug", "the layout's ground with nothing dug")
 
 
 @dataclass
@@ -304,6 +420,67 @@ def PlanBounds(_layout):
   return Rect(min(r.x0 for r in rects), min(r.y0 for r in rects), max(r.x1 for r in rects), max(r.y1 for r in rects))
 
 
+def SlumpLevels(_level, _rockTop, _cap, _start, _givers=None):
+  """Earth slumps to 45 degrees: no earth column stands more than one voxel above its neighbor.
+
+  Earth moves one voxel at a time to the lower neighbor, so it is conserved, and the order is fixed. Rock never
+  moves. The search starts at _start and the columns beside it. Where _givers is a set, only its columns may give
+  earth, which is how digs that do not slump are run.
+  """
+  start = set()
+  for cell in _start:
+    start.add(cell)
+    start.update((cell[0] + dx, cell[1] + dy) for dx, dy in NEIGHBORS)
+  queue = deque(sorted(cell for cell in start if cell in _level))
+  queued = set(queue)
+  while queue:
+    cell = queue.popleft()
+    queued.discard(cell)
+    if _givers is not None and cell not in _givers:
+      continue
+    for dx, dy in NEIGHBORS:
+      other = (cell[0] + dx, cell[1] + dy)
+      if other not in _level:
+        continue
+      moved = False
+      while (_level[cell] - _level[other] >= 2 and _level[cell] > _rockTop[cell] and
+             (_cap[other] is None or _level[other] < _cap[other])):
+        _level[cell] -= 1
+        _level[other] += 1
+        moved = True
+      if moved:
+        for touched in (cell, other):
+          for ex, ey in ((0, 0),) + NEIGHBORS:
+            near = (touched[0] + ex, touched[1] + ey)
+            if near in _level and near not in queued:
+              queue.append(near)
+              queued.add(near)
+
+
+def SupportDistances(_level, _owner):
+  """ADR-004's support distance, as it applies to a structure standing on a height field.
+
+  A structure voxel goes down through its own column, or sideways through solid structure, until it reaches
+  ground. A column whose ground still touches the structure's base is grounded, with distance 0. Every other
+  footprint column counts the fewest sideways steps through the footprint to a grounded column. Structures
+  that touch are one body, so the curtain's sections, towers and gatehouse support one another.
+  """
+  distance = {}
+  queue = deque()
+  for cell in sorted(_owner):
+    if _level[cell] == 0:
+      distance[cell] = 0
+      queue.append(cell)
+  while queue:
+    cell = queue.popleft()
+    for dx, dy in NEIGHBORS:
+      other = (cell[0] + dx, cell[1] + dy)
+      if other in _owner and other not in distance:
+        distance[other] = distance[cell] + 1
+        queue.append(other)
+  return {cell: distance.get(cell, UNREACHED) for cell in _owner}
+
+
 class World:
   """A height field of 1 m columns over a layout's plan.
 
@@ -379,63 +556,110 @@ class World:
       self.rockTop[cell] = min(self.rockTop[cell], self.level[cell])
 
   def Slump(self, _digsSlump):
-    """Earth slumps to 45 degrees: no earth column stands more than one voxel above its neighbor.
+    """Every dig's earth faces slump. Where digs do not slump, only columns inside a dig's footprint give earth."""
+    SlumpLevels(self.level, self.rockTop, self.cap, self.footprint, None if _digsSlump else self.footprint)
 
-    Earth moves one voxel at a time to the lower neighbor, so it is conserved, and the order is fixed. Rock never
-    moves. Where digs do not slump, only columns inside a dig's footprint may give earth.
-    """
-    level, rockTop, cap = self.level, self.rockTop, self.cap
-    start = set()
-    for cell in self.footprint:
-      start.add(cell)
-      start.update((cell[0] + dx, cell[1] + dy) for dx, dy in NEIGHBORS)
-    queue = deque(sorted(cell for cell in start if cell in level))
-    queued = set(queue)
-    while queue:
-      cell = queue.popleft()
-      queued.discard(cell)
-      if not _digsSlump and cell not in self.footprint:
-        continue
-      for dx, dy in NEIGHBORS:
-        other = (cell[0] + dx, cell[1] + dy)
-        if other not in level:
-          continue
-        moved = False
-        while (level[cell] - level[other] >= 2 and level[cell] > rockTop[cell] and
-               (cap[other] is None or level[other] < cap[other])):
-          level[cell] -= 1
-          level[other] += 1
-          moved = True
-        if moved:
-          for touched in (cell, other):
-            for ex, ey in ((0, 0),) + NEIGHBORS:
-              near = (touched[0] + ex, touched[1] + ey)
-              if near in level and near not in queued:
-                queue.append(near)
-                queued.add(near)
 
-  def SupportDistances(self):
-    """ADR-004's support distance, as it applies to a structure standing on a height field.
+TRENCH_WINDOW_METERS = 12  # a trial trench's slump is run over the columns this close to the stretch, and no further
 
-    A structure voxel goes down through its own column, or sideways through solid structure, until it reaches
-    ground. A column whose ground still touches the structure's base is grounded, with distance 0. Every other
-    footprint column counts the fewest sideways steps through the footprint to a grounded column. Structures
-    that touch are one body, so the curtain's sections, towers and gatehouse support one another.
-    """
-    distance = {}
-    queue = deque()
-    for cell in sorted(self.owner):
-      if self.level[cell] == 0:
-        distance[cell] = 0
-        queue.append(cell)
-    while queue:
-      cell = queue.popleft()
-      for dx, dy in NEIGHBORS:
-        other = (cell[0] + dx, cell[1] + dy)
-        if other in self.owner and other not in distance:
-          distance[other] = distance[cell] + 1
-          queue.append(other)
-    return {cell: distance.get(cell, UNREACHED) for cell in self.owner}
+
+def TrenchColumns(_world, _piece, _widthMeters):
+  """The sapper's trench cells beside a stretch, one list for each column of its outer face."""
+  dx, dy = SIDES[_piece.outward]
+  columns = []
+  for fx, fy in OuterFace(_piece):
+    cells = [(fx + dx * step, fy + dy * step) for step in range(1, _widthMeters + 1)]
+    columns.append([cell for cell in cells if cell in _world.level and cell not in _world.owner])
+  return columns
+
+
+g_windowCache = {}
+
+
+def Window(_world, _piece, _spanMeters):
+  """The columns a trial trench beside a stretch can change, and the curtain within a span of the stretch."""
+  key = (id(_world), _piece.name, _spanMeters)
+  if key not in g_windowCache:
+    window = tuple(sorted(cell for cell in _piece.rect.Grown(TRENCH_WINDOW_METERS).Cells() if cell in _world.level))
+    near = tuple(sorted(cell for cell in _piece.rect.Grown(_spanMeters).Cells() if cell in CURTAIN_OWNER))
+    g_windowCache[key] = (window, near)
+  return g_windowCache[key]
+
+
+def TrenchDrops(_world, _piece, _cells, _depthMeters, _rules):
+  """Whether a trench of these cells, cut to this depth, leaves the stretch unsupported once the earth slumps.
+
+  Only the columns near the stretch are copied: a slump moves earth only from where a level changed, and earth no
+  deeper than this test's 4 m cannot carry a change that far. The support search covers only the curtain within a
+  span of the stretch, because a path to ground no longer than the span cannot leave it; that is exact.
+  """
+  window, near = Window(_world, _piece, _rules.stoneSpanMeters)
+  level = {cell: _world.level[cell] for cell in window}
+  rockTop = {cell: _world.rockTop[cell] for cell in window}
+  for cell in _cells:
+    target = max(-_depthMeters, _world.bedrock[cell])
+    if level[cell] > target:
+      level[cell] = target
+      rockTop[cell] = min(rockTop[cell], target)
+  givers = None if _rules.digsSlump else _world.footprint | set(_cells)
+  SlumpLevels(level, rockTop, _world.cap, _cells, givers)
+  distances = SupportDistances({cell: level[cell] for cell in near}, set(near))
+  return max(distances[cell] for cell in _piece.cells) > _rules.stoneSpanMeters
+
+
+def TrenchNeed(_world, _piece, _rules):
+  """Rule (b): the least m^3 a sapper would still have to dig to drop the stretch, or None if no trench can.
+
+  A trench is trenchWidthMeters wide against the outer face, runs along any part of the face, and is cut to any
+  whole depth down to bedrock. It cuts whatever it meets, as a designation digs any diggable material, and its
+  spoil leaves play, like a pit's. Its volume is what it digs out of the ground as it stands, so ground a slump or a
+  quarry has already taken costs nothing. The trenches are tried from the smallest volume up, and the first that
+  leaves the stretch unsupported once the earth slumps is the need.
+
+  A trench that fails is taken to show that every trench inside it, no longer and no deeper, fails too, and those
+  are not tried. Digging less never removes more support. With that pruning the search gives the same needs as
+  trying every trench, which the report's method section records as checked.
+  """
+  if all(_world.level[cell] == 0 and _world.rockTop[cell] >= 0 for cell in _piece.cells):
+    return None  # every column rests on rock, which holds its faces, so no trench undermines it
+  columns = TrenchColumns(_world, _piece, _rules.trenchWidthMeters)
+  deepest = -min(_world.bedrock[cell] for column in columns for cell in column)
+  count = len(columns)
+  candidates = []
+  for depth in range(1, deepest + 1):
+    for start in range(count):
+      for end in range(start + 1, count + 1):
+        cells = [cell for column in columns[start:end] for cell in column]
+        dug = sum(max(0, _world.level[cell] - max(-depth, _world.bedrock[cell])) for cell in cells)
+        if dug:
+          candidates.append((dug, depth, start, end))
+  failed = []
+
+  def Tried(_depth, _start, _end):
+    if any(_start >= start and _end <= end and _depth <= depth for depth, start, end in failed):
+      return False
+    cells = [cell for column in columns[_start:_end] for cell in column]
+    if TrenchDrops(_world, _piece, cells, _depth, _rules):
+      return True
+    failed.append((_depth, _start, _end))
+    return False
+
+  for depth in range(1, deepest + 1):  # the whole face first, so that one failure rules out a whole depth
+    if Tried(depth, 0, count):
+      break
+  for dug, depth, start, end in sorted(candidates):
+    if Tried(depth, start, end):
+      return dug
+  return None
+
+
+def OpenTerm(_fallen, _needNow, _needUndug):
+  """Rule (b): 1 when open; otherwise 1 - need now / need undug, kept in [0, 1]; 0 where no trench drops it."""
+  if _fallen:
+    return Fraction(1)
+  if _needNow is None or _needUndug is None:
+    return Fraction(0)
+  return max(Fraction(0), 1 - Fraction(_needNow, _needUndug))
 
 
 @dataclass
@@ -445,6 +669,8 @@ class StretchReading:
   supportMeters: int
   fallen: bool
   openTerm: Fraction
+  needNow: object  # m^3, or None when no trench drops it or when it is already open
+  needUndug: object
   onEarth: bool
   ditchCover: Fraction
   ditchInFront: bool
@@ -452,7 +678,11 @@ class StretchReading:
   towerTenths: int
   towerTerm: Fraction = Fraction(0)
   gateTerm: int = 0
-  score: Fraction = Fraction(0)
+  score: Fraction = Fraction(0)  # for a wave without a ram
+  scoreRam: Fraction = Fraction(0)  # for a wave with one, which adds the gate's reason
+
+  def ScoreFor(self, _ram):
+    return self.scoreRam if _ram else self.score
 
 
 @dataclass
@@ -462,7 +692,9 @@ class Evaluation:
   world: World
   readings: dict
   anyFallen: bool
-  probabilities: dict = field(default_factory=dict)
+  ranks: dict = field(default_factory=dict)  # by whether the wave brings a ram
+  probabilities: dict = field(default_factory=dict)  # by whether the wave brings a ram
+  sapperRanks: dict = field(default_factory=dict)
   sapperProbabilities: dict = field(default_factory=dict)
 
 
@@ -474,6 +706,7 @@ def TowerTenths(_piece):
 
 
 g_worldCache = {}
+g_needCache = {}
 
 
 def SlumpedWorld(_layout, _placement, _bermMeters, _digsSlump):
@@ -485,19 +718,38 @@ def SlumpedWorld(_layout, _placement, _bermMeters, _digsSlump):
     for ditch in _placement.ditches:
       world.DigDitch(ditch)
     world.Slump(_digsSlump)
-    g_worldCache[key] = (world, world.SupportDistances())
+    g_worldCache[key] = (world, SupportDistances(world.level, world.owner))
   return g_worldCache[key]
+
+
+def Need(_layout, _placement, _bermMeters, _rules, _piece):
+  key = (_layout.key, _placement.key, _bermMeters, _rules.digsSlump, _rules.stoneSpanMeters,
+         _rules.trenchWidthMeters, _piece.name)
+  if key not in g_needCache:
+    world, _ = SlumpedWorld(_layout, _placement, _bermMeters, _rules.digsSlump)
+    g_needCache[key] = TrenchNeed(world, _piece, _rules)
+  return g_needCache[key]
+
+
+def AnyFallen(_layout, _placement, _rules, _bermMeters):
+  _, distances = SlumpedWorld(_layout, _placement, _bermMeters, _rules.digsSlump)
+  return any(value > _rules.stoneSpanMeters for value in distances.values())
 
 
 def Read(_layout, _placement, _rules, _bermMeters):
   world, distances = SlumpedWorld(_layout, _placement, _bermMeters, _rules.digsSlump)
   span = _rules.stoneSpanMeters
-  anyFallen = any(value > span for value in distances.values())
   readings = {}
   for piece in STRETCHES:
     support = max(distances[cell] for cell in piece.cells)
     fallen = support > span
-    openTerm = Fraction(1) if fallen else Fraction(support, span + 1)
+    needNow = needUndug = None
+    if _rules.openReading == "support":
+      openTerm = Fraction(1) if fallen else Fraction(support, span + 1)
+    else:
+      needUndug = Need(_layout, UNDUG, 0, _rules, piece)
+      needNow = None if fallen else Need(_layout, _placement, _bermMeters, _rules, piece)
+      openTerm = OpenTerm(fallen, needNow, needUndug)
     onEarth = any(world.earthOriginal[cell] >= 1 for cell in piece.cells)
     face = OuterFace(piece)
     dx, dy = SIDES[piece.outward]
@@ -517,6 +769,8 @@ def Read(_layout, _placement, _rules, _bermMeters):
       support if support < UNREACHED else -1,
       fallen,
       openTerm,
+      needNow,
+      needUndug,
       onEarth,
       cover,
       ditchInFront,
@@ -532,20 +786,37 @@ def Read(_layout, _placement, _rules, _bermMeters):
     else:
       reading.towerTerm = Fraction(reading.towerTenths, farthest)
     reading.score = (_rules.weightOpen * reading.openTerm + _rules.weightEarth * reading.earthTerm +
-                     _rules.weightTowers * reading.towerTerm + _rules.weightGate * reading.gateTerm)
+                     _rules.weightTowers * reading.towerTerm)
+    reading.scoreRam = reading.score + _rules.weightGate * reading.gateTerm
+  anyFallen = any(value > span for value in distances.values())
   return Evaluation(_placement, _bermMeters, world, readings, anyFallen)
 
 
-def Probabilities(_scores, _topFew):
+def Ranks(_readings, _names, _ram, _rules):
+  """Each candidate's rank, highest first: rule (c)'s candidates, rule (a), then the score with or without a ram."""
+  names = list(_names)
+  if not _ram and _rules.gateWithoutRam == "out":
+    names = [name for name in names if not _readings[name].gateTerm or _readings[name].fallen]
+  opened = [name for name in names if _readings[name].fallen]
+  if _rules.openWins == "only" and opened:
+    names = opened
+  ranks = {}
+  for name in names:
+    lead = 1 if _rules.openWins == "first" and _readings[name].fallen else 0
+    ranks[name] = (lead, _readings[name].ScoreFor(_ram))
+  return ranks
+
+
+def Probabilities(_ranks, _topFew):
   """The exact chance of each stretch being picked: a uniform draw over the best few, ties at the cut split evenly."""
-  if not _scores:
+  if not _ranks:
     return {}
-  ordered = sorted(_scores.values(), reverse=True)
+  ordered = sorted(_ranks.values(), reverse=True)
   if len(ordered) <= _topFew:
-    return {name: Fraction(1, len(ordered)) for name in _scores}
+    return {name: Fraction(1, len(ordered)) for name in _ranks}
   cut = ordered[_topFew - 1]
-  above = [name for name, score in _scores.items() if score > cut]
-  tied = [name for name, score in _scores.items() if score == cut]
+  above = [name for name, rank in _ranks.items() if rank > cut]
+  tied = [name for name, rank in _ranks.items() if rank == cut]
   slots = _topFew - len(above)
   chances = {name: Fraction(1, _topFew) for name in above}
   for name in tied:
@@ -576,49 +847,55 @@ class SplitMix64:
         return value % _bound
 
 
-def Draw(_scores, _topFew, _seed):
-  """One wave's pick: shuffle by seed, order by score (stable, so ties keep the shuffle), keep the best few, draw."""
+def Draw(_ranks, _topFew, _seed):
+  """One wave's pick: shuffle by seed, order by rank (stable, so ties keep the shuffle), keep the best few, draw."""
   rng = SplitMix64(_seed)
-  names = sorted(_scores, key=STRETCH_ORDER.index)
+  names = sorted(_ranks, key=STRETCH_ORDER.index)
   for index in range(len(names) - 1, 0, -1):
     other = rng.Below(index + 1)
     names[index], names[other] = names[other], names[index]
-  names.sort(key=lambda name: -_scores[name])
+  names.sort(key=lambda name: _ranks[name], reverse=True)
   pool = names[:_topFew]
   return pool[rng.Below(len(pool))] if pool else "-"
 
 
+def BringsRam(_wave, _rules):
+  """Rule (c): waves bring rams spread evenly at ramShare. At 1/2 that is every even-numbered wave."""
+  return int(_wave * _rules.ramShare) > int((_wave - 1) * _rules.ramShare)
+
+
 def Evaluate(_layout, _placement, _rules):
   """Score a placement. A near quarry is drawn as close to its wall as it can be without the slump dropping a piece."""
+  berm = 0
   if _placement.Chases():
-    for berm in range(1, MAX_BERM_METERS + 1):
-      evaluation = Read(_layout, _placement, _rules, berm)
-      if not evaluation.anyFallen:
-        break
-  else:
-    evaluation = Read(_layout, _placement, _rules, 0)
+    berm = next((berm for berm in range(1, MAX_BERM_METERS + 1) if not AnyFallen(_layout, _placement, _rules, berm)),
+                MAX_BERM_METERS)
+  evaluation = Read(_layout, _placement, _rules, berm)
   Finish(evaluation, _rules)
   return evaluation
 
 
-def Scores(_evaluation):
-  return {name: reading.score for name, reading in _evaluation.readings.items()}
-
-
-def SapperScores(_evaluation):
-  """The sapper wave trenches beside a section standing on earth (GameDesign.md, Stages), so not the gatehouse."""
-  return {name: reading.score for name, reading in _evaluation.readings.items() if reading.onEarth and name != "G"}
-
-
 def Finish(_evaluation, _rules):
-  _evaluation.probabilities = Probabilities(Scores(_evaluation), _rules.topFew)
-  _evaluation.sapperProbabilities = Probabilities(SapperScores(_evaluation), _rules.topFew)
+  readings = _evaluation.readings
+  _evaluation.ranks = {ram: Ranks(readings, STRETCH_ORDER, ram, _rules) for ram in (False, True)}
+  _evaluation.probabilities = {ram: Probabilities(ranks, _rules.topFew) for ram, ranks in _evaluation.ranks.items()}
+  # The sapper wave trenches beside a section standing on earth (GameDesign.md, Stages), so not the gatehouse.
+  sappers = [name for name in STRETCH_ORDER if readings[name].onEarth and name != "G"]
+  _evaluation.sapperRanks = Ranks(readings, sappers, False, _rules)
+  _evaluation.sapperProbabilities = Probabilities(_evaluation.sapperRanks, _rules.topFew)
 
 
 def Elsewhere(_first, _second):
   """The share of waves that breach somewhere else: the total variation distance between two pick distributions."""
   names = set(_first) | set(_second)
   return 1 - sum(min(_first.get(name, 0), _second.get(name, 0)) for name in names)
+
+
+def WaveShares(_first, _second, _rules):
+  """The share of waves that breach elsewhere: without a ram, with one, and over all waves but the sapper wave."""
+  withoutRam = Elsewhere(_first.probabilities[False], _second.probabilities[False])
+  withRam = Elsewhere(_first.probabilities[True], _second.probabilities[True])
+  return withoutRam, withRam, _rules.ramShare * withRam + (1 - _rules.ramShare) * withoutRam
 
 
 def Decimal(_value, _places=2):
@@ -630,9 +907,19 @@ def Share(_value):
   return "0" if _value == 0 else str(_value)
 
 
-def PoolText(_probabilities, _readings):
-  ordered = sorted(_probabilities, key=lambda name: (-_readings[name].score, STRETCH_ORDER.index(name)))
-  return ", ".join(f"{name} {Decimal(_readings[name].score)} ({Share(_probabilities[name])})" for name in ordered)
+def NeedText(_need):
+  return "-" if _need is None else str(_need)
+
+
+def PoolText(_probabilities, _readings, _ram):
+  def Key(_name):
+    return (-_readings[_name].ScoreFor(_ram), STRETCH_ORDER.index(_name))
+
+  parts = []
+  for name in sorted(_probabilities, key=Key):
+    state = " open" if _readings[name].fallen else ""
+    parts.append(f"{name}{state} {Decimal(_readings[name].ScoreFor(_ram))} ({Share(_probabilities[name])})")
+  return ", ".join(parts)
 
 
 # Plan drawing, in priority order: the first symbol found in a character's cells wins.
@@ -716,7 +1003,7 @@ def PrintLayout(_layout, _rules, _scale):
         combined.DigDitch(ditch)
   combined.Slump(_rules.digsSlump)
   print(f"  Plan, {_scale} m per character, north up; every placement's digs drawn at once:")
-  for line in DrawPlan(combined, combined.SupportDistances(), _rules.stoneSpanMeters, _scale):
+  for line in DrawPlan(combined, SupportDistances(combined.level, combined.owner), _rules.stoneSpanMeters, _scale):
     print(line)
   for note in hidden:
     print(f"  {note}")
@@ -745,46 +1032,68 @@ def PrintLayout(_layout, _rules, _scale):
     print(f"      {detail}")
   print(f"      The curtain costs {CurtainStoneM3()} m^3 of stone.")
   print()
-  print("  Scores: open + earth + towers + gate = score; * marks the best few. gap: columns with a gap under them;")
-  print("  sup: the widest support distance in m, against the span; ditch: a ditch in front, which zeroes earth.")
-  header = "    stretch " + "".join(f"| {placement.key:<39}" for placement in _layout.placements)
+  weighted = [(_rules.weightOpen, "open"), (_rules.weightEarth, "earth"), (_rules.weightTowers, "towers"),
+              (_rules.weightGate, "gate")]
+  formula = " + ".join(name if weight == 1 else f"{weight} x {name}" for weight, name in weighted)
+  print(f"  Scores: {formula} = score; the columns are the terms before weighting. A wave without a ram")
+  print("  reads the same score for every section and leaves the gatehouse out unless it is open (rule (c)). *"
+        " marks the")
+  print("  best few of a wave without a ram, + of a wave with one. ditch: a ditch in front, which zeroes earth.")
+  header = "    stretch " + "".join(f"| {placement.key:<29}" for placement in _layout.placements)
   print(header.rstrip())
   for name in STRETCH_ORDER:
     row = f"    {name:<7} "
     for placement in _layout.placements:
       evaluation = evaluations[placement.key]
       reading = evaluation.readings[name]
-      mark = "*" if name in evaluation.probabilities else " "
+      marks = "*" if name in evaluation.probabilities[False] else " "
+      marks += "+" if name in evaluation.probabilities[True] else " "
       openText = "FALL" if reading.fallen else Decimal(reading.openTerm)
       terms = f"{openText:>4} {reading.earthTerm} {Decimal(reading.towerTerm):>4} {reading.gateTerm}"
-      extra = f"gap{reading.gapCells:>2} sup{max(reading.supportMeters, 0)}" if reading.gapCells else ""
-      if reading.ditchInFront:
-        extra = (extra + " ditch").strip()
-      row += f"| {terms} = {Decimal(reading.score):>4}{mark} {extra:<17}"
+      row += f"| {terms} = {Decimal(reading.scoreRam):>4}{marks} {'ditch' if reading.ditchInFront else '':<7}"
     print(row.rstrip())
   print()
-  print(f"  The breach: a uniform draw over the best {_rules.topFew}, chance in brackets; then the pick of waves seeded"
-        f" {SEEDS[0]}-{SEEDS[-1]}")
+  print("  The open term's trench: the least m^3 a sapper would still dig to drop the stretch, now / in undug ground")
+  print(f"  (-: no trench {_rules.trenchWidthMeters} m wide beside the face drops it). gap: columns with a gap under"
+        " them; sup: the")
+  print(f"  widest support distance in m, against the {_rules.stoneSpanMeters} m span.")
+  header = "    stretch " + "".join(f"| {placement.key:<29}" for placement in _layout.placements)
+  print(header.rstrip())
+  for name in STRETCH_ORDER:
+    row = f"    {name:<7} "
+    for placement in _layout.placements:
+      reading = evaluations[placement.key].readings[name]
+      need = f"{'open' if reading.fallen else NeedText(reading.needNow)}/{NeedText(reading.needUndug)}"
+      gap = f"gap{reading.gapCells:>2} sup{max(reading.supportMeters, 0)}" if reading.gapCells else ""
+      row += f"| {need:>7}  {gap:<20}"
+    print(row.rstrip())
+  print()
+  ramWaves = ", ".join(str(wave) for wave in SEEDS if BringsRam(wave, _rules))
+  print(f"  The breach: a uniform draw over the best {_rules.topFew}, chance in brackets. Waves {SEEDS[0]}-{SEEDS[-1]}"
+        f" draw with seeds {SEEDS[0]}-{SEEDS[-1]};")
+  print(f"  waves {ramWaves} bring a ram.")
   for placement in _layout.placements:
     evaluation = evaluations[placement.key]
-    picks = " ".join(f"{Draw(Scores(evaluation), _rules.topFew, seed):<2}" for seed in SEEDS)
-    sapperPicks = " ".join(f"{Draw(SapperScores(evaluation), _rules.topFew, seed):<2}" for seed in SEEDS)
-    print(f"    {placement.key}  {PoolText(evaluation.probabilities, evaluation.readings)}")
-    print(f"        seeds: {picks}".rstrip())
-    print(f"        sapper wave (sections on earth): {PoolText(evaluation.sapperProbabilities, evaluation.readings)}")
+    picks = " ".join(f"{Draw(evaluation.ranks[BringsRam(wave, _rules)], _rules.topFew, wave):<2}" for wave in SEEDS)
+    sapperPicks = " ".join(f"{Draw(evaluation.sapperRanks, _rules.topFew, seed):<2}" for seed in SEEDS)
+    print(f"    {placement.key}  no ram: {PoolText(evaluation.probabilities[False], evaluation.readings, False)}")
+    print(f"        ram:    {PoolText(evaluation.probabilities[True], evaluation.readings, True)}")
+    print(f"        waves:  {picks}".rstrip())
+    print(f"        sapper wave (sections on earth): "
+          f"{PoolText(evaluation.sapperProbabilities, evaluation.readings, False)}")
     print(f"        sapper seeds: {sapperPicks}".rstrip())
   print()
-  print("  Does the breach move? (share of waves that breach elsewhere; it moves at "
-        f"{_rules.moveShare} or more)")
+  print("  Does the breach move? (share of waves that breach elsewhere, without a ram, with one, and over all; it")
+  print(f"  moves at {_rules.moveShare} or more)")
   keys = [placement.key for placement in _layout.placements]
   for index, first in enumerate(keys):
     for second in keys[index + 1:]:
-      share = Elsewhere(evaluations[first].probabilities, evaluations[second].probabilities)
+      withoutRam, withRam, share = WaveShares(evaluations[first], evaluations[second], _rules)
       sapperShare = Elsewhere(evaluations[first].sapperProbabilities, evaluations[second].sapperProbabilities)
       pair = " <- the quarry pair" if (first, second) == _layout.quarryPair else ""
       verdict = "moves" if share >= _rules.moveShare else "does not move"
-      print(f"    {first} vs {second}: {Share(share):>4} elsewhere, {verdict:13}"
-            f"  sapper wave {Share(sapperShare):>4}{pair}")
+      print(f"    {first} vs {second}: no ram {Share(withoutRam):>4}, ram {Share(withRam):>4}, all {Share(share):>5},"
+            f" {verdict:13}  sapper wave {Share(sapperShare):>4}{pair}")
   print()
   return evaluations
 
@@ -793,28 +1102,32 @@ def QuarryShares(_layouts, _rules):
   shares = {}
   for layout in _layouts:
     first, second = (next(p for p in layout.placements if p.key == key) for key in layout.quarryPair)
-    shares[layout.key] = Elsewhere(Evaluate(layout, first, _rules).probabilities,
-                                   Evaluate(layout, second, _rules).probabilities)
+    shares[layout.key] = WaveShares(Evaluate(layout, first, _rules), Evaluate(layout, second, _rules), _rules)[2]
   return shares
 
 
 def PrintBermSweep(_layouts, _rules):
   print("=== The near quarry at every berm (Proposed rules otherwise) ===")
-  print("  berm m: the open term of each stretch it undercuts (FALL: the slump drops it); the best few, with ties at")
-  print("  the cut; and the share of waves that breach elsewhere than under the quarry pair's other placement")
+  print("  berm m: the open term of each stretch that reads above 0 (FALL: the slump drops it); the best few of a")
+  print("  wave without a ram | with one, ties at the cut included; and the share of waves that breach elsewhere")
+  print("  than under the quarry pair's other placement")
   for layout in _layouts:
     near, other = (next(p for p in layout.placements if p.key == key) for key in layout.quarryPair)
     otherEvaluation = Evaluate(layout, other, _rules)
-    print(f"  {near.key}:")
-    for berm in range(1, 7):
+    chosen = Evaluate(layout, near, _rules).bermMeters
+    print(f"  {near.key} (the player's berm is {chosen} m):")
+    for berm in SWEEP_BERMS_METERS:
       evaluation = Read(layout, near, _rules, berm)
       Finish(evaluation, _rules)
-      touched = [f"{name} {'FALL' if r.fallen else Decimal(r.openTerm)}"
-                 for name, r in sorted(evaluation.readings.items(), key=lambda item: STRETCH_ORDER.index(item[0]))
-                 if r.gapCells]
-      share = Elsewhere(evaluation.probabilities, otherEvaluation.probabilities)
-      pool = ", ".join(sorted(evaluation.probabilities, key=STRETCH_ORDER.index))
-      print(f"    {berm}: {', '.join(touched) or 'no stretch undercut':<34} pool {pool:<14} elsewhere {Share(share)}")
+      touched = []
+      for name in STRETCH_ORDER:
+        reading = evaluation.readings[name]
+        if reading.openTerm > 0:
+          touched.append(f"{name} {'FALL' if reading.fallen else Decimal(reading.openTerm)}")
+      share = WaveShares(evaluation, otherEvaluation, _rules)[2]
+      pools = " | ".join(", ".join(sorted(evaluation.probabilities[ram], key=STRETCH_ORDER.index))
+                         for ram in (False, True))
+      print(f"    {berm}: {', '.join(touched) or 'every stretch reads 0':<34} {pools:<36} elsewhere {Share(share)}")
   print()
 
 
@@ -822,8 +1135,8 @@ def SensitivityRules():
   half, double = Fraction(1, 2), Fraction(2)
   return [
     PROPOSED,
-    replace(PROPOSED, label="open weight x2", weightOpen=double),
-    replace(PROPOSED, label="open weight x1/2", weightOpen=half),
+    replace(PROPOSED, label="open weight 1 (earlier value)", weightOpen=Fraction(1)),
+    replace(PROPOSED, label="open weight 4", weightOpen=Fraction(4)),
     replace(PROPOSED, label="earth weight x2", weightEarth=double),
     replace(PROPOSED, label="earth weight x1/2", weightEarth=half),
     replace(PROPOSED, label="towers weight x2", weightTowers=double),
@@ -832,26 +1145,41 @@ def SensitivityRules():
     replace(PROPOSED, label="gate weight x1/2", weightGate=half),
     replace(PROPOSED, label="best few N = 2", topFew=2),
     replace(PROPOSED, label="best few N = 4", topFew=4),
-    replace(PROPOSED, label="stone span 2 m (T2 falls)", stoneSpanMeters=2),
+    replace(PROPOSED, label="stone span 4 m (the old value)", stoneSpanMeters=4),
     replace(PROPOSED, label="stone span 6 m", stoneSpanMeters=6),
     replace(PROPOSED, label="towers term over range", towerScale="range"),
     replace(PROPOSED, label="only ditches are ditches", quarryIsDitch=False),
     replace(PROPOSED, label="digs do not slump", digsSlump=False),
-    replace(PROPOSED, label="moves at 1/2 of waves", moveShare=Fraction(1, 2)),
-    replace(PROPOSED, label="only ditches, open x2", quarryIsDitch=False, weightOpen=double),
+    replace(PROPOSED, label="moves at 1/2 of waves", moveShare=half),
+    replace(PROPOSED, label="(a) open first, intact fill", openWins="first"),
+    replace(PROPOSED, label="(b) trench 1 m wide", trenchWidthMeters=1),
+    replace(PROPOSED, label="(c) rams with 3 waves in 4", ramShare=Fraction(3, 4)),
   ]
 
 
-def PrintSensitivity(_layouts):
-  print("=== Sensitivity: one value changed at a time; share of waves elsewhere for each quarry pair ===")
+def AblationRules():
+  old = replace(PROPOSED, openWins="off", openReading="support", ramShare=Fraction(1))  # at the open weight of 2
+  return [
+    replace(PROPOSED, label="revised: (a), (b) and (c)"),
+    replace(PROPOSED, label="without (a): score alone", openWins="off"),
+    replace(PROPOSED, label="without (b): support reading", openReading="support"),
+    replace(PROPOSED, label="without (c): a ram every wave", ramShare=Fraction(1)),
+    replace(PROPOSED, label="(c) as the gate's reason only", gateWithoutRam="term"),
+    replace(old, label="none of the three"),
+    replace(old, label="none, weight 1, span 4 m: run 1", weightOpen=Fraction(1), stoneSpanMeters=4),
+  ]
+
+
+def PrintRulesTable(_title, _rulesList, _layouts):
+  print(f"=== {_title} ===")
   pairs = "".join(f"{layout.quarryPair[0] + ' v ' + layout.quarryPair[1]:<11}" for layout in _layouts)
-  print(f"    {'rules':<28}{pairs}moved   verdict")
-  for rules in SensitivityRules():
+  print(f"    {'rules':<32}{pairs}moved   verdict")
+  for rules in _rulesList:
     shares = QuarryShares(_layouts, rules)
     moved = sum(1 for share in shares.values() if share >= rules.moveShare)
     verdict = "PASS" if moved >= 2 else "FAIL"
     row = "".join(f"{Share(shares[layout.key]):<11}" for layout in _layouts)
-    print(f"    {rules.label:<28}{row}{moved} of 3  {verdict}")
+    print(f"    {rules.label:<32}{row}{moved} of 3  {verdict}")
   print()
 
 
@@ -861,14 +1189,24 @@ def Main(_arguments):
   arguments = parser.parse_args(_arguments)
   layouts = BuildLayouts()
   rules = PROPOSED
-  print("Hold rule test (review F-45), Proposed values:")
+  ramWaves = ", ".join(str(wave) for wave in SEEDS if BringsRam(wave, rules))
+  print("Hold rule test (review F-45), revised 2026-10-31. Values:")
   print(f"  weights open {rules.weightOpen}, earth {rules.weightEarth}, towers {rules.weightTowers},"
-        f" gate {rules.weightGate}; best few N = {rules.topFew}; stone span {rules.stoneSpanMeters} m")
+        f" gate {rules.weightGate}; best few N = {rules.topFew}; stone span {rules.stoneSpanMeters} m (Decided)")
+  print("  the open weight follows the owner's direction (2026-10-31): a quarry's undermining outweighs its ditch"
+        " reason")
   print(f"  a ditch in front: a cut {rules.ditchDepthMeters} m deep within {rules.ditchBandMeters} m of the face along"
-        f" {rules.ditchShare} of the section; quarry pits count: {rules.quarryIsDitch}")
+        f" {rules.ditchShare} of the section; quarry pits count (Decided)")
+  print("  (a) an open stretch always wins: when any candidate is open, the wave draws among the open ones only")
+  print("  (b) open = 1 - (the least m^3 of trench that drops the stretch now) / (the same, in undug ground), 1 when")
+  print(f"      open, 0 when no trench drops it; a trench is {rules.trenchWidthMeters} m wide against the outer face,"
+        " along any part of it, any depth")
+  print(f"  (c) only a wave that brings a ram scores the gatehouse, unless it is open: {rules.ramShare} of waves,"
+        f" numbers {ramWaves}...")
   print(f"  quarries {QUARRY_DEPTH_METERS} m deep; the breach moves when {rules.moveShare} of waves or more"
         " land elsewhere")
   print()
+  PrintTemplates(rules)
   print("  The castle every layout shares, 2 m per character (stretches are named inside their wall):")
   for line in DrawCastleKey():
     print(line)
@@ -881,13 +1219,16 @@ def Main(_arguments):
   for layout in layouts:
     evaluations = PrintLayout(layout, rules, arguments.scale)
     first, second = layout.quarryPair
-    if Elsewhere(evaluations[first].probabilities, evaluations[second].probabilities) >= rules.moveShare:
+    if WaveShares(evaluations[first], evaluations[second], rules)[2] >= rules.moveShare:
       moved += 1
   print(f"=== Verdict: the breach moves with quarry placement in {moved} of 3 layouts: "
         f"{'PASS' if moved >= 2 else 'FAIL'} (pass needs 2) ===")
   print()
   PrintBermSweep(layouts, rules)
-  PrintSensitivity(layouts)
+  PrintRulesTable("Sensitivity: one value changed at a time; share of waves elsewhere for each quarry pair",
+                  SensitivityRules(), layouts)
+  PrintRulesTable("Each revision undone or read another way, at the decided span, ditch reading and weight 2",
+                  AblationRules(), layouts)
   return 0
 
 
