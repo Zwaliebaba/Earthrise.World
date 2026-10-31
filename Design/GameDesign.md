@@ -108,7 +108,7 @@ The owner adopted a look specification from a visual prototype, and settled wher
 
 ### 2026-10-31: the 1 m world
 
-The owner adopted a second asset package and its proposed change of voxel sizes as the design baseline. [ADR-006](ADR/ADR-006-voxel-sizes.md) records the engineering decision. It stays Proposed until the M1 spike measures it, with a 0.5 m world measured as the fallback.
+The owner adopted a second asset package and its proposed change of voxel sizes as the design baseline. [ADR-006](ADR/ADR-006-voxel-sizes.md) records the engineering decision. It stays Proposed until the M1 spike measures it, with a 0.5 m world measured as the fallback, and the M3 breach lab reads predictions on it.
 
 1. **The world and the simulation use 1 m voxels:** terrain, templates, earthworks, rubble and trees.
 2. **Models use 0.5 m voxels:** units, siege engines, mantlets, carts, banners and debris. They are drawn over the world, never written into it, and never simulated.

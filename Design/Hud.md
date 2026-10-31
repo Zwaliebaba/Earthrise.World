@@ -249,7 +249,7 @@ readout             { title, rows[{ key, value }], warn }
 minimap             { baseDirty, squadDots[], viewQuad, pings[] }
 ```
 
-**Readouts that need the resolver ask it.** "Can be undermined", the slump preview, the trench's target and collapse warnings come from `Simulation` through `Protocol` queries ([ADR-004](ADR/ADR-004-rule-based-destruction.md), decision 5). Plain sums may come from snapshots.
+**Readouts that need the resolver ask it.** "Can be undermined", the slump preview, the trench's target and collapse warnings come from `Simulation` through `Protocol` queries ([ADR-009](ADR/ADR-009-queries-across-the-server-boundary.md); [ADR-004](ADR/ADR-004-rule-based-destruction.md), decision 5). Plain sums may come from snapshots.
 
 **The placement readout:**
 - **SOIL:** the mean depth of earth under the footprint;

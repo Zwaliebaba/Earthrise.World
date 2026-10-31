@@ -11,7 +11,7 @@ ADR-005's format, palette, decorations, counted costs and saves stand. Like ADR-
 
 - **The owner wants content split by its user.** Server and client each get their own source tree, `GameData\Server` and `GameData\Client`, and their own output folder, `<outputdir>\ServerData` and `<outputdir>\GameData`.
 - **ADR-005 baked everything into the executable,** so that a replay always runs against the content its build carried ([ADR-002](ADR-002-authoritative-simulation.md), decision 6).
-- **The simulation is the server.** It runs in the same process in single-player and on a host in Worlds (ADR-002). Some data only the server needs: unit statistics, wave scripts, AI tuning, scenarios, generator parameters and where resources lie. That data need never reach a Worlds client ([ADR-003](ADR-003-world-as-seed-plus-edits.md)), and it is also what the playtests tune.
+- **The simulation is the server.** It runs in the same process in single-player and on a host in Worlds (ADR-002). Some data only the server needs: unit statistics, wave scripts, AI tuning, scenarios and where resources lie. That data need never reach a Worlds client ([ADR-003](ADR-003-world-as-seed-plus-edits.md)), and it is also what the playtests tune.
 - **Some content is read by both sides:**
   - **templates:** the simulation needs each voxel's behaviour, its critical part and the counted cost; the client needs the shape, the colours and the cost, for placement previews and the HUD;
   - **the palette:** the simulation needs behaviours, and the client needs colours.
@@ -20,7 +20,7 @@ ADR-005's format, palette, decorations, counted costs and saves stand. Like ADR-
 ## Decision
 
 1. **Sources live in `GameData/`** at the repository root, outside every project directory:
-   - **`Server/`:** content the simulation decides by: the templates and the palette. Later it also holds statistics, scenarios, waves and generator parameters.
+   - **`Server/`:** content the simulation decides by: the templates and the palette. Later it also holds statistics, scenarios and waves. Generator parameters are not server data: the client generates the unedited world from the seed too (ADR-003), so they are compiled into the generator and count as part of its version.
    - **`Client/`:** content only the client reads: the models and the font. Later it also holds audio sources.
    - **`Illustrations/`:** squads, earthworks and material samples, which neither side reads and nothing bakes.
    - **`Manifest.json`:** the asset check's expectations.
@@ -57,7 +57,7 @@ These checks were run by script on the day, against the 27 `.vox` files then com
   - `Content` becomes the client's compiled-in content and depends only on `Core`;
   - `Simulation` reads `ServerData` itself and no longer depends on `Content`;
   - the in-process executable compares the shared hash of the two halves at startup.
-- **The asset check,** `Tools/CheckAssets.py` in M4, drops the `.vox` agreement test. It adds two tests: nothing under `GameData/Client/` reaches the server's bake, and nothing server-only reaches the client's tables.
+- **The asset check,** `Tools/CheckAssets.py` in M1, drops the `.vox` agreement test. It adds two tests: nothing under `GameData/Client/` reaches the server's bake, and nothing server-only reaches the client's tables.
 - **The output folders are build output,** beside the executables in the build's output directory, and are never committed (AGENTS.md §2). The solution layout ADR in M1 fixes where `<outputdir>` is.
 - **Installs:** a Worlds client install can leave `ServerData` out. The trials and Skirmish run the simulation in-process, so their installs carry it. The split therefore keeps server-only data off a machine only where a client-only install exists.
 - **Single-player data can be edited.** In single-player the player can edit `ServerData`. Nothing in the trials relies on it staying untouched, and the playtest logs record its hash.
@@ -71,6 +71,6 @@ These checks were run by script on the day, against the 27 `.vox` files then com
 
 ## Left open
 
-- The `ServerData` format in detail, written with the bake tool in M4.
+- The `ServerData` format in detail, written with the server half of the bake in M2.
 - Where `<outputdir>` is, settled with the solution layout in M1.
 - Whether a running Worlds season may take new server data, and how its saves would follow.

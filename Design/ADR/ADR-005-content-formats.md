@@ -1,6 +1,6 @@
 # ADR-005 — Voxel content is JSON layer files, baked into the executable
 
-**Status:** Accepted, 2026-10-31, by the owner. It closes the question of the object formats. It was amended the same day for [ADR-006](ADR-006-voxel-sizes.md)'s two voxel sizes. [ADR-008](ADR-008-server-and-client-game-data.md) supersedes decisions 1 and 3, and decision 9 for the server: sources now live in `GameData/`, the `.vox` is a working copy that is not committed, and the server reads its data from files. The rest stands. Nothing implements it yet. Like ADR-002 to ADR-004, it is written ahead of the code it governs, and the bake tool lands in M4 ([MvpPlan.md](../MvpPlan.md)).
+**Status:** Accepted, 2026-10-31, by the owner. It closes the question of the object formats. It was amended the same day for [ADR-006](ADR-006-voxel-sizes.md)'s two voxel sizes. [ADR-008](ADR-008-server-and-client-game-data.md) supersedes decisions 1 and 3, and decision 9 for the server: sources now live in `GameData/`, the `.vox` is a working copy that is not committed, and the server reads its data from files. The rest stands. Nothing implements it yet. Like ADR-002 to ADR-004, it is written ahead of the code it governs, and the bake tool lands in M1 for the client and in M2 for the server ([MvpPlan.md](../MvpPlan.md)).
 
 ## Context
 

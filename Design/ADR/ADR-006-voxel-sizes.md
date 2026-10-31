@@ -1,6 +1,6 @@
 # ADR-006 — The world and the simulation use 1 m voxels; models use 0.5 m
 
-**Status:** Proposed, 2026-10-31. The owner adopted it as the design baseline the same day ([GameDesign.md](../GameDesign.md)). This ADR is accepted when the M1 renderer spike fills in the measurements below and they meet the acceptance condition. It comes from the owner's second asset package, whose draft is kept unchanged in [Reference/SiegePrototypeV2/](../Reference/SiegePrototypeV2/). It supersedes the earlier choice of 0.5 m for everything ([RendererLook.md](../RendererLook.md), first version).
+**Status:** Proposed, 2026-10-31. The owner adopted it as the design baseline the same day ([GameDesign.md](../GameDesign.md)). This ADR is accepted after M3: the M1 renderer spike fills in the measurements below, and the M3 breach lab reads predictions on the 1 m world. It comes from the owner's second asset package, whose draft is kept unchanged in [Reference/SiegePrototypeV2/](../Reference/SiegePrototypeV2/). It supersedes the earlier choice of 0.5 m for everything ([RendererLook.md](../RendererLook.md), first version).
 
 ## Context
 
@@ -47,7 +47,7 @@ The owner also plans the Surface Pro, whose integrated GPU the spike measures, a
 - Models written into the world grid, and units drawn in it.
 - Debris that affects play.
 
-## To be measured in M1
+## To be measured in M1 and M3
 
 | Measure | 1 m world + 0.5 m models | 0.5 m world |
 |---|---|---|
@@ -56,7 +56,7 @@ The owner also plans the Surface Pro, whose integrated GPU the spike measures, a
 | Support search over a breach region (ms) | | |
 | Navigation tile rebuild (ms) | | |
 | Memory for the MVP map plus a season of edits (MB) | | |
-| Breach-prediction accuracy in M3 (median) | | |
+| Breach-prediction accuracy in M3 (median) | | not measured: M3 builds only the 1 m world |
 
 **Accept if** the 1 m baseline meets the pass mark and the M3 prediction accuracy reaches a median of 0.65 or more. **Otherwise** revisit the decision with the 0.5 m figures.
 
