@@ -21,7 +21,7 @@ Earthrise.World is a real-time strategy game about medieval lords on land made e
 
 ### 2026-10-31: the game description
 
-The owner accepted [GameDescription.md](GameDescription.md) in full. Its numbers are design targets to be tuned in the Trials and Skirmish, not measurements. The ADRs it summarises, [ADR-002](ADR/ADR-002-authoritative-simulation.md) to [ADR-004](ADR/ADR-004-rule-based-destruction.md), stay Proposed. Its main decisions:
+The owner accepted [GameDescription.md](GameDescription.md) in full. Its numbers are design targets to be tuned in the Trials and Skirmish, not measurements. The ADRs it summarises, [ADR-002](ADR/ADR-002-authoritative-simulation.md) to [ADR-004](ADR/ADR-004-rule-based-destruction.md), were accepted after the design review (below). Its main decisions:
 
 1. **The product is the shared world.** Worlds are shared online seasons. Trials (Siege and Hold) and Skirmish against AI houses come first and lead to them. The first release ships one culture; Worlds open with three, each built around a material: Masons (stone), Wealdfolk (timber) and Delvers (earth and iron).
 2. **The objective.** A match is won by breaking the enemy keep, or by killing every enemy unit. Since the design review, breaking a keep means bringing it out of working and holding its foot with soldiers for two minutes without a repair. A world is won by the banner whose lords hold the most Earthstone when the season ends; since the review, that counts Earthstone wherever it is held. Titles, heraldry and cosmetic keep styles carry from one season to the next; nothing that wins battles does.
@@ -65,6 +65,7 @@ The [review](Review/GameDescription-2026-10-31.md) of the game description kept 
    - **Ending a match.** The hall is the keep until the keep is complete. Every house in Skirmish plays for itself. Garrisoned units count as units. (F-05)
    - **Season tests.** Worlds are gated on tests of the season as well as on the Trials; the thresholds are Proposed under *Kill criteria*. (F-54)
    - **Wording.** The smaller fixes from the review's table of contradictions are applied too.
+10. **ADR-002 to ADR-004 are accepted.** ADR-004 gains three consequences from the review: more callers of the resolver, rubble that keeps its material, and holding protection on the resolver's edits.
 
 ## Pillars (Decided)
 
