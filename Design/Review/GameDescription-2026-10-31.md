@@ -3,6 +3,8 @@
 Reviewed: `Design/GameDescription.md` at `2d739df`, with `GameDesign.md` and ADR-001 to ADR-004. The design documents on the review branch are identical to `main` at that commit.
 Method: nine lens reviewers and three verifiers. 106 findings raised, 63 after merging; 33 confirmed, 29 downgraded, 1 refuted. After verification: 12 Blockers, 17 Majors, 33 Minors.
 
+**Resolution.** The owner answered the decisions below on the same day, and accepted the other recommendations. Both design documents now carry them; [GameDesign.md](../GameDesign.md), under *2026-10-31: the design review*, records what was decided. The owner kept two things the review offered to cut, AI houses that play the whole game and Worlds that open with three cultures; both now head the cut order. Line numbers and quotes below refer to the documents as reviewed, at `2d739df`.
+
 Line numbers are in `GameDescription.md` unless another file is named. The working material (each lens's full findings, the merged index and the three verifications) is in the session scratchpad, not in the repository.
 
 ## Verdict
