@@ -11,7 +11,7 @@ This repository is a greenfield C++23 game and a hobby project with one develope
 **What is authoritative, in order:**
 
 1. **This file** — conformance: naming, style, build settings, and how to work here.
-2. **`Design/ADR/`** — engineering decisions taken while building, one file per decision (§6). There are six so far: `ADR-001` on how voxels are drawn, `ADR-002` on the authoritative simulation, `ADR-003` on the world as a seed plus its edits, `ADR-004` on rule-based destruction, `ADR-005` on the format of voxel content, and `ADR-006` on voxel sizes. Numbering started at `ADR-001` in this repository and does not continue another's, so the next is `ADR-007`.
+2. **`Design/ADR/`** — engineering decisions taken while building, one file per decision (§6). There are seven so far: `ADR-001` on how voxels are drawn, `ADR-002` on the authoritative simulation, `ADR-003` on the world as a seed plus its edits, `ADR-004` on rule-based destruction, `ADR-005` on the format of voxel content, `ADR-006` on voxel sizes, and `ADR-007` on platforms and input. Numbering started at `ADR-001` in this repository and does not continue another's, so the next is `ADR-008`.
 3. **The surrounding code** — for anything neither of the above covers, match the file you are editing.
 
 The design sits alongside rather than above: [`Design/GameDesign.md`](Design/GameDesign.md) and [`Design/GameDescription.md`](Design/GameDescription.md) say what is built, and this file says how. Where the two differ, GameDesign.md governs, and it marks each item Decided, Proposed or Open. A task that needs a design answer they do not give, or that rests on something only Proposed or Open, asks the owner and gets the answer written down before the code is.
@@ -199,19 +199,21 @@ The concrete layout — the solution, the projects and the edges between them �
 
 **`Assets/` holds the game's content sources, outside every project directory** ([ADR-005](Design/ADR/ADR-005-content-formats.md)). That means voxel templates and models as `.json` layer files, which are the source, with `.vox` copies and `.png` previews beside them, plus the palette and the manifest. Nothing loads them at runtime: they are baked into the `Content` library at build time, as shaders are compiled in. The format, project-file and clang-tidy checkers skip `Assets/`.
 
-**Build and IDE output is never committed** — `x64/`, `.vs/`, `*.user`, and anything a build step generates.
+**Build and IDE output is never committed** — `x64/`, `ARM64/`, `.vs/`, `*.user`, and anything a build step generates.
 
 ---
 
 ## 3. Build and verify
 
-**x64 is the only platform.** No Win32/x86 configuration in any project or solution; do not add one, and do not write code that only works at 32 bits.
+**x64 and ARM64 are the platforms, both native** ([ADR-007](Design/ADR/ADR-007-platforms-and-input.md)). Every project has both, from the first project. No Win32/x86 and no ARM64EC configuration in any project or solution; do not add one, and do not write code that only works at 32 bits. Code that uses one architecture's intrinsics directly has a path for the other in the same commit.
 
-**The compiler settings are the settings.** Toolset `v145` (Visual Studio 2026), `/std:c++latest`, `/permissive-`, `/W4` with **warnings as errors**, `/fp:precise`, `/arch:AVX2` (R16). There is no CMake. If a build error tempts you to change the toolset, lower the language standard, turn off `/permissive-` or silence a warning — **stop and report instead.**
+**The compiler settings are the settings.** Toolset `v145` (Visual Studio 2026), `/std:c++latest`, `/permissive-`, `/W4` with **warnings as errors**, `/fp:precise`, and `/arch:AVX2` on x64 or `/arch:armv8.0+lse` on ARM64 (R16). There is no CMake. If a build error tempts you to change the toolset, lower the language standard, turn off `/permissive-` or silence a warning — **stop and report instead.**
 
 **Debug and Release are aligned by rule, not by luck.** Every setting that is not *about* optimisation reads identically in both configurations: language standard, conformance, warning level, include directories, precompiled header, floating-point model, instruction set. The two differ in exactly four things — `Optimization`, `_DEBUG` vs `NDEBUG`, `FunctionLevelLinking`/`IntrinsicFunctions`, and the linker's folding and LTCG switches. (MSBuild spells those four through a few more properties — `UseDebugLibraries`, `RuntimeLibrary` as the debug or release CRT, `LinkIncremental`, `WholeProgramOptimization`, `EnableCOMDATFolding`, `OptimizeReferences` — and that list is the whole of what may differ.)
 
 That alignment matters more than it looks, because **CI builds Debug only** (§6). Release is compiled by whoever ships, and a Release that quietly lost an include directory or sat on an older language standard would not be discovered until then. A static check of the two configurations is what stands in for the build nobody runs.
+
+**x64 and ARM64 are aligned the same way.** Every setting that is not about the architecture reads identically on both platforms. They differ in the platform name, `/arch`, and the output directories MSBuild names after the platform, and nothing else. CI compiles both but can run only the x64 tests (§6), so before you claim anything about ARM64 behaviour, run the suites on an ARM64 machine and say so.
 
 **Build through the solution, never a `.vcxproj` directly.** Output paths and cross-project include directories are anchored on `$(SolutionDir)`, and MSBuild defines `SolutionDir` only for a solution build. Building a project file directly resolves every one of those paths against the *project* folder instead of the repository root. **It does not fail — that is the problem.** Output lands in the wrong folder, so the next solution build links against whichever copy is staler, and every cross-project include path becomes a directory that does not exist. The breakage is latent: it bites the first time a file reaches across projects, which may be weeks after someone got into the habit. To build one project, use `/t:<ProjectName>` on the solution.
 
@@ -224,6 +226,9 @@ msbuild <Solution>.slnx /t:<ProjectName> /p:Configuration=Debug /p:Platform=x64 
 
 # Release, before you claim anything about it.
 msbuild <Solution>.slnx /p:Configuration=Release /p:Platform=x64 /m /v:minimal /nologo
+
+# ARM64, which CI cross-compiles and you run on an ARM64 machine (ADR-007).
+msbuild <Solution>.slnx /p:Configuration=Debug /p:Platform=ARM64 /m /v:minimal /nologo
 ```
 
 **A project does not put its own directory on the include path.** `cl.exe` already searches the directory of the including file first for a quoted include, so `#include "FileSys.h"` from a `.cpp` in the same folder resolves without help. Only the directories of *other* projects are listed, as `$(SolutionDir)<Project>`.
@@ -274,9 +279,9 @@ For Direct3D that list means what the Windows SDK installs: `d3d12.h`, `dxgi1_6.
 
 **R15 — Memory is plain C++.** `new`/`delete` where it must be, RAII everywhere, standard containers by default. No pool, slab or free-list allocator without a decision recorded in `Design/ADR/`.
 
-**R16 — The floating-point model and instruction set are stated, not inherited.** Every project compiles `/fp:precise` and **`/arch:AVX2`**, stated explicitly in the project file rather than inherited from an MSVC default — a default is not a decision, and the symptom of losing one is two builds of the same code disagreeing about the same sum with no line to blame. Both settings are identical in Debug and Release.
+**R16 — The floating-point model and instruction set are stated, not inherited.** Every project compiles `/fp:precise`, and **`/arch:AVX2`** on x64 or **`/arch:armv8.0+lse`** on ARM64 ([ADR-007](Design/ADR/ADR-007-platforms-and-input.md)), stated explicitly in the project file rather than inherited from an MSVC default — a default is not a decision, and the symptom of losing one is two builds of the same code disagreeing about the same sum with no line to blame. Each setting is identical in Debug and Release. `/fp:contract` is not used.
 
-**What `/arch:AVX2` costs is named rather than waved at.** It sets an AVX2 floor — Intel Haswell (2013) and AMD Excavator (2015); an older CPU meets an illegal instruction, not a message. And it lets MSVC contract `a*b+c` into an FMA even under `/fp:precise`, which changes float results, and may contract differently at different optimisation levels. Float code that must produce bit-identical results across builds cannot rely on it.
+**What the floors cost is named rather than waved at.** `/arch:AVX2` sets an x64 floor of Intel Haswell (2013) and AMD Excavator (2015); an older CPU meets an illegal instruction, not a message. `/arch:armv8.0+lse` is the floor Windows 11 on Arm itself requires, so it excludes nothing that runs Windows 11. Under `/fp:precise` MSVC does not contract `a*b+c` into an FMA unless `/fp:contract` is given, which has been the default since Visual Studio 2022. Float results still differ between x64 and ARM64, because the CRT's math functions and DirectXMath's SIMD paths differ, so a result that must be bit-identical across builds is not computed in float.
 
 **If the game needs a deterministic core** — a simulation that replays, lockstep networking, a result that must reproduce from a seed — that is a decision recorded as an ADR, and inside that core: no `float` where a fixed-point or integer quantity will do (hold a fraction as integer hundredths and say so in the name, R6), no iteration over an unordered container whose order reaches the outcome, no wall-clock time (a tick is the clock, and wall time maps to ticks at one seam), and randomness from a pinned PRNG with a recorded seed — never `std::random_device`, never a hash of an address.
 
@@ -294,7 +299,7 @@ For Direct3D that list means what the Windows SDK installs: `d3d12.h`, `dxgi1_6.
 
 **Write the checkers early.** `Build/CheckFormat.py`, `Build/CheckProjectFiles.py` and `Build/RunClangTidy.py` are what §1, §2 and §3 lean on, and **none of them exists yet.** Until each one lands, the rules it would enforce are review's problem — which is exactly why they are early work rather than housekeeping.
 
-**What CI runs.** [`.github/workflows/build.yml`](.github/workflows/build.yml) has two jobs: a Windows job that checks the build shape, builds **Debug|x64**, runs the test suites and then clang-tidy; and a Linux job that checks formatting on a pinned clang-format. **Every step that has something to run blocks; a step whose input does not exist yet is skipped, not faked.** Each gate is guarded on the file it needs — the checker script, the solution, the built test DLLs — so the workflow is honest about today's empty tree and starts gating the moment that file lands. The guards are the only concession: nothing is `continue-on-error`, and a script that exists and fails still fails the build. Remove a guard once its input is permanently there, not before, and never add one to get past a red build.
+**What CI runs.** [`.github/workflows/build.yml`](.github/workflows/build.yml) has three jobs: a Windows job that checks the build shape, builds **Debug|x64**, runs the test suites and then clang-tidy; a Windows job that cross-compiles **Debug|ARM64**, which an x64 runner cannot run; and a Linux job that checks formatting on a pinned clang-format. **Every step that has something to run blocks; a step whose input does not exist yet is skipped, not faked.** Each gate is guarded on the file it needs — the checker script, the solution, the built test DLLs — so the workflow is honest about today's empty tree and starts gating the moment that file lands. The guards are the only concession: nothing is `continue-on-error`, and a script that exists and fails still fails the build. Remove a guard once its input is permanently there, not before, and never add one to get past a red build.
 
 **CI does not build Release.** The Windows build is the slow half of the pipeline and a second configuration roughly doubles it for a tree where the two differ only in optimisation. What stands in for it is the static alignment check on the two configurations (§3) — and, before a release, an actual `Configuration=Release` build by whoever is shipping. If you change something that could plausibly break only under optimisation, build Release yourself and say so.
 
@@ -308,10 +313,10 @@ For Direct3D that list means what the Windows SDK installs: `d3d12.h`, `dxgi1_6.
 - [ ] Only the lines the task required were changed; no reformatting, no drive-by fixes.
 - [ ] New, removed or moved files are in the `.vcxproj` **and** the `.filters` of every project involved.
 - [ ] No project's `ConformanceMode`, `LanguageStandard`, `WarningLevel` or `TreatWarningAsError` was changed, and no warning was silenced with a pragma.
-- [ ] Debug and Release still agree on everything §3 says they must.
+- [ ] Debug and Release, and x64 and ARM64, still agree on everything §3 says they must.
 - [ ] No new third-party dependency (R14).
 - [ ] The checkers pass — or, for one not yet written, the report says which and why.
-- [ ] It builds Debug|x64, and every test suite runs and passes.
+- [ ] It builds Debug|x64 and Debug|ARM64, and every test suite runs and passes on x64.
 - [ ] If it touches rendering, input, audio or presentation: it was **run**, not just built.
 - [ ] `Design/ADR/` has a new file if the change *was* a decision.
 - [ ] Your report states plainly what you verified, what you assumed, and any rule here you had to bend.

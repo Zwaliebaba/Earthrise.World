@@ -16,7 +16,7 @@ What it found:
 - **A 1 m world gives calm, legible terrain and structures,** but units drawn in it lose their cues: spearmen and sappers become identical.
 - **Units are already entities, not voxels in the world** ([ADR-002](ADR-002-authoritative-simulation.md)), so their resolution need not follow the world's.
 
-The owner also plans touch devices and, later, Android. Those are still being discussed, and they would favour the cheaper world.
+The owner also plans the Surface Pro, whose integrated GPU the spike measures, and later Android ([ADR-007](ADR-007-platforms-and-input.md)). Both favour the cheaper world.
 
 ## Decision
 

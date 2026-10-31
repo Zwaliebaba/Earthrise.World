@@ -142,7 +142,7 @@ Lighting is diffuse only: Lambert, with no metalness and no specular highlights.
   - At the widest zoom, a world voxel is about 4 px, so the world needs no level of detail and ADR-001's stochastic pruning is not used.
 - **Model level of detail.** When a model voxel falls below about 3 px (a view height above about 180 m), each unit is drawn as a 1 × 1 × 2 world-scale impostor: faction colour, plus a helmet or a hood. Engines stay at full detail, since there are few of them.
 - **What this angle hides.** At 34°, the near wall of a ditch 2 m deep hides about 3 m of ground behind it. The floors of ditches and the near terraces of pits can therefore be hidden from every rotation. The owner accepted this. Units in them show as silhouettes, which stay visible behind walls, rubble and terrain.
-- **A mobile layout (Open).** The second package sketches a landscape phone layout: the view height scales as 128 / aspect, clamped between 58 and 120 m; tap targets are at least 44 px; and the shadow map is 2048². It binds nothing until a platform beyond the Windows PC is decided (GameDesign.md, *Open questions*).
+- **A mobile layout (Open).** The second package sketches a landscape phone layout: the view height scales as 128 / aspect, clamped between 58 and 120 m; tap targets are at least 44 px; and the shadow map is 2048². It binds nothing yet: the touch scheme follows a positive MVP verdict, and its layout is designed then ([ADR-007](ADR/ADR-007-platforms-and-input.md)).
 
 ## 8. Effects that are not voxels
 

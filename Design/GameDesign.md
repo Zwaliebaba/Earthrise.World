@@ -117,6 +117,19 @@ The owner adopted a second asset package and its proposed change of voxel sizes 
 5. **The second package replaces the first in `Assets/`** ([MvpAssets.md](MvpAssets.md)). Its world templates are automatic conversions from 0.5 m, to be redrawn natively at 1 m before the M4 Siege castle is final.
 6. **Rendering.** Models shade where they touch the world, and units far away are drawn as impostors ([RendererLook.md](RendererLook.md)).
 
+### 2026-10-31: platforms, input and squads
+
+The owner wants the game on a laptop with mouse and keyboard, on the Surface Pro by touch, and later on Android. [ADR-007](ADR/ADR-007-platforms-and-input.md) records the engineering side.
+
+1. **Windows on x64 and ARM64, both native from the first project.** The target Surface Pro is a Snapdragon X, which is ARM64.
+2. **Two input schemes over one set of commands:** mouse and keyboard, and touch. Hover can speed things up but is never the only way to see something. That rule binds the MVP's interface, although the MVP has only the mouse-and-keyboard scheme.
+3. **The order of delivery:**
+   - **The MVP** is mouse and keyboard, on both architectures.
+   - **Touch** follows a positive MVP verdict.
+   - **Android** is an ambition with no date. AGENTS.md's rules on Direct3D 12 and on dependencies stand until an ADR reopens them. Keeping Windows and Direct3D inside the engine keeps Android possible.
+4. **The Surface is measured from the renderer spike on,** at a reduced internal resolution. Its pass mark is set from those figures.
+5. **The player commands squads,** not single figures: six on foot, or three outriders. Selection, orders and control groups act on squads. Each figure is drawn, hit and killed on its own, and a squad can be split when a single figure is needed. At the default zoom a unit is a few pixels wide, so squads help the mouse as well as the finger.
+
 ## Pillars (Decided)
 
 A pillar is a test every feature has to pass. A feature that serves none of them is a candidate for cutting.
@@ -246,19 +259,21 @@ The spike is the first code in the repository. It conforms to AGENTS.md like any
 
 1. **Voxel size.** It is decided: a 1 m world and simulation, with 0.5 m models ([ADR-006](ADR/ADR-006-voxel-sizes.md), [RendererLook.md](RendererLook.md)). The spike shows it at the default zoom, the closest and the farthest, and checks the look's acceptance tests on screen. It measures a 0.5 m world too, so that ADR-006 is decided on figures.
 2. **Camera.** It is decided: orthographic, 34° above the horizon, rotating in 90° steps, from about 12 m to about 260 m of view height. The spike checks it on a ditched wall and a terraced pit added to the scene, with units drawn as their 0.5 m models. It also checks that unit classes and sides can be told apart at the default zoom.
-3. **Cost.** GPU time at the default and the farthest zoom, measured on stated hardware.
+3. **Cost.** GPU time at the default and the farthest zoom, measured on stated hardware: the RTX 3060-class machine, and natively on a Snapdragon X Surface Pro at a reduced internal resolution ([ADR-007](ADR/ADR-007-platforms-and-input.md)).
 4. **Look.** Whether shadow maps, baked corner shading and jittered colour reach RendererLook.md's acceptance checks. If they fall short, a lighting ADR follows: traced shadows and occlusion through a voxel occupancy volume, or DXR for secondary rays, which ADR-001 leaves room for.
 5. **Edits.** The scene runs quarrying at the peak rate the Skirmish tempo implies, back-solved from template volumes at 1 m, and one wall collapse. The spike measures the cost of rebuilding an edited chunk's render records, its neighbours' corner shading included. No world voxel falls below about 4 px anywhere in the zoom range, and units switch to impostors below 3 px. So ADR-001's stochastic pruning is not used, and the problem of finding a pruning key that survives edits does not arise.
 6. **Simulation cost** at 1 m, and at 0.5 m for comparison: memory for the MVP map, one support search on the test town after a breach, and one navigation tile rebuild. It measures the same on a synthetic, headless world of 2 km × 2 km that carries a season's edits and a dozen sieges at once.
 
-The pass mark is decided: an RTX 3060-class GPU at 1920×1080 and 60 frames a second, with the voxel pass inside 8 ms of the 16.7 ms frame at the default zoom.
+The pass mark is decided: an RTX 3060-class GPU at 1920×1080 and 60 frames a second, with the voxel pass inside 8 ms of the 16.7 ms frame at the default zoom. The Surface's pass mark is set from the spike's figures.
 
-Its output is ADR-006's table of measurements, for the 1 m baseline and for a 0.5 m world. If question 4 calls for one, a lighting ADR follows. The spike needs Windows and a Direct3D 12 GPU to build and run.
+Its output is ADR-006's table of measurements, for the 1 m baseline and for a 0.5 m world, plus the same measurements on the Surface. If question 4 calls for one, a lighting ADR follows. The spike needs Windows and a Direct3D 12 GPU to build and run, and a Snapdragon X Surface Pro for its ARM64 figures.
 
 ## Open questions
 
 - The skirmish AI's capabilities, in detail.
 - **Craters at 1 m:** can players tell a ram, a mangonel and a trebuchet apart by the size and depth of their craters? Tested in the M3 breach lab.
-- **Platforms beyond the Windows PC:** the owner wants to support laptops with a mouse and keyboard, the Surface Pro with touch, and Android later. Under discussion, 2026-10-31.
+- **Squads, beyond who is commanded:** whether squads are trained and reinforced as a whole, whether the population cap counts figures or squads, whether laborers form squads or take designation jobs one by one, and how many knights make a squad. The MVP's fixed armies need none of these answers; Skirmish does.
+- **The Surface's pass mark,** set from the renderer spike's figures ([ADR-007](ADR/ADR-007-platforms-and-input.md)).
+- **The touch scheme:** its gestures and layout, designed after the MVP's verdict. The second package's landscape layout is a starting point ([RendererLook.md](RendererLook.md)).
 - Unit statistics, costs, gather rates and every other number behind the description's targets. The Trials and Skirmish tune them. The review named the ones the rules now lean on: a shot's stone price, each template's critical-part threshold, the repair rate per section, and the warning time before a collapse.
 - **The sizes behind the Worlds rules:** the daily work allowance, deposits per holding, the Deep's yield by phase and the distance the steward sallies.

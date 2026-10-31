@@ -29,6 +29,7 @@ It is for players of classic historical RTS games who know their counters and bu
 | Cultures | Masons, Wealdfolk and Delvers, each built around one material |
 | Camera | An orthographic isometric view at 34° that rotates in 90° steps and zooms from single stones to a whole holding |
 | Voxels | 1 m for the world; 0.5 m for units, engines and debris |
+| Platforms | Windows PCs, laptops and tablets, on x64 and ARM64; mouse and keyboard, or touch |
 
 ## The objective
 
@@ -219,6 +220,8 @@ Shots are physical. Every arrow, bolt and stone travels through the voxel grid a
 
 **Soldiers never change the land.** Only engines, sappers, laborers on a designation, collapses and fire remove voxels.
 
+**Squads.** Soldiers fight in squads of one type: six on foot, or three outriders. The player selects and orders squads, and control groups hold squads. Each figure has its own hit points and is drawn, hit and killed on its own, so a squad that loses figures fights on with fewer. A squad can be split when a single figure is needed. Engines, mantlets and carts are ordered one at a time.
+
 ### Roster
 
 | Unit | Era | Cost | Role | Strong against | Weak against |
@@ -408,7 +411,7 @@ The camera is an orthographic isometric view, 34° above the horizon. At the def
 - **Passability view:** where units can walk, climb and cross, and where a breach has opened a route.
 - **Fog of war:** vision is a radius, and walls do not block it. Ground you are not watching shows the land as you last saw it, so scouting reveals new quarries, ditches and breaches. An engine sees as far as it shoots, so its crew watches where its shot lands.
 
-Controls are standard for the genre: selection, control groups, a command card, a minimap and build placement. Placement shows the cut and fill a foundation needs and the depth to rock and bedrock beneath it. For a dig, it shows where the ground will slump and which structures that would undermine. The attack cursor shows whether a target can be hit, is in range but blocked, or is out of range.
+Controls are standard for the genre, played on squads: selection, control groups, a command card, a minimap and build placement. They come in two schemes over one set of commands: mouse and keyboard, and touch on a tablet such as the Surface Pro. Hover can speed things up but is never the only way to see something, because touch has no hover. Every reading below can also be reached without it. Placement shows the cut and fill a foundation needs and the depth to rock and bedrock beneath it. For a dig, it shows where the ground will slump and which structures that would undermine. The attack cursor shows whether a target can be hit, is in range but blocked, or is out of range.
 
 ## How it is built
 
@@ -417,7 +420,7 @@ Controls are standard for the genre: selection, control groups, a command card, 
 - **Destruction is resolved by rules in the simulation.** Outcomes are predictable and the same for every player. Tumbling debris is drawn locally and never matters.
 - **Voxels are drawn directly, without meshing**, using ray-casting after Majercik et al. (2018). An edit shows on screen in the next frame.
 - **Two voxel sizes.** The world and the simulation use 1 m voxels. Units, engines and debris are 0.5 m voxel models, drawn over the world and never written into it.
-- **Platform:** Windows and Direct3D 12, in C++, on an engine written for this game.
+- **Platform:** Windows on x64 and ARM64, with Direct3D 12, in C++, on an engine written for this game. Windows and Direct3D stay inside the engine, so the simulation is portable. Android is an ambition, not a target.
 
 ## How the design is proven
 
