@@ -24,9 +24,6 @@ CompiledShader/
 # source (ADR-008); run Tools/ImportVox.py after editing in MagicaVoxel.
 GameData/**/*.vox
 
-# Python bytecode from running the scripts under Tools/ and Build/.
-__pycache__/
-
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
