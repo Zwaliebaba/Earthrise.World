@@ -1,0 +1,18 @@
+<Solution>
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="Release" />
+    <Platform Name="ARM64" />
+    <Platform Name="x64" />
+  </Configurations>
+  <Project Path="Core/Core.vcxproj" />
+  <Project Path="Engine/Engine.vcxproj" />
+  <Project Path="Protocol/Protocol.vcxproj" />
+  <Project Path="Content/Content.vcxproj" />
+  <Project Path="Simulation/Simulation.vcxproj" />
+  <Project Path="RendererSpike/RendererSpike.vcxproj" />
+  <Project Path="SimulationBench/SimulationBench.vcxproj" />
+  <Project Path="CoreTests/CoreTests.vcxproj" />
+  <Project Path="ProtocolTests/ProtocolTests.vcxproj" />
+  <Project Path="SimulationTests/SimulationTests.vcxproj" />
+</Solution>

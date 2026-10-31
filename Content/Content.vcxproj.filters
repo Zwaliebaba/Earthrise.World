@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Build">
+      <UniqueIdentifier>{7DAB6062-9E56-5B0D-B055-193437A2A71E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Palette">
+      <UniqueIdentifier>{370A2EC7-3C31-5107-AB3A-648B12D672DD}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h">
+      <Filter>Build</Filter>
+    </ClInclude>
+    <ClCompile Include="pch.cpp">
+      <Filter>Build</Filter>
+    </ClCompile>
+    <ClInclude Include="Palette.h">
+      <Filter>Palette</Filter>
+    </ClInclude>
+    <ClCompile Include="Palette.cpp">
+      <Filter>Palette</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

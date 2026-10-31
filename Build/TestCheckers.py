@@ -91,6 +91,8 @@ BROKEN = {
                                "only test suites, are DLLs"),
   "pch.cpp does not create the header": (lambda r: Edit(r, PROJECT, "\n      <PrecompiledHeader>Create</PrecompiledHeader>\n", "\n"),
                                          "only pch.cpp creates the precompiled header"),
+  "a bake outside Content": (lambda r: Edit(r, PROJECT, SETTING, "  <ItemGroup>\n    <BakeInput Include=\"$(SolutionDir)GameData\\Server\\Palette.json\" />\n  </ItemGroup>\n" + SETTING),
+                             "only Content bakes"),
   # The sheet.
   "a wrong mandated value": (lambda r: Edit(r, SHEET, "<FloatingPointModel>Precise", "<FloatingPointModel>Fast"),
                              "FloatingPointModel is 'Fast'"),

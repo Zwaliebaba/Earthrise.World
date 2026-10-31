@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|ARM64">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM64">
+      <Configuration>Release</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>18.0</VCProjectVersion>
+    <ProjectGuid>{02C6FB36-D00E-54B9-A50D-965EA666E0D8}</ProjectGuid>
+    <RootNamespace>RendererSpike</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="$(MSBuildThisFileDirectory)..\Build\Earthrise.props" />
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)Core;$(SolutionDir)Engine;$(SolutionDir)Protocol;$(SolutionDir)Content;$(SolutionDir)Simulation;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClCompile Include="pch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+    </ClCompile>
+    <Manifest Include="RendererSpike.manifest" />
+    <ClCompile Include="RendererSpike.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Core\Core.vcxproj">
+      <Project>{F55F6479-8894-56EA-BBBD-E1F4C2812B37}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\Engine\Engine.vcxproj">
+      <Project>{638AAB1B-AE02-520E-927C-1CDDCCACB4AC}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\Protocol\Protocol.vcxproj">
+      <Project>{287CBEC4-BB6B-5814-8635-28ED704782A0}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\Content\Content.vcxproj">
+      <Project>{E8120D3B-EED3-501F-BF4A-F241B23E38A0}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\Simulation\Simulation.vcxproj">
+      <Project>{D9C86E98-FC2C-536F-8658-B2EA71C141A1}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

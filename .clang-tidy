@@ -117,7 +117,7 @@ WarningsAsErrors: '*'
 # The pattern matches headers sitting DIRECTLY in a project folder, which is every hand-written
 # one (AGENTS.md §2's flat-directory rule). A bare `.*` would also match build output and the
 # Windows SDK, and most of what it reported would be from headers nobody here wrote.
-HeaderFilterRegex: '(^|[/\\])([A-Za-z0-9]+Tests)[/\\][A-Za-z0-9]+\.h$'
+HeaderFilterRegex: '(^|[/\\])(Core|Engine|Protocol|Content|Simulation|RendererSpike|SimulationBench|[A-Za-z0-9]+Tests)[/\\][A-Za-z0-9]+\.h$'
 
 # A `Resource.h` is written by the Visual Studio resource editor, not by hand. Its
 # `#define IDC_STATIC -1` trips bugprone-macro-parentheses, and the fix would be undone the next
@@ -141,6 +141,8 @@ CheckOptions:
 
   # ── Functions: PascalCase ──────────────────────────────────────────────────────────
   - { key: readability-identifier-naming.FunctionCase,             value: CamelCase  }
+  # The entry point is named by the SDK, and keeps the SDK's spelling (R4).
+  - { key: readability-identifier-naming.FunctionIgnoredRegexp,    value: '^wWinMain$' }
   - { key: readability-identifier-naming.MethodCase,               value: CamelCase  }
 
   # ── Constants: UPPER_CASE (R3); enumerators stay PascalCase above ──────────────────

@@ -174,7 +174,7 @@ Each CI guard is removed once its input is there.
 **Write down** the spike's own estimate. The pass mark is already decided (GameDesign.md, *Renderer spike*). Written 2026-10-31: see *The spike's own estimate*, under M1.
 
 **Progress (2026-10-31):**
-- The three checkers and the property sheet have landed, with `Build/TestCheckers.py`: the good fixture and the repository pass, and 36 broken variants each fail for their own reason.
+- The three checkers and the property sheet have landed, with `Build/TestCheckers.py`: the good fixture and the repository pass, and 37 broken variants each fail for their own reason.
 - CI runs them: the project checker in the Windows job, and the format check and the checker tests in the Linux job.
 - The three paper tests have run; their reports are in `Design/Review/PaperTests/`, and their values are in GameDesign.md, *2026-10-31: the paper tests' values*:
   - **The Siege route table** passes all three criteria under the owner's decisions and its Proposed fixes.
@@ -261,7 +261,7 @@ At the end of M1:
 
 | # | Started | Finished | PRs | Owner hours | Notes |
 |---|---|---|---|---|---|
-| 1 | | | | | |
+| 1 | 2026-10-31 | | #8 | | The scaffold, with each project's first piece |
 
 ### M2 — Headless simulation
 

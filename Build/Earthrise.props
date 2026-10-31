@@ -57,6 +57,9 @@
       <WarningLevel>Level4</WarningLevel>
       <TreatWarningAsError>true</TreatWarningAsError>
       <FloatingPointModel>Precise</FloatingPointModel>
+      <!-- Stated, not inherited: Debug's default would be Edit and Continue (/ZI), which needs /Gy
+           and so clashes with Debug's FunctionLevelLinking=false (D8016). -->
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <ExceptionHandling>Sync</ExceptionHandling>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>Use</PrecompiledHeader>
