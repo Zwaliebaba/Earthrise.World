@@ -1,6 +1,6 @@
 # ADR-011 — The renderer's first choices
 
-**Status:** Proposed, 2026-10-31, for the owner's approval. It settles the choices that AGENTS.md R12, [ADR-001](ADR-001-direct-voxel-ray-casting.md) and [ADR-007](ADR-007-platforms-and-input.md) leave to the time the renderer is built, so that M1 can start. Each choice is a starting point that the M1 spike measures. A change the spike calls for is an amendment here, not a quiet edit in code. The project layout is [ADR-010](ADR-010-solution-and-build-layout.md).
+**Status:** Accepted, 2026-10-31, by the owner. It settles the choices that AGENTS.md R12, [ADR-001](ADR-001-direct-voxel-ray-casting.md) and [ADR-007](ADR-007-platforms-and-input.md) leave to the time the renderer is built, so that M1 can start. Each choice is a starting point that the M1 spike measures. A change the spike calls for is an amendment here, not a quiet edit in code. The project layout is [ADR-010](ADR-010-solution-and-build-layout.md).
 
 ## Context
 

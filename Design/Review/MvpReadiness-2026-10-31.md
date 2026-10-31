@@ -202,5 +202,5 @@ These are mechanical fixes, except where marked as the owner's choice.
   Also applied: ADR-006 is accepted after M3, the server bake moves to M2, generator parameters are compiled into the generator, ADR-009 adds queries, and CI runs the asset check.
 - **D, the stale text:** fixed. AGENTS.md's missing R13 is left as it is, since the numbering came over from the sibling repositories.
 - **Still open:**
-  - C, the engineering decisions for M1's first commit: drafted as [ADR-010](../ADR/ADR-010-solution-and-build-layout.md) and [ADR-011](../ADR/ADR-011-renderer-first-choices.md), Proposed, waiting for the owner's approval;
+  - C, the engineering decisions for M1's first commit: settled by [ADR-010](../ADR/ADR-010-solution-and-build-layout.md) and [ADR-011](../ADR/ADR-011-renderer-first-choices.md), accepted by the owner;
   - E and F, which are due later or after the MVP.

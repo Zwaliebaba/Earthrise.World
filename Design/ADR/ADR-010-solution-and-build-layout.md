@@ -1,6 +1,6 @@
 # ADR-010 — The solution and build layout
 
-**Status:** Proposed, 2026-10-31, for the owner's approval. It is the solution-layout ADR that [MvpPlan.md](../MvpPlan.md) schedules for M1's first commit, and that AGENTS.md §2 requires when the first project is created. It settles the engineering items the MVP readiness review lists under C ([Review/MvpReadiness-2026-10-31.md](../Review/MvpReadiness-2026-10-31.md)). The renderer's own first choices are in [ADR-011](ADR-011-renderer-first-choices.md).
+**Status:** Accepted, 2026-10-31, by the owner. It is the solution-layout ADR that [MvpPlan.md](../MvpPlan.md) schedules for M1's first commit, and that AGENTS.md §2 requires when the first project is created. It settles the engineering items the MVP readiness review lists under C ([Review/MvpReadiness-2026-10-31.md](../Review/MvpReadiness-2026-10-31.md)). The renderer's own first choices are in [ADR-011](ADR-011-renderer-first-choices.md).
 
 ## Context
 
@@ -86,7 +86,7 @@
 - **The first commit of M1 is the scaffold:** the solution, `Build/Earthrise.props`, the ten projects with their `pch` and `SuiteSmoke`, and `framework.h`. It also corrects `.clang-tidy`. CI then builds both architectures and runs the three suites for real.
 - **M0's checkers are written against this layout,** with their fixtures, before the scaffold, so the scaffold is the first thing they gate.
 - **Graphics Tools:** a developer machine needs the Windows optional feature "Graphics Tools" for the Direct3D 12 debug layer in Debug builds. CI's tests create no device and do not need it.
-- **On acceptance:**
+- **On acceptance,** as done the same day:
   - AGENTS.md R16, §3 and §4 name the property sheet and `framework.h`;
   - MvpPlan.md's layout table points here;
   - the readiness review's item C closes.
