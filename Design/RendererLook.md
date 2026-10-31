@@ -1,6 +1,6 @@
 # Earthrise.World — The renderer's look
 
-**Status:** Decided by the owner, 2026-10-31. A first version that day put everything at 0.5 m. The second, adopted later the same day, puts the world at 1 m and models at 0.5 m ([ADR-006](ADR/ADR-006-voxel-sizes.md), Proposed until the M1 spike measures it).
+**Status:** Decided by the owner, 2026-10-31. A first version that day put everything at 0.5 m. The second, adopted later the same day, puts the world at 1 m and models at 0.5 m ([ADR-006](ADR/ADR-006-voxel-sizes.md), Proposed until the M1 spike and the M3 breach lab have measured it).
 
 It comes from a visual prototype in three.js r160, tuned to read well from the strategy camera. Both versions of the prototype and their specifications are kept unchanged in [Reference/SiegePrototype/](Reference/SiegePrototype/) and [Reference/SiegePrototypeV2/](Reference/SiegePrototypeV2/). The owner then resolved the points where the prototype collided with the design, and those resolutions are written in here.
 
@@ -37,7 +37,7 @@ This is the look specification for the voxel renderer, the first step in GameDes
 
 Colours are authored in sRGB and converted to linear before lighting. The output is sRGB, with no tone mapping.
 
-[`Assets/Palette.json`](../Assets/Palette.json) carries these colours with their frozen indices and behaviours ([ADR-005](ADR/ADR-005-content-formats.md)). The indices follow the second package's numbering.
+[`GameData/Server/Palette.json`](../GameData/Server/Palette.json) carries these colours with their frozen indices and behaviours ([ADR-005](ADR/ADR-005-content-formats.md)). The indices follow the second package's numbering.
 
 | idx | Material | sRGB | Jitter | Grid | Behaves as |
 |---|---|---|---|---|---|
@@ -49,18 +49,18 @@ Colours are authored in sRGB and converted to linear before lighting. The output
 | 6 | Masonry (built walls; "dressed stone" in the package) | #c6bca7 | 0.07 | both | Building stone, laid by a template |
 | 7 | Timber | #7a5534 | 0.05 | both | Timber |
 | 8 | Rubble of stone | #a69c8a | 0.07 | both | Rubble that yields stone |
-| 9 | Water | #4f7f8c | 0.03 | world | Water. Shallow water is lighter, so fords show. |
+| 9 | Water | #4f7f8c | 0.03 | world | Water. Water one voxel deep over a solid floor draws lighter, so fords show; deeper water draws at this colour (Proposed: 15% lighter, tuned in the spike). |
 | 10 / 11 | Leaves A / B | #4f6a3a / #62803f | 0.10 | world | Leaves: a span as wide as a canopy, no timber yield, and they burn |
 | 12 | Roof | #8c4a3a | 0.05 | world | Timber |
 | 13 / 14 | Field A / B | #c9a95a / #a6a056 | 0.04 | world | Earth |
 | 15 | Road | #a88e6a | 0.04 | world | Earth |
-| 16 | Faction (red example; blue #2f5d93) | #b23a2e | 0.05 | models, banners | A decoration in a template |
-| 18 | Iron | #9aa0a6 | 0.05 | models | A decoration in a template (gate fittings) |
+| 16 | Faction (red example; blue #2f5d93) | #b23a2e | 0.05 | models | Models only, banners included; never on structures |
+| 18 | Iron | #9aa0a6 | 0.05 | both | A decoration in a template (gate fittings) |
 | 19 | Laborer cloth | #c79a6b | 0.05 | models | Models only |
 | 20 | Opening (slits, doors, windows) | #2e2a27 | 0.05 | world | A decoration: the material around it. Nothing passes through it. |
 | 21 | Counterweight | #5b5650 | 0.05 | models | Models only |
 | 22 | Skin | #d9a57f | 0.05 | models | Models only |
-| 23 | Cloth (legs) | #3d3530 | 0.05 | models | A decoration in a template |
+| 23 | Cloth (legs) | #3d3530 | 0.05 | models | Models only |
 | 24 | Horse | #5e4330 | 0.05 | models | Models only |
 | 25 | Rubble of timber | #5f4530 | 0.07 | both | Waste rubble, which yields nothing |
 | 26 | Rubble of earth | #7d6044 | 0.05 | both | Waste rubble |
@@ -73,7 +73,7 @@ Colours are authored in sRGB and converted to linear before lighting. The output
 - **Rubble of masonry** shows about 12% of its voxels in the masonry colour. This only picks colours: every voxel of it is still rubble of stone.
 - **Built and raw stone differ at a glance.** Masonry is darker and greyer than raw building stone.
 - **Rubble shows what it is worth.** Rubble of stone, which yields stone, looks different from waste rubble.
-- **Faction colour appears only on models and banners,** never on structures.
+- **Faction colour appears only on models,** banners included, never on structures.
 
 ## 4. Colour jitter
 
@@ -161,4 +161,5 @@ Lighting is diffuse only: Lambert, with no metalness and no specular highlights.
 7. The same seed and edits produce the same colours on every machine.
 8. Fords can be told apart from deep water.
 9. Rubble of stone can be told apart from waste rubble.
-10. The voxel pass stays within 8 ms at 1080p at the default zoom on an RTX 3060-class GPU. This is the M1 pass mark.
+10. The voxel pass stays within 8 ms at 1080p at the default zoom on an RTX 3060-class GPU. This is the M1 pass mark, measured as GameDesign.md states it: the 95th percentile on a desktop RTX 3060, shadow passes included, over a scripted camera path through all four rotations, with units moving and edits running.
+11. Shadows land where the sun puts them: no acne on lit faces, no gap between a wall, tower, tree or unit and its shadow at the default zoom, and an edit's shadow changes within a frame of the edit.

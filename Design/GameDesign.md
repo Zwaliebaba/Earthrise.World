@@ -96,25 +96,25 @@ The owner adopted a look specification from a visual prototype, and settled wher
 
 ### 2026-10-31: the MVP's assets and the content format
 
-1. **The MVP's voxel assets are the owner's package,** now in `Assets/` and catalogued in [MvpAssets.md](MvpAssets.md). It brings nine templates (T1–T9), unit and engine models, and illustrations, and its own choices with them:
+1. **The MVP's voxel assets are the owner's package,** now in `GameData/` (`Assets/` until [ADR-008](ADR/ADR-008-server-and-client-game-data.md)) and catalogued in [MvpAssets.md](MvpAssets.md). It brings nine templates (T1–T9), unit and engine models, and illustrations, and its own choices with them:
    - the proportions of the hall, keep, gatehouse, tower and drop sites;
    - the hall's frame and each drop site's shed as critical parts;
    - hollow towers and keeps;
    - a standard ditch 5 m wide and 2 m deep, with 1:1 sides;
    - one cue per unit type;
    - render-only colours for horse, leather and rubble.
-2. **The content format is [ADR-005](ADR/ADR-005-content-formats.md),** which closes that question. JSON layer files are the source, with MagicaVoxel copies beside them. Decorations behave and cost as the material they sit in. Everything is baked into a `Content` library, and nothing is loaded at runtime.
+2. **The content format is [ADR-005](ADR/ADR-005-content-formats.md),** which closes that question. JSON layer files are the source, with MagicaVoxel copies beside them. Decorations behave and cost as the material they sit in. Everything is baked into a `Content` library, and nothing is loaded at runtime. (Changed the same day by [ADR-008](ADR/ADR-008-server-and-client-game-data.md): the `.vox` copies are no longer committed, and the server reads its data from baked files.)
 3. **The palisade gate (T7) is one of the MVP's templates.**
 
 ### 2026-10-31: the 1 m world
 
-The owner adopted a second asset package and its proposed change of voxel sizes as the design baseline. [ADR-006](ADR/ADR-006-voxel-sizes.md) records the engineering decision. It stays Proposed until the M1 spike measures it, with a 0.5 m world measured as the fallback.
+The owner adopted a second asset package and its proposed change of voxel sizes as the design baseline. [ADR-006](ADR/ADR-006-voxel-sizes.md) records the engineering decision. It stays Proposed until the M1 spike measures it, with a 0.5 m world measured as the fallback, and the M3 breach lab reads predictions on it.
 
 1. **The world and the simulation use 1 m voxels:** terrain, templates, earthworks, rubble and trees.
 2. **Models use 0.5 m voxels:** units, siege engines, mantlets, carts, banners and debris. They are drawn over the world, never written into it, and never simulated.
 3. **Walls.** A standard wall is 2 m thick, so a section of 8 × 2 × 6 m costs 96 m³ of stone. A thick wall is 3 m thick and costs half as much again. The balance targets stay as they are, and are now tuned for these walls.
 4. **Craters show their weapon by size and depth** rather than by shape, and the client's debris adds texture. Whether players can still tell the weapons apart is an open question for the M3 breach lab.
-5. **The second package replaces the first in `Assets/`** ([MvpAssets.md](MvpAssets.md)). Its world templates are automatic conversions from 0.5 m, to be redrawn natively at 1 m before the M4 Siege castle is final.
+5. **The second package replaces the first in `Assets/`** (now `GameData/`, ADR-008) ([MvpAssets.md](MvpAssets.md)). Its world templates are automatic conversions from 0.5 m, to be redrawn natively at 1 m before the M4 Siege castle is final.
 6. **Rendering.** Models shade where they touch the world, and units far away are drawn as impostors ([RendererLook.md](RendererLook.md)).
 
 ### 2026-10-31: platforms, input and squads
@@ -128,7 +128,7 @@ The owner wants the game on a laptop with mouse and keyboard, on the Surface Pro
    - **Touch** follows a positive MVP verdict.
    - **Android** is an ambition with no date. AGENTS.md's rules on Direct3D 12 and on dependencies stand until an ADR reopens them. Keeping Windows and Direct3D inside the engine keeps Android possible.
 4. **The Surface is measured from the renderer spike on,** at a reduced internal resolution. Its pass mark is set from those figures.
-5. **The player commands squads,** not single figures: six on foot, or three outriders. Selection, orders and control groups act on squads. Each figure is drawn, hit and killed on its own, and a squad can be split when a single figure is needed. At the default zoom a unit is a few pixels wide, so squads help the mouse as well as the finger.
+5. **The player commands squads,** not single figures: six on foot, or three outriders. Selection, orders and control groups act on squads. Each figure is drawn, hit and killed on its own, and a squad can be split when a single figure is needed. At the default zoom a unit is a few pixels wide, so squads help the mouse as well as the finger. (Extended the same day, below.)
 
 ### 2026-10-31: the MVP's HUD
 
@@ -140,6 +140,51 @@ The owner delivered a HUD package, kept unchanged in [Reference/HudPrototype/](R
 4. **The interface scale follows the display's DPI,** in steps of 1, 1.5 and 2, and names stay larger than labels at every step.
 5. **A dig's yield counts only the building stone the player can see,** so a readout never reveals where stone lies.
 6. **The font is Earthrise Mason,** drawn for the project. Colour-blind palettes are deferred, and no state is shown by colour alone.
+
+### 2026-10-31: squads, the Hold start and confirmations
+
+1. **Squads are trained whole,** and the population cap counts figures, so a squad of six takes six. A worn squad refills figure by figure at the building that trains it.
+2. **MERGE combines squads of one type** up to full size, and any figures left over stay a squad. It is how a split figure rejoins, and how worn squads are made whole in the field.
+3. **Laborers are not in squads.** Each one takes jobs from designations, and selecting a laborer selects one.
+4. **Knights ride in threes,** like outriders. Every mounted squad is three, and every squad on foot is six.
+5. **The Hold trial starts with the hall and a finished keep,** so the build window goes into quarries, walls, towers and ditches, the choices H1 tests.
+6. **Confirmed as Decided:**
+   - the ARM64 floor of `/arch:armv8.0+lse` (ADR-007);
+   - AGENTS.md R16's correction on contraction;
+   - ADR-005's amendments: the asset check that every structure voxel connects to its template's base, and a folder for the font (now `GameData/Client/Fonts/`);
+   - Hud.md's additions: the cards, the cell widths, BLOCKED, GROUND from the resolver, section names in the scenario, and F1 and F2.
+7. **The prototypes' support code is the owner's.** `support.js` in Design/Reference/ was produced with Claude Design by the owner, as were all the packages' assets ([Reference/README.md](Reference/README.md)).
+
+### 2026-10-31: game data, server and client
+
+[ADR-008](ADR/ADR-008-server-and-client-game-data.md) records the engineering side.
+
+1. **Content is split by who reads it.** Sources live in `GameData/Server/` and `GameData/Client/`. Content both sides read, the templates and the palette, has its source on the server's side.
+2. **The client has everything compiled in.** The server reads its own data from baked files in `<outputdir>\ServerData`, which can be rebuilt without recompiling, so server-only data such as statistics and waves can be tuned between playtests.
+3. **`<outputdir>\GameData` is kept for client content too large to compile in,** audio first.
+4. **The JSON layer file is the only committed voxel source.** A tool writes a `.vox` for MagicaVoxel and writes an edit back, so the owner can keep authoring in Claude Design and touch up in MagicaVoxel.
+5. **Shaders stay compiled into the executable.**
+
+### 2026-10-31: starting the MVP
+
+The owner settled the open items of the readiness review ([Review/MvpReadiness-2026-10-31.md](Review/MvpReadiness-2026-10-31.md)) that block M0 and M1.
+
+1. **Claude sessions write the code;** the owner runs it and judges it.
+   - Code, tools and checkers are written in Claude sessions and pushed to branches, and CI compiles Debug|x64 and Debug|ARM64.
+   - The owner runs the builds on Windows, judges the look and the measurements, and approves each milestone.
+   - The plan's estimates are rescaled from the real pace of the first milestones.
+2. **MvpPlan.md is accepted through M2,** together with the renderer spike's six questions, its pass mark and the 1 m kill criterion. M3 to M7 stay Proposed until after M1.
+3. **How the pass mark is measured:**
+   - on a desktop RTX 3060 at 1920 × 1080;
+   - as the 95th percentile of the voxel pass's GPU time, shadow passes included;
+   - over a scripted camera path at the default zoom through all four rotations;
+   - with units moving and the scripted edits running.
+4. **Hardware:** the owner has the RTX 3060-class machine but no Surface Pro yet. The Surface's measurement waits until one is available, and its pass mark stays open ([ADR-007](ADR/ADR-007-platforms-and-input.md)).
+5. **The spike's scene takes its layout from the v5 scene,** which is already on the 1 m grid ([Reference/SiegePrototypeV2/](Reference/SiegePrototypeV2/)). A seeded scene script places it. The implementer draws placeholder models for what `GameData/` lacks (trees, cottages, mantlets, banners and stock stacks), and the owner may replace them with Claude Design versions.
+6. **Two exceptions to R14** (AGENTS.md): test projects use Visual Studio's native unit-test framework, which vstest runs and which never reaches the game, and build-time tools run on Python, which never ships.
+7. **The paper tests' open values** (the stone span, the anchor depth, the questions per prediction item, how a wave scores and picks, and the repair spreadsheet's pass mark) are picked by the implementer. Each is recorded as Proposed with its reason, and the owner confirms or changes them after the results.
+8. **The MVP trebuchet switches between baked poses:** packed, cocked and released, three static models.
+9. **Skirmish has one or two AI houses.**
 
 ## Pillars (Decided)
 
@@ -182,7 +227,7 @@ A classic RTS match ends; a world lasts a season, and the season replaces the ma
 
 ## Build budget (Decided: there is one, with a cut order; Proposed: its figures and the order)
 
-The review estimated the plan at 79–137 FTE-months of work for one experienced developer. These are judgment estimates, not measurements (review finding F-52). The two cuts taken in the design review save about 3–6 of them.
+The review estimated the plan at 79–137 FTE-months of work for one experienced developer. These are judgment estimates, not measurements (review finding F-52). The two cuts taken in the design review save about 3–5 of them.
 
 | Stage | FTE-months (estimate) |
 |---|---|
@@ -247,7 +292,7 @@ The control is the same stages with walls built of segments that have health bar
    - The player wins by breaking the keep: it has stopped working, and their soldiers have held its foot for two minutes without a repair.
    - They lose when no attacking unit is left, or when a time limit runs out.
    - The castle's nearest section is not its weakest, so choosing the nearest point and choosing the weakest can be told apart.
-2. **Hold.** The player quarries and builds for a set time, then scripted waves attack.
+2. **Hold.** The player starts with the hall and a finished keep, quarries and builds for a set time, then scripted waves attack.
    - **How a wave picks its breach.** A wave scores each stretch of wall it can reach on the four reasons an attacker reads (GameDescription.md, *How a siege plays*): how close the section is to opening, which it asks the collapse resolver; whether it stands on earth with no ditch in front; how far it is from the towers; and whether it is a gate. It picks among the best few with a seeded draw.
    - **Sappers.** One wave brings sappers, which trench beside a section standing on earth.
    - **Maps.** Every Hold map has at least two outcrops within reach of the hall, on different sides.
@@ -256,7 +301,7 @@ The control is the same stages with walls built of segments that have health bar
 
 Each stage builds a piece the shared world needs: the Siege stage's defending AI, with the Skirmish AI's economy, becomes the steward, the Hold stage's waves become the world's raiders, and the Skirmish AI becomes the AI houses.
 
-### Kill criteria (Proposed)
+### Kill criteria (Proposed, except the renderer spike's, which is Decided)
 
 - If H2 still fails after one round of work on legibility, destruction becomes cosmetic over walls with health bars, and this document is rewritten before more content is made.
 - If H1 fails, resources become nodes that leave visible scars on the land. Ditches, trenches and pits stay dug, and Earthstone is still dug out of the Deep, because the Deep is the objective, not the economy. Whether Worlds goes ahead without pillar 1 is decided then, before Skirmish starts.
@@ -264,7 +309,7 @@ Each stage builds a piece the shared world needs: the Siege stage's defending AI
 - If the demand signal stays below its threshold (*Persistence*), Worlds is not built.
 - If the renderer spike misses its pass mark with the 1 m baseline, a new ADR revisits [ADR-001](ADR/ADR-001-direct-voxel-ray-casting.md) before any gameplay code is written.
 
-## Renderer spike (Decided: it happens, draws a changing scene and measures drawing and editing; Proposed: the rest of what it answers)
+## Renderer spike (Decided: it happens, draws a changing scene, answers the six questions below and has a pass mark)
 
 The spike is the first code in the repository. It conforms to AGENTS.md like any other code, which also means it settles the solution layout (AGENTS.md §2). It draws a generated test scene with [ADR-001](ADR/ADR-001-direct-voxel-ray-casting.md)'s method: terrain, a dense forest, and a town with walls, roughly what a late-game settlement looks like. The scene also changes while it is drawn (question 5). It answers six questions:
 
@@ -275,7 +320,7 @@ The spike is the first code in the repository. It conforms to AGENTS.md like any
 5. **Edits.** The scene runs quarrying at the peak rate the Skirmish tempo implies, back-solved from template volumes at 1 m, and one wall collapse. The spike measures the cost of rebuilding an edited chunk's render records, its neighbours' corner shading included. No world voxel falls below about 4 px anywhere in the zoom range, and units switch to impostors below 3 px. So ADR-001's stochastic pruning is not used, and the problem of finding a pruning key that survives edits does not arise.
 6. **Simulation cost** at 1 m, and at 0.5 m for comparison: memory for the MVP map, one support search on the test town after a breach, and one navigation tile rebuild. It measures the same on a synthetic, headless world of 2 km × 2 km that carries a season's edits and a dozen sieges at once.
 
-The pass mark is decided: an RTX 3060-class GPU at 1920×1080 and 60 frames a second, with the voxel pass inside 8 ms of the 16.7 ms frame at the default zoom. The Surface's pass mark is set from the spike's figures.
+The pass mark is decided: an RTX 3060-class GPU at 1920×1080 and 60 frames a second, with the voxel pass inside 8 ms of the 16.7 ms frame at the default zoom. It is measured on a desktop RTX 3060 as the 95th percentile of the voxel pass's GPU time, shadow passes included, over a scripted camera path at the default zoom through all four rotations, with units moving and the scripted edits running. The Surface's pass mark is set from the spike's figures once a Surface is available.
 
 Its output is ADR-006's table of measurements, for the 1 m baseline and for a 0.5 m world, plus the same measurements on the Surface. If question 4 calls for one, a lighting ADR follows. The spike needs Windows and a Direct3D 12 GPU to build and run, and a Snapdragon X Surface Pro for its ARM64 figures.
 
@@ -283,8 +328,7 @@ Its output is ADR-006's table of measurements, for the 1 m baseline and for a 0.
 
 - The skirmish AI's capabilities, in detail.
 - **Craters at 1 m:** can players tell a ram, a mangonel and a trebuchet apart by the size and depth of their craters? Tested in the M3 breach lab.
-- **Squads, beyond who is commanded:** whether squads are trained and reinforced as a whole, whether the population cap counts figures or squads, whether laborers form squads or take designation jobs one by one, and how many knights make a squad. The MVP's fixed armies need none of these answers; Skirmish does.
 - **The Surface's pass mark,** set from the renderer spike's figures ([ADR-007](ADR/ADR-007-platforms-and-input.md)).
-- **The touch scheme:** its gestures and layout, designed after the MVP's verdict. The second package's landscape layout is a starting point ([RendererLook.md](RendererLook.md)).
+- **The touch scheme:** its gestures and layout, designed after the MVP's verdict. The HUD package's layout B and the second asset package's landscape phone layout are the starting points ([Hud.md](Hud.md) §4, [RendererLook.md](RendererLook.md)).
 - Unit statistics, costs, gather rates and every other number behind the description's targets. The Trials and Skirmish tune them. The review named the ones the rules now lean on: a shot's stone price, each template's critical-part threshold, the repair rate per section, and the warning time before a collapse.
 - **The sizes behind the Worlds rules:** the daily work allowance, deposits per holding, the Deep's yield by phase and the distance the steward sallies.

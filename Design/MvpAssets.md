@@ -1,6 +1,6 @@
 # Earthrise.World — MVP assets
 
-**Status:** Decided by the owner, 2026-10-31. This is the catalogue of the MVP's voxel assets, which live in [`Assets/`](../Assets/), in the format of [ADR-005](ADR/ADR-005-content-formats.md). They come from the owner's second package, kept unchanged in [Reference/SiegePrototypeV2/](Reference/SiegePrototypeV2/). It replaced the first, which is still kept in [Reference/SiegePrototype/](Reference/SiegePrototype/). [GameDesign.md](GameDesign.md) and [GameDescription.md](GameDescription.md) govern rules and behaviour; this document and [RendererLook.md](RendererLook.md) govern size, colour and shading.
+**Status:** Decided by the owner, 2026-10-31. This is the catalogue of the MVP's voxel assets, which live in [`GameData/`](../GameData/), in the format of [ADR-005](ADR/ADR-005-content-formats.md). Templates and the palette are under `GameData/Server/`, models under `GameData/Client/`, and illustrations under `GameData/Illustrations/` ([ADR-008](ADR/ADR-008-server-and-client-game-data.md)). They come from the owner's second package, kept unchanged in [Reference/SiegePrototypeV2/](Reference/SiegePrototypeV2/). It replaced the first, which is still kept in [Reference/SiegePrototype/](Reference/SiegePrototype/). [GameDesign.md](GameDesign.md) and [GameDescription.md](GameDescription.md) govern rules and behaviour; this document and [RendererLook.md](RendererLook.md) govern size, colour and shading.
 
 Assets come in two voxel sizes ([ADR-006](ADR/ADR-006-voxel-sizes.md)):
 - **World assets** use 1 m voxels, so one voxel is 1 m³. These are the templates, the earthworks and the material samples. Their file names end in `-1m`.
@@ -37,14 +37,14 @@ Drawn by the client only. Models set no costs and no rules (ADR-005, decision 8)
 | U5 | Man-at-arms | 2 × 4 × 2 | 1 × 2 × 1 | All iron, with a faction shield in front |
 | S2 | Sapper | 3 × 5 × 1 | 1.5 × 2.5 × 0.5 | Iron shoulders, raised pick |
 | S1 | Battering ram | 6 × 7 × 15 | 3 × 3.5 × 7.5 | Hide roof, iron-headed log |
-| S3 | Trebuchet | 23 × 26 × 7 | 11.5 × 13 × 3.5 | 12 m arm, counterweight. A static model in the MVP. |
+| S3 | Trebuchet | 23 × 26 × 7 | 11.5 × 13 × 3.5 | 12 m arm, counterweight. In the MVP it switches between three baked poses, packed, cocked and released. The package draws one; the other two are still to draw. |
 
 The figures are the same as in the first package, which already drew them at 0.5 m.
 
 ## Illustrations
 
 These are for documentation and tests, and are never baked:
-- **Squads** (0.5 m): U1–U5 and S2, in groups of six (outriders in threes).
+- **Squads** (0.5 m): U2–U5 and S2, in groups of six (outriders in threes). U1 shows six laborers together, though laborers are not in squads (GameDesign.md, 2026-10-31).
 - **E1, ditch and rampart** (1 m): the standard ditch, with its spoil as a rampart 2 m high on the side towards the keep.
 - **E2, deep foundation** (1 m): a 56 m³ wall on a 48 m³ foundation that reaches bedrock 3 m down, cut away at the front.
 - **M1, ground strata** (1 m): grass, earth, common rock, a lens of building stone, and bedrock.
@@ -78,24 +78,24 @@ The packages made choices the design documents had not fixed. The owner adopted 
 
 The previews are the package's own renderings; nothing reads them.
 
-![T1 Hall](../Assets/Templates/earthrise-t1-hall-1m.png)
-![T2 Keep](../Assets/Templates/earthrise-t2-keep-1m.png)
-![T3 Stone wall](../Assets/Templates/earthrise-t3-stone-wall-standard-1m.png)
-![T4 Tower](../Assets/Templates/earthrise-t4-tower-1m.png)
-![T5 Gatehouse](../Assets/Templates/earthrise-t5-gatehouse-1m.png)
-![T6 Palisade](../Assets/Templates/earthrise-t6-palisade-1m.png)
-![T7 Palisade gate](../Assets/Templates/earthrise-t7-palisade-gate-1m.png)
-![T8 Quarry yard](../Assets/Templates/earthrise-t8-quarry-yard-1m.png)
-![T9 Lumber camp](../Assets/Templates/earthrise-t9-lumber-camp-1m.png)
-![S1 Battering ram](../Assets/Models/earthrise-s1-battering-ram-05m.png)
-![S3 Trebuchet](../Assets/Models/earthrise-s3-trebuchet-05m.png)
-![U1 Laborers](../Assets/Illustrations/earthrise-u1-laborers-05m.png)
-![U2 Spearmen](../Assets/Illustrations/earthrise-u2-spearmen-05m.png)
-![U3 Archers](../Assets/Illustrations/earthrise-u3-archers-05m.png)
-![U4 Outriders](../Assets/Illustrations/earthrise-u4-outriders-05m.png)
-![U5 Men-at-arms](../Assets/Illustrations/earthrise-u5-men-at-arms-05m.png)
-![S2 Sappers](../Assets/Illustrations/earthrise-s2-sappers-05m.png)
-![E1 Ditch and rampart](../Assets/Illustrations/earthrise-e1-ditch-rampart-1m.png)
-![E2 Deep foundation](../Assets/Illustrations/earthrise-e2-deep-foundation-1m.png)
-![M1 Ground strata](../Assets/Illustrations/earthrise-m1-ground-strata-1m.png)
-![M2 Rubble keeps its material](../Assets/Illustrations/earthrise-m2-rubble-keeps-its-material-1m.png)
+![T1 Hall](../GameData/Server/Templates/earthrise-t1-hall-1m.png)
+![T2 Keep](../GameData/Server/Templates/earthrise-t2-keep-1m.png)
+![T3 Stone wall](../GameData/Server/Templates/earthrise-t3-stone-wall-standard-1m.png)
+![T4 Tower](../GameData/Server/Templates/earthrise-t4-tower-1m.png)
+![T5 Gatehouse](../GameData/Server/Templates/earthrise-t5-gatehouse-1m.png)
+![T6 Palisade](../GameData/Server/Templates/earthrise-t6-palisade-1m.png)
+![T7 Palisade gate](../GameData/Server/Templates/earthrise-t7-palisade-gate-1m.png)
+![T8 Quarry yard](../GameData/Server/Templates/earthrise-t8-quarry-yard-1m.png)
+![T9 Lumber camp](../GameData/Server/Templates/earthrise-t9-lumber-camp-1m.png)
+![S1 Battering ram](../GameData/Client/Models/earthrise-s1-battering-ram-05m.png)
+![S3 Trebuchet](../GameData/Client/Models/earthrise-s3-trebuchet-05m.png)
+![U1 Laborers](../GameData/Illustrations/earthrise-u1-laborers-05m.png)
+![U2 Spearmen](../GameData/Illustrations/earthrise-u2-spearmen-05m.png)
+![U3 Archers](../GameData/Illustrations/earthrise-u3-archers-05m.png)
+![U4 Outriders](../GameData/Illustrations/earthrise-u4-outriders-05m.png)
+![U5 Men-at-arms](../GameData/Illustrations/earthrise-u5-men-at-arms-05m.png)
+![S2 Sappers](../GameData/Illustrations/earthrise-s2-sappers-05m.png)
+![E1 Ditch and rampart](../GameData/Illustrations/earthrise-e1-ditch-rampart-1m.png)
+![E2 Deep foundation](../GameData/Illustrations/earthrise-e2-deep-foundation-1m.png)
+![M1 Ground strata](../GameData/Illustrations/earthrise-m1-ground-strata-1m.png)
+![M2 Rubble keeps its material](../GameData/Illustrations/earthrise-m2-rubble-keeps-its-material-1m.png)

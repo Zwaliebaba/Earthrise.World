@@ -21,7 +21,7 @@ It is for players of classic historical RTS games who know their counters and bu
 | Genre | Real-time strategy in persistent, seasonal shared worlds |
 | Setting | A fictional high-medieval land, before gunpowder |
 | Modes | Trials (single-player siege challenges), Skirmish (against AI houses), Worlds (shared seasons online) |
-| Skirmish | One human against one to three AI houses, 40–60 minutes, maps of 512 m to 768 m square |
+| Skirmish | One human against one or two AI houses, 40–60 minutes, maps of 512 m to 768 m square |
 | Worlds | 8–32 seats, at least half of them human lords when the world opens, AI houses in the rest; land sized to the seats, up to about 2 km × 2 km; an eight-week season |
 | Population cap | 150 per faction in Skirmish, 120 per lord in Worlds |
 | Resources | Provisions, timber, stone and iron; Earthstone in Worlds |
@@ -114,7 +114,7 @@ Each designation has a drop site: a quarry yard, a lumber camp, a mine head or a
 
 ### Population
 
-Housing sets the population cap: cottages, plus the hall and its successors. The cap is 150 in Skirmish and 120 in Worlds. Every unit costs provisions to train. In Worlds, soldiers also eat provisions each day (see Upkeep).
+Housing sets the population cap: cottages, plus the hall and its successors. The cap is 150 in Skirmish and 120 in Worlds, and it counts figures, so a squad of six takes six. Soldiers are trained as whole squads. Every unit costs provisions to train. In Worlds, soldiers also eat provisions each day (see Upkeep).
 
 ### Economic tempo in a match
 
@@ -220,7 +220,7 @@ Shots are physical. Every arrow, bolt and stone travels through the voxel grid a
 
 **Soldiers never change the land.** Only engines, sappers, laborers on a designation, collapses and fire remove voxels.
 
-**Squads.** Soldiers fight in squads of one type: six on foot, or three outriders. The player selects and orders squads, and control groups hold squads. Each figure has its own hit points and is drawn, hit and killed on its own, so a squad that loses figures fights on with fewer. A squad can be split when a single figure is needed. Engines, mantlets and carts are ordered one at a time.
+**Squads.** Soldiers fight in squads of one type: six on foot, or three riders, outriders and knights alike. The player selects and orders squads, and control groups hold squads. Each figure has its own hit points and is drawn, hit and killed on its own, so a squad that loses figures fights on with fewer. A squad can be split when a single figure is needed, and squads of one type merge back up to full size. A worn squad also refills figure by figure at the building that trains it. Laborers are not in squads: each takes jobs from designations on its own. Engines, mantlets and carts are ordered one at a time.
 
 ### Roster
 
@@ -310,7 +310,7 @@ The first release ships the Masons with the common roster. Worlds open with all 
 - **Siege:** take a pre-built, garrisoned castle whose defenders fight and repair.
 - **Hold:** quarry and build for a set time, then survive waves of raiders that choose their breach by reading your walls and the ground beneath them. One wave brings sappers.
 
-**Skirmish** pits one human against one to three AI houses on a generated map, in matches of 40 to 60 minutes. Every house plays for itself, and the last with a working keep wins. A second mode, the Earthstone race, plays a season's objective in an hour; it comes after the first release.
+**Skirmish** pits one human against one or two AI houses on a generated map, in matches of 40 to 60 minutes. Every house plays for itself, and the last with a working keep wins. A second mode, the Earthstone race, plays a season's objective in an hour; it comes after the first release.
 
 **Worlds** are the game's home: shared seasons online, described below.
 
@@ -415,7 +415,7 @@ Controls are standard for the genre, played on squads: selection, control groups
 
 ## How it is built
 
-- **One simulation, authoritative.** Single-player runs the same simulation as a world server, in the same process. AI houses, raiders and stewards issue the same commands a player does. Every game can be replayed from its commands, in the build that recorded it.
+- **One simulation, authoritative.** Single-player runs the same simulation as a world server, in the same process. AI houses, raiders and stewards issue the same commands a player does. Every game can be replayed from its commands, in the build and with the server data that recorded it.
 - **The world is a seed plus its edits.** A generated world is rebuilt from its seed, and only what players changed is stored. Saves are small, and archiving a finished world is cheap. Where resources lie is kept on the server, so a modified client cannot find hidden veins.
 - **Destruction is resolved by rules in the simulation.** Outcomes are predictable and the same for every player. Tumbling debris is drawn locally and never matters.
 - **Voxels are drawn directly, without meshing**, using ray-casting after Majercik et al. (2018). An edit shows on screen in the next frame.

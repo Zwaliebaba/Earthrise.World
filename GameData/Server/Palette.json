@@ -1,0 +1,335 @@
+{
+ "colorSpace": "sRGB → linear before lighting",
+ "jitter": "HSL lightness ± jitter/2 from hash(cell, material); world cell = 1 m voxel, model cell = 0.5 m voxel",
+ "ao": {
+  "structure": [
+   0.52,
+   0.68,
+   0.84,
+   1
+  ],
+  "terrain": [
+   0.74,
+   0.84,
+   0.93,
+   1
+  ],
+  "modelsSampleWorld": true
+ },
+ "grids": {
+  "world": "one voxel is 1 m: terrain, templates, earthworks, rubble, trees; simulated (ADR-006)",
+  "models": "one voxel is 0.5 m: units, engines, mantlets, banners, debris; never simulated (ADR-006)",
+  "both": "may appear in the world and in models"
+ },
+ "behaviors": {
+  "earth": "earth",
+  "commonRock": "common rock",
+  "buildingStone": "building stone",
+  "bedrock": "bedrock",
+  "timber": "timber",
+  "leaves": "leaves",
+  "water": "water",
+  "stoneRubble": "rubble that yields stone",
+  "wasteRubble": "rubble that yields nothing",
+  "inherit": "decoration: behaves as the most common non-decorative face neighbour of its own kind (ADR-005)",
+  "modelOnly": "appears only in models, never in the world grid"
+ },
+ "materials": [
+  {
+   "index": 1,
+   "name": "grass",
+   "hex": "#7d8b4f",
+   "jitter": 0.05,
+   "jitterCell": "voxel",
+   "aoSet": "terrain",
+   "grid": "world",
+   "behavior": "earth",
+   "packageSimulationMaterial": "earth",
+   "note": "Only the generator places it; edits never create it, so dug ground shows earth (RendererLook.md)."
+  },
+  {
+   "index": 2,
+   "name": "earth",
+   "hex": "#8a6a48",
+   "jitter": 0.04,
+   "jitterCell": "voxel",
+   "aoSet": "terrain",
+   "grid": "world",
+   "behavior": "earth",
+   "packageSimulationMaterial": "earth"
+  },
+  {
+   "index": 3,
+   "name": "common rock",
+   "hex": "#8d8a84",
+   "jitter": 0.04,
+   "jitterCell": "voxel",
+   "aoSet": "terrain",
+   "grid": "world",
+   "behavior": "commonRock",
+   "packageSimulationMaterial": "common rock"
+  },
+  {
+   "index": 4,
+   "name": "building stone",
+   "hex": "#ddd2b9",
+   "jitter": 0.04,
+   "jitterCell": "voxel",
+   "aoSet": "terrain",
+   "grid": "world",
+   "behavior": "buildingStone",
+   "packageSimulationMaterial": "building stone"
+  },
+  {
+   "index": 5,
+   "name": "bedrock",
+   "hex": "#4a4744",
+   "jitter": 0.04,
+   "jitterCell": "voxel",
+   "aoSet": "terrain",
+   "grid": "world",
+   "behavior": "bedrock",
+   "packageSimulationMaterial": "bedrock"
+  },
+  {
+   "index": 6,
+   "name": "masonry",
+   "hex": "#c6bca7",
+   "jitter": 0.07,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "both",
+   "behavior": "buildingStone",
+   "packageSimulationMaterial": "building stone (built)",
+   "note": "Named \"dressed stone\" in the package. Stone laid by a template; the Masons' dressed-stone upgrade gets an index of its own."
+  },
+  {
+   "index": 7,
+   "name": "timber",
+   "hex": "#7a5534",
+   "jitter": 0.05,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "both",
+   "behavior": "timber",
+   "packageSimulationMaterial": "timber"
+  },
+  {
+   "index": 8,
+   "name": "stone rubble",
+   "hex": "#a69c8a",
+   "jitter": 0.07,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "both",
+   "behavior": "stoneRubble",
+   "packageSimulationMaterial": "rubble(from: building stone)"
+  },
+  {
+   "index": 9,
+   "name": "water",
+   "hex": "#4f7f8c",
+   "jitter": 0.03,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "world",
+   "behavior": "water",
+   "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)",
+   "note": "Shallow water draws lighter, so fords show."
+  },
+  {
+   "index": 10,
+   "name": "leaves A",
+   "hex": "#4f6a3a",
+   "jitter": 0.1,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "world",
+   "behavior": "leaves",
+   "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)"
+  },
+  {
+   "index": 11,
+   "name": "leaves B",
+   "hex": "#62803f",
+   "jitter": 0.1,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "world",
+   "behavior": "leaves",
+   "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)"
+  },
+  {
+   "index": 12,
+   "name": "roof",
+   "hex": "#8c4a3a",
+   "jitter": 0.05,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "world",
+   "behavior": "timber",
+   "packageSimulationMaterial": "timber"
+  },
+  {
+   "index": 13,
+   "name": "field A",
+   "hex": "#c9a95a",
+   "jitter": 0.04,
+   "jitterCell": "voxel",
+   "aoSet": "terrain",
+   "grid": "world",
+   "behavior": "earth",
+   "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)"
+  },
+  {
+   "index": 14,
+   "name": "field B",
+   "hex": "#a6a056",
+   "jitter": 0.04,
+   "jitterCell": "voxel",
+   "aoSet": "terrain",
+   "grid": "world",
+   "behavior": "earth",
+   "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)"
+  },
+  {
+   "index": 15,
+   "name": "road",
+   "hex": "#a88e6a",
+   "jitter": 0.04,
+   "jitterCell": "voxel",
+   "aoSet": "terrain",
+   "grid": "world",
+   "behavior": "earth",
+   "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)"
+  },
+  {
+   "index": 16,
+   "name": "faction",
+   "hex": "#b23a2e",
+   "jitter": 0.05,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "models",
+   "behavior": "modelOnly",
+   "note": "Faction colour, swapped per owner at draw time. Models only, banners included (ADR-006); never on structures."
+  },
+  {
+   "index": 18,
+   "name": "iron",
+   "hex": "#9aa0a6",
+   "jitter": 0.05,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "both",
+   "behavior": "inherit",
+   "note": "In a template (gate fittings) it behaves as its host."
+  },
+  {
+   "index": 19,
+   "name": "laborer cloth",
+   "hex": "#c79a6b",
+   "jitter": 0.05,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "models",
+   "behavior": "modelOnly"
+  },
+  {
+   "index": 20,
+   "name": "opening",
+   "hex": "#2e2a27",
+   "jitter": 0.05,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "world",
+   "behavior": "inherit",
+   "packageSimulationMaterial": "building stone (built)",
+   "note": "Painted on a solid voxel; behaves as its host."
+  },
+  {
+   "index": 21,
+   "name": "counterweight",
+   "hex": "#5b5650",
+   "jitter": 0.05,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "models",
+   "behavior": "modelOnly"
+  },
+  {
+   "index": 22,
+   "name": "skin",
+   "hex": "#d9a57f",
+   "jitter": 0.05,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "models",
+   "behavior": "modelOnly"
+  },
+  {
+   "index": 23,
+   "name": "cloth",
+   "hex": "#3d3530",
+   "jitter": 0.05,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "models",
+   "behavior": "modelOnly"
+  },
+  {
+   "index": 24,
+   "name": "horse",
+   "hex": "#5e4330",
+   "jitter": 0.05,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "models",
+   "behavior": "modelOnly"
+  },
+  {
+   "index": 25,
+   "name": "timber rubble",
+   "hex": "#5f4530",
+   "jitter": 0.07,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "both",
+   "behavior": "wasteRubble",
+   "packageSimulationMaterial": "rubble(from: timber)"
+  },
+  {
+   "index": 26,
+   "name": "earth rubble",
+   "hex": "#7d6044",
+   "jitter": 0.05,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "both",
+   "behavior": "wasteRubble",
+   "packageSimulationMaterial": "rubble(from: earth)"
+  },
+  {
+   "index": 27,
+   "name": "leather",
+   "hex": "#6e5a3e",
+   "jitter": 0.05,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "models",
+   "behavior": "modelOnly"
+  },
+  {
+   "index": 28,
+   "name": "rock rubble",
+   "hex": "#7f7c77",
+   "jitter": 0.07,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "world",
+   "behavior": "wasteRubble",
+   "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)",
+   "note": "Provisional colour, not in the package: common rock at lower lightness, tuned in the spike."
+  }
+ ]
+}

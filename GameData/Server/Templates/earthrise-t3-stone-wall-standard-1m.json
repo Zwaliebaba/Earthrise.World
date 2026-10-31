@@ -1,0 +1,85 @@
+{
+ "id": "T3",
+ "name": "Stone wall, standard",
+ "voxelSize": 1,
+ "kind": "world template (1 m grid)",
+ "size": {
+  "x": 8,
+  "y": 7,
+  "z": 2
+ },
+ "axes": "y up, +z front, layers[y][z][x]",
+ "criticalPart": "None (sections open by the breach rule)",
+ "legend": {
+  "f": {
+   "material": 6,
+   "name": "dressed stone",
+   "hex": "#c6bca7"
+  }
+ },
+ "partsLegend": {
+  "1": "None (sections open by the breach rule)",
+  "2": "foundation",
+  "3": "stock (not costed)"
+ },
+ "layers": [
+  [
+   "ffffffff",
+   "ffffffff"
+  ],
+  [
+   "ffffffff",
+   "ffffffff"
+  ],
+  [
+   "ffffffff",
+   "ffffffff"
+  ],
+  [
+   "ffffffff",
+   "ffffffff"
+  ],
+  [
+   "ffffffff",
+   "ffffffff"
+  ],
+  [
+   "ffffffff",
+   "f.f.f.f."
+  ],
+  [
+   "f.f.f.f.",
+   "........"
+  ]
+ ],
+ "parts": [
+  [
+   "........",
+   "........"
+  ],
+  [
+   "........",
+   "........"
+  ],
+  [
+   "........",
+   "........"
+  ],
+  [
+   "........",
+   "........"
+  ],
+  [
+   "........",
+   "........"
+  ],
+  [
+   "........",
+   "........"
+  ],
+  [
+   "........",
+   "........"
+  ]
+ ]
+}

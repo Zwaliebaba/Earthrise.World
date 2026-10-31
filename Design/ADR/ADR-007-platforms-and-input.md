@@ -1,6 +1,6 @@
 # ADR-007 — Windows on x64 and ARM64, with two input schemes over one command layer
 
-**Status:** Accepted, 2026-10-31, by the owner. Like ADR-002 to ADR-006, it is written ahead of the code it governs. The first project implements decisions 1 to 3, the renderer spike implements decision 6, and the M4 interface implements decision 4.
+**Status:** Accepted, 2026-10-31, by the owner. Like ADR-002 to ADR-006, it is written ahead of the code it governs. The first project implements decisions 1 to 3, the renderer spike implements decision 6, and the interface built in M3 and M4 implements decision 4.
 
 ## Context
 
@@ -34,13 +34,13 @@ These facts bear on that:
 4. **Two input schemes feed one command layer.**
    - **Both schemes are first-class:** mouse and keyboard, and touch. Both produce the same commands, and the simulation never knows which device issued one (ADR-002). Orders address squads (GameDesign.md, 2026-10-31).
    - **Input comes through Windows pointer messages** (`WM_POINTER`, with `EnableMouseInPointer`), which deliver mouse, touch and pen in one stream from the SDK. The active scheme follows the device used last, not a setting, so a Surface with its keyboard cover attached can switch mid-game.
-   - **Hover may speed things up, but never be the only way to see something.** Every readout shown on hover, such as the attack cursor's reading or the placement readout, can also be reached without hover. This binds from the first interface (M4), although the touch scheme itself comes later.
-   - **Sizes are physical.** Hit targets and interface sizes are set in physical units and scaled by the display's DPI.
+   - **Hover may speed things up, but never be the only way to see something.** Every readout shown on hover, such as the attack cursor's reading or the placement readout, can also be reached without hover. This binds from the first interface (M3), although the touch scheme itself comes later.
+   - **Sizes follow the display.** Hit targets and interface sizes are set in logical pixels and scaled in steps by the display's DPI, so they keep roughly the same physical size ([Hud.md](../Hud.md) §2).
 5. **The order of delivery:**
    - **The MVP** is played with mouse and keyboard, on both architectures.
    - **The touch scheme** follows a positive MVP verdict.
    - **Android** has no date and is not a target. R12 and R14 stand. An Android port needs its own ADR reopening them, for a Vulkan backend, a toolchain other than MSVC, and HLSL compiled to SPIR-V.
-6. **The Surface Pro is measured from M1.**
+6. **The Surface Pro is measured from M1,** once one is available: the owner has none yet (GameDesign.md, 2026-10-31).
    - The renderer spike runs natively on a Snapdragon X Surface Pro beside the RTX 3060-class machine, and records the voxel pass's cost on both.
    - The Surface is measured at a reduced internal resolution, so the render resolution is separate from the display's from the start.
    - The owner sets the Surface's pass mark from those figures.
@@ -64,6 +64,6 @@ These facts bear on that:
 ## Left open
 
 - **The Surface's pass mark,** set from M1's figures.
-- **The touch scheme's gestures and layout,** designed after the verdict. The second package's landscape layout is a starting point (RendererLook.md).
+- **The touch scheme's gestures and layout,** designed after the verdict. The HUD package's layout B and the second asset package's landscape phone layout are the starting points (Hud.md §4, RendererLook.md).
 - **Whether ADR-001's method holds on mobile GPUs.** The Surface's Adreno gives a first reading; Android would need its own.
 - **Pen input,** which can hover: treated as touch, or as a mouse.

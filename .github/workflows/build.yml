@@ -293,3 +293,9 @@ jobs:
       - name: Check formatting
         if: hashFiles('Build/CheckFormat.py') != ''
         run: python3 Build/CheckFormat.py --clang-format clang-format-18
+
+      # The asset check is Python over GameData/ and needs no Windows, so it runs here, where it
+      # takes seconds. It lands with the client half of the bake in M1 (ADR-005, ADR-008).
+      - name: Check the assets
+        if: hashFiles('Tools/CheckAssets.py') != ''
+        run: python3 Tools/CheckAssets.py

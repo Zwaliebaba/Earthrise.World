@@ -29,7 +29,7 @@ The world's voxels are drawn by the paper's method, written in HLSL for Direct3D
    - A large voxel (the paper's threshold is 20×20 pixels) has its twelve box edges clipped against the five frustum planes other than the far plane, and the clipped segments are bounded.
 
    Voxels behind the near plane are culled conservatively.
-3. **Subpixel voxels are pruned stochastically.** A stable hash of the voxel index is compared against the voxel's projected area. Voxels that survive are enlarged in proportion, so coverage is preserved (Cook et al. 2007, Listing 3).
+3. **Subpixel voxels are pruned stochastically.** A stable hash of the voxel index is compared against the voxel's projected area. Voxels that survive are enlarged in proportion, so coverage is preserved (Cook et al. 2007, Listing 3). *(Not used in the MVP: across the camera's zoom range no world voxel falls below about 4 px, and units become impostors below 3 px ([RendererLook.md](../RendererLook.md), [ADR-006](ADR-006-voxel-sizes.md)). The mechanism stays available if a later zoom range needs it.)*
 4. **Pixel shader.** It builds the ray through the pixel (or the MSAA sample) and runs the paper's ray-box test (§5, Listing 5). The test is branchless, handles both oriented and axis-aligned boxes, and reads the normal and hit distance straight out of a three-face bitmask. A miss discards the pixel. A hit is shaded, and depth is written at the hit point.
 5. **Shadow maps use the same path** (§3).
 6. **Voxels go through the depth buffer as an ordinary draw.** Anything drawn as a mesh shares that depth buffer and composites with the voxels without special handling (§6.3).
@@ -37,7 +37,7 @@ The world's voxels are drawn by the paper's method, written in HLSL for Direct3D
 ## Consequences for the code
 
 - **The ray-box intersection is written once in HLSL** and lives in a shared include, `Shader/*.hlsli` (AGENTS.md §2). Every pass that draws voxels includes it.
-- **A CPU copy of the ray-box test** (for picking, collision or line of sight, §1 of the paper) is a separate C++ implementation. It will not agree with the GPU to the bit: they use different compilers, and `/arch:AVX2` can contract arithmetic into an FMA (R16). Gameplay must not depend on the CPU and GPU agreeing at a box edge.
+- **A CPU copy of the ray-box test** (for picking, collision or line of sight, §1 of the paper) is a separate C++ implementation. It will not agree with the GPU to the bit: they use different compilers and different floating-point paths (R16). Gameplay must not depend on the CPU and GPU agreeing at a box edge.
 - **Depth is written conservatively, not with plain `SV_Depth`.** Plain `SV_Depth` turns off early depth rejection for every pixel the quad covers. The shader uses `SV_DepthGreaterEqual` instead, or `SV_DepthLessEqual` under reversed-Z. That is valid only if the quad is rasterized at or in front of the voxel's nearest possible hit, which is the front of its bounding sphere and not its center.
 - **The order of voxels in a render buffer has no meaning.** Stochastic pruning assumes voxels are in random order (Listing 3). Code must not rely on that order, and must not sort the buffer spatially without re-randomizing it.
 - **The per-voxel record the vertex shader reads must match its HLSL declaration exactly.** The C++ side `static_assert`s its size and field offsets, which is why `.clang-tidy` leaves the padding check off.
@@ -56,7 +56,7 @@ Changing any of these is a new ADR that supersedes this one.
 
 These are design questions or later ADRs, not part of this decision:
 
-- **The world's extent, the size of a voxel in world units, and how voxels are grouped into objects** for culling and for editing.
+- **The world's extent and how voxels are grouped into objects** for culling and for editing. The size of a voxel is settled: 1 m for the world and 0.5 m for models ([ADR-006](ADR-006-voxel-sizes.md)).
 - **Worlds larger than GPU memory: streaming and level of detail.** The paper does not address them. Stochastic pruning thins distant voxels, but they still have to be resident. Cost is linear in both pixel count and voxel count (Fig. 8), so in an open world the view distance is the budget. This is the largest gap between the paper and this game.
 - **Axis-aligned or oriented voxels.** The paper supports both, and the axis-aligned path is cheaper. A related question is whether voxels animate one by one.
 - **How quads are issued.** The options are an instanced quad, vertices derived from `SV_VertexID`, or mesh shaders (Shader Model 6.5 via `dxc`).

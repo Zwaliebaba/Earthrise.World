@@ -20,6 +20,10 @@ mono_crash.*
 # <Lib>/Shader/*.hlsl in, <Lib>/CompiledShader/*.h out. Build output; the .vcxproj regenerates it.
 CompiledShader/
 
+# MagicaVoxel working copies, written by Tools/ExportVox.py. The .json beside each one is the
+# source (ADR-008); run Tools/ImportVox.py after editing in MagicaVoxel.
+GameData/**/*.vox
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/

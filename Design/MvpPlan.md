@@ -1,6 +1,8 @@
 # Earthrise.World — MVP implementation plan
 
-**Status:** Proposed, 2026-10-31. Nothing here is implemented. [GameDesign.md](GameDesign.md) defines the MVP and governs where this plan differs from it. [AGENTS.md](../AGENTS.md) governs how the code is written. Every estimate is the design review's judgment estimate (F-52), in FTE-months for one experienced developer; none is a measurement. The renderer spike's actual time against its own written estimate rescales all of them.
+**Status:** Accepted by the owner for M0 to M2, 2026-10-31; M3 to M7 stay Proposed until after M1 (GameDesign.md, *Starting the MVP*). Nothing here is implemented. [GameDesign.md](GameDesign.md) defines the MVP and governs where this plan differs from it. [AGENTS.md](../AGENTS.md) governs how the code is written. Every estimate is the design review's judgment estimate (F-52), in FTE-months for one experienced developer; none is a measurement. The renderer spike's actual time against its own written estimate rescales all of them.
+
+**How the work is done.** Claude sessions write the code, tools and checkers and push them to branches. CI compiles Debug|x64 and Debug|ARM64 and runs the x64 tests. The owner runs the builds on Windows, judges the look and the measurements, and approves each milestone. Because an AI writes the code, the estimates below describe the work rather than predict the calendar; the pace of M0 and M1 rescales them.
 
 ## Scope
 
@@ -15,9 +17,9 @@ The MVP ends at the verdict on stages 1 and 2 (GameDesign.md, decided 2026-10-31
 - **The look** of [RendererLook.md](RendererLook.md): 1 m world voxels and 0.5 m models ([ADR-006](ADR/ADR-006-voxel-sizes.md)), and its palette, jitter, corner shading, lighting and camera.
 - **Platforms:** Windows on x64 and ARM64, played with mouse and keyboard ([ADR-007](ADR/ADR-007-platforms-and-input.md)). The interface keeps to ADR-007's rule that hover is never the only way to see something.
 - **One map**, 512 m × 512 m, generated from its seeds by the integer-only generator and held in memory. The Siege castle and the Hold maps are scenarios, which means saves of seeds, edits and entities.
-- **Materials:** earth, common rock, building stone, bedrock, timber, and rubble that keeps the material it fell from.
+- **Materials:** earth, common rock, building stone, bedrock, timber, and rubble that keeps the material it fell from; also grass, which only the generator places, leaves and water (GameDesign.md, 2026-10-31).
 - **Economy, used by Hold only:** stone and timber, counted by volume. Six designations: quarry, pit, ditch, trench, felling and clearance. Two drop sites, the quarry yard and the lumber camp, with laborers hauling to them.
-- **Templates:** hall and keep, palisade and palisade gate, standard stone wall, tower, gatehouse with its passage attack, quarry yard and lumber camp. These are T1–T9 in `Assets/Templates/`, catalogued in [MvpAssets.md](MvpAssets.md). Ditch and rampart as earthworks. Deep foundations, priced by their volume.
+- **Templates:** hall and keep, palisade and palisade gate, standard stone wall, tower, gatehouse with its passage attack, quarry yard and lumber camp. These are T1–T9 in `GameData/Server/Templates/`, catalogued in [MvpAssets.md](MvpAssets.md). Ditch and rampart as earthworks. Deep foundations, priced by their volume.
 - **Construction and repair:** construction voxel by voxel, after the footprint is levelled. Repair at a fixed rate per section with the ten-second lock. Critical parts with thresholds.
 - **Destruction:**
   - craters for the ram and the trebuchet in timber, earth and stone;
@@ -72,22 +74,24 @@ The MVP ends at the verdict on stages 1 and 2 (GameDesign.md, decided 2026-10-31
 2. **The roster and the fixed armies** as listed above, which fix what M4 builds.
 3. **Own content only.** Every font, sound and piece of art is made for the project or is in the public domain. Text therefore needs a bitmap font drawn for the project, or one in the public domain.
 4. **Platforms and squads** (ADR-007, GameDesign.md): x64 and ARM64 from the first project, mouse and keyboard in the MVP, the Surface measured from M1, and squads as what the player commands.
-5. **The HUD** ([Hud.md](Hud.md)), from the owner's HUD package, with the bitmap font Earthrise Mason in `Assets/Fonts/`.
+5. **The HUD** ([Hud.md](Hud.md)), from the owner's HUD package, with the bitmap font Earthrise Mason in `GameData/Client/Fonts/`.
+6. **Game data** ([ADR-008](ADR/ADR-008-server-and-client-game-data.md)): sources split into `GameData/Server/` and `GameData/Client/`; the client has everything compiled in, and the server reads baked files from `<outputdir>\ServerData`.
+7. **Starting the MVP** (GameDesign.md, 2026-10-31): the plan accepted through M2; how the pass mark is measured; the RTX 3060 machine is available, a Surface is not yet; the v5 layout for the test scene; CppUnitTest and Python allowed; the paper tests' values picked by the implementer as Proposed; the trebuchet's baked poses.
 
 ## Architecture
 
-### Solution layout (Proposed; an ADR records it with the spike)
+### Solution layout (the M1 projects are settled by [ADR-010](ADR/ADR-010-solution-and-build-layout.md); the rest stays Proposed until the milestone that adds it)
 
 | Project | Kind | Namespace | Depends on | Holds |
 |---|---|---|---|---|
 | `Core` | static library | `Core` | (none) | Integer and fixed-point math, the pinned PRNG, hashing, byte encoding, containers, logging, asserts |
 | `Engine` | static library | `Engine` | Core | Win32 window, pointer input (mouse, touch and pen) and timing; the Direct3D 12 device, frames in flight and the upload ring; pipeline states from embedded shaders; the voxel renderer of ADR-001; text; XAudio2 |
 | `Protocol` | static library | `Protocol` | Core | Command types and their byte encoding, state-update value types, handles to chunk snapshots |
-| `Content` | static library | `Content` | Core | The palette, templates and models baked from `Assets/` (ADR-005): data and accessors, no rules |
-| `Simulation` | static library | `Simulation` | Core, Protocol, Content | The world, generator, edits, support search and resolver, slump, navigation, units, combat, designations and jobs, templates, repair, AI, the fog filter, saves, replays and the tick loop |
+| `Content` | static library | `Content` | Core | The client's content, compiled in: palette colours, the client view of the templates, the models and the font, baked from `GameData/` (ADR-005, ADR-008). Data and accessors, no rules |
+| `Simulation` | static library | `Simulation` | Core, Protocol | Reading `<outputdir>\ServerData` at startup (ADR-008); the world, generator, edits, support search and resolver, slump, navigation, units, combat, designations and jobs, templates, repair, AI, the fog filter, saves, replays and the tick loop |
 | `Client` | static library | `Client` | Core, Engine, Protocol, Content | Camera, the command layer and the mouse-and-keyboard scheme that feeds it, squad selection and orders, interface and overlays, presentation of state updates, cosmetic debris |
 | `Earthrise` | executable | (none) | all libraries | `wWinMain`, which joins the client and the simulation through an in-process transport |
-| `RendererSpike` | executable | `RendererSpike` | Core, Engine, Content, Simulation | The spike's scenes and measurements, kept afterwards as a rendering benchmark |
+| `RendererSpike` | executable | `RendererSpike` | Core, Engine, Content, Simulation, Protocol | The spike's scenes and measurements, kept afterwards as a rendering benchmark |
 | `SimulationBench` | console executable | `SimulationBench` | Core, Protocol, Simulation | Headless measurements: spike question 6, the synthetic 2 km world, regression timing |
 | `CoreTests`, `ProtocolTests`, `SimulationTests` | test projects | `<Project>Tests` | their library | Unit tests, run by vstest, each starting with `SuiteSmoke` |
 
@@ -95,6 +99,7 @@ The edges run one way:
 - `Simulation` includes nothing from `Engine` or Direct3D, so it builds headless.
 - `Client` includes nothing from `Simulation`. It sees only `Protocol` (ADR-002, decision 3).
 - `Engine` knows voxels, not the game. Materials reach it as palette indices (R9).
+- `Simulation` reads only `ServerData`, and `Client` only the compiled-in `Content`. The executable checks at startup that both were baked from the same shared sources (ADR-008, decision 5).
 - Windows and Direct3D stay inside `Engine` and the executables. `Core`, `Protocol`, `Content` and `Simulation` include no Windows or Direct3D header (ADR-007).
 - Every project has x64 and ARM64 platforms (ADR-007).
 - Each project gets its own folder, flat, and is added to `.clang-tidy`'s `HeaderFilterRegex` in the commit that creates it.
@@ -103,16 +108,19 @@ The edges run one way:
 
 | Decision | Taken in | Proposal |
 |---|---|---|
-| Solution layout | M1, first commit | The table above |
-| What the voxel sizes and the camera cost | End of M1 | Decided by the owner: a 1 m world and simulation, 0.5 m models, orthographic at 34°. [ADR-006](ADR/ADR-006-voxel-sizes.md) is accepted when the spike fills in its measurements. |
+| Solution layout | M1, first commit | [ADR-010](ADR/ADR-010-solution-and-build-layout.md), Accepted: `Earthrise.slnx`, the M1 projects, one property sheet, `Engine/framework.h`, output in `$(Platform)\$(Configuration)\` |
+| The renderer's first choices | M1, first commit | [ADR-011](ADR/ADR-011-renderer-first-choices.md), Accepted: window, swap chain, render scale, reversed-Z depth, no MSAA, instanced quads, dxc at Shader Model 6.0, shadow-map sizes, built-in timing |
+| What the voxel sizes and the camera cost | After M3 | Decided by the owner as the baseline: a 1 m world and simulation, 0.5 m models, orthographic at 34°. [ADR-006](ADR/ADR-006-voxel-sizes.md) is accepted once the M1 spike has filled in its measurements and M3 has read breach predictions on the 1 m world. |
 | Lighting | End of M1, only if spike question 4 falls short | Traced shadows through an occupancy volume, or DXR |
 | Tick rate and number representation | Start of M2 | 20 ticks a second; integer voxel coordinates; fixed-point positions for units and shots |
-| Chunk dimensions and edit encoding | M2 | 32³ voxels; a sparse list of edits, replaced by a full copy past a threshold |
+| Chunk dimensions | Start of M1 | 32³ voxels, as ADR-006 assumes; the spike needs a chunk store |
+| Edit encoding | M2 | A sparse list of edits, replaced by a full copy past a threshold |
 | Navigation model | M2 | A height field of 2.5D tiles, a clearance grid for each class (foot, cavalry, machines), and a dirty tile rebuilt at most once a tick |
-| Content formats | Decided | [ADR-005](ADR/ADR-005-content-formats.md): JSON layer files with MagicaVoxel copies, baked into `Content` |
+| Queries across the boundary | Decided | [ADR-009](ADR/ADR-009-queries-across-the-server-boundary.md): read-only queries and answers, filtered like state updates |
+| Content formats | Decided | [ADR-005](ADR/ADR-005-content-formats.md): JSON layer files, baked. [ADR-008](ADR/ADR-008-server-and-client-game-data.md): client content compiled into `Content`, server data baked into files in `<outputdir>\ServerData`, `.vox` written on demand for MagicaVoxel |
 | Platforms and input | Decided | [ADR-007](ADR/ADR-007-platforms-and-input.md): Windows on x64 and ARM64; two input schemes over one command layer, touch after the verdict |
-| Text rendering | M3 | Earthrise Mason ([Hud.md](Hud.md) §9): its glyph rows in `Assets/Fonts/`, baked into `Content` by a tool, drawn only at whole multiples of a font pixel |
-| How units are drawn | M4 | Units are 0.5 m models of 1 × 1 × 4 voxels, axis-aligned and rotated in 90° steps. Engine poses are baked; debris is oriented voxels. |
+| Text rendering | M3 | Earthrise Mason ([Hud.md](Hud.md) §9): its glyph rows in `GameData/Client/Fonts/`, baked into `Content` by a tool, drawn only at whole multiples of a font pixel |
+| How units are drawn | M1 | Units are 0.5 m models of 1 × 1 × 4 voxels, axis-aligned and rotated in 90° steps. Engine poses are baked; debris is oriented voxels. |
 
 ### One simulation tick, in order
 
@@ -128,22 +136,23 @@ The order is fixed, so that one build replays the same commands to the same resu
 8. Rebuild the navigation tiles the edits touched.
 9. Check the win and loss rules: the storming clock, and the Siege trial's limits.
 10. Filter state by what each player can see, and publish state updates and chunk snapshots.
+11. Answer queries on the tick's state, filtered the same way, within what remains of the tick's budget (ADR-009).
 
 ## Milestones
 
 | | Milestone | Ends with | FTE-months |
 |---|---|---|---|
 | M0 | Foundations and paper tests | Checkers in CI; the revised rules pass on paper; the spike's estimate written down | 0.5–1 |
-| M1 | Renderer spike | ADR-006's measurements for the 1 m baseline and a 0.5 m world, on the RTX 3060-class machine and the Surface; the look's acceptance checks pass | 6.5–10 |
+| M1 | Renderer spike | ADR-006's measurements for the 1 m baseline and a 0.5 m world, on the RTX 3060-class machine, and on the Surface once one is available; the look's acceptance checks pass | 7.5–11.5 |
 | M2 | Headless simulation | A scripted breach and units pathing through it, replaying identically | 8.5–15 |
 | M3 | Breach lab | The first measured reading on H2's predictions | 1.5–2.5 |
-| M4 | Siege trial | A Siege trial that can be played, with its control | 10–18.5 |
+| M4 | Siege trial | A Siege trial that can be played, with its control | 9.5–17.5 |
 | M5 | Siege playtest | The verdict on H2 | 1–2 |
 | M6 | Hold trial | A Hold trial that can be played, with its control | 5–9 |
 | M7 | Hold playtest | The verdict on H1, and so the MVP's | 1–2 |
-| | **Total** | | **34–60** |
+| | **Total** | | **34.5–60.5** |
 
-The total is a little above the build budget's 32–56 for this stage (GameDesign.md, *Build budget*). The difference is the breach lab and the split into two playtests, which buy a verdict on H2 before the economy is built, and bringing up ARM64 and measuring the Surface in M1. M0 to M5 come to 28–49 FTE-months. At 20 hours a week, half of full time, that puts the verdict on H2 about 4.5–8 years in, and the MVP's verdict about 5.5–10 years in. The spike's ratio will move both.
+The total is a little above the build budget's 32–56 for this stage (GameDesign.md, *Build budget*). The difference is the breach lab and the split into two playtests, which buy a verdict on H2 before the economy is built, bringing up ARM64 and measuring the Surface in M1, and pulling the chunk store and the client's bake forward into M1. M0 to M5 come to 28.5–49.5 FTE-months. At 20 hours a week, half of full time, that puts the verdict on H2 about 5–8 years in, and the MVP's verdict about 6–10 years in. The spike's ratio will move both.
 
 **The critical path** runs M1 → M2 → M4 → M5. The paper tests in M0, the template tool and the placeholder art can run alongside it.
 
@@ -156,7 +165,7 @@ The total is a little above the build budget's 32–56 for this stage (GameDesig
 
 Each CI guard is removed once its input is there.
 
-**Run on paper, before any gameplay code** (review, *Cheapest tests*):
+**Run on paper, before any gameplay code** (review, *Cheapest tests*). Values the design leaves open are picked by the implementer and recorded as Proposed in GameDesign.md, with their reasons:
 - the Hold rule test with three quarry layouts (F-45);
 - the breach-prediction prototype comparing a thickness readout with a support readout (F-04, F-47);
 - the Siege castle's route table and range circles (F-01, F-02);
@@ -168,7 +177,8 @@ Each CI guard is removed once its input is there.
 - the checkers run in CI;
 - under the revised rules, the breach moves with where the player quarried in at least two of the three layouts;
 - the support readout reaches a median accuracy of 0.65 or better;
-- no route dominates in the table.
+- no route dominates in the table;
+- the repair spreadsheet meets the pass mark the implementer proposes (the review suggested 1.3–2×, F-03).
 
 ### M1 — Renderer spike
 
@@ -177,24 +187,28 @@ Each CI guard is removed once its input is there.
 - **ADR-001's pipeline:** quad bounds for the orthographic camera in the vertex shader, the ray-box test in the pixel shader, and conservative depth.
   - **Two voxel sources in one pass:** world chunks of 1 m voxels from the simulation's snapshots, and model instances of 0.5 m voxels at entity positions, rotated in 90° steps.
   - **No stochastic pruning:** no world voxel falls below about 4 px, and units switch to impostors below 3 px.
+- **A minimal chunk store,** in `Simulation`: 32³ chunks with copy-on-write snapshots, which the renderer draws from. Edits, saves and the generator stay in M2.
+- **The client half of the bake and the asset check** (ADR-005, ADR-008): `Tools/BakeContent.py` writes the palette, the templates' client view and the models into `Content`, and `Tools/CheckAssets.py` runs in CI.
 - **The look of RendererLook.md:**
   - colour jitter and corner shading, baked into each voxel's record when its chunk or model is built;
   - contact shading where models meet the world;
   - Lambert and hemisphere lighting;
-  - a static shadow map updated on edits, and a per-frame shadow map for moving things.
+  - a static shadow map updated on edits, and a per-frame shadow map for moving things;
+  - units as 0.5 m models and impostors, and a collapse's model debris keyed on its id (RendererLook.md, checks 3 and 6);
+  - the shallow-water rule and the shadow check (RendererLook.md, §3 and check 11).
 - **The test scene:** the key scene, "The Breach at the West Wall".
-  - **Its layout** comes from [Siege Scene Prompt.md](Reference/SiegePrototype/Siege%20Scene%20Prompt.md). **Its target look** is the v5 scene in [Reference/SiegePrototypeV2/](Reference/SiegePrototypeV2/), matched by eye, not pixel for pixel.
+  - **Its layout and its target look** come from the v5 scene in [Reference/SiegePrototypeV2/](Reference/SiegePrototypeV2/), which is already on the 1 m grid. The look is matched by eye, not pixel for pixel.
   - **What it holds:** a 128 m holding, forest, a walled castle with a breach and its rubble ramp, a ditch and rampart, a terraced quarry, trebuchets, and about 95 units as 0.5 m models.
-  - **What it is built from:** the templates and models in `Assets/`, where they exist. Where the prompt's sizes differ from them, the templates win: it gives walls 1.5 m thick, and T3 is 2 m.
-  - **What is left out:** the prompt's overlay of title, markers and legend, which uses licensed fonts, because the MVP uses only its own content.
+  - **What it is built from:** a scene script in `RendererSpike`, with a seeded integer height field and the templates and models in `GameData/` placed by coordinate. The generator is M2 work, so the spike does not wait for it. The templates and models are used where they exist, and where the v5 scene's sizes differ from them, the templates win. What `GameData/` lacks (trees, cottages, mantlets, banners and stock stacks) the implementer draws as placeholder models, which the owner may replace.
+  - **What is left out:** the reference scene's overlay of title, markers and legend, which uses licensed fonts, because the MVP uses only its own content.
 - **Scripted edits:** quarrying at the peak rate back-solved from the tempo, and one wall collapse.
 - **A render resolution of its own,** scaled to the display, so the Surface can be measured below its panel's resolution (ADR-007).
 - **In `SimulationBench`:** a first support search and a navigation tile rebuild, run on the MVP map and on a synthetic 2 km world carrying a season's edits.
 
 **Done when:**
-- the spike answers questions 1–6 with figures measured on the stated hardware: the RTX 3060-class machine, and natively on a Snapdragon X Surface Pro;
+- the spike answers questions 1–6 with figures measured on the stated hardware: the RTX 3060-class machine, with the pass mark measured as GameDesign.md states it, and natively on a Snapdragon X Surface Pro once one is available;
 - RendererLook.md's acceptance checks pass on screen;
-- ADR-006's table of measurements is filled in for the 1 m baseline and for a 0.5 m world, and an ADR records the solution layout.
+- ADR-006's M1 measurements are filled in for the 1 m baseline and for a 0.5 m world, and an ADR records the solution layout. ADR-006 itself is accepted after M3.
 
 If the 1 m baseline misses the pass mark, ADR-001 is revisited before any gameplay code, which is the kill criterion. The spike's estimate is then compared with its actual time, and this plan is rescaled.
 
@@ -202,7 +216,8 @@ If the 1 m baseline misses the pass mark, ADR-001 is revisited before any gamepl
 
 **Build:**
 - the tick loop, commands as bytes with a round-trip test for each, and entity storage;
-- the chunk store, edits and copy-on-write snapshots;
+- edits on M1's chunk store;
+- the server half of the bake: the `ServerData` format, its reader and the server-data hash (ADR-008), built before the simulation tests run in CI;
 - the integer-only generator, with golden hashes and the slope invariant in CI;
 - the materials, and save and load;
 - a replay test;
@@ -212,7 +227,8 @@ If the 1 m baseline misses the pass mark, ADR-001 is revisited before any gamepl
 | Part | FTE-months |
 |---|---|
 | Generator | 1.5–3 |
-| Chunks, edits, saves, replays | 2–3 |
+| Edits, saves, replays (the chunk store exists from M1) | 1.5–2.5 |
+| `ServerData`: format, bake and reader | 0.5 |
 | Support search and resolver (research-grade) | 3–5 |
 | Navigation (research-grade) | 2–4 |
 
@@ -224,7 +240,7 @@ If the 1 m baseline misses the pass mark, ADR-001 is revisited before any gamepl
 - the camera;
 - click-to-fire a trebuchet at a wall;
 - the integrity view read from the resolver;
-- the collapse preview and the passability view, toggled by F1 and F2;
+- the collapse preview and the passability view, with F1 toggling the integrity view and F2 the passability view;
 - the text renderer and the font tool, which M4 used to hold;
 - the first of the HUD: the top bar, the mode banner, the camera buttons, the collapse alert and the attack cursor for FIRE ([Hud.md](Hud.md) §11);
 - prediction prompts, logged.
@@ -239,7 +255,7 @@ Run it with six people (F-48).
 - units, stats and combat, physical shots, elevation, garrisons and the gatehouse's passage attack;
 - drawing units and buildings;
 - fog with the visibility filter and last-seen land;
-- the content baker and the asset check (ADR-005), the world templates T1–T9 redrawn natively at 1 m, and the Siege castle built from them;
+- the shared hash between the client's tables and `ServerData` (ADR-008, decision 5); the world templates T1–T7 redrawn natively at 1 m, and the Siege castle built from them;
 - the subset of jobs the trial needs: repair and trenches;
 - the rest of the interface: layout A of [Hud.md](Hud.md), with squad selection, control groups, the command card, the minimap, alerts and the repair lock, and every hover reading also reachable without hover (ADR-007);
 - the Siege defender AI;
@@ -252,7 +268,7 @@ Run it with six people (F-48).
 | Combat | 2.5–4 |
 | Units and buildings drawn | 1.5–3 |
 | Fog | 1–1.5 |
-| Content baker, asset check and the Siege castle (the templates exist) | 1–2 |
+| The Siege castle, from the redrawn templates (the bake exists from M1 and M2) | 0.5–1 |
 | Repair and trench jobs | 1–2 |
 | Interface (text moved to M3) | 1.5–3 |
 | Siege AI | 1–2 |
@@ -275,11 +291,12 @@ Run it with six people (F-48).
 **Build:**
 - the full set of designations, with laborer jobs, hauling, drop sites and construction;
 - the readout at placement: soil depth and the slump preview;
+- T8 and T9 redrawn natively at 1 m, with posts under their sheds;
 - the HUD's laborer cards, its placement and dig readouts, with YIELD counting only stone the player can see, and the Hold control's GATHER ([Hud.md](Hud.md) §10, §11);
 - the generator constraints for Hold maps: at least two outcrops, and mixed ground;
 - the scored waves and the sapper wave;
 - the control's node resources;
-- the Hold content.
+- the Hold content, whose maps start with the hall and a finished keep.
 
 | Part | FTE-months |
 |---|---|
@@ -307,7 +324,7 @@ Run it with six people (F-48).
 | Players cannot read breaches | M3, M5 | The single round of legibility work, then the kill criterion |
 | The Siege defender is too weak or too strong to test anything | M4 | Scripted behaviors and tuning; it plays one authored castle, not arbitrary ones |
 | The plan overruns | Every milestone | The spike's ratio rescales everything; the cut order in GameDesign.md applies past Skirmish, and within the MVP the trebuchet, the gatehouse attack and the breach lab are the last things to cut |
-| Content takes longer than code | M4, M6 | The templates and models already exist in `Assets/`; one castle and two Hold maps only |
+| Content takes longer than code | M4, M6 | The templates and models already exist in `GameData/`; one castle and two Hold maps only |
 
 ## Deferred to the Skirmish plan
 

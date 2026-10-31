@@ -111,8 +111,8 @@
 # The rest of Design/Reference/, such as a prototype and its package, is kept byte-for-byte as delivered too.
 Design/Reference/** -text
 
-# Voxel models and their previews are binary. The .json layer file beside each .vox is its source
-# (ADR-005), and the .vox must agree with it voxel for voxel.
+# Voxel models and their previews are binary. Under GameData/ the .json layer file is the only
+# committed source; a .vox there is a working copy that .gitignore keeps out (ADR-008).
 *.vox           binary
 *.png           binary
 *.otf           binary
