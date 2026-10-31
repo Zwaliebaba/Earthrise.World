@@ -266,7 +266,7 @@ At the end of M1:
 | 2 | 2026-10-31 | | #10 | | The engine base, and ADR-012 on render tests on WARP |
 | 3 | 2026-10-31 | | #9 | | The chunk store with copy-on-write snapshots |
 | 4 | 2026-10-31 | | #12 | | The client half of the bake, and the asset check |
-| 5 | 2026-10-31 | | #13 | | ADR-001's pipeline: the voxel pass and its render tests |
+| 5 | 2026-10-31 | | #13, #15 | | ADR-001's pipeline: the voxel pass and its render tests, then the spike's first scene of chunks and models |
 
 ### M2 — Headless simulation
 
