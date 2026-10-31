@@ -1,0 +1,10 @@
+<Solution>
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="Release" />
+    <Platform Name="ARM64" />
+    <Platform Name="x64" />
+  </Configurations>
+  <Project Path="Sample/Sample.vcxproj" />
+  <Project Path="SampleTests/SampleTests.vcxproj" />
+</Solution>
