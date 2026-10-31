@@ -23,6 +23,13 @@ constexpr std::int32_t Decode(std::uint64_t _bits) noexcept
   return static_cast<std::int32_t>((value ^ AXIS_SIGN) - AXIS_SIGN);
 }
 
+// Divides by the chunk edge, rounding toward negative infinity, as C++'s / does not.
+constexpr std::int32_t FloorDivide(std::int32_t _voxels) noexcept
+{
+  const std::int32_t quotient = _voxels / CHUNK_EDGE_VOXELS;
+  return (_voxels % CHUNK_EDGE_VOXELS != 0 && _voxels < 0) ? quotient - 1 : quotient;
+}
+
 } // namespace
 
 std::uint64_t PackChunkKey(ChunkCoordinate _coordinate) noexcept
@@ -34,6 +41,24 @@ std::uint64_t PackChunkKey(ChunkCoordinate _coordinate) noexcept
 ChunkCoordinate UnpackChunkKey(std::uint64_t _key) noexcept
 {
   return {.xChunks = Decode(_key), .yChunks = Decode(_key >> CHUNK_KEY_AXIS_BITS), .zChunks = Decode(_key >> (2 * CHUNK_KEY_AXIS_BITS))};
+}
+
+bool FitsChunkKey(ChunkCoordinate _coordinate) noexcept
+{
+  const auto fits = [](std::int32_t _chunks) { return _chunks >= CHUNK_KEY_AXIS_MIN_CHUNKS && _chunks <= CHUNK_KEY_AXIS_MAX_CHUNKS; };
+  return fits(_coordinate.xChunks) && fits(_coordinate.yChunks) && fits(_coordinate.zChunks);
+}
+
+ChunkCoordinate ChunkContaining(VoxelPosition _position) noexcept
+{
+  return {.xChunks = FloorDivide(_position.xVoxels), .yChunks = FloorDivide(_position.yVoxels), .zChunks = FloorDivide(_position.zVoxels)};
+}
+
+VoxelPosition PositionInChunk(VoxelPosition _position) noexcept
+{
+  return {.xVoxels = _position.xVoxels - FloorDivide(_position.xVoxels) * CHUNK_EDGE_VOXELS,
+          .yVoxels = _position.yVoxels - FloorDivide(_position.yVoxels) * CHUNK_EDGE_VOXELS,
+          .zVoxels = _position.zVoxels - FloorDivide(_position.zVoxels) * CHUNK_EDGE_VOXELS};
 }
 
 } // namespace Protocol

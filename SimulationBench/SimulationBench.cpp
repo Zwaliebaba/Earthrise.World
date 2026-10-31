@@ -7,13 +7,13 @@
 // measures the simulation, it is not part of it.
 int main()
 {
-  Simulation::Chunk chunk;
+  Protocol::Chunk chunk;
   const auto start = std::chrono::steady_clock::now();
-  for (std::int32_t y = 0; y < Simulation::Chunk::EDGE_VOXELS; ++y)
+  for (std::int32_t y = 0; y < Protocol::Chunk::EDGE_VOXELS; ++y)
   {
-    for (std::int32_t z = 0; z < Simulation::Chunk::EDGE_VOXELS; ++z)
+    for (std::int32_t z = 0; z < Protocol::Chunk::EDGE_VOXELS; ++z)
     {
-      for (std::int32_t x = 0; x < Simulation::Chunk::EDGE_VOXELS; ++x)
+      for (std::int32_t x = 0; x < Protocol::Chunk::EDGE_VOXELS; ++x)
       {
         chunk.Set(x, y, z, 4);
       }
@@ -21,5 +21,5 @@ int main()
   }
   const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start);
   std::println("SimulationBench: filled one chunk, {} voxels, in {} us", chunk.SolidCount(), elapsed.count());
-  return chunk.SolidCount() == Simulation::Chunk::VOXEL_COUNT ? 0 : 1;
+  return chunk.SolidCount() == Protocol::Chunk::VOXEL_COUNT ? 0 : 1;
 }

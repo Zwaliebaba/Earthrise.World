@@ -21,5 +21,14 @@
     <ClCompile Include="ChunkCoordinate.cpp">
       <Filter>World</Filter>
     </ClCompile>
+    <ClInclude Include="Chunk.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="Chunk.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
+    <ClInclude Include="ChunkSnapshot.h">
+      <Filter>World</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

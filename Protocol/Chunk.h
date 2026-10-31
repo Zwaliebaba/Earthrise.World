@@ -6,16 +6,17 @@
 
 #include "ChunkCoordinate.h"
 
-namespace Simulation
+namespace Protocol
 {
 
 /// One chunk of the world grid: 32 × 32 × 32 voxels of 1 m, each holding its palette index
 /// (ADR-005, decision 5), with 0 for empty. Voxels are stored x fastest, then z, then y, the order
-/// of the layer files' layers[y][z][x].
+/// of the layer files' layers[y][z][x]. It is the payload of a ChunkSnapshot, so the client reads
+/// it as the simulation wrote it.
 class Chunk
 {
 public:
-  static constexpr std::int32_t EDGE_VOXELS = Protocol::CHUNK_EDGE_VOXELS;
+  static constexpr std::int32_t EDGE_VOXELS = CHUNK_EDGE_VOXELS;
   static constexpr std::size_t VOXEL_COUNT = static_cast<std::size_t>(EDGE_VOXELS) * EDGE_VOXELS * EDGE_VOXELS;
   static constexpr std::uint8_t EMPTY = 0;
 
@@ -35,4 +36,4 @@ private:
   std::size_t m_solidCount = 0;
 };
 
-} // namespace Simulation
+} // namespace Protocol

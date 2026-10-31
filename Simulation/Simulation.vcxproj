@@ -39,8 +39,8 @@
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
-    <ClInclude Include="Chunk.h" />
-    <ClCompile Include="Chunk.cpp" />
+    <ClInclude Include="ChunkStore.h" />
+    <ClCompile Include="ChunkStore.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

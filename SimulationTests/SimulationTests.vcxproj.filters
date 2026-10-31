@@ -15,7 +15,7 @@
     <ClCompile Include="pch.cpp">
       <Filter>Build</Filter>
     </ClCompile>
-    <ClCompile Include="ChunkTests.cpp">
+    <ClCompile Include="ChunkStoreTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
   </ItemGroup>
