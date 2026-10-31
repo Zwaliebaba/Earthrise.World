@@ -262,6 +262,7 @@ At the end of M1:
 | 1 | 2026-10-31 | | #8 | | The scaffold, with each project's first piece |
 | 2 | 2026-10-31 | | #10 | | The engine base, and ADR-012 on render tests on WARP |
 | 3 | 2026-10-31 | | #9 | | The chunk store with copy-on-write snapshots |
+| 5 | 2026-10-31 | | #13 | | ADR-001's pipeline: the voxel pass and its render tests |
 
 ### M2 — Headless simulation
 
