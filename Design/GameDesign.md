@@ -170,7 +170,7 @@ The owner delivered a HUD package, kept unchanged in [Reference/HudPrototype/](R
 The owner settled the open items of the readiness review ([Review/MvpReadiness-2026-10-31.md](Review/MvpReadiness-2026-10-31.md)) that block M0 and M1.
 
 1. **Claude sessions write the code;** the owner runs it and judges it.
-   - Code, tools and checkers are written in Claude sessions and pushed to branches, and CI compiles Debug|x64 and Debug|ARM64.
+   - Code, tools and checkers are written in Claude sessions and pushed to branches, and CI compiles Debug|x64. It compiled Debug|ARM64 as well until the owner dropped that the same day ([ADR-007](ADR/ADR-007-platforms-and-input.md), amended); ARM64 is now built by hand.
    - The owner runs the builds on Windows, judges the look and the measurements, and approves each milestone.
    - The plan's estimates are rescaled from the real pace of the first milestones.
 2. **MvpPlan.md is accepted through M2,** together with the renderer spike's six questions, its pass mark and the 1 m kill criterion. M3 to M7 stay Proposed until after M1.

@@ -30,10 +30,10 @@ name: Build
 # directory or sit on an older language standard. Before a release, somebody builds Release for
 # real -- see AGENTS.md §3.
 #
-# X64 AND ARM64 (ADR-007). Debug|x64 is built, tested and linted. Debug|ARM64 is cross-compiled
-# on the same kind of x64 runner, which cannot execute it, so it is a compile gate only: it
-# catches what a static check cannot see, such as an x64 intrinsic with no ARM64 path. The suites
-# run on ARM64 by hand, on an ARM64 machine, before anyone claims ARM64 behaviour.
+# X64 ONLY (ADR-007, amended 2026-10-31). Debug|x64 is built, tested and linted. ARM64 is not
+# built here, by the owner's decision: the "Check the build shape" step still fails when x64 and
+# ARM64 drift apart on any setting, but what only a compile can see, such as an x64 intrinsic
+# with no ARM64 path, is found only when someone builds Debug|ARM64. See AGENTS.md §3.
 #
 # ── Why the toolchain is not pinned to an image ────────────────────────────────────────────
 #
@@ -217,63 +217,6 @@ jobs:
         with:
           name: test-results
           path: TestResults
-          if-no-files-found: ignore
-
-  # Cross-compiles ARM64 and nothing else. The shape check, the tests and clang-tidy run once, in
-  # the x64 job: the first two read the project files and x64 binaries, and the linter's findings
-  # are about the source, not the target.
-  windows-arm64:
-    name: Debug|ARM64
-    runs-on: windows-latest
-    timeout-minutes: 30
-
-    env:
-      CONFIGURATION: Debug
-      PLATFORM: ARM64
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v2
-
-      - name: Record the toolchain
-        shell: pwsh
-        run: |
-          Write-Output "runner image : $env:ImageOS / $env:ImageVersion"
-          msbuild -version -nologo
-
-      # The same rule as the x64 job: exactly one solution at the root, or none yet.
-      - name: Locate the solution
-        id: solution
-        shell: pwsh
-        run: |
-          $found = @(Get-ChildItem -Path . -File | Where-Object { $_.Extension -in '.slnx', '.sln' })
-          if ($found.Count -gt 1) { throw "More than one solution at the repository root: $($found.Name -join ', ')." }
-          if ($found.Count -eq 0) {
-            Write-Output "::notice::No solution at the repository root yet. The ARM64 build will be skipped."
-            "path=" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          }
-          else {
-            Write-Output "Solution: $($found[0].Name)"
-            "path=$($found[0].Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          }
-
-      - name: Build
-        if: steps.solution.outputs.path != ''
-        shell: pwsh
-        run: |
-          msbuild "${{ steps.solution.outputs.path }}" `
-            /p:Configuration=$env:CONFIGURATION /p:Platform=$env:PLATFORM `
-            /m /nologo /v:minimal /warnaserror `
-            /flp:LogFile=build-arm64.log`;Verbosity=normal
-
-      - name: Upload the build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log-arm64
-          path: build-arm64.log
           if-no-files-found: ignore
 
   format:
