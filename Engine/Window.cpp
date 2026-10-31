@@ -2,6 +2,8 @@
 
 #include "Window.h"
 
+#include "PointerInput.h"
+
 namespace Engine
 {
 
@@ -61,7 +63,28 @@ Window::~Window()
   }
 }
 
+Window::Size Window::ClientSize() const noexcept
+{
+  RECT client{};
+  if (!GetClientRect(m_handle, &client))
+  {
+    return {.widthPixels = 0, .heightPixels = 0};
+  }
+  return {.widthPixels = static_cast<std::uint32_t>(client.right - client.left),
+          .heightPixels = static_cast<std::uint32_t>(client.bottom - client.top)};
+}
+
 bool Window::PumpMessages() noexcept
+{
+  return Pump(nullptr);
+}
+
+bool Window::PumpMessages(PointerInput& _pointer) noexcept
+{
+  return Pump(&_pointer);
+}
+
+bool Window::Pump(PointerInput* _pointer) noexcept
 {
   MSG message{};
   while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE))
@@ -69,6 +92,10 @@ bool Window::PumpMessages() noexcept
     if (message.message == WM_QUIT)
     {
       return false;
+    }
+    if (_pointer != nullptr)
+    {
+      _pointer->Observe(message);
     }
     TranslateMessage(&message);
     DispatchMessageW(&message);

@@ -43,6 +43,25 @@
     <ClInclude Include="targetver.h" />
     <ClInclude Include="Window.h" />
     <ClCompile Include="Window.cpp" />
+    <ClInclude Include="GpuDevice.h" />
+    <ClCompile Include="GpuDevice.cpp" />
+    <ClInclude Include="CommandQueue.h" />
+    <ClCompile Include="CommandQueue.cpp" />
+    <ClInclude Include="DescriptorHeap.h" />
+    <ClCompile Include="DescriptorHeap.cpp" />
+    <ClInclude Include="RingAllocator.h" />
+    <ClCompile Include="RingAllocator.cpp" />
+    <ClInclude Include="UploadRing.h" />
+    <ClCompile Include="UploadRing.cpp" />
+    <ClInclude Include="FrameRing.h" />
+    <ClCompile Include="FrameRing.cpp" />
+    <ClInclude Include="SwapChain.h" />
+    <ClCompile Include="SwapChain.cpp" />
+    <ClInclude Include="ResourceBarrier.h" />
+    <ClInclude Include="PointerInput.h" />
+    <ClCompile Include="PointerInput.cpp" />
+    <ClInclude Include="FrameTimer.h" />
+    <ClCompile Include="FrameTimer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
