@@ -54,6 +54,10 @@
     <ClInclude Include="Rules.h" />
     <ClInclude Include="VoxelWorld.h" />
     <ClCompile Include="VoxelWorld.cpp" />
+    <ClInclude Include="World.h" />
+    <ClCompile Include="World.cpp" />
+    <ClInclude Include="Script.h" />
+    <ClCompile Include="Script.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

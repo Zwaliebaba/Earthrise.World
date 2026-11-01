@@ -36,5 +36,11 @@
     <ClCompile Include="VoxelWorldTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClInclude Include="FlatWorld.h">
+      <Filter>Suites</Filter>
+    </ClInclude>
+    <ClCompile Include="WorldTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

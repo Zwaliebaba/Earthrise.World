@@ -16,6 +16,9 @@
     <Filter Include="Data">
       <UniqueIdentifier>{279CC4D9-2169-5C1B-8AA1-7CE8C22B5334}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Tick">
+      <UniqueIdentifier>{1B9F7E11-C7C4-5656-BB89-58906EDA4840}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -68,6 +71,18 @@
     </ClInclude>
     <ClCompile Include="VoxelWorld.cpp">
       <Filter>World</Filter>
+    </ClCompile>
+    <ClInclude Include="World.h">
+      <Filter>Tick</Filter>
+    </ClInclude>
+    <ClCompile Include="World.cpp">
+      <Filter>Tick</Filter>
+    </ClCompile>
+    <ClInclude Include="Script.h">
+      <Filter>Tick</Filter>
+    </ClInclude>
+    <ClCompile Include="Script.cpp">
+      <Filter>Tick</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

@@ -49,6 +49,8 @@
     <ClInclude Include="ServerDataFile.h" />
     <ClCompile Include="ServerDataTests.cpp" />
     <ClCompile Include="VoxelWorldTests.cpp" />
+    <ClInclude Include="FlatWorld.h" />
+    <ClCompile Include="WorldTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

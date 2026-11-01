@@ -34,6 +34,11 @@ public:
   /// hold (Protocol::FitsChunkKey).
   void Set(Protocol::VoxelPosition _position, std::uint8_t _paletteIndex);
 
+  /// Sets every voxel of a chunk at once, as a generator fills one: the same as setting each voxel
+  /// in turn, faster. A chunk with nothing in it that the store does not hold stays absent. Throws
+  /// std::out_of_range for a coordinate the packed key cannot hold.
+  void SetChunk(Protocol::ChunkCoordinate _coordinate, const Protocol::Chunk& _voxels);
+
   /// Publishes every chunk changed since the last call and returns their new snapshots, in key
   /// order. When nothing changed it returns none, and the version does not move.
   [[nodiscard]] std::vector<Protocol::ChunkSnapshot> Publish();
