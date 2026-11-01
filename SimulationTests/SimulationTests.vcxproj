@@ -57,6 +57,7 @@
     <ClCompile Include="GeneratorTests.cpp" />
     <ClCompile Include="ShotTests.cpp" />
     <ClCompile Include="CraterTests.cpp" />
+    <ClCompile Include="CollapseTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

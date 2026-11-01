@@ -60,5 +60,8 @@
     <ClCompile Include="CraterTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="CollapseTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

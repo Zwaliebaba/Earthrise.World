@@ -121,11 +121,15 @@ public:
 
   TEST_METHOD(LeavesOutAChunkBackToItsBase)
   {
+    // Once a tick has searched the edits, a chunk dug and refilled saves as one never edited.
+    Simulation::World unedited = Start();
+    unedited.Tick();
     Simulation::World world = Start();
-    const std::vector<std::byte> unedited = Simulation::WriteSave(world);
     world.Voxels().Edit(Cell(1, 1), MASONRY);
     world.Voxels().Edit(Cell(1, 1), 0);
-    Assert::IsTrue(unedited == Simulation::WriteSave(world));
+    Assert::IsFalse(Simulation::WriteSave(unedited) == Simulation::WriteSave(world)); // the edits wait for step 5
+    world.Tick();
+    Assert::IsTrue(Simulation::WriteSave(unedited) == Simulation::WriteSave(world));
   }
 
   TEST_METHOD(RefusesASaveFromAnotherBuildDataGeneratorOrFormat)

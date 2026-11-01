@@ -86,7 +86,7 @@ void WriteRecord(Core::ByteWriter& _writer, const Squad& _squad)
   _writer.WriteU64(_squad.id);
   _writer.WriteU8(_squad.owner);
   _writer.WriteU8(static_cast<std::uint8_t>(_squad.navigationClass));
-  _writer.WriteU8(_squad.hasGoal ? 1 : 0);
+  _writer.WriteU8(_squad.hasGoal ? std::uint8_t{1} : std::uint8_t{0});
   WritePosition(_writer, _squad.goalVoxels);
   _writer.WriteU32(static_cast<std::uint32_t>(_squad.units.size()));
   for (const Protocol::EntityId unit : _squad.units)
@@ -189,6 +189,65 @@ Shot ReadShot(Core::ByteReader& _reader)
           .ticksFlown = _reader.ReadU32()};
 }
 
+void WritePositions(Core::ByteWriter& _writer, std::span<const Protocol::VoxelPosition> _positions)
+{
+  _writer.WriteU32(static_cast<std::uint32_t>(_positions.size()));
+  for (const Protocol::VoxelPosition& position : _positions)
+  {
+    WritePosition(_writer, position);
+  }
+}
+
+std::vector<Protocol::VoxelPosition> ReadPositions(Core::ByteReader& _reader)
+{
+  const std::uint32_t count = _reader.ReadU32();
+  std::vector<Protocol::VoxelPosition> positions;
+  positions.reserve(std::min<std::size_t>(count, _reader.Remaining() / 12)); // 12 bytes a position, at most what is left
+  for (std::uint32_t number = 0; number < count; ++number)
+  {
+    positions.push_back(ReadPosition(_reader));
+  }
+  return positions;
+}
+
+void WriteRecord(Core::ByteWriter& _writer, const Collapse& _collapse)
+{
+  _writer.WriteU64(_collapse.id);
+  WritePositions(_writer, _collapse.piece);
+  const CollapsePlan& plan = _collapse.plan;
+  _writer.WriteU8(static_cast<std::uint8_t>(plan.direction));
+  _writer.WriteU32(plan.warningTicks);
+  _writer.WriteU32(plan.fallTicks);
+  _writer.WriteU32(plan.fallenVoxels);
+  _writer.WriteU32(static_cast<std::uint32_t>(plan.landing.size()));
+  for (const PlacedVoxel& placed : plan.landing)
+  {
+    WritePosition(_writer, placed.position);
+    _writer.WriteU8(placed.paletteIndex);
+  }
+  WritePositions(_writer, plan.strip);
+  _writer.WriteU32(_collapse.ticksElapsed);
+}
+
+Collapse ReadCollapse(Core::ByteReader& _reader)
+{
+  Collapse collapse{.id = _reader.ReadU64(), .piece = ReadPositions(_reader), .plan = {}, .ticksElapsed = 0};
+  CollapsePlan& plan = collapse.plan;
+  plan.direction = ReadEnum(_reader, FallDirection::West, "fall direction");
+  plan.warningTicks = _reader.ReadU32();
+  plan.fallTicks = _reader.ReadU32();
+  plan.fallenVoxels = _reader.ReadU32();
+  const std::uint32_t landing = _reader.ReadU32();
+  for (std::uint32_t number = 0; number < landing; ++number)
+  {
+    const Protocol::VoxelPosition position = ReadPosition(_reader);
+    plan.landing.push_back({.position = position, .paletteIndex = _reader.ReadU8()});
+  }
+  plan.strip = ReadPositions(_reader);
+  collapse.ticksElapsed = _reader.ReadU32();
+  return collapse;
+}
+
 /// One entity: its tag, its record's version and length, and the record.
 template <typename Kind> void WriteEntity(Core::ByteWriter& _writer, SaveEntityTag _tag, const Kind& _entity)
 {
@@ -208,9 +267,10 @@ void WriteEntities(Core::ByteWriter& _writer, const World& _world)
   const std::map<Protocol::EntityId, Unit>& units = _world.Units();
   const std::map<Protocol::EntityId, SiegeEngine>& engines = _world.SiegeEngines();
   const std::map<Protocol::EntityId, Shot>& shots = _world.Shots();
+  const std::map<Protocol::EntityId, Collapse>& collapses = _world.Collapses();
   // Every entity in id order, across the kinds (ADR-014, decision 4).
   std::vector<std::pair<Protocol::EntityId, SaveEntityTag>> order;
-  order.reserve(squads.size() + units.size() + engines.size() + shots.size());
+  order.reserve(squads.size() + units.size() + engines.size() + shots.size() + collapses.size());
   for (const auto& [id, squad] : squads)
   {
     order.emplace_back(id, SaveEntityTag::Squad);
@@ -226,6 +286,10 @@ void WriteEntities(Core::ByteWriter& _writer, const World& _world)
   for (const auto& [id, shot] : shots)
   {
     order.emplace_back(id, SaveEntityTag::Shot);
+  }
+  for (const auto& [id, collapse] : collapses)
+  {
+    order.emplace_back(id, SaveEntityTag::Collapse);
   }
   std::ranges::sort(order);
   _writer.WriteU32(static_cast<std::uint32_t>(order.size()));
@@ -245,11 +309,15 @@ void WriteEntities(Core::ByteWriter& _writer, const World& _world)
     case SaveEntityTag::Shot:
       WriteEntity(_writer, tag, shots.at(id));
       break;
+    case SaveEntityTag::Collapse:
+      WriteEntity(_writer, tag, collapses.at(id));
+      break;
     }
   }
 }
 
-void WritePendingCommands(Core::ByteWriter& _writer, std::span<const SubmittedCommand> _commands)
+void WritePendingWork(Core::ByteWriter& _writer, std::span<const SubmittedCommand> _commands,
+                      std::span<const Protocol::VoxelPosition> _unsearched, std::span<const Protocol::VoxelPosition> _betweenTicks)
 {
   _writer.WriteU32(static_cast<std::uint32_t>(_commands.size()));
   for (const SubmittedCommand& command : _commands)
@@ -258,6 +326,8 @@ void WritePendingCommands(Core::ByteWriter& _writer, std::span<const SubmittedCo
     _writer.WriteU32(static_cast<std::uint32_t>(command.bytes.size()));
     _writer.WriteBytes(command.bytes);
   }
+  WritePositions(_writer, _unsearched);
+  WritePositions(_writer, _betweenTicks);
 }
 
 } // namespace
@@ -297,7 +367,7 @@ std::vector<std::byte> WriteSave(const World& _world)
   }
 
   WriteEntities(writer, _world);
-  WritePendingCommands(writer, _world.m_pendingCommands);
+  WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits());
   return writer.TakeBytes();
 }
 
@@ -388,6 +458,12 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
         world.m_shots.emplace(shot.id, shot);
         break;
       }
+      case SaveEntityTag::Collapse:
+      {
+        Collapse collapse = ReadCollapse(record);
+        world.m_collapses.emplace(collapse.id, std::move(collapse));
+        break;
+      }
       default:
         Refuse("it holds an entity of type " + std::to_string(tag) + ", which this build does not know");
       }
@@ -403,6 +479,11 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
       const std::uint8_t player = reader.ReadU8();
       const std::span<const std::byte> bytes = reader.ReadBytes(reader.ReadU32());
       world.m_pendingCommands.push_back({.player = player, .bytes = {bytes.begin(), bytes.end()}});
+    }
+    world.m_unsearchedEdits = ReadPositions(reader);
+    for (const Protocol::VoxelPosition& edit : ReadPositions(reader))
+    {
+      world.m_voxels.RestoreTickEdit(edit);
     }
     if (!reader.AtEnd())
     {
@@ -426,7 +507,7 @@ std::uint64_t StateHash(const World& _world)
   writer.WriteU32(_world.m_tick);
   writer.WriteU64(_world.m_nextEntityId);
   WriteEntities(writer, _world);
-  WritePendingCommands(writer, _world.m_pendingCommands);
+  WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits());
   return Core::Fnv1a64(writer.Bytes(), _world.m_voxels.VoxelHash());
 }
 

@@ -2,6 +2,7 @@
 
 #include "ChunkCoordinate.h"
 #include "ChunkSnapshot.h"
+#include "CollapsePlan.h"
 #include "Command.h"
 #include "EntityId.h"
 #include "Fixed.h"
@@ -91,6 +92,15 @@ struct Shot
   std::uint32_t ticksFlown;
 };
 
+/// A piece that lost support, warning and then falling (ADR-004, decisions 3 and 4).
+struct Collapse
+{
+  Protocol::EntityId id;
+  Piece piece;                // its voxels as the support search found them, in y, then z, then x order
+  CollapsePlan plan;          // fixed when it starts
+  std::uint32_t ticksElapsed; // step 6s since it started: the warning, then the fall
+};
+
 /// Where a shot struck: the first solid voxel on its way, and the way it was going along its larger
 /// horizontal axis, ties to x, which is what "behind" means for its crater (M2-E2).
 struct ShotHit
@@ -170,6 +180,7 @@ public:
   [[nodiscard]] const std::map<Protocol::EntityId, Unit>& Units() const noexcept;
   [[nodiscard]] const std::map<Protocol::EntityId, SiegeEngine>& SiegeEngines() const noexcept;
   [[nodiscard]] const std::map<Protocol::EntityId, Shot>& Shots() const noexcept;
+  [[nodiscard]] const std::map<Protocol::EntityId, Collapse>& Collapses() const noexcept;
 
   /// Where the last tick's shots struck, in shot-id order.
   [[nodiscard]] std::span<const ShotHit> LastTickHits() const noexcept;
@@ -223,7 +234,12 @@ private:
   std::map<Protocol::EntityId, Unit> m_units;
   std::map<Protocol::EntityId, SiegeEngine> m_siegeEngines;
   std::map<Protocol::EntityId, Shot> m_shots;
+  std::map<Protocol::EntityId, Collapse> m_collapses;
   std::vector<ShotHit> m_tickHits;
+  // The edits made after the last step 5 in the tick before: its steps 6 and 7. The next step 5
+  // searches them with its own tick's edits so far (MvpPlan.md, *One simulation tick*).
+  std::vector<Protocol::VoxelPosition> m_unsearchedEdits;
+  std::size_t m_searchedThrough = 0; // how many of this tick's edits step 5 searched
   std::vector<Protocol::VoxelPosition> m_lastTickEdits;
 };
 

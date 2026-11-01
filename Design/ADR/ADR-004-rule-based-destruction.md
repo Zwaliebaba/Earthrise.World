@@ -43,6 +43,16 @@ Destruction is the reason the world is made of voxels, and Teardown is the refer
 - A third-party physics engine, unless a later ADR and the owner reopen R14.
 - Support decided by connectivity alone.
 
+## Amended
+
+- **The landing's layout** (2026-11-01, M2-E3; `Simulation/CollapsePlan.h`). The rule GameDesign.md decides is carried out as follows:
+  - **Which way:** towards the side the edits that unsupported the piece lie on, measured from the middle of the piece's box along the axis where they lie farther off, ties to x; straight down when that offset is under a quarter of the piece's width along it. Edits beyond the support search's reach of the piece, or above it, do not count.
+  - **Where it lands:** falling towards a side, the piece is laid down along the fall. Each voxel lands as far beyond the piece's leading face as it stood above the piece's foot, plus one, in its own column across the fall, so the rubble covers at most the piece's height along the fall. Falling straight down, each voxel lands in its own column. Either way it lands on the column's ground, the highest terrain or rubble below the piece's top, or on the rubble already there, one rubble voxel for each voxel that falls and leaves rubble.
+  - **What it crushes:** a structure voxel where a rubble voxel would land becomes rubble of its own material, or nothing when it leaves none, and the rubble lands above it.
+  - **In what order:** nearest the foot first, which is the order the fall's ticks write it in equal parts.
+  - **Where units are hit:** the strip, every column the fall covers, at the cell above its ground before the fall.
+- **The hand calculation of MvpPlan.md's risks holds** (M2-E3, `CollapseTests`): a hole 5 wide and 2 high through a T3 section's base drops the one-voxel slot above its middle, and a hole 4 wide drops nothing.
+
 ## Left open
 
 - The numbers in the resolver's rules, such as warning times and fall lengths. The rules themselves, covering the direction of a fall, how rubble settles and slows movement, and what a fall damages, are decided in GameDesign.md (*Where RTS logic meets destruction*). *(The warning and the fall's length decided 2026-11-01: GameDesign.md, M2's values, items 4 to 8.)*

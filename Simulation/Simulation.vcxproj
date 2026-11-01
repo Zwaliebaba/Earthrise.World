@@ -69,6 +69,8 @@
     <ClInclude Include="FixedPosition.h" />
     <ClInclude Include="Shot.h" />
     <ClCompile Include="Shot.cpp" />
+    <ClInclude Include="CollapsePlan.h" />
+    <ClCompile Include="CollapsePlan.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

@@ -64,6 +64,14 @@ std::span<const Protocol::VoxelPosition> VoxelWorld::TickEdits() const noexcept
   return m_tickEdits;
 }
 
+void VoxelWorld::RestoreTickEdit(Protocol::VoxelPosition _position)
+{
+  if (m_tickEdited.insert({_position.xVoxels, _position.yVoxels, _position.zVoxels}).second)
+  {
+    m_tickEdits.push_back(_position);
+  }
+}
+
 void VoxelWorld::EndTick()
 {
   m_tickEdits.clear();

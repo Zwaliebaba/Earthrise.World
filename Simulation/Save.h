@@ -21,7 +21,9 @@ namespace Simulation
 //      record version, a u32 length and the record (SaveEntityTag). Each record is at version 1 as
 //      M2 leaves it: a save is tied to its build anyway (ADR-014, decision 6);
 //   4. the pending work, each queue in its own stated order: u32 the commands that arrived for the
-//      next tick, then each as its u8 player, u32 length and bytes, in arrival order.
+//      next tick, then each as its u8 player, u32 length and bytes, in arrival order; u32 the edits
+//      the last tick made after its step 5, then each voxel, in edit order; and u32 the edits made
+//      between ticks since, then each voxel, in first-edit order. The next step 5 searches both.
 // Navigation tiles, chunk hashes and anything else computed from the voxels are not saved: a load
 // rebuilds them.
 
@@ -33,7 +35,8 @@ enum class SaveEntityTag : std::uint16_t
   Squad = 1,
   Unit = 2,
   SiegeEngine = 3,
-  Shot = 4
+  Shot = 4,
+  Collapse = 5
 };
 
 /// Writes _world, between ticks.

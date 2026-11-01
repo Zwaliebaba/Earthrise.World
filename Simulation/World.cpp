@@ -2,6 +2,8 @@
 
 #include "World.h"
 
+#include "Generator.h"
+
 namespace Simulation
 {
 
@@ -56,7 +58,11 @@ void World::Tick()
   CheckRules();
   PublishState();
   AnswerQueries();
-  m_lastTickEdits.assign(m_voxels.TickEdits().begin(), m_voxels.TickEdits().end());
+  const std::span<const Protocol::VoxelPosition> edits = m_voxels.TickEdits();
+  m_lastTickEdits.assign(edits.begin(), edits.end());
+  // The edits after step 5, steps 6 and 7's, wait for the next tick's search.
+  m_unsearchedEdits.assign(edits.begin() + static_cast<std::ptrdiff_t>(std::min(m_searchedThrough, edits.size())), edits.end());
+  m_searchedThrough = 0;
   m_voxels.EndTick();
   ++m_tick;
 }
@@ -119,6 +125,11 @@ const std::map<Protocol::EntityId, SiegeEngine>& World::SiegeEngines() const noe
 const std::map<Protocol::EntityId, Shot>& World::Shots() const noexcept
 {
   return m_shots;
+}
+
+const std::map<Protocol::EntityId, Collapse>& World::Collapses() const noexcept
+{
+  return m_collapses;
 }
 
 std::span<const ShotHit> World::LastTickHits() const noexcept
@@ -294,12 +305,56 @@ void World::AdvanceShots()
 
 void World::SearchSupport()
 {
-  // Step 5: the support search over the edits not yet searched (M2-E3).
+  // Step 5: the support search over the edits not yet searched: the last tick's steps 6 and 7, and
+  // this tick's so far, those made before it between ticks included (M2-E3; ADR-004, decision 2).
+  std::vector<Protocol::VoxelPosition> edits = std::exchange(m_unsearchedEdits, {});
+  const std::span<const Protocol::VoxelPosition> tick = m_voxels.TickEdits();
+  edits.insert(edits.end(), tick.begin(), tick.end());
+  m_searchedThrough = tick.size();
+  if (edits.empty())
+  {
+    return;
+  }
+  const SupportRules rules{.materials = &Data().Materials(),
+                           .anchorDepthVoxels = ANCHOR_DEPTH_VOXELS,
+                           .surfaceVoxels = m_desc.surfaceVoxels,
+                           .heightVoxels = m_desc.heightChunks * Protocol::CHUNK_EDGE_VOXELS};
+  const SupportSearchResult found = FindUnsupported(m_voxels.Store(), rules, edits);
+  // A piece still warning is still in the grid, and a search near it finds it again: its voxels are
+  // claimed, and only what is new collapses.
+  std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> claimed;
+  for (const auto& [id, collapse] : m_collapses)
+  {
+    if (collapse.ticksElapsed <= collapse.plan.warningTicks)
+    {
+      for (const Protocol::VoxelPosition& voxel : collapse.piece)
+      {
+        claimed.insert({voxel.xVoxels, voxel.yVoxels, voxel.zVoxels});
+      }
+    }
+  }
+  // One collapse for each unsupported piece, given ids in piece order.
+  for (Piece piece : found.pieces)
+  {
+    std::erase_if(piece, [&claimed](const Protocol::VoxelPosition& _voxel)
+                  { return claimed.contains({_voxel.xVoxels, _voxel.yVoxels, _voxel.zVoxels}); });
+    if (piece.empty())
+    {
+      continue;
+    }
+    const Protocol::EntityId id = NewEntityId();
+    CollapsePlan plan = PlanCollapse(piece, edits, m_voxels, Data());
+    m_collapses.emplace(id, Collapse{.id = id, .piece = std::move(piece), .plan = std::move(plan), .ticksElapsed = 0});
+  }
 }
 
 void World::AdvanceCollapses()
 {
-  // Step 6: warnings, falls and the rubble they leave (M2-E3 to E5).
+  // Step 6: each collapse in id order counts its warning down; no voxel of a piece moves during it.
+  for (auto& [id, collapse] : m_collapses)
+  {
+    ++collapse.ticksElapsed;
+  }
 }
 
 void World::SettleLoose()

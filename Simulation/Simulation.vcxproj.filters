@@ -126,5 +126,11 @@
     <ClCompile Include="Shot.cpp">
       <Filter>Destruction</Filter>
     </ClCompile>
+    <ClInclude Include="CollapsePlan.h">
+      <Filter>Destruction</Filter>
+    </ClInclude>
+    <ClCompile Include="CollapsePlan.cpp">
+      <Filter>Destruction</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

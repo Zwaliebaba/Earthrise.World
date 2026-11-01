@@ -52,6 +52,10 @@ public:
   /// Clears TickEdits, at the end of a tick.
   void EndTick();
 
+  /// Lists a voxel among the tick's edits without editing it: what a load does for the edits a save
+  /// holds as pending work (ADR-014, decision 4).
+  void RestoreTickEdit(Protocol::VoxelPosition _position);
+
   /// The packed keys of every chunk edited since generation or load, in key order. A chunk dug and
   /// refilled stays in it; the save leaves out a chunk that is back to its base (ADR-014, decision
   /// 3). A load rebuilds it from the chunks the save holds.
