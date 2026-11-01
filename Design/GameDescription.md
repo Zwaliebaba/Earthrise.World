@@ -4,7 +4,7 @@
 
 ## The pitch
 
-Earthrise.World is a real-time strategy game about medieval lords on land made entirely of voxels. You dig your wealth out of the hills, raise your castle from the stone you quarried, and break your rivals' walls exactly where your trebuchets strike. It is played in shared worlds that last a season. From a handful of lords to two dozen, with AI houses alongside them, settle a generated land, race to excavate a deposit buried beneath its heart, and take it from one another by siege. Nothing is reset during a season. Every quarry, ditch, breach and ruin stays where it was made, and when the season ends the world is kept as a chronicle of what its players did to it.
+Earthrise.World is a real-time strategy game about medieval lords on land made entirely of voxels. You dig your wealth out of the hills, raise your castle from the stone you quarried, and break your rivals' walls exactly where your trebuchets strike. It is played in shared worlds that last a season. From eight lords to thirty-two, AI houses among them, settle a generated land, race to excavate a deposit buried beneath its heart, and take it from one another by siege. Nothing is reset during a season. Every quarry, ditch, breach and ruin stays where it was made, and when the season ends the world is kept as a chronicle of what its players did to it.
 
 Three things set it apart:
 
@@ -56,7 +56,7 @@ Everything solid is made of 1 m voxels. A crater's size and depth show which wea
 | Material | Where it is | Behavior |
 |---|---|---|
 | Grass | The top of undisturbed earth | Earth in every rule. Only the generator makes it, so dug ground stays bare. |
-| Earth | The soil over the rock, of varying depth | Dug quickly. Slumps to 45°, so no earth column stands more than one voxel above its neighbour. Absorbs shot: craters slump closed, and earthworks flatten instead of holing. |
+| Earth | The soil over the rock, of varying depth | Dug quickly. Slumps to 45°, so no earth column stands more than one voxel above any of its four side neighbours. Absorbs shot: craters slump closed, and earthworks flatten instead of holing. |
 | Common rock | Under the earth and in cliffs | Dug slowly and yields nothing. Holds vertical faces and overhangs up to its span. |
 | Building stone | Sparse outcrops | Quarried for stone. The only source of new stone besides rubble. |
 | Bedrock | Deep down, nearer the surface in places | Cannot be dug. Anything founded on it cannot be undermined. |
@@ -216,7 +216,7 @@ Shots are physical. Every arrow, bolt and stone travels through the voxel grid a
 
 **Garrisons.** Towers and keeps hold units. Garrisoned ranged units fire from height, and garrisoned units heal slowly. When a tower stops working, its garrison is put out at the foot of the tower, on its owner's side and clear of where the tower would fall.
 
-**Units and the land.** Units walk on ground, wade fords, and cross rubble slowly. Foot soldiers climb slopes as steep as settled earth; cavalry, carts, rams and engines climb less, so a ditch or a rampart stops them. Units stand on ramparts, which are earth, but never on structures, and the space under a rock overhang is not walkable. A unit stands 2 m tall on a 0.5 m square, so a gap one voxel wide and two high is a route. When a breach opens, every unit that is ordered inside will path through it. A unit whose ground is dug away drops to the ground below it and takes crush damage if the drop is more than 3 m. A unit buried by a collapse is placed on top of the rubble and takes the collapse's damage.
+**Units and the land.** Units walk on ground, wade fords, and cross rubble slowly. Foot soldiers climb slopes as steep as settled earth; cavalry, carts, rams and engines climb less, so a ditch or a rampart stops them. Units stand on ramparts, which are earth, but never on structures, and the space under a rock overhang is not walkable. A foot soldier stands 2 m tall on a 0.5 m square, so a gap one voxel wide and two high is a route for foot; cavalry and engines need more room. When a breach opens, every foot soldier ordered inside will path through it. A rubble ramp lies at 45°, too steep for cavalry and engines, which go in by the gate. A unit whose ground is dug away drops to the ground below it and takes crush damage if the drop is more than 3 m. A unit buried by a collapse is placed on top of the rubble and takes the collapse's damage.
 
 **Soldiers never change the land.** Only engines, sappers, laborers on a designation, collapses and fire remove voxels.
 
@@ -255,7 +255,7 @@ The counters form two linked cycles. In the Hall era: spearmen beat horse, horse
 2. **Choose the point.** Look for a thin section, a wall on earth with no ditch, the far side of the castle from its towers, or a gate. The choice is the attacker's main decision, and the land gives the reasons.
 3. **Approach.** Mantlets screen the advance from tower fire. Spearmen screen the engines from cavalry sallies.
 4. **Open the wall.** Trebuchets and mangonels bombard the chosen section, rams go for the gate, or sappers trench at the foot. The defender repairs between volleys, sallies against the engines, and shoots the sappers.
-5. **The breach.** The section shudders and falls, crushing whoever stands under it, and leaves a ramp of rubble. Both sides' units now see a route.
+5. **The breach.** The section shudders and falls, crushing whoever stands under it, and leaves a ramp of rubble. Both sides' foot soldiers now see a route.
 6. **Storm and hold.** Men-at-arms storm up the rubble. Spearmen and archers hold the gap. The defender's second ring, if they built one, starts the siege again further in. The keep falls only when the attacker's soldiers reach its foot and hold it.
 
 Defenders win sieges with:
@@ -310,7 +310,7 @@ The first release ships the Masons with the common roster. Worlds open with all 
 - **Siege:** take a pre-built, garrisoned castle whose defenders fight and repair.
 - **Hold:** quarry and build for a set time, then survive waves of raiders that choose their breach by reading your walls and the ground beneath them. One wave brings sappers.
 
-**Skirmish** pits one human against one or two AI houses on a generated map, in matches of 40 to 60 minutes. Every house plays for itself, and the last with a working keep wins. A second mode, the Earthstone race, plays a season's objective in an hour; it comes after the first release.
+**Skirmish** pits one human against one or two AI houses on a generated map, in matches of 40 to 60 minutes. Every house plays for itself, and the last house standing wins: a house loses when its keep is broken or all its trained units are dead. A second mode, the Earthstone race, plays a season's objective in an hour; it comes after the first release.
 
 **Worlds** are the game's home: shared seasons online, described below.
 
@@ -436,7 +436,7 @@ Each step builds a piece the world needs. The Siege trial's defending AI, with t
 The Trials have to show two things:
 
 - **Where a player quarries changes how their settlement is attacked**, and players can name the trade-off they made.
-- **Players choose where to breach for reasons they can state, and can predict the result.** Asked whether a section will be open after the next few shots, they are right more often than not, and they prefer this to the health-bar version.
+- **Players choose where to breach for reasons they can state, and can predict the result.** Asked whether a section will be open after the next few shots, their median accuracy reaches 0.65 or better (GameDesign.md, *Hypotheses*), and they prefer this to the health-bar version.
 
 The shared world is built only after the Trials show both, and after the season itself has been tested: an eight-week campaign played on paper, and a count of single-player players who sign up for a world.
 

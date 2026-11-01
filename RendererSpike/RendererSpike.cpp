@@ -30,8 +30,9 @@
 // The renderer spike (MvpPlan.md, M1). It draws the v5 test scene through the voxel pass: world
 // chunks built from the simulation's snapshots and 0.5 m models in the same pass, at a render scale
 // of its own, scaled to the window. For the first 60 s the scene runs its scripted edits, quarrying
-// and a wall collapse; its units walk for as long as it runs (MvpPlan.md, M1 task 9). The look
-// follows.
+// and a wall collapse; its units walk for as long as it runs (MvpPlan.md, M1 task 9). It draws
+// RendererLook.md's look: jitter, corner and contact shading, Lambert and hemisphere light, the two
+// shadow maps, impostors and the collapse's debris (M1 task 7).
 //
 // It starts borderless over the whole monitor (ADR-011, decision 1), and Alt+Enter switches between
 // that and a window. `--windowed` starts it in a window.
@@ -63,7 +64,7 @@ constexpr std::uint64_t UPLOAD_RING_BYTES = std::uint64_t{32} * 1024 * 1024;
 // The Golden preset (RendererLook.md §6): its clear colour #d6ccba in linear values, because the
 // view that is cleared is sRGB and encodes on write, its sun direction, towards the light, and its
 // lights. The direction is the prototype's (-90, 75, 55) with z negated, because the prototype's
-// +z is south and the world's is north (ADR-013): the sun stands to the south-west. The
+// +z is south and the world's is north (ADR-017): the sun stands to the south-west. The
 // intensities are three.js r160's physical ones: r160 divides its Lambert term by pi and no longer
 // scales its lights by pi (WebGLRenderer.useLegacyLights is false), so they are divided by pi
 // here, as RendererLook.md expected.
@@ -152,8 +153,8 @@ Engine::Window::Size RenderSize(const Options& _options, const Engine::Window::S
 {
   if (_options.measure)
   {
-    return {.widthPixels = Engine::ScaledPixels(Spike::Measurement::PASS_MARK_WIDTH_PIXELS, _options.renderScale),
-            .heightPixels = Engine::ScaledPixels(Spike::Measurement::PASS_MARK_HEIGHT_PIXELS, _options.renderScale)};
+    return {.widthPixels = Engine::ScaledPixels(RendererSpike::Measurement::PASS_MARK_WIDTH_PIXELS, _options.renderScale),
+            .heightPixels = Engine::ScaledPixels(RendererSpike::Measurement::PASS_MARK_HEIGHT_PIXELS, _options.renderScale)};
   }
   return {.widthPixels = Engine::ScaledPixels(_display.widthPixels, _options.renderScale),
           .heightPixels = Engine::ScaledPixels(_display.heightPixels, _options.renderScale)};
@@ -267,15 +268,15 @@ std::array<DirectX::XMFLOAT4, Engine::VoxelPass::PALETTE_ENTRIES> LinearPalette(
     colors[index] = {channel(16), channel(8), channel(0), 1.0F};
   }
   // The two sides' faction colours, in entries beyond the materials'.
-  for (const auto& [index, srgb] : {std::pair{Spike::ATTACKER_COLOR_INDEX, Spike::ATTACKER_COLOR_SRGB},
-                                    std::pair{Spike::DEFENDER_COLOR_INDEX, Spike::DEFENDER_COLOR_SRGB}})
+  for (const auto& [index, srgb] : {std::pair{RendererSpike::ATTACKER_COLOR_INDEX, RendererSpike::ATTACKER_COLOR_SRGB},
+                                    std::pair{RendererSpike::DEFENDER_COLOR_INDEX, RendererSpike::DEFENDER_COLOR_SRGB}})
   {
     const std::uint32_t side = srgb;
     const auto channel = [side](int _shift) { return SrgbToLinear(static_cast<float>((side >> _shift) & 0xffU) / 255.0F); };
     colors[index] = {channel(16), channel(8), channel(0), 1.0F};
   }
   // Fords: water one world voxel deep, drawn lighter (RendererLook.md §3).
-  colors[Spike::FORD_COLOR_INDEX] = ScaledLightness(colors[WATER_INDEX], Spike::FORD_LIGHTNESS_SCALE);
+  colors[RendererSpike::FORD_COLOR_INDEX] = ScaledLightness(colors[WATER_INDEX], RendererSpike::FORD_LIGHTNESS_SCALE);
   return colors;
 }
 
@@ -447,10 +448,10 @@ void SetViewport(ID3D12GraphicsCommandList* _commandList, std::uint32_t _widthPi
 
 /// Takes the row waiting in a frame slot, if there is one, with the voxel pass's GPU time from the
 /// slot's timestamps, which are back once the slot comes round again or the queue is flushed.
-std::optional<Spike::Measurement::FrameRow> TakeWaitingRow(std::optional<Spike::Measurement::FrameRow>& _waiting,
-                                                           const Engine::GpuTimer& _timer, std::uint32_t _slot)
+std::optional<RendererSpike::Measurement::FrameRow> TakeWaitingRow(std::optional<RendererSpike::Measurement::FrameRow>& _waiting,
+                                                                   const Engine::GpuTimer& _timer, std::uint32_t _slot)
 {
-  std::optional<Spike::Measurement::FrameRow> row = std::exchange(_waiting, std::nullopt);
+  std::optional<RendererSpike::Measurement::FrameRow> row = std::exchange(_waiting, std::nullopt);
   if (row.has_value())
   {
     const std::vector<double> spans = _timer.ReadMilliseconds(_slot);
@@ -513,14 +514,14 @@ int Run(const Options& _options)
   const Engine::GpuTimer gpuTimer(device.Device(), device.DirectQueue().Queue(),
                                   {.slotCount = Engine::FrameRing::FRAMES_IN_FLIGHT, .spanCount = SPAN_COUNT});
   const float worldVoxelMeters = _options.halfMeterWorld ? 0.5F : 1.0F;
-  Spike::WorldView worldView(device.Device(), worldVoxelMeters);
+  RendererSpike::WorldView worldView(device.Device(), worldVoxelMeters);
   const FlushOnExit flushOnExit{device.DirectQueue()};
 
   // The simulation's side: the scene goes into the chunk store, and the client draws only from what
   // the store publishes (ADR-002, decision 3). For the 0.5 m world the client draws from a second
   // store, the first split eight ways, which takes every edit the first makes.
   Simulation::ChunkStore store;
-  const Spike::TestScene scene = Spike::BuildTestScene(store, SCENE_SEED);
+  const RendererSpike::TestScene scene = RendererSpike::BuildTestScene(store, SCENE_SEED);
   Simulation::ChunkStore halfMeterStore;
   if (_options.halfMeterWorld)
   {
@@ -530,7 +531,7 @@ int Run(const Options& _options)
   std::vector<Protocol::ChunkSnapshot> published = shownStore.Publish();
   Simulation::TestWorldEdits edits(store, scene.world, SCENE_SEED);
   // Debris comes to rest on the world's top, as the 1 m simulation has it after a collapse.
-  const Spike::Debris::RestingTop restingTop = [&store](float _xMeters, float _zMeters)
+  const RendererSpike::Debris::RestingTop restingTop = [&store](float _xMeters, float _zMeters)
   {
     const auto top =
       Simulation::TopSolidAtOrBelow(store, static_cast<std::int32_t>(std::floor(_xMeters)), static_cast<std::int32_t>(std::floor(_zMeters)),
@@ -540,9 +541,9 @@ int Run(const Options& _options)
   // The breach's debris, at rest from the first frame, because the breach came down before the
   // scene begins (the render-fix package, item 4); and the collapse's, scattered when it falls.
   // Both are drawn every frame (RendererLook.md §1).
-  Spike::Debris breachDebris;
+  RendererSpike::Debris breachDebris;
   breachDebris.Scatter(scene.world.breachId, scene.world.breach.fallen, scene.world.breach.rubble, restingTop, BREACH_FELL_SECONDS);
-  Spike::Debris debris;
+  RendererSpike::Debris debris;
   std::vector<Engine::OrientedVoxel> debrisVoxels;
   // The sun's view over the whole world, its height included, for both shadow maps.
   const auto worldEdgeMeters = static_cast<float>(scene.world.edgeVoxels);
@@ -552,7 +553,7 @@ int Run(const Options& _options)
     Engine::SunViewProjection(SunTowards(), DirectX::XMFLOAT3{0.0F, 0.0F, 0.0F},
                               DirectX::XMFLOAT3{worldEdgeMeters, static_cast<float>(Simulation::TestWorld::HEIGHT_VOXELS), worldEdgeMeters},
                               SHADOW_MARGIN_METERS));
-  std::vector<Spike::ModelPlacement> placements;
+  std::vector<RendererSpike::ModelPlacement> placements;
   // The frame the scene's edits and walkers are at: the path's in a measured run, else counted from
   // the start.
   std::uint32_t sceneFrame = 0;
@@ -568,12 +569,12 @@ int Run(const Options& _options)
   const Engine::CameraPath path({.centerMeters = {scene.centerXMeters, scene.centerYMeters, scene.centerZMeters},
                                  .sideMeters = PATH_SIDE_METERS,
                                  .legFrames = PATH_LEG_FRAMES});
-  Spike::Measurement measurement;
+  RendererSpike::Measurement measurement;
   std::vector<PendingEdit> pendingEdits;
   std::uint32_t pathFrame = 0;
   bool resizedDuringRun = false;
   // Each frame slot's row, waiting for its timestamps, which come back when the slot is next used.
-  std::array<std::optional<Spike::Measurement::FrameRow>, Engine::FrameRing::FRAMES_IN_FLIGHT> waitingRows{};
+  std::array<std::optional<RendererSpike::Measurement::FrameRow>, Engine::FrameRing::FRAMES_IN_FLIGHT> waitingRows{};
   double voxelPassMilliseconds = 0.0;
   double shadowPassMilliseconds = 0.0;
   LARGE_INTEGER ticksPerSecond{};
@@ -669,7 +670,7 @@ int Run(const Options& _options)
     }
     const std::chrono::duration<double, std::milli> editTime = std::chrono::steady_clock::now() - editStart;
     placements = scene.fixedModels;
-    Spike::PlaceWalkers(store, scene, sceneFrame, placements);
+    RendererSpike::PlaceWalkers(store, scene, sceneFrame, placements);
     const std::uint64_t completed = device.DirectQueue().CompletedValue();
     ring.Reclaim(completed);
     worldView.Release(completed);
@@ -677,7 +678,7 @@ int Run(const Options& _options)
     const std::uint32_t slot = frames.Slot();
     ID3D12GraphicsCommandList* commandList = frames.Begin();
     // Begin waited for this slot's last frame, so its timestamps are back.
-    if (const std::optional<Spike::Measurement::FrameRow> row = TakeWaitingRow(waitingRows[slot], gpuTimer, slot))
+    if (const std::optional<RendererSpike::Measurement::FrameRow> row = TakeWaitingRow(waitingRows[slot], gpuTimer, slot))
     {
       voxelPassMilliseconds = row->voxelPassMilliseconds;
       shadowPassMilliseconds = row->shadowPassMilliseconds;
@@ -765,13 +766,13 @@ int Run(const Options& _options)
       Engine::TransitionBarrier(swapChain.BackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
     commandList->ResourceBarrier(1, &toPresent);
     gpuTimer.Resolve(commandList, slot);
-    waitingRows[slot] = Spike::Measurement::FrameRow{.frame = pathFrame,
-                                                     .azimuthDegrees = DirectX::XMConvertToDegrees(camera.AzimuthRadians()),
-                                                     .voxelsDrawn = worldView.RecordsDrawn() + debrisCount,
-                                                     .voxelPassMilliseconds = 0.0,
-                                                     .shadowPassMilliseconds = 0.0,
-                                                     .frameMilliseconds = 1000.0 * lapSeconds,
-                                                     .rebuildMilliseconds = rebuildMilliseconds};
+    waitingRows[slot] = RendererSpike::Measurement::FrameRow{.frame = pathFrame,
+                                                             .azimuthDegrees = DirectX::XMConvertToDegrees(camera.AzimuthRadians()),
+                                                             .voxelsDrawn = worldView.RecordsDrawn() + debrisCount,
+                                                             .voxelPassMilliseconds = 0.0,
+                                                             .shadowPassMilliseconds = 0.0,
+                                                             .frameMilliseconds = 1000.0 * lapSeconds,
+                                                             .rebuildMilliseconds = rebuildMilliseconds};
     const std::uint64_t fenceValue = frames.End();
     ring.Retire(fenceValue);
     worldView.Retire(fenceValue);
@@ -816,7 +817,8 @@ int Run(const Options& _options)
         device.DirectQueue().Flush();
         for (std::uint32_t waitingSlot = 0; waitingSlot < Engine::FrameRing::FRAMES_IN_FLIGHT; ++waitingSlot)
         {
-          if (const std::optional<Spike::Measurement::FrameRow> row = TakeWaitingRow(waitingRows[waitingSlot], gpuTimer, waitingSlot))
+          if (const std::optional<RendererSpike::Measurement::FrameRow> row =
+                TakeWaitingRow(waitingRows[waitingSlot], gpuTimer, waitingSlot))
           {
             measurement.AddFrame(*row);
           }

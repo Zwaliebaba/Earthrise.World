@@ -26,7 +26,7 @@ The owner wants two things: a design that is solid, and a game that can succeed 
 
 > You are one of nine independent reviewers of the design of Earthrise.World. Each reviewer attacks it from one angle, and yours is in the lens brief below. Your job is adversarial: find the weakest points first, and report what breaks, not what works.
 >
-> **Read these in full, in this order.** First `Design/GameDescription.md`, the subject of the review. Then `Design/GameDesign.md`, which governs where the two differ and marks every item Decided, Proposed or Open. Then `Design/ADR/ADR-002-authoritative-simulation.md`, `Design/ADR/ADR-003-world-as-seed-plus-edits.md` and `Design/ADR/ADR-004-rule-based-destruction.md`. For the constraints on how the game is built, read the opening of `AGENTS.md`, its R14 and its §6. Read `Design/ADR/ADR-001-direct-voxel-ray-casting.md` too if your lens touches rendering. Quote what this design says. Do not fill gaps from memory of other games.
+> **Read these in full, in this order.** First `Design/GameDescription.md`, the subject of the review. Then `Design/GameDesign.md`, which governs where the two differ and marks every item Decided, Proposed or Open. Then `Design/ADR/ADR-002-authoritative-simulation.md`, `Design/ADR/ADR-003-world-as-seed-plus-edits.md` and `Design/ADR/ADR-004-rule-based-destruction.md`, and `Design/ADR/ADR-006-voxel-sizes.md` for the voxel sizes. For the constraints on how the game is built, read the opening of `AGENTS.md`, its R14 and its §6. Read `Design/ADR/ADR-001-direct-voxel-ray-casting.md` too if your lens touches rendering. Quote what this design says. Do not fill gaps from memory of other games.
 >
 > **Facts that frame every finding.**
 > - No code exists. Every number in the description is a design target to be tuned in the Trials and Skirmish, not a measurement.
@@ -191,7 +191,7 @@ Each lens brief follows the Common brief in its reviewer's prompt. The lens name
 > - Experiment validity: the playtest is 6 to 10 RTS players, each playing both versions. Consider novelty bias and order effects, and whether the health-bar control gets equal polish. Can "right more often than not" and "prefer it" be measured at that size? Are the kill criteria in GameDesign.md decisive, and fixed before the test?
 > - If H1 fails, resources become nodes. What remains of the Worlds design that depends on dug terrain?
 > - The minimum lovable product: what is the smallest version that delivers the pitch's promise? What would you cut, and in which order?
-> - Technical hot spots at the spike's candidate voxel sizes of 10, 25 and 50 cm (GameDesign.md). Work out the voxel count of a 2 km × 2 km world down to the Deep, the edits a season accumulates, server memory, the cost of a support search after a breach, and navigation rebuilds during a night of sieges with 24 lords. Consider also a dedicated server that runs only on Windows under R14.
+> - Technical hot spots at the decided voxel sizes, a 1 m world with 0.5 m models (ADR-006, and its 0.5 m world for comparison). Work out the voxel count of a 2 km × 2 km world down to the Deep, the edits a season accumulates, server memory, the cost of a support search after a breach, and navigation rebuilds during a night of sieges with 24 lords. Consider also a dedicated server that runs only on Windows under R14.
 >
 > **Leave to others:** the market (MARKET).
 

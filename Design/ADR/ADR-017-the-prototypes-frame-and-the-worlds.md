@@ -1,4 +1,4 @@
-# ADR-013 — The prototype's frame and the world's
+# ADR-017 — The prototype's frame and the world's
 
 **Status:** Accepted, 2026-11-01, by the owner, after the render-fix package's review of the spike. It records how a position, a direction, a turn or a layer file drawn in the owner's prototypes reaches the world. It amends nothing in [ADR-005](ADR-005-content-formats.md)'s file format: the layer files keep their axes and are never edited to suit the engine.
 
@@ -23,7 +23,7 @@
    - An azimuth a, measured from the prototype's +z, becomes 180° − a, measured from the world's. The prototype's −45° is the world's −135°.
    - A quarter turn t, clockwise seen from above, becomes (2 − t) mod 4. The mirror reverses a turn's sense and takes a front facing the prototype's +z, south, to the world's −z, south.
 3. **The test scene states its layout in the prototype's frame,** with v5's own numbers, so that it can be checked against v5 line by line. `Simulation::TestWorld` converts at its `Site`, which writes the scene into the world, and through `WorldXVoxels`, `WorldZVoxels`, `WorldXMeters`, `WorldZMeters` and `WorldQuarterTurns`. `Spike::SceneScript` converts every model it places through the same functions.
-4. **The bake mirrors each layer file in x.** The baked grid keeps the file's +z as its front and its y up, so the shape seen from its front looks as drawn. The files, the `.vox` round trip and the asset check are unchanged, and `ContentTests` checks the mirror on the trebuchet. A template stamped into the world is turned in the world's frame and is not mirrored again with the scene. Together these reproduce a prototype placement exactly: in the prototype the shape is turned t, in the world it is turned 2 − t.
+4. **The bake mirrors each layer file in x.** The baked grid keeps the file's +z as its front and its y up, so the shape seen from its front looks as drawn. The files, the `.vox` round trip and the asset check are unchanged, and `ContentTests` checks the mirror on the trebuchet. The server's view of a template is the client's plus its parts ([ADR-016](ADR-016-server-data-format.md)), so it is mirrored the same way, and the two agree voxel for voxel. A template stamped into the world is turned in the world's frame and is not mirrored again with the scene. Together these reproduce a prototype placement exactly: in the prototype the shape is turned t, in the world it is turned 2 − t.
 
 ## Consequences
 

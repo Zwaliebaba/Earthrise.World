@@ -10,7 +10,7 @@ namespace
 
 // The v5 scene's frame (Design/Reference/SiegePrototypeV2/reference, "Earthrise Siege Scene v5"),
 // in its own 128 m square: the castle's ground at 15 m, and the castle's middle at (74, 61). Its +z
-// is south, and Site mirrors it into the world, whose +z is north (ADR-013), so the scene's numbers
+// is south, and Site mirrors it into the world, whose +z is north (ADR-017), so the scene's numbers
 // are the prototype's own.
 constexpr std::int32_t SCENE = TestWorld::SCENE_EDGE_VOXELS;
 constexpr std::int32_t HEIGHT = TestWorld::HEIGHT_VOXELS;
@@ -158,7 +158,7 @@ std::int64_t RiverX(std::int32_t _z) noexcept
 // ── Writing into the store ────────────────────────────────────────────────────────────────────
 
 /// Where one copy of the v5 scene stands in a world: its 128 m square's corner. It draws in the
-/// scene's own coordinates, mirrored north to south into the world's (ADR-013), and counts what it
+/// scene's own coordinates, mirrored north to south into the world's (ADR-017), and counts what it
 /// changes.
 class Site
 {
@@ -269,7 +269,7 @@ std::pair<std::int32_t, std::int32_t> Turned(std::int32_t _x, std::int32_t _z, s
 
 /// Stamps a template with its turned footprint's minimum corner at the scene's voxel given. Its
 /// front faces the scene's +z, +x, -z or -x after none to three quarter turns. The template is turned
-/// in the world's frame, not mirrored with the scene, so it stands as drawn (ADR-013).
+/// in the world's frame, not mirrored with the scene, so it stands as drawn (ADR-017).
 void Place(const Site& _site, const TemplateShape& _shape, std::int32_t _x, std::int32_t _y, std::int32_t _z, std::uint32_t _quarterTurns)
 {
   const auto width = static_cast<std::int32_t>(_shape.widthVoxels);

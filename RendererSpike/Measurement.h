@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-namespace Spike
+namespace RendererSpike
 {
 
 /// The spike's measured run (MvpPlan.md, M1 task 10; ADR-011, decision 10): a row for each frame of
@@ -72,4 +72,4 @@ private:
   std::vector<EditRow> m_edits;
 };
 
-} // namespace Spike
+} // namespace RendererSpike

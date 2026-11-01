@@ -10,7 +10,7 @@
 #include <span>
 #include <vector>
 
-namespace Spike
+namespace RendererSpike
 {
 
 /// A collapse's debris (RendererLook.md §1; the owner's choice of 2026-11-01, M1's open values,
@@ -55,4 +55,4 @@ private:
   float m_startSeconds = 0.0F;
 };
 
-} // namespace Spike
+} // namespace RendererSpike

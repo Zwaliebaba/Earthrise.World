@@ -116,7 +116,7 @@ The package's touch-first layout puts the minimap and camera buttons top right, 
 | Wall section | NAME W5 · OPEN 40% · REPAIR Ready, or Locked · n s |
 
 - **While a squad moves,** its second row reads ORDER Moving.
-- **Figures and values are Simulation's.** The package's hit points (laborer 25, spearman 45, archer 30, men-at-arms 70, sapper 40, trebuchet 150), the trebuchet's 12–70 m range, a shot's 6 m³, and a garrison of 6 are placeholders. A shot's stone price is an open tuning value (GameDesign.md, F-13). The wall's OPEN reading is the integrity view's (GameDescription.md, *Readability*).
+- **Figures and values are Simulation's.** The package's hit points (laborer 25, spearman 45, archer 30, men-at-arms 70, sapper 40, trebuchet 150), a shot's 6 m³ and a garrison of 6 are placeholders. The trebuchet's range is 12–50 m, decided for M2 (GameDesign.md, *M2's values*, item 12), in place of the package's 12–70 m. A shot's stone price is still open: Proposed at 1.5 m³ (GameDesign.md, *the paper tests' values*, item 17), in place of the package's 6 m³. The wall's OPEN reading is the integrity view's (GameDescription.md, *Readability*).
 
 ## 6. Minimap
 
@@ -208,7 +208,7 @@ Hovering a cell shows the tooltip: hotkey, label and a one-line rule.
 - show the mode banner and a crosshair;
 - end after one action, or stay open while Shift is held, for repeated placement.
 
-**The attack cursor** is a ring with a label that follows the pointer. It has the four readings GameDescription.md asks for, for every ranged attack, the trebuchet included:
+**The attack cursor** is a ring with a label that follows the pointer. It has the readings GameDescription.md asks for, can be hit, blocked and out of range, with out of range split in two for engines that cannot hit close, for every ranged attack, the trebuchet included:
 - **IN RANGE** · d m, plus a shot's stone for an engine (good);
 - **BLOCKED** · d m: in range, but the shot's path meets something solid first, from the same path the shot would take (bad);
 - **TOO CLOSE** · d m (bad);
@@ -218,7 +218,7 @@ Hovering a cell shows the tooltip: hotkey, label and a one-line rule.
 
 ## 9. Font: Earthrise Mason
 
-- **Drawn for the project,** so it meets the MVP's rule of own content only (MvpPlan.md, input 3).
+- **Drawn for the project,** so it meets the MVP's rule of own content only (MvpPlan.md, *Inputs the owner has given*, item 3).
 - **Metrics:**
   - caps and digits are 5 × 7, lowercase has a 5-row x-height and 2-row descenders;
   - the cell is 10 rows: one above the caps and two below the baseline;

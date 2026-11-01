@@ -16,7 +16,7 @@ namespace Simulation
 
 /// A template's shape as Simulation reads it: its box of palette indices, x fastest, then z, then
 /// y, 0 where it is empty. Its front is +z, and it is the layer file mirrored in x, as the bake
-/// writes it, so that it looks as drawn in the world's frame (ADR-013).
+/// writes it, so that it looks as drawn in the world's frame (ADR-017).
 struct TemplateShape
 {
   std::uint32_t widthVoxels;
@@ -57,7 +57,7 @@ struct CollapseRecord
 /// open values, item 5).
 ///
 /// The scene is stated in the frame its prototype draws in, where +z is south, and the world's +z
-/// is north, so the square is mirrored north to south on its way in (ADR-013). These functions take
+/// is north, so the square is mirrored north to south on its way in (ADR-017). These functions take
 /// a scene coordinate to the world's.
 struct TestWorld
 {

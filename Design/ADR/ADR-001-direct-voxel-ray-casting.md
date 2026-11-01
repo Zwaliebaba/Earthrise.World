@@ -1,6 +1,6 @@
 # ADR-001 — The world is drawn by direct voxel ray-casting, not by meshing
 
-**Status:** Accepted, 2026-10-30. Decided by the owner before the design phase. Nothing implements it yet.
+**Status:** Accepted, 2026-10-30. Decided by the owner before the design phase. M1 implements it: the voxel pass in `Engine` (`Engine/VoxelPass.h`, `Engine/Shader/`) and its render tests on WARP ([ADR-012](ADR-012-render-tests-on-warp.md)). [ADR-011](ADR-011-renderer-first-choices.md) settles the choices left open below, and specializes step 2's bounds and the depth rule for the orthographic camera.
 
 **Source:** A. Majercik, C. Crassin, P. Shirley, M. McGuire, *A Ray-Box Intersection Algorithm and Efficient Dynamic Voxel Rendering*, Journal of Computer Graphics Techniques 7(3), 66–81, 2018 — [`Design/Reference/Majercik2018Voxel.pdf`](../Reference/Majercik2018Voxel.pdf), <http://jcgt.org/published/0007/03/04/>. Section and listing numbers below refer to it.
 
@@ -56,9 +56,9 @@ Changing any of these is a new ADR that supersedes this one.
 
 These are design questions or later ADRs, not part of this decision:
 
-- **The world's extent and how voxels are grouped into objects** for culling and for editing. The size of a voxel is settled: 1 m for the world and 0.5 m for models ([ADR-006](ADR-006-voxel-sizes.md)).
+- **The world's extent and how voxels are grouped into objects** for culling and for editing. *(Grouping settled by ADR-011: chunks of 32³.)* The size of a voxel is settled: 1 m for the world and 0.5 m for models ([ADR-006](ADR-006-voxel-sizes.md)).
 - **Worlds larger than GPU memory: streaming and level of detail.** The paper does not address them. Stochastic pruning thins distant voxels, but they still have to be resident. Cost is linear in both pixel count and voxel count (Fig. 8), so in an open world the view distance is the budget. This is the largest gap between the paper and this game.
-- **Axis-aligned or oriented voxels.** The paper supports both, and the axis-aligned path is cheaper. A related question is whether voxels animate one by one.
-- **How quads are issued.** The options are an instanced quad, vertices derived from `SV_VertexID`, or mesh shaders (Shader Model 6.5 via `dxc`).
-- **Orthographic shadow maps.** A sun is a directional light, and the paper describes the pinhole-perspective case.
-- **Depth convention (reversed-Z or not), MSAA, and the shading and material model.** The paper shades one color per voxel.
+- **Axis-aligned or oriented voxels.** The paper supports both, and the axis-aligned path is cheaper. A related question is whether voxels animate one by one. *(Settled: the world and models are axis-aligned ([ADR-006](ADR-006-voxel-sizes.md)); collapse debris is oriented voxels (GameDesign.md, M1's open values, item 7; ADR-011, amended).)*
+- **How quads are issued.** The options are an instanced quad, vertices derived from `SV_VertexID`, or mesh shaders (Shader Model 6.5 via `dxc`). *(Settled by ADR-011, decision 6: an instanced quad per visible voxel, one draw per chunk.)*
+- **Orthographic shadow maps.** A sun is a directional light, and the paper describes the pinhole-perspective case. *(Settled by ADR-011.)*
+- **Depth convention (reversed-Z or not), MSAA, and the shading and material model.** The paper shades one color per voxel. *(Depth and MSAA settled by ADR-011: reversed-Z, no MSAA in M1; the look by RendererLook.md.)*
