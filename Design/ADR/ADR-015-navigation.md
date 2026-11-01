@@ -6,7 +6,8 @@
   - **A run of R cells is R steps:** a link is open for a class when every window of R + 1 consecutive cells along the link's line that holds both of its ends rises or falls by at most 1 m over its walkable ground. For R = 1 that is M1's rule. Cells off the grid or with no surface are left out of a window.
   - **A ford is the one voxel of water a surface may stand in,** as M1's surface rule already allows; a class wades it when its ford depth is at least 1, which every class's is.
   - **Ground is rubble** when the voxel under the surface is rubble of either kind.
-  - **The margin** an edit's tiles widen by is the longest climb run or the widest class's clearance less one, whichever is larger: 3 cells for the MVP's classes.
+  - **The margin** an edit's tiles widen by is the longest climb run plus the widest class's clearance less one: a cell's clearance reads the square it is the corner of, and a link reads the run beyond the cells whose clearance changed. That is 5 cells for the MVP's classes (M2-F2; F1 had it as the larger of the two, before clearance existed).
+  - **Clearance** (M2-F2) is built square by square, adding a row and a column each step, up to the widest class's width, 3; a class enters a cell whose clearance is at least its width, and its links open only between such cells.
 
 It fixes the model and leaves the search algorithm to the navigation orders, which choose it by measurement ([MvpPlan-M2.md](../MvpPlan-M2.md), phase F). M2-F1 implements the classes; the search and movement follow in phase F.
 

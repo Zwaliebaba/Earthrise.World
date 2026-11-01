@@ -34,7 +34,9 @@ inline constexpr std::size_t NAVIGATION_CLASS_COUNT = 3;
 /// overhang is never a column's surface (ADR-015, decision 1).
 ///
 /// Each class has its own links to the eight neighbours (decision 2). A class stands where its
-/// headroom fits and its fords allow. It climbs at most climbVoxels over a run of its climbRunCells
+/// headroom fits and its fords allow, and it enters a cell only where its clearance, the widest
+/// square of such cells within 1 m of the cell's height with the cell at its minimum corner, is at
+/// least its width, capped at the widest class's (Harabor and Botea, 2008). It climbs at most climbVoxels over a run of its climbRunCells
 /// cells: a link is open when, along the link's line, the walkable ground rises or falls by at most
 /// that over every run of climbRunCells steps that includes the link. A diagonal is open only when
 /// the four straight links around it are, so no class cuts a corner. An edit rebuilds the tiles its
@@ -116,12 +118,22 @@ public:
   [[nodiscard]] Ground GroundAt(std::int32_t _x, std::int32_t _z) const;
 
   /// Whether a class can stand in a cell: it is walkable, its headroom fits and its ford allows.
+  [[nodiscard]] bool Standable(std::int32_t _x, std::int32_t _z, NavigationClass _class) const;
+
+  /// The width of the largest square, with this cell at its minimum corner, every cell of which the
+  /// class can stand in within 1 m of this cell's height; capped at the widest class's width
+  /// (ADR-015, decision 2).
+  [[nodiscard]] std::uint8_t Clearance(std::int32_t _x, std::int32_t _z, NavigationClass _class) const;
+
+  /// Whether a class can enter a cell: it can stand there, and its clearance is at least the class's
+  /// width.
   [[nodiscard]] bool Usable(std::int32_t _x, std::int32_t _z, NavigationClass _class) const;
 
   [[nodiscard]] const ClassRule& Class(NavigationClass _class) const noexcept;
 
-  /// How far a cell's links reach to the cells they read: the longest climb run, or the widest
-  /// class's clearance square, whichever is larger.
+  /// How far an edit's reach runs to the links it can change: a cell's clearance reads the widest
+  /// class's square, less one, and a link reads the longest climb run beyond the cells whose
+  /// clearance changed.
   [[nodiscard]] std::int32_t MarginCells() const noexcept;
 
   [[nodiscard]] std::int32_t TilesAcross() const noexcept;
@@ -135,6 +147,7 @@ public:
 
 private:
   void RebuildCell(const ChunkStore& _store, std::int32_t _x, std::int32_t _z);
+  void RebuildClearance(std::int32_t _minX, std::int32_t _minZ, std::int32_t _maxX, std::int32_t _maxZ);
   void RebuildLinks(std::int32_t _minX, std::int32_t _minZ, std::int32_t _maxX, std::int32_t _maxZ);
   [[nodiscard]] bool StraightOpen(std::int32_t _x, std::int32_t _z, std::int32_t _dx, std::int32_t _dz, const ClassRule& _rule,
                                   std::size_t _class) const;
@@ -145,11 +158,14 @@ private:
   const MaterialRules& m_materials;
   std::array<ClassRule, NAVIGATION_CLASS_COUNT> m_classes{};
   std::int32_t m_margin = 1;
+  std::int32_t m_clearanceReach = 0; // the widest class's width, less one
   std::uint8_t m_headroomCap = 2;
+  std::uint8_t m_clearanceCap = 1;
   std::vector<std::int16_t> m_heights;
   std::vector<std::uint8_t> m_headroom;
   std::vector<Ground> m_ground;
   std::array<std::vector<std::uint8_t>, NAVIGATION_CLASS_COUNT> m_links;
+  std::array<std::vector<std::uint8_t>, NAVIGATION_CLASS_COUNT> m_clearance;
 };
 
 } // namespace Simulation

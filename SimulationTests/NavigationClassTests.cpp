@@ -118,13 +118,13 @@ public:
     Assert::AreEqual(GROUND, grid.WalkableHeight(24, 22));
     for (const Class navigationClass : {Class::Foot, Class::Cavalry, Class::Machines})
     {
-      Assert::IsTrue(grid.Usable(24, 22, navigationClass));
-      Assert::IsTrue(grid.Usable(23, 22, navigationClass) && grid.Usable(25, 22, navigationClass));
+      Assert::IsTrue(grid.Standable(24, 22, navigationClass));
+      Assert::IsTrue(grid.Standable(23, 22, navigationClass) && grid.Standable(25, 22, navigationClass));
     }
     Assert::AreEqual(std::uint8_t{2}, grid.Headroom(41, 40));
-    Assert::IsTrue(grid.Usable(41, 40, Class::Foot));
-    Assert::IsFalse(grid.Usable(41, 40, Class::Cavalry));
-    Assert::IsFalse(grid.Usable(41, 40, Class::Machines));
+    Assert::IsTrue(grid.Standable(41, 40, Class::Foot));
+    Assert::IsFalse(grid.Standable(41, 40, Class::Cavalry));
+    Assert::IsFalse(grid.Standable(41, 40, Class::Machines));
     Assert::AreEqual(std::uint8_t{4}, grid.Headroom(5, 5)); // the open sky, capped at the tallest need
   }
 
@@ -173,7 +173,7 @@ public:
     Simulation::ChunkStore store;
     Ground(store);
     const Grid grid = Built(store);
-    Assert::AreEqual(3, grid.MarginCells()); // machines climb over 3 cells, and are 3 wide
+    Assert::AreEqual(5, grid.MarginCells()); // machines climb over 3 cells, beyond a clearance square 3 wide
     const std::array<Protocol::VoxelPosition, 1> nearEdge = {{{.xVoxels = 29, .yVoxels = 3, .zVoxels = 10}}};
     Assert::AreEqual(std::size_t{2}, grid.TilesTouchedBy(nearEdge).size());
     const std::array<Protocol::VoxelPosition, 1> inside = {{{.xVoxels = 20, .yVoxels = 3, .zVoxels = 10}}};

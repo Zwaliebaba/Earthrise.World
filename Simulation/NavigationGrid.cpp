@@ -57,6 +57,8 @@ NavigationGrid::NavigationGrid(const Desc& _desc, const MaterialRules& _material
                    .fordFactor = rules.machinesFordFactor}}};
   }
   std::int32_t headroom = 2;
+  std::int32_t run = 1;
+  std::int32_t width = 1;
   for (const ClassRule& rule : m_classes)
   {
     if (rule.climbRunCells < 1 || rule.climbRunCells > TILE_EDGE_CELLS || rule.headroomVoxels < 2 || rule.headroomVoxels > UINT8_MAX ||
@@ -64,10 +66,14 @@ NavigationGrid::NavigationGrid(const Desc& _desc, const MaterialRules& _material
     {
       throw std::invalid_argument("a navigation class needs a run, a headroom of 2 or more, a width and its factors");
     }
-    m_margin = std::max({m_margin, rule.climbRunCells, rule.widthVoxels - 1});
+    run = std::max(run, rule.climbRunCells);
+    width = std::max(width, rule.widthVoxels);
     headroom = std::max(headroom, rule.headroomVoxels);
   }
   m_headroomCap = static_cast<std::uint8_t>(headroom);
+  m_clearanceCap = static_cast<std::uint8_t>(width);
+  m_clearanceReach = width - 1;
+  m_margin = run + m_clearanceReach;
   const std::size_t cells = static_cast<std::size_t>(m_desc.widthCells) * static_cast<std::size_t>(m_desc.depthCells);
   m_heights.assign(cells, NOT_WALKABLE);
   m_headroom.assign(cells, 0);
@@ -75,6 +81,10 @@ NavigationGrid::NavigationGrid(const Desc& _desc, const MaterialRules& _material
   for (std::vector<std::uint8_t>& links : m_links)
   {
     links.assign(cells, 0);
+  }
+  for (std::vector<std::uint8_t>& clearance : m_clearance)
+  {
+    clearance.assign(cells, 0);
   }
 }
 
@@ -87,6 +97,7 @@ void NavigationGrid::RebuildAll(const ChunkStore& _store)
       RebuildCell(_store, x, z);
     }
   }
+  RebuildClearance(0, 0, m_desc.widthCells - 1, m_desc.depthCells - 1);
   RebuildLinks(0, 0, m_desc.widthCells - 1, m_desc.depthCells - 1);
 }
 
@@ -107,7 +118,9 @@ void NavigationGrid::RebuildTile(const ChunkStore& _store, std::int32_t _tileX, 
       RebuildCell(_store, x, z);
     }
   }
-  // The cells around the tile, as far as the margin, read its cells, so their links are redone too.
+  // The cells whose squares reach into the tile redo their clearance, and the cells as far as the
+  // margin, whose links read those, their links.
+  RebuildClearance(minX - m_clearanceReach, minZ - m_clearanceReach, maxX, maxZ);
   RebuildLinks(minX - m_margin, minZ - m_margin, maxX + m_margin, maxZ + m_margin);
 }
 
@@ -176,7 +189,7 @@ NavigationGrid::Ground NavigationGrid::GroundAt(std::int32_t _x, std::int32_t _z
   return m_ground[Index(_x, _z)];
 }
 
-bool NavigationGrid::Usable(std::int32_t _x, std::int32_t _z, NavigationClass _class) const
+bool NavigationGrid::Standable(std::int32_t _x, std::int32_t _z, NavigationClass _class) const
 {
   if (!Inside(_x, _z))
   {
@@ -186,6 +199,20 @@ bool NavigationGrid::Usable(std::int32_t _x, std::int32_t _z, NavigationClass _c
   const ClassRule& rule = m_classes.at(static_cast<std::size_t>(_class));
   return m_heights[at] != NOT_WALKABLE && m_headroom[at] >= rule.headroomVoxels &&
          (m_ground[at] != Ground::Ford || rule.fordDepthVoxels >= 1);
+}
+
+std::uint8_t NavigationGrid::Clearance(std::int32_t _x, std::int32_t _z, NavigationClass _class) const
+{
+  if (!Inside(_x, _z))
+  {
+    return 0;
+  }
+  return m_clearance.at(static_cast<std::size_t>(_class))[Index(_x, _z)];
+}
+
+bool NavigationGrid::Usable(std::int32_t _x, std::int32_t _z, NavigationClass _class) const
+{
+  return Standable(_x, _z, _class) && Clearance(_x, _z, _class) >= Class(_class).widthVoxels;
 }
 
 const NavigationGrid::ClassRule& NavigationGrid::Class(NavigationClass _class) const noexcept
@@ -299,6 +326,43 @@ bool NavigationGrid::StraightOpen(std::int32_t _x, std::int32_t _z, std::int32_t
     }
   }
   return true;
+}
+
+void NavigationGrid::RebuildClearance(std::int32_t _minX, std::int32_t _minZ, std::int32_t _maxX, std::int32_t _maxZ)
+{
+  for (std::size_t navigationClass = 0; navigationClass < NAVIGATION_CLASS_COUNT; ++navigationClass)
+  {
+    const NavigationClass which = CLASSES.at(navigationClass);
+    std::vector<std::uint8_t>& clearance = m_clearance.at(navigationClass);
+    for (std::int32_t z = std::max(0, _minZ); z <= std::min(m_desc.depthCells - 1, _maxZ); ++z)
+    {
+      for (std::int32_t x = std::max(0, _minX); x <= std::min(m_desc.widthCells - 1, _maxX); ++x)
+      {
+        // The widest square, from 1 up to the cap, whose every cell the class stands in within 1 m
+        // of this cell's height: each step adds the square's next row and column.
+        std::uint8_t width = 0;
+        const std::int16_t height = m_heights[Index(x, z)];
+        while (width < m_clearanceCap)
+        {
+          const std::int32_t edge = width;
+          bool fits = true;
+          for (std::int32_t step = 0; step <= edge && fits; ++step)
+          {
+            for (const auto& [cellX, cellZ] : {std::pair{x + edge, z + step}, std::pair{x + step, z + edge}})
+            {
+              fits = fits && Standable(cellX, cellZ, which) && std::abs(m_heights[Index(cellX, cellZ)] - height) <= m_desc.climbVoxels;
+            }
+          }
+          if (!fits)
+          {
+            break;
+          }
+          ++width;
+        }
+        clearance[Index(x, z)] = width;
+      }
+    }
+  }
 }
 
 void NavigationGrid::RebuildLinks(std::int32_t _minX, std::int32_t _minZ, std::int32_t _maxX, std::int32_t _maxZ)
