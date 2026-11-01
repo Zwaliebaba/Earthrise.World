@@ -11,8 +11,8 @@
 | A | A1 | The owner's decisions, written down | The owner's answers to inputs 1–27 |
 | B | B1–B5 | T1–T7 at 1 m; units', structures' and the trial's server data; the castle as a scenario; the font's four icons | A, and M3 closed |
 | C | C1–C6 | Commands, players, hit points and damage; formations; melee and orders; arrows; the trebuchet against units and engines; the ram | B3 |
-| D | D1–D6 | Working and ruin; gates; garrisons; the passage attack; repair and its lock; sappers' trenches | C1, B3 |
-| E | E1 | Fog: visibility, the filtered state, chunks sent when seen | C1, D1 |
+| D | D1–D6 | Working and ruin; gates; garrisons; the passage attack; repair and its lock; sappers' trenches | C1, B1, B3 |
+| E | E1 | Fog: visibility, the filtered state, chunks sent when seen | C1, D |
 | F | F1–F5 | The trial's rules and events; the defender; the control; the scripted attacker and the trial in CI | D, E, B4 |
 | G | G1–G3 | `Engine`: the line pass, silhouettes and the column shade, the image atlas | A |
 | H | H1–H3 | The client draws units, engines, gates, arrows, fog and silhouettes | F5, G |
@@ -44,10 +44,10 @@ B1, B2 and B5 are content and can land beside B3. G needs only A, so its three o
 
 The seams more than one order builds on. Parameters, members and constants follow AGENTS.md §1. Each contract's comments state its rules. M3's contracts stand, and these extend them; a field marked "M3's" is there already.
 
-### `Protocol`: what crosses the boundary (C1, D1, E1, F1)
+### `Protocol`: what crosses the boundary (B3, C1, D1, E1, F1)
 
 ```cpp
-// Protocol/EntityKinds.h gains:
+// Protocol/EntityKinds.h gains, in B3, since UnitStats and the scenario need them:
 enum class UnitKind : std::uint8_t { Laborer, Spearman, Archer, Outrider, ManAtArms, Sapper, Ram, Trebuchet }; // M3's six, and the engines' bodies (ADR-023)
 inline constexpr std::size_t UNIT_KIND_COUNT = 8;
 enum class EngineKind : std::uint8_t { Trebuchet, Ram };
@@ -91,7 +91,7 @@ struct StructureView // + M3's id, owner, templateId, originVoxels, quarterTurns
   std::uint8_t garrisonCapacity;
   std::int32_t hitPoints;          // the control only (ADR-028); 0 in the voxel version
   std::int32_t maxHitPoints;
-  bool opened;                     // a foot route from the camp crosses its footprint (ADR-026, decision 5)
+  bool opened;                     // sections only: a foot route from the camp through its footprint to its inner side (ADR-026, decision 5)
   bool lastSeen;                   // not visible now: as it stood when last visible (ADR-025, decision 2)
 };
 struct EngineView { /* + M3's id, owner, kind, cellVoxels, quarterTurns, reloadTicks */ EntityId squad; EngineState state; std::uint32_t stateTicksLeft; FixedPosition position; std::int32_t hitPoints; std::int32_t maxHitPoints; };
@@ -121,9 +121,9 @@ struct StateUpdate // + M3's tick, structures, engines, squads, units, shots, co
   std::vector<std::uint64_t> visibleCells; // bit z * widthCells + x (ADR-025, decision 2)
 };
 
-// Protocol/Query.h gains (query and answer record version 2):
+// Protocol/Query.h gains, each order that adds a field raising QUERY_RECORD_VERSION by one: C4 to 2, D5 to 3, E1 to 4.
 struct SquadAim { EntityId squad; VoxelPosition targetVoxels; };  // tag 4: the attack cursor for a ranged squad, answered by an AimReading from its lead's loosing point
-// Answer gains bool notVisible (ADR-025, decision 6); IntegrityReading gains std::uint32_t repairLockTicks.
+// IntegrityReading gains std::uint32_t repairLockTicks (D5); Answer gains bool notVisible (E1; ADR-025, decision 6).
 ```
 
 ### `Simulation` (B3, B4, C1–C6, D1–D6, E1, F1–F5)
@@ -139,20 +139,21 @@ struct UnitStats
   std::array<std::int32_t, 3> armor;                  // by Protocol::DamageType
   Protocol::DamageType attackType;
   std::int32_t attack;                                // 0 for kinds with no attack on units
-  std::uint32_t reloadTicks;
-  std::int32_t rangeVoxels;                           // 0: melee, the eight neighbouring cells
+  std::uint32_t reloadTicks;                          // 0 for the engines: RULE owns the trebuchet's and the ram's (ADR-023, decision 1)
+  std::int32_t rangeVoxels;                           // 0: melee, the eight neighbouring cells; 0 for the engines, as reloadTicks
   std::array<std::int32_t, Protocol::UNIT_KIND_COUNT> bonus;
   std::int32_t visionVoxels;
-  Core::Fixed speedMetersPerTick;
+  Core::Fixed speedMetersPerTick;                     // replaces RULE's class speeds; RULE keeps footSpeedMetersPerTick for the warning
   Core::Fixed digCubicMetersPerTick;                  // sappers and laborers; 0 otherwise
 };
 /// ADR-023, decision 2: max(1, floor((attack + bonus) * (100 + 15 * steps) / 100) - armor), steps for pierce only.
 [[nodiscard]] std::int32_t Damage(const UnitStats& _attacker, const UnitStats& _target, std::int32_t _elevationSteps);
 
-// Simulation/StructureRules.h — B3, from STRC (ADR-024, decision 7).
-struct StructureRules { std::string templateId; std::uint8_t criticalThresholdPercent; std::uint8_t garrisonCapacity; std::int32_t standHeightVoxels; std::int32_t visionVoxels; std::int32_t controlHitPoints; };
+// Simulation/TemplateRules.h — B3, from STRC (ADR-024, decision 7).
+struct TemplateRules { std::string templateId; std::uint8_t criticalThresholdPercent; std::uint8_t garrisonCapacity; std::int32_t standHeightVoxels;
+                       std::int32_t visionVoxels; std::int32_t garrisonedVisionVoxels; std::int32_t controlHitPoints; std::int32_t controlHitPointsPerCubicMeter; };
 
-// ServerData gains: [[nodiscard]] const UnitStats& Stats(Protocol::UnitKind) const; [[nodiscard]] const StructureRules* FindStructureRules(std::string_view) const;
+// ServerData gains: [[nodiscard]] const UnitStats& Stats(Protocol::UnitKind) const; [[nodiscard]] const TemplateRules* FindTemplateRules(std::string_view) const;
 // [[nodiscard]] const Scenario* FindScenario(std::string_view) const. Rules gains B3's RULE keys.
 
 // Simulation/World.h gains:
@@ -196,7 +197,9 @@ public:
   void SetTrial(const TrialRules& _rules);                                 // before tick 0; saved
   [[nodiscard]] std::span<const TrialEvent> LastTickEvents() const noexcept; // unfiltered: for Earthrise's log and the tests, never the client
   void SetCommander(std::uint8_t _player, std::unique_ptr<Commander> _commander); // before tick 0; saved (ADR-027)
+  // LastTickCommands (M2's) holds the transport's commands alone, never a commander's (ADR-027, decision 2).
 };
+// ReplayRecorder's header gains each seat's commander kind, empty for a human's; Replay rebuilds them (ADR-027, decision 6; ADR-014 amended).
 
 // Simulation/Formation.h — C2 (ADR-022, decision 4). Pure.
 /// The slots of a squad of _figures in _ranks ranks behind _leadVoxels, facing _direction (0 north, then clockwise in eighths), 1 m apart; slot 0 is the lead.
@@ -256,7 +259,7 @@ public:
 
 ```cpp
 // Content/Font.h: FONT_GLYPH_COUNT becomes 131. Icons U+E019 split, U+E01A merge, U+E01B deploy and U+E01C wall join M3's 25,
-// each 9 x 9 (input 21).
+// each 9 x 9 (input 21). The client's glyph atlas grows from 16 x 8 cells to 16 x 9, 160 x 90 texels (ADR-019, decision 2, amended).
 ```
 
 ### `Engine` (G1–G3)
@@ -293,8 +296,10 @@ void SetImageAtlas(ID3D12Resource* _atlas, std::uint32_t _widthTexels, std::uint
 ```cpp
 // Client/Interpolation.h — H1 (input 20).
 /// Where an entity is drawn: between its positions in the previous and the last update at the clock's fraction, a tick behind,
-/// or at its last when it had none before or moved more than 1.5 m in the tick (a drop, a lift, a step 9 move).
-[[nodiscard]] DirectX::XMFLOAT3 DrawnPosition(const Protocol::FixedPosition* _previous, const Protocol::FixedPosition& _last, double _tickFraction);
+/// or at its last when it had none before or moved more than _snapMeters in the tick. Units pass 1.5 (a drop, a lift, a step 9 move);
+/// shots pass infinity, since an arrow flies 2 m a tick.
+[[nodiscard]] DirectX::XMFLOAT3 DrawnPosition(const Protocol::FixedPosition* _previous, const Protocol::FixedPosition& _last, double _tickFraction,
+                                            float _snapMeters);
 
 // Client/Selection.h — I2 (Hud.md §5, §10).
 struct Selection
@@ -336,7 +341,7 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
   - **GameDesign.md** gains `### <date>: M4's values`, with each input as Decided in the owner's words, or as the owner changed it. Input 27 stays Proposed, because F5 measures it. The Open question *The HUD's sizes* is rewritten as the owner decides it (input 21), and the v3 package's open item on the packed wagon's width as input 17 decides it. The paper tests' Proposed values the inputs take up (items 11, 14, 15, 16 and 17) are marked Decided or changed.
   - **MvpPlan.md:** each input's row says Decided, and input 1 records the go-ahead for each ADR.
   - **The ADRs** are edited where the owner changed them, and stay Proposed (AGENTS.md §6).
-  - **Hud.md:** its Proposed items the inputs decide (selecting by a squad's footprint, the deck's coverage, the minimap built at its drawn size) and the placeholders in §5 that the inputs replace are marked Decided or changed; §5's wall row follows input 22.
+  - **Hud.md:** its Proposed items the inputs decide (selecting by a squad's footprint, the deck's coverage, the minimap built at its drawn size) and the placeholders in §5 that the inputs replace are marked Decided or changed; §5's wall row follows input 22; §1's and §5's control differences gain the gatehouse's and the keep's HEALTH rows (input 19).
 - **Tests:** none. The checkers run, and every relative link resolves.
 
 ## Phase B — Content and server data
@@ -355,11 +360,12 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 - **Owner runs:** the previews in `Design/Previews/`, and the renderer spike, whose v5 scene draws T1–T7 from `Content`: the seven templates natively at 1 m, with no majority-vote artefacts on edges and openings.
 
 ### M4-B3 — Units, structures and the trial's rules as server data
-- **Waits on:** A1, and inputs 6–13, 17 and 19.
+- **Waits on:** A1, and inputs 6–14, 17–19 and 27.
 - **Read first:** ADR-016, decisions 3 and 4; ADR-023, decision 1; ADR-024, decision 7; `Tools/BakeContent.py`'s server half; `Simulation/ServerData.cpp`'s `RULE_FIELDS` and section checks; *Contracts*, `Simulation`.
 - **Changes:**
-  - **`GameData/Server/Units.json`** and **`Structures.json`**, with input 6's and input 10's values under keys named with their units, and the `UNIT` and `STRC` sections they bake into; `Rules.json` gains inputs 7–9, 11–13, 17 and 19's values, ADR-022's wait and ADR-027's cadence, and `RULE_FIELDS` their keys.
-  - **`ServerData`** accepts the two sections at version 1, and gives `Stats` and `FindStructureRules`; `Simulation/UnitStats.h` and `StructureRules.h`, in the filter `Data`, with `Damage`.
+  - **`GameData/Server/Units.json`** and **`Structures.json`**, with input 6's and input 10's values under keys named with their units, and the `UNIT` and `STRC` sections they bake into; `Rules.json` gains inputs 7–9, 11–13, 17 and 19's values, ADR-022's wait, ADR-025's reveal, and ADR-027's cadence and `commanderWorkPerTick` at input 27's starting value, and `RULE_FIELDS` their keys; the class speeds leave `RULE` for `UNIT`'s kinds, `footSpeedMetersPerSecond` staying for the warning (ADR-023, decision 1). Rates per second bake to Q16.16 a tick, as speeds do; the garrison's healing is seconds per hit point, so every value converts exactly.
+  - **`Protocol/EntityKinds.h`** gains *Contracts*' enumerations here, ahead of C1, since `UnitStats` and the scenario need them.
+  - **`ServerData`** accepts the two sections at version 1, and gives `Stats` and `FindTemplateRules`; `Simulation/UnitStats.h` and `TemplateRules.h`, in the filter `Data`, with `Damage`.
   - **`Tools/CheckAssets.py`** gains check 15: every unit kind once, every bonus naming a kind, every structure naming a template, thresholds 1–100, every value converting exactly; `Tools/TestCheckAssets.py` and `TestBakeContent.py` gain a broken file of each and the round trip.
 - **Tests:** **`UnitStatsTests`:** every kind reads back its input-6 values; `Damage` gives input 6's table of first hits for every pairing of the five soldier kinds, with steps −2 to 2 for the archer; it is never below 1. **`ServerDataTests`:** a file lacking `UNIT` or `STRC` is refused by name, as is a `RULE` lacking any new key.
 - **ADR:** ADR-023's decision 1 and ADR-024's decision 7 are implemented; both stay Proposed until C1 and D1. ADR-016 is amended: `UNIT` and `STRC` join at section version 1.
@@ -369,7 +375,7 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 - **Read first:** ADR-026; ADR-014, decision 7; Review/PaperTests/SiegeRouteTable.md, *The castle* and its per-section table; `Simulation/BreachLab.cpp`'s `BuildLabSite`, the levelling M3 wrote; *Contracts*, `Simulation`, `Scenario`.
 - **Changes:**
   - **`GameData/Server/Scenarios/Siege.json`**: the route table's castle (input 4) at the site the order picks on the generated map: the flattest 200 × 200 m clear of the river, reported with its levelling volume. The site levelled; 1 m of soil over common rock, deep earth 8 m deep under E3 and its approach; the ditch and rampart, the causeway and E3's gap; the 22 sections S1–S4, E1–E6, N1–N6 and W1–W6, the towers SW, SE, NW, NE and ST, the gatehouse GH, the keep and the hall, each named; E3's foundation at 4 m; the camp 100 m south; input 5's armies and stockpiles, the defender's archers in the seven garrisons; the attacker's map seen at the start (input 14); the trial's rules (inputs 15 and 16).
-  - **The `SCEN` section,** its check (check 16: ADR-026, decision 2's list) and bake; **`Simulation/Scenario.h` and `.cpp`,** in the filter `World`: `ScenarioDesc` and `LoadScenario`; `World::AddPlayer`, `PlaceInGarrison`, `SetTrial` stored and saved, with no behaviour yet; `AddStructure` with its foundation depth.
+  - **The `SCEN` section,** its check (check 16: ADR-026, decision 2's list) and bake; **`Simulation/Scenario.h` and `.cpp`,** in the filter `World`: `ScenarioDesc` and `LoadScenario`; `World::AddPlayer`, `PlaceInGarrison`, `SetTrial` stored and saved, with no behaviour yet; `AddStructure` with its foundation depth; `AddSiegeEngine` with its state.
   - **`Earthrise --siege`** loads the scenario in place of the lab's site and runs it with M3's client, nothing ordered, so the owner sees the castle (J1 builds the trial on it).
 - **Tests:** **`ScenarioTests`:** the castle has 22 sections, 5 towers, a gatehouse, a keep and a hall with their names; S3 is the section nearest the camp, stands on rock and has the ditch before it; E3 stands on earth with no ditch, farther from the camp than S3; GH's gate is at its passage's inner end; loading twice gives one state hash; a save at tick 0 loads to the same hash; every squad's cells are walkable and distinct.
 - **ADR:** marks ADR-026 Accepted for decisions 1–3; decisions 4–6 land in F1 and J2. ADR-016 is amended: `SCEN` joins.
@@ -378,8 +384,8 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 ### M4-B5 — Four icons for the font
 - **Waits on:** A1, and input 21.
 - **Read first:** Hud.md §7 and §9; ADR-019, *Left open*; `GameData/Client/Fonts/EarthriseMason-glyphs.json`; `Tools/CheckAssets.py`'s check 13.
-- **Changes:** SPLIT, MERGE, DEPLOY and WALL as 9 × 9 icons at U+E019–U+E01C, drawn in the font's style; check 13's counts move to 131 glyphs and 29 icons; the atlases in `Design/Previews/` regenerated; `FONT_GLYPH_COUNT` 131.
-- **Tests:** `Tools/TestCheckAssets.py`; **`FontTests`**: 131 glyphs; the four icons present and 9 wide.
+- **Changes:** SPLIT, MERGE, DEPLOY and WALL as 9 × 9 icons at U+E019–U+E01C, drawn in the font's style; check 13's counts move to 131 glyphs and 29 icons; the atlases in `Design/Previews/` regenerated; `FONT_GLYPH_COUNT` 131; `Client::FontAtlas` grows to 16 × 9 cells, 160 × 90, since 131 glyphs overflow M3's 128 cells; ADR-019, decision 2, amended.
+- **Tests:** `Tools/TestCheckAssets.py`; **`FontTests`**: 131 glyphs; the four icons present and 9 wide; **`FontAtlasTests`** (`ClientTests`): glyph 131 lands in the ninth row's third cell.
 
 ## Phase C — Units and combat
 
@@ -396,26 +402,26 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 - **Waits on:** C1.
 - **Read first:** ADR-022; ADR-015, M2-F5 and M2-F6; `Simulation/World.cpp`'s `FormTrail`, `Walk` and `SettleUnits`; *Contracts*, `Simulation`, `FormationSlots`.
 - **Changes:** reservations, the swap, slots and the wait in step 3, and step 9's free-cell rule, in the filter `Navigation`; `Simulation/Formation.h` and `.cpp`.
-- **Tests:** **`FormationTests`:** `FormationSlots` for six facing north is two ranks of three behind the lead, and for each of the eight directions the same shape turned; three outriders stand in one rank. **`MovementTests`** gain: on open ground a squad of six arrives in two ranks about its goal; through a 1 m gap it passes in single file and re-forms; no two units share a cell on any tick of the breach run with two squads ordered through the breach; two squads meeting head-on in a 1 m corridor both pass; a squad blocked for `waitTicksBeforeSearch` searches again; the rate through the breach run's slot is recorded and replays to the same ticks. M2's single-file checks for a squad alone in a 1 m corridor pass unchanged.
+- **Tests:** **`FormationTests`:** `FormationSlots` for six facing north is two ranks of three with the lead in the front rank's middle, and for each of the eight directions the same shape turned; three outriders stand in one rank. **`MovementTests`** gain: on open ground a squad of six arrives in two ranks about its goal; through a 1 m gap it passes in single file and re-forms; no two units share a cell on any tick of the breach run with two squads ordered through the breach; two squads meeting head-on in a 1 m corridor both pass; a squad blocked for `waitTicksBeforeSearch` searches again; the rate through the breach run's slot is recorded and replays to the same ticks. M2's single-file checks for a squad alone in a 1 m corridor pass unchanged.
 - **ADR:** marks ADR-022 Accepted; ADR-015's decision 6 and *Left open* point to it.
 
 ### M4-C3 — Melee and the squads' orders
 - **Waits on:** C2.
 - **Read first:** ADR-023, decisions 3 and 4; Hud.md §7's cards for soldiers; GameDescription.md, *Squads*.
 - **Changes:** acquisition, melee strikes worked out from the step's starting state and applied together, `AttackTarget` on a squad or an engine, `StormTo`, `StopSquad`, `HoldSquad`, `SplitSquad` and `MergeSquads`, in the filter `Combat`.
-- **Tests:** **`MeleeTests`:** for each counter pairing of the roster, six against six on open ground, the side the roster says is strong wins, and the ticks and survivors match the inputs' arithmetic; two figures that kill each other on the same tick both die; a holding squad strikes and does not move; a storming squad engages what it meets and goes on; split gives a squad of one with the highest-id figure; merge of a four and a three gives a six and a one; merge across kinds is refused.
+- **Tests:** **`MeleeTests`:** for each counter pairing of the roster, a squad against a squad at the roster's sizes on open ground, the side the roster says is strong wins, and the ticks and survivors match the inputs' arithmetic; two figures that kill each other on the same tick both die; a holding squad strikes and does not move; a storming squad engages what it meets and goes on; split gives a squad of one with the highest-id figure; merge of a four and a three gives a six and a one; merge across kinds is refused.
 
 ### M4-C4 — Arrows
 - **Waits on:** C3, and input 7.
 - **Read first:** ADR-023, decisions 5 and 6; `Simulation/Shot.h`'s `TraverseVoxels`; Review/PaperTests/SiegeRouteTable.md, *Reach*.
 - **Changes:** ranged figures loose arrows as `Shot`s of kind `Arrow` with an `ArrowLine`, traced each tick in step 4; elevation steps and bands; line of fire checked before loosing; a blocked squad walks towards its target; `SquadAim` answered (record version 2), in the filters `Combat` and `Queries`.
-- **Tests:** **`ArrowTests`:** an archer on level ground reaches 30 m and not 31; one standing 6 m above its target reaches 40 m and deals the two-step damage; one 6 m below deals the uphill damage; a wall between shooter and target stops the arrow at its face, deals nothing, and the squad walks until it has a line; an arrow passes a unit in its way that is not its target; a target that leaves its aim point by more than a cell is missed; `SquadAim` reads IN RANGE, BLOCKED and OUT OF RANGE as the arrow would.
+- **Tests:** **`ArrowTests`:** an archer on level ground reaches 30 m and not 31; one standing 6 m above its target reaches 40 m and deals the two-step damage; one 6 m below deals the uphill damage; a target that steps behind a wall during the arrow's flight is not hit, the arrow stopping at the wall's face; a squad with no line to its target looses nothing and walks until it has one; an arrow passes a unit in its way that is not its target; a target that leaves its aim point by more than a cell is missed; `SquadAim` reads IN RANGE, BLOCKED and OUT OF RANGE as the arrow would.
 
 ### M4-C5 — The trebuchet against units and engines, its stone, deploying and packing
 - **Waits on:** C1, and inputs 8 and 17.
 - **Read first:** ADR-023, decisions 7 and 10; MvpAssets.md, *The trebuchet's poses*; GameDesign.md, *the MVP assets v3 package*, items 1 and 6.
 - **Changes:** a shot's crush on units and engines; the shot's stone from the stockpile, `NotEnoughStone` below it; `PackEngine` and `DeployEngine` with their times, a packed trebuchet moving as machines, firing only deployed; the packed wagon's width as input 17 decides, in the filter `Destruction`.
-- **Tests:** **`EngineTests`** (`SimulationTests`): a shot landing beside a squad damages the figures within a cell and no others; four shots kill a trebuchet as input 6 says; a shot costs 1.5 m³ and the 81st of 120 m³ is refused; a packed trebuchet cannot fire; deploying takes its time and the engine fires the tick after; a packed trebuchet paths as machines from the camp to a stand. `ShotTests` and `BreachRunTests` pass unchanged.
+- **Tests:** **`EngineTests`** (`SimulationTests`): a shot landing beside a squad damages the figures within a cell and no others; four shots kill a trebuchet as input 6 says; a shot costs 1.5 m³ and the 81st of 120 m³ is refused; a packed trebuchet cannot fire; deploying takes its time and the engine fires the tick after; a packed trebuchet paths as machines from the camp to a stand. `ShotTests` pass unchanged; `BreachRunTests` pass, or are re-keyed with the reason in the commit, since C1's damage and C2's movement change the squad's walk.
 
 ### M4-C6 — The ram
 - **Waits on:** C2 and C5, and input 9.
@@ -428,12 +434,12 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 ### M4-D1 — The built mask, critical parts and working
 - **Waits on:** B3 and C1, and input 10.
 - **Read first:** ADR-024, decisions 1 and 2; ADR-005, decision 10; `Simulation/ServerData.h`'s `ServerTemplate::parts`; MvpPlan-M3.md, M3-B1.
-- **Changes:** `Structure` at record version 2, with its mask, its part's share kept from the tick's edits, working, and `StructureStopped` and `StructureWorks` events; `StructureView`'s fields, in the filter `Structures`.
+- **Changes:** `Structure` at record version 2, with its mask, its part's share kept from the tick's edits and from collapses starting and ending, working, and `StructureStopped` and `StructureWorks` events; `StructureView`'s fields, in the filter `Structures`.
 - **Tests:** **`StructureWorkTests`:** a T4 works at 100 % and stops when its firing platform falls below input 10's threshold; voxels in a collapse in warning do not stand; a T3 with no critical part always works; the share is unchanged on a tick with no edit inside the footprint; a save with masks round-trips.
 - **ADR:** marks ADR-024 Accepted.
 
 ### M4-D2 — Gates
-- **Waits on:** D1, and input 13.
+- **Waits on:** D1 and B1, for T5's gate at the passage's inner end, and input 13.
 - **Read first:** ADR-024, decision 6; GameDesign.md, *the MVP assets v3 package*, item 3; `Simulation/NavigationGrid.cpp`'s surface and headroom.
 - **Changes:** `SetGate`; navigation reads an open gate's voxels as air and marks its tiles for step 8; a gate that stops working shuts.
 - **Tests:** **`GateTests`:** a shut T5 blocks foot and machines; open, both path through it; a shot at an open gate's voxels strikes them; opening rebuilds the tiles on the next step 8 and the squads waiting search again; a broken gate cannot be opened; a ram reaches T5's gate down its passage (ADR-015's 3 by 4).
@@ -445,7 +451,7 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 - **Tests:** **`GarrisonTests`:** six archers garrison a T4 and a seventh is refused `Full`; garrisoned archers reach 40 m from the tower's face and not 41; they take no damage; they heal; eject puts them on free cells on the owner's side clear of the footprint; a tower that stops working puts them out and its fall strip stays clear.
 
 ### M4-D4 — The gatehouse's passage attack
-- **Waits on:** D3 and C6, and input 13.
+- **Waits on:** D3, C6 and B1, and input 13.
 - **Read first:** ADR-024, decision 6; GameDesign.md, *the design review*, item 9, *Gatehouses*.
 - **Changes:** the attack on its cadence, while the gatehouse works and holds a garrison.
 - **Tests:** **`PassageAttackTests`:** a ram in T5's passage takes `passageAttackDamage` every `passageAttackSeconds`; so does a foot squad; it stops when the garrison leaves or the gate breaks; the ram's time to break the gate under the attack is reported against GameDescription.md's four minutes (MvpPlan.md, M4's risks).
@@ -454,7 +460,7 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 - **Waits on:** D1, and input 11.
 - **Read first:** ADR-024, decisions 3 and 4; Review/PaperTests/SiegeRouteTable.md, *Repair*; GameDesign.md, *the paper tests' values*, item 3.
 - **Changes:** `RepairStructure` for laborers; repair in step 2 at the fixed rate, from the stockpile, lowest first; the lock from shots, ram blows and trench cells, counted down in step 2; `StoneSpent` and `TimberSpent` events; `IntegrityReading::repairLockTicks`, in the filter `Structures`.
-- **Tests:** **`RepairTests`:** a T3 with a two-voxel crater and a laborer on its inner side is whole again after the ticks the rate gives, and the stockpile is 2 m³ lighter; two laborers repair no faster; a laborer on the outer side repairs nothing; a shot sets the lock and repair waits 200 ticks; with the trebuchet at 20 s and repair on, the breach run's section opens after the multiple of shots the route table found, 1.5× within a shot (GameDesign.md, *the paper tests' values*, item 3); a voxel that would stand unsupported waits.
+- **Tests:** **`RepairTests`:** a T3 with a two-voxel crater and a laborer on its inner side is whole again after the ticks the rate gives, and the stockpile is 2 m³ lighter; two laborers repair no faster; a laborer on the outer side repairs nothing; a shot sets the lock and repair waits 200 ticks; with the trebuchet at 20 s and repair on, the breach run's section opens after a multiple of its unrepaired shots inside the Decided 1.3–2× (GameDesign.md, *the paper tests' values*, item 3), the measured multiple reported in the commit, since the route table's 1.50× came from its own model and the voxel crater gives about 1.7×; a voxel that would stand unsupported waits.
 
 ### M4-D6 — Sappers' trenches
 - **Waits on:** D5 and C1, and input 12.
@@ -465,10 +471,10 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 ## Phase E — Fog
 
 ### M4-E1 — Visibility, the filtered state, and chunks sent when seen
-- **Waits on:** C1 and D1, and inputs 6 and 14.
+- **Waits on:** C1 and D3, and inputs 6, 10 and 14.
 - **Read first:** ADR-025; ADR-020, decisions 2 and 3; ADR-009, decision 4; `Simulation/World.cpp`'s `Publish`; *Contracts*, `Simulation`, `Visibility`.
 - **Changes:** `Simulation/Visibility.h` and `.cpp`, in the filter `Fog`; step 11 stamps each player's visibility and fills `State(player)` through the filter; `Publish(player)` with the versions sent per player; structures last seen; answers filtered; the scenario's map seen at the start; the saved state ADR-025 names.
-- **Tests:** **`FogTests`:** an enemy squad 33 m from the attacker's archers is absent from the attacker's update and present at 31; a garrison's count is the owner's alone; a section cratered out of sight keeps its last-seen view and its chunks are not sent, then both arrive the tick an attacker sees it; the attacker's first update after a scenario that reveals the map sends every chunk once; an integrity query on a section out of sight answers `notVisible`; a save and load filters the same. **`SimulationBench --siege`** reports visibility's cost a tick.
+- **Tests:** **`FogTests`:** an enemy squad 33 m from the attacker's archers is absent from the attacker's update and present at 31; a garrison's count is the owner's alone; a section cratered out of sight keeps its last-seen view and its chunks are not sent, then both arrive the tick an attacker sees it; for a scenario that reveals the map, the attacker is sent every chunk and every structure once and its integrity queries in the first `revealTicks` are answered, but no defender unit is in its updates; an integrity query on a section out of sight answers `notVisible`; a save and load filters the same. **`SimulationBench --siege`** reports visibility's cost a tick.
 - **ADR:** marks ADR-025 Accepted; ADR-020, decisions 2 and 3, amended: the update and the chunks are per player.
 
 ## Phase F — The trial
@@ -477,7 +483,7 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 - **Waits on:** E1, D1 and B4, and inputs 15 and 16.
 - **Read first:** ADR-026, decisions 4 and 5; GameDesign.md, *Stages*, 1; *Contracts*, `Simulation`, `TrialRules` and `TrialEvent`.
 - **Changes:** step 10's trial: the storming clock, its pause and reset, the time limit, the army rule, the outcome; `TrialView` in every update and `StructureView::opened`; the events of ADR-026, decision 5, `SectionOpened` from the camp's reach after each rebuild and `FigurePassed` from step 3's steps, in the filter `Trial`.
-- **Tests:** **`TrialRuleTests`**, on the castle with units placed by hand: soldiers in the ring of a working keep start no clock; with the keep stopped the clock counts, pauses while a defender stands in the ring, resets when the attackers leave and when a keep voxel is repaired, and wins at 2,400 ticks; the limit loses; the last attacker soldier's death loses with engines still standing; S3 opened by scripted shots raises one `SectionOpened`; six figures through it raise six `FigurePassed`.
+- **Tests:** **`TrialRuleTests`**, on the castle with units placed by hand: soldiers in the ring of a working keep start no clock; with the keep stopped the clock counts, pauses while a defender stands in the ring, resets when the attackers leave and when a keep voxel is repaired, and wins at 2,400 ticks; the limit loses; the attacker's last unit dying loses, and with only its engines left it has not lost; S3 opened by scripted shots raises one `SectionOpened`; six figures through it raise six `FigurePassed`.
 - **ADR:** ADR-026, decisions 4 and 5, implemented.
 
 ### M4-F2 — Commanders, and the defender's garrison, fire and repair
@@ -496,15 +502,15 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 ### M4-F4 — The control
 - **Waits on:** D1, D5, D6, C5 and C6, and input 19.
 - **Read first:** ADR-028; GameDesign.md, *Hypotheses*; Hud.md §1.
-- **Changes:** `StructureRule`, `VoxelStructureRule` (D's behaviour, moved unchanged) and `HealthStructureRule`, chosen from the trial's version, in the filter `Structures`; the calibration of ADR-028, decision 5, run in `SimulationBench --calibrate-control` and written into `Structures.json`; ADR-004 amended.
-- **Tests:** **`ControlTests`:** in the control a shot on a T3 removes no voxel and takes its damage; at 0 a T3 falls whole with its warning and leaves its rubble; a T4 at 0 stops and stands; a gate at 0 is removed; repair restores hit points at the rate and the price; terrain craters as in the voxel version; every other test of phases C–E passes in the control unchanged where it does not touch structures. The voxel version's tests pass unchanged after the move behind the seam.
+- **Changes:** `StructureRule`, `VoxelStructureRule` (D's behaviour, moved unchanged) and `HealthStructureRule`, chosen from the trial's version, in the filter `Structures`, with input 19's first hit points; F5 calibrates them (ADR-028, decision 5); ADR-004 amended.
+- **Tests:** **`ControlTests`:** in the control a shot on a T3 removes no voxel and takes its damage; a shot on T5's stone takes from the one pool, and at 0 the gate goes and GH stops; at 0 a T3 falls whole with its warning and leaves its rubble; a T4 at 0 stops and stands; a gate at 0 is removed; repair restores hit points at the rate times 50 a cubic metre of stone, and a 10 s window restores the same share of a shot as in the voxel version; the storming clock resets when the keep regains a hit point; terrain craters as in the voxel version; every other test of phases C–E passes in the control unchanged where it does not touch structures. The voxel version's tests pass unchanged after the move behind the seam.
 - **ADR:** marks ADR-028 Accepted.
 
 ### M4-F5 — The scripted attacker, and the trial in CI
-- **Waits on:** F3 and F4, and input 27.
+- **Waits on:** F3 and F4, and inputs 19 and 27.
 - **Read first:** MvpPlan.md, M4, *Done when*; ADR-027, decision 1; the M2 report's shape for the bench.
-- **Changes:** `SiegeAttacker`, a commander that deploys the trebuchet at a stand outside the towers' reach, stops the towers covering the keep's foot from the south and east, opens a section, storms through it, and holds the foot; `SimulationBench --siege [--control]` runs it against the defender and reports the slowest tick of play, tick 0, the 95th percentile, the outcome, the shots, each side's stone and every opened section's figures a minute; input 27's budgets set from it.
-- **Tests:** **`SiegeTrialTests`:** in both versions the attacker wins by storming inside the limit; with no commands the attacker loses to the clock; with its soldiers sent into the towers' reach until dead it loses by the army; each run replays with every state hash equal; a save every 1,000 ticks continues equal; outcomes, ticks and shots are committed as a table and printed when they change, as M3's lab keys are, since a retune changes them.
+- **Changes:** `SiegeAttacker`, a commander that deploys the trebuchet at a stand outside the towers' reach, stops the towers covering the keep's foot from the south and east, opens a section, storms through it, and holds the foot; `SimulationBench --siege [--control]` runs it against the defender and reports the slowest tick of play, tick 0, the 95th percentile, the outcome, the shots, each side's stone and every opened section's figures a minute; input 27's budgets set from it. **The control's calibration** (ADR-028, decision 5): `SimulationBench --calibrate-control` fires at every template in the castle from a stand, by a fixed pattern a template, unrepaired, on the voxel version, and writes each template's hit points into `Structures.json` with the measurement in its note; the control's tests then run on the calibrated values.
+- **Tests:** **`SiegeTrialTests`:** in both versions the attacker wins by storming inside the limit; with no commands the attacker loses to the clock; with every unit sent into the towers' reach until dead, engines included, it loses by the army; each run replays with every state hash equal; saves at ticks 1,000, 10,000 and 20,000 each continue equal for 1,000 ticks, which bounds CI's time, the 48,000-tick clock loss being cheap idle ticks; outcomes, ticks and shots are committed as a table and printed when they change, as M3's lab keys are, since a retune changes them.
 - **Report in the commit:** the trial's times against the balance targets (one trebuchet opens a section in about three minutes, repair at most doubles it, a gate falls to a ram in about four) and the slowest tick in the container.
 
 ## Phase G — `Engine`
@@ -540,14 +546,14 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 ### M4-H2 — Arrows
 - **Waits on:** H1 and G1.
 - **Read first:** ADR-018, decision 3 and *Left open*; *Contracts*, `Engine`, `LinePass`.
-- **Changes:** one `LineInstance` per arrow in flight, at its interpolated position with its direction from its last two, in its shooter's faction colour, drawn after the voxel pass, timed with its timestamps, in the filter `Rendering`.
-- **Tests:** **`ArrowDrawTests`:** an arrow's instance lies on its line between ticks and points along its flight.
+- **Changes:** one `LineInstance` per arrow in flight, at its interpolated position, never snapped, with its direction from its last two, in its shooter's faction colour, drawn after the voxel pass, timed with its timestamps, in the filter `Rendering`.
+- **Tests:** **`ArrowDrawTests`:** an arrow 2 m along in a tick is drawn on its line between ticks, not snapped, and points along its flight.
 - **Owner runs:** volleys from the towers and from the attacker's archers at the default zoom and fully zoomed out: arrows read as arrows, and a volley's cost in the title's timings.
 
 ### M4-H3 — Fog and silhouettes drawn
 - **Waits on:** H1, G2 and E1, and inputs 14 and 23.
 - **Read first:** ADR-025, decisions 4 and 8; ADR-021, amended; RendererLook.md §7 on what the angle hides.
-- **Changes:** `Session` keeps the newest snapshot of each chunk; the visibility uploaded as the column shade each tick it changes; the player's units and visible enemies drawn as silhouettes behind walls, rubble and terrain, in the filter `Views`.
+- **Changes:** `Session` keeps the newest snapshot of each chunk; the visibility uploaded as the column shade each tick it changes; the player's units and visible enemies drawn as silhouettes, as records in their owner's faction entry, behind walls, rubble and terrain, in the filter `Views`.
 - **Tests:** **`SessionTests`** gain: a chunk not sent keeps its last snapshot; **`FogDrawTests`:** the mask's texels follow the update's bits.
 - **Owner runs:** the castle in fog from the camp: last-seen land, the garrison unseen, a breach seen only when watched; units in the ditch and behind the curtain as silhouettes.
 
@@ -558,6 +564,7 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 - **Read first:** Hud.md §2, §3 and §10; ADR-019, decision 5; *Contracts*, `Client`, `HudModel`.
 - **Changes:** the deck at the bottom, 204 logical px, with the minimap's well, the selection's panel and the command card's grid empty; the control groups' strip; the camera framing the area between the top bar and the deck; the UI scale capped at the largest step that leaves the deck its 972 logical px (input 21), in the filter `Hud`.
 - **Tests:** **`HudLayoutTests`:** at 1920 × 1080 the deck's columns are 188, the rest and 4 × 112 + 3 × 4 wide; at 1280 px the scale caps at 1 and at 1920 px at 1.5, whatever the DPI; the camera's look-at point sits in the middle of the uncovered area; nothing overlaps at 1280 × 720 and 1920 × 1080 at every scale the width allows.
+- **Owner runs:** `Earthrise --siege --watch --windowed` at 1280 × 720 and 1920 × 1080 and at each scale the width allows: the empty deck, the strip and the top bar, the camera framing the uncovered area, nothing overlapping.
 
 ### M4-I2 — Selection and the selection panel
 - **Waits on:** I1 and G3, and input 21.
@@ -576,7 +583,8 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 ### M4-I4 — Control groups
 - **Waits on:** I3.
 - **Read first:** Hud.md §3, §7 and §8.
-- **Changes:** Ctrl + 1–9 and Ctrl-click on a slot assign; 1–9 selects, twice centres the camera on the group in the uncovered area; the strip shows each group's count and kind, 44 high (input 21); groups kept by the client and cleared of the dead.
+- **Changes:** Ctrl + 1–9 and Ctrl-click on a slot assign; 1–9 selects, twice centres the camera on the group in the uncovered area; the strip shows groups 1–5 and SET as Hud.md §3 lays it out, each 120 × 44 and SET 64 × 44 (input 21), 876 logical px with its offset, and groups 6–9 by key alone; groups kept by the client and cleared of the dead.
+- **Owner runs:** assigning and recalling groups by key and by the strip, and centring on one.
 - **Tests:** **`ControlGroupTests`:** assigning, selecting and centring; a dead squad leaves its group; a group of nothing shows empty; the strip's slots are 120 × 44 hit targets.
 
 ### M4-I5 — The minimap
@@ -604,7 +612,7 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 ### M4-J1 — `Earthrise --siege`
 - **Waits on:** F5 and I7, and inputs 16 and 25.
 - **Read first:** ADR-026; MvpPlan-M3.md, M3-C3 and M3-G1, for `Earthrise`'s loop; Hud.md §10's objective.
-- **Changes:** `Earthrise --siege <participant> [--control] [--seed n]`, in `Earthrise/Siege.h` and `.cpp`, in the filter `Siege`: the scenario loaded, the defender's commander on, the camera on the camp; the objective `TAKE THE KEEP`, then `HOLD THE KEEP'S FOOT · 0:42 / 2:00` with its progress; the resources `STONE m³`, `ARMY n`, `TIME m:ss` of the limit left; pause on input 25's key; the end banner `THE KEEP HAS FALLEN`, `TIME HAS RUN OUT` or `YOUR ARMY IS GONE`, with the time; `--watch` runs `SiegeAttacker` for the player, for the owner's checks and J4. Without a participant it refuses with a message.
+- **Changes:** `Earthrise --siege <participant> [--control]`, in `Earthrise/Siege.h` and `.cpp`, in the filter `Siege`: the scenario loaded, the defender's commander on, the camera on the camp; the objective `TAKE THE KEEP`, then `HOLD THE KEEP'S FOOT · 0:42 / 2:00` with its progress; the resources `STONE m³`, `ARMY n`, `TIME m:ss` of the limit left; pause on input 25's key; the end banner `THE KEEP HAS FALLEN`, `TIME HAS RUN OUT` or `YOUR ARMY IS GONE`, with the time; `--watch` runs `SiegeAttacker` for the player, for the owner's checks and J4, and needs no participant. Without a participant and without `--watch` it refuses with a message.
 - **Tests:** **`SiegeFlowTests`** (`ClientTests`, over the model the loop drives): the objective and resources read as above; the end banner follows the outcome; pause stops the clock and nothing else.
 - **Owner runs:** `Earthrise --siege P00 --windowed`, played to a win and to a loss: the whole trial, the HUD, the defender sallying and repairing, the storming clock.
 
@@ -613,12 +621,13 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 - **Read first:** ADR-026, decisions 5 and 6; *The trial's log*; MvpPlan-M3.md, M3-G2's scoring tool.
 - **Changes:** `Earthrise` writes the log from `LastTickEvents` and the client's command records, and the replay beside it; `Earthrise --replay <file>` plays one back on screen and reports whether every state hash matched; `Tools/SiegeTrial/ReadSiegeLog.py <folder>` prints each run's outcome, time, breach points, shots, each side's stone and the figures a minute through each breach, `--json` the same; `Tools/TestReadSiegeLog.py` with a step in the workflow's Linux job.
 - **Tests:** `Tools/TestReadSiegeLog.py` over hand-written logs; **`SiegeLogTests`** (`ClientTests`): a run's rows have every column; the replay of a short scripted run matches.
+- **Owner runs:** `Earthrise --replay` on the log of the owner's own J1 run: the same trial on screen, every state hash matched.
 
 ### M4-J3 — The control's client
 - **Waits on:** J1, and input 19.
 - **Read first:** ADR-028, decision 6; Hud.md §1 and §5.
 - **Changes:** health bars over sections with hit points; HEALTH in place of PLATFORM on towers; nothing else.
-- **Tests:** **`ControlParityTests`:** the HUD model built from one state in both versions differs in the health bars and the towers' row alone, compared field by field.
+- **Tests:** **`ControlParityTests`:** the HUD model built from one state in both versions differs in the health bars and in HEALTH in place of the critical part's row on towers, the gatehouse and the keep alone, compared field by field (ADR-028, decision 6).
 - **Owner runs:** `Earthrise --siege P00 --control --windowed`, played to a win: the same trial with health-bar walls, and nothing else different.
 
 ### M4-J4 — The measured run

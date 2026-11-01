@@ -12,12 +12,12 @@
 
 ## Decision
 
-1. **A commander is a source of commands for one player,** `Simulation::Commander`, with one implementation a kind of player: `SiegeDefender` for the trial, and `SiegeAttacker`, a scripted opponent for the tests and the bench that is never offered to a player. The human player has no commander: their commands arrive through the transport.
-2. **Commanders run at the end of the tick,** after step 12, as step 13: each, in player order, reads its player's view and queues commands for the next tick's step 1, where they are decoded and applied exactly as the transport's are. A commander's command is therefore one tick late, as a player's is.
+1. **A commander is a source of commands for one player,** `Simulation::Commander`, with one implementation a kind of player: `SiegeDefender` for the trial, and `SiegeAttacker`, a scripted attacker for the tests, the bench, and the owner's checks and measured run (`Earthrise --watch`), never offered as a way to play. A seat a human plays has no commander: its commands arrive through the transport.
+2. **Commanders run at the end of the tick,** after step 12, as step 13: each, in player order, reads its player's view and queues commands for the next tick's step 1, where they are decoded and applied exactly as the transport's are, but kept apart from them: `World::LastTickCommands`, which a replay records, holds the transport's alone. A commander's command is therefore one tick late, as a player's is, and never applied twice on replay.
 3. **A commander reads only its player's view:** the state update `PublishState` built for its player in step 11, and the pure readings its player could ask for ([ADR-020](ADR-020-the-in-process-client.md), decision 5), called directly within its own budget rather than through the query queue. It never reads the world past that filter.
 4. **Its work is budgeted in units,** `commanderWorkPerTick` in `RULE`, and it decides on a fixed cadence, every `commanderDecisionTicks`, offset by its player's id, so that decisions spread across ticks. A reading costs what its query costs.
 5. **Its state is saved,** as one record a commander in the save's entities ([ADR-014](ADR-014-edits-saves-and-replays.md), decision 4), so a save mid-trial continues identically; its draws are keyed on the match seed, its player and the tick.
-6. **Replays record the transport's commands only.** A replay starts from the scenario, which names each player's commander, and the commanders recompute their commands. A replay therefore needs the same build and server data, as every replay does (ADR-014, decision 6).
+6. **Replays record the transport's commands only.** A replay starts from the scenario, and its header names the commander in each seat, the scenario's or the one `--watch` put in a human's seat; the replay rebuilds those commanders, and they recompute their commands. A replay therefore needs the same build and server data, as every replay does (ADR-014, decision 6).
 
 ## Consequences for the code
 
