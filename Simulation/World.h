@@ -243,8 +243,9 @@ private:
   [[nodiscard]] std::int32_t TopOf(std::int32_t _x, std::int32_t _z) const;
   /// Queues a column and its four neighbours for slump.
   void QueueSlump(std::int32_t _x, std::int32_t _z);
-  /// Moves a column's top voxel to its lowest neighbour more than a voxel below it, if it is loose;
-  /// returns the neighbour, or nothing.
+  /// Moves a column's top voxel, if it is loose, to its lowest neighbour more than a voxel below it;
+  /// or, resting on a structure or too near the top of one beside it, on and away (M2-E6, E7).
+  /// Returns the neighbour it went to, or nothing.
   std::optional<std::pair<std::int32_t, std::int32_t>> Slump(std::int32_t _x, std::int32_t _z);
   /// Whether a shot that reached _point has left the world.
   [[nodiscard]] bool OutsideWorld(const FixedPosition& _point) const noexcept;

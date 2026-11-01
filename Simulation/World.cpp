@@ -414,11 +414,12 @@ bool World::Fall(Collapse& _collapse)
 
 void World::SettleLoose()
 {
-  // Step 7: slump (M2-E6; GameDesign.md, M2's values, item 9). Every column the tick's edits touched,
-  // and its four neighbours, joins the queue; then, in column-index order, a column whose top voxel
-  // is loose and stands more than a voxel above a neighbour's top sends it to the lowest such
-  // neighbour, ties north, east, south, west, up to slumpVoxelsPerTick voxels a tick. What waits is
-  // saved.
+  // Step 7: slump and loose material near structures (M2-E6, E7; GameDesign.md, M2's values, item 9).
+  // Every column the tick's edits touched, and its four neighbours, joins the queue; then, in
+  // column-index order, a column whose top voxel is loose and stands more than a voxel above a
+  // neighbour's top sends it to the lowest such neighbour, ties north, east, south, west, and so does
+  // one resting on a structure, or standing within looseRestBelowTopVoxels of a structure's top
+  // beside it, up to slumpVoxelsPerTick voxels a tick. What waits is saved.
   for (const Protocol::VoxelPosition& voxel : m_voxels.TickEdits())
   {
     QueueSlump(voxel.xVoxels, voxel.zVoxels);
@@ -487,44 +488,118 @@ std::optional<std::pair<std::int32_t, std::int32_t>> World::Slump(std::int32_t _
 {
   constexpr std::uint8_t EARTH = 2; // a grass voxel that moves lands as earth: only the generator places grass
   constexpr std::uint8_t GRASS = 1;
+  const MaterialRules& materials = Data().Materials();
+  const std::int32_t rest = Data().Tuning().looseRestBelowTopVoxels;
+  const auto isLoose = [&materials](std::uint8_t _index)
+  {
+    const Behavior behavior = materials.at(_index).behavior;
+    return behavior == Behavior::Earth || behavior == Behavior::StoneRubble || behavior == Behavior::WasteRubble;
+  };
+  const auto isStructure = [&materials](std::uint8_t _index)
+  {
+    const MaterialRule& rule = materials.at(_index);
+    return _index != Protocol::Chunk::EMPTY && !rule.walkableGround && !rule.liquid;
+  };
+  const auto at = [this](std::int32_t _atX, std::int32_t _atY, std::int32_t _atZ)
+  { return m_voxels.At({.xVoxels = _atX, .yVoxels = _atY, .zVoxels = _atZ}); };
+
   const std::int32_t top = TopOf(_x, _z);
-  if (top < 0)
+  if (top < 0 || !isLoose(at(_x, top, _z)))
   {
     return std::nullopt;
   }
-  const Protocol::VoxelPosition from{.xVoxels = _x, .yVoxels = top, .zVoxels = _z};
-  const std::uint8_t index = m_voxels.At(from);
-  const Behavior behavior = Data().Materials().at(index).behavior;
-  if (behavior != Behavior::Earth && behavior != Behavior::StoneRubble && behavior != Behavior::WasteRubble)
+  const std::uint8_t index = at(_x, top, _z);
+
+  // A neighbour, as loose material sees it: its top; whether a structure tops it, and how high; and
+  // whether it is grounded, its loose voxels resting on ground and not on a structure. Loose
+  // material only ever comes to rest on a grounded column (M2-E7).
+  struct Side
   {
-    return std::nullopt;
-  }
+    bool inside = false;
+    std::int32_t top = -1;
+    bool structureTop = false;
+    bool grounded = false;
+  };
+  const auto sideAt = [&](std::int32_t _sideX, std::int32_t _sideZ)
+  {
+    Side side;
+    if (_sideX < 0 || _sideX >= WidthVoxels() || _sideZ < 0 || _sideZ >= DepthVoxels())
+    {
+      return side;
+    }
+    side.inside = true;
+    side.top = TopOf(_sideX, _sideZ);
+    side.structureTop = side.top >= 0 && isStructure(at(_sideX, side.top, _sideZ));
+    std::int32_t y = side.top;
+    while (y >= 0 && isLoose(at(_sideX, y, _sideZ)))
+    {
+      --y;
+    }
+    side.grounded = y < 0 || !isStructure(at(_sideX, y, _sideZ));
+    return side;
+  };
   // North, east, south, west: +z, +x, -z, -x.
   constexpr std::array<std::array<std::int32_t, 2>, 4> SIDES = {{{0, 1}, {1, 0}, {0, -1}, {-1, 0}}};
-  std::optional<std::pair<std::int32_t, std::int32_t>> lowest;
-  std::int32_t lowestTop = 0;
-  for (const auto& [dx, dz] : SIDES)
+  std::array<Side, 4> sides{};
+  for (std::size_t side = 0; side < SIDES.size(); ++side)
   {
-    const std::int32_t x = _x + dx;
-    const std::int32_t z = _z + dz;
-    if (x < 0 || x >= WidthVoxels() || z < 0 || z >= DepthVoxels())
+    sides.at(side) = sideAt(_x + SIDES.at(side)[0], _z + SIDES.at(side)[1]);
+  }
+  // The lowest grounded side below _below, ties north, east, south, west.
+  const auto lowestBelow = [&](std::int32_t _below) -> std::optional<std::size_t>
+  {
+    std::optional<std::size_t> lowest;
+    for (std::size_t side = 0; side < SIDES.size(); ++side)
+    {
+      const Side& candidate = sides.at(side);
+      if (candidate.inside && candidate.grounded && candidate.top < _below &&
+          (!lowest.has_value() || candidate.top < sides.at(*lowest).top))
+      {
+        lowest = side;
+      }
+    }
+    return lowest;
+  };
+
+  // Slump: to the lowest side more than a voxel below (M2-E6).
+  std::optional<std::size_t> to = lowestBelow(top - 1);
+  // Off a structure it rests on, to any lower side (M2-E7).
+  if (!to.has_value() && isStructure(at(_x, top - 1, _z)))
+  {
+    to = lowestBelow(top);
+  }
+  // Away from a structure beside it whose top it stands within looseRestBelowTopVoxels of, to the side
+  // opposite, if that is lower and the voxel would not land as near another structure's top there.
+  for (std::size_t side = 0; side < SIDES.size() && !to.has_value(); ++side)
+  {
+    const std::size_t opposite = (side + 2) % SIDES.size();
+    const Side& away = sides.at(opposite);
+    if (!sides.at(side).structureTop || top <= sides.at(side).top - rest || !away.inside || !away.grounded || away.top >= top)
     {
       continue;
     }
-    const std::int32_t neighborTop = TopOf(x, z);
-    if (top > neighborTop + 1 && (!lowest.has_value() || neighborTop < lowestTop))
+    const std::int32_t awayX = _x + SIDES.at(opposite)[0];
+    const std::int32_t awayZ = _z + SIDES.at(opposite)[1];
+    bool nearAnother = false;
+    for (const auto& [dx, dz] : SIDES)
     {
-      lowest = std::pair{x, z};
-      lowestTop = neighborTop;
+      const Side beyond = sideAt(awayX + dx, awayZ + dz);
+      nearAnother = nearAnother || (beyond.structureTop && away.top + 1 > beyond.top - rest);
+    }
+    if (!nearAnother)
+    {
+      to = opposite;
     }
   }
-  if (!lowest.has_value())
+  if (!to.has_value())
   {
     return std::nullopt;
   }
-  m_voxels.Edit(from, Protocol::Chunk::EMPTY);
-  m_voxels.Edit({.xVoxels = lowest->first, .yVoxels = lowestTop + 1, .zVoxels = lowest->second}, index == GRASS ? EARTH : index);
-  return lowest;
+  const std::int32_t x = _x + SIDES.at(*to)[0];
+  const std::int32_t z = _z + SIDES.at(*to)[1];
+  m_voxels.Edit({.xVoxels = _x, .yVoxels = top, .zVoxels = _z}, Protocol::Chunk::EMPTY);
+  m_voxels.Edit({.xVoxels = x, .yVoxels = sides.at(*to).top + 1, .zVoxels = z}, index == GRASS ? EARTH : index);
+  return std::pair{x, z};
 }
 
 void World::RebuildNavigation()
