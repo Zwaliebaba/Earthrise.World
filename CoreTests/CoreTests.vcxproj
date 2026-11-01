@@ -44,6 +44,8 @@
     </ClCompile>
     <ClCompile Include="HashTests.cpp" />
     <ClCompile Include="PercentileTests.cpp" />
+    <ClCompile Include="FixedTests.cpp" />
+    <ClCompile Include="IntegerMathTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

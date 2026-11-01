@@ -21,5 +21,11 @@
     <ClCompile Include="PercentileTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="FixedTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="IntegerMathTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

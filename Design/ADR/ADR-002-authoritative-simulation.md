@@ -44,8 +44,8 @@ Two models were considered.
 ## Left open
 
 - The transport, the protocol over it, the encoding and compression.
-- The tick rate.
+- The tick rate. *(Closed by [ADR-013](ADR-013-ticks-numbers-and-randomness.md): 20 ticks a second.)*
 - Client-side prediction and interpolation.
-- Number representation inside the simulation. Floating point is not ruled out here, because cross-build identity is not required.
+- Number representation inside the simulation. Floating point is not ruled out here, because cross-build identity is not required. *(Closed by [ADR-013](ADR-013-ticks-numbers-and-randomness.md): no floating point in `Simulation` or `Protocol`; integer voxels and `Core::Fixed`.)*
 - How the simulation uses more than one core.
 - Server topology for the shared world: one process per world, regions, sharding, and hosting.

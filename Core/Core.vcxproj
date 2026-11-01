@@ -38,6 +38,10 @@
     <ClCompile Include="Hash.cpp" />
     <ClInclude Include="Percentile.h" />
     <ClCompile Include="Percentile.cpp" />
+    <ClInclude Include="Fixed.h" />
+    <ClCompile Include="Fixed.cpp" />
+    <ClInclude Include="IntegerMath.h" />
+    <ClCompile Include="IntegerMath.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>
