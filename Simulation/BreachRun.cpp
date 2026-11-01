@@ -57,52 +57,11 @@ void Level(World& _world)
   }
 }
 
-/// Stamps a T3 section with its footprint's minimum corner at (_x, BreachRun::GROUND_VOXELS, _z),
-/// turned _quarterTurns quarter turns anticlockwise seen from above: its front, +z unturned, faces
-/// west after one, south after two and east after three.
-void PlaceSection(World& _world, const TemplateShape& _shape, std::int32_t _x, std::int32_t _z, std::uint32_t _quarterTurns)
-{
-  const auto width = static_cast<std::int32_t>(_shape.widthVoxels);
-  const auto depth = static_cast<std::int32_t>(_shape.depthVoxels);
-  for (std::uint32_t y = 0; y < _shape.heightVoxels; ++y)
-  {
-    for (std::int32_t z = 0; z < depth; ++z)
-    {
-      for (std::int32_t x = 0; x < width; ++x)
-      {
-        const std::uint8_t index = _shape.At(static_cast<std::uint32_t>(x), y, static_cast<std::uint32_t>(z));
-        if (index == Protocol::Chunk::EMPTY)
-        {
-          continue;
-        }
-        std::int32_t turnedX = x;
-        std::int32_t turnedZ = z;
-        switch (_quarterTurns % 4)
-        {
-        case 1:
-          turnedX = depth - 1 - z;
-          turnedZ = x;
-          break;
-        case 2:
-          turnedX = width - 1 - x;
-          turnedZ = depth - 1 - z;
-          break;
-        case 3:
-          turnedX = z;
-          turnedZ = width - 1 - x;
-          break;
-        default:
-          break;
-        }
-        _world.Voxels().Edit(
-          {.xVoxels = _x + turnedX, .yVoxels = BreachRun::GROUND_VOXELS + static_cast<std::int32_t>(y), .zVoxels = _z + turnedZ}, index);
-      }
-    }
-  }
-}
-
-/// The enclosure: three sections a side north and south, facing out, and two a side east and west
-/// between them.
+/// The enclosure, as structures W1 to W10, numbered anticlockwise seen from above from the south-west
+/// corner, south side first: three sections a side north and south and two a side east and west
+/// between them, each facing out. Turns are clockwise seen from above, as the voxel pass counts them:
+/// the south side's fronts face south after two, the east side's east after one, and the west side's
+/// west after three.
 void RaiseEnclosure(World& _world)
 {
   const ServerTemplate* t3 = _world.Data().FindTemplate("T3");
@@ -110,19 +69,27 @@ void RaiseEnclosure(World& _world)
   {
     throw std::runtime_error("the breach run needs T3 in the server data");
   }
-  const TemplateShape shape = t3->Shape();
-  const auto thickness = static_cast<std::int32_t>(shape.depthVoxels);
+  const auto thickness = static_cast<std::int32_t>(t3->depthVoxels);
+  const auto at = [](std::int32_t _x, std::int32_t _z)
+  { return Protocol::VoxelPosition{.xVoxels = _x, .yVoxels = BreachRun::GROUND_VOXELS, .zVoxels = _z}; };
+  std::int32_t number = 0;
+  const auto raise = [&](std::int32_t _x, std::int32_t _z, std::uint32_t _quarterTurns)
+  { static_cast<void>(_world.AddStructure(BreachRun::DEFENDER, "T3", at(_x, _z), _quarterTurns, "W" + std::to_string(++number))); };
   for (std::int32_t section = 0; section < 3; ++section)
   {
-    const std::int32_t x = BreachRun::WALL_WEST_VOXELS + section * SECTION_LENGTH_VOXELS;
-    PlaceSection(_world, shape, x, BreachRun::WALL_SOUTH_VOXELS, 2);
-    PlaceSection(_world, shape, x, BreachRun::WALL_NORTH_VOXELS - thickness + 1, 0);
+    raise(BreachRun::WALL_WEST_VOXELS + section * SECTION_LENGTH_VOXELS, BreachRun::WALL_SOUTH_VOXELS, 2);
   }
   for (std::int32_t section = 0; section < 2; ++section)
   {
-    const std::int32_t z = BreachRun::WALL_SOUTH_VOXELS + thickness + section * SECTION_LENGTH_VOXELS;
-    PlaceSection(_world, shape, BreachRun::WALL_WEST_VOXELS, z, 1);
-    PlaceSection(_world, shape, BreachRun::WALL_EAST_VOXELS - thickness + 1, z, 3);
+    raise(BreachRun::WALL_EAST_VOXELS - thickness + 1, BreachRun::WALL_SOUTH_VOXELS + thickness + section * SECTION_LENGTH_VOXELS, 1);
+  }
+  for (std::int32_t section = 2; section >= 0; --section)
+  {
+    raise(BreachRun::WALL_WEST_VOXELS + section * SECTION_LENGTH_VOXELS, BreachRun::WALL_NORTH_VOXELS - thickness + 1, 0);
+  }
+  for (std::int32_t section = 1; section >= 0; --section)
+  {
+    raise(BreachRun::WALL_WEST_VOXELS, BreachRun::WALL_SOUTH_VOXELS + thickness + section * SECTION_LENGTH_VOXELS, 3);
   }
 }
 
@@ -162,7 +129,7 @@ BreachRun BuildBreachRun(World& _world)
   const std::int32_t engineZ = BreachRun::WALL_SOUTH_VOXELS - TREBUCHET_STANDOFF_VOXELS;
   const Protocol::VoxelPosition engineCell{.xVoxels = middleX, .yVoxels = FirstEmptyAbove(_world, middleX, engineZ), .zVoxels = engineZ};
   BreachRun run{
-    .engine = _world.AddSiegeEngine(BreachRun::PLAYER, EngineKind::Trebuchet, engineCell),
+    .engine = _world.AddSiegeEngine(BreachRun::PLAYER, EngineKind::Trebuchet, engineCell, BreachRun::TREBUCHET_QUARTER_TURNS),
     .squad = Protocol::NO_ENTITY,
     .goalVoxels = {.xVoxels = middleX, .yVoxels = BreachRun::GROUND_VOXELS, .zVoxels = BreachRun::WALL_SOUTH_VOXELS + GOAL_INSIDE_VOXELS},
     .script = {},

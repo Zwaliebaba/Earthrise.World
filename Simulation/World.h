@@ -20,6 +20,8 @@
 #include <optional>
 #include <set>
 #include <span>
+#include <string>
+#include <string_view>
 #include <vector>
 
 namespace Simulation
@@ -83,7 +85,20 @@ struct SiegeEngine
   EngineKind kind;
   FixedPosition position;
   Protocol::VoxelPosition cellVoxels;
-  std::uint32_t reloadTicks; // until it can fire again; 0 when loaded
+  std::uint32_t reloadTicks;  // until it can fire again; 0 when loaded
+  std::uint32_t quarterTurns; // which way its model faces: quarter turns clockwise seen from above, as Engine::VoxelPass::Batch counts them
+};
+
+/// A template placed in the world (ADR-005, decision 10, without the built mask, which M4's
+/// construction adds as the record's version 2).
+struct Structure
+{
+  Protocol::EntityId id;
+  std::uint8_t owner;
+  std::string templateId;
+  Protocol::VoxelPosition originVoxels; // the minimum corner of its footprint, after the turn
+  std::uint32_t quarterTurns;           // clockwise seen from above, as Engine::VoxelPass::Batch counts them: one turns +z towards +x
+  std::string name;                     // the scenario's, such as W2 (Hud.md §10)
 };
 
 /// A trebuchet's shot in flight (M2-E1), on its arc.
@@ -106,6 +121,8 @@ struct Collapse
   /// The units it has hit, in id order: each takes its damage once, whether it stood in the strip
   /// when the piece left or its cell was filled later (M2-F6; ADR-015, decision 7).
   std::vector<Protocol::EntityId> struck;
+  /// The structure whose box holds the piece's first voxel when the collapse starts, or NO_ENTITY.
+  Protocol::EntityId structure;
 };
 
 /// A unit hit by a collapse or a fall: what M4 turns into damage.
@@ -218,8 +235,19 @@ public:
   /// tests. The squad takes the first new id and its units the next, in the order given.
   Protocol::EntityId AddSquad(std::uint8_t _owner, NavigationClass _class, std::span<const Protocol::VoxelPosition> _cellsVoxels);
 
-  /// Places a siege engine of _owner's standing in _cellVoxels, for scenarios and tests.
-  Protocol::EntityId AddSiegeEngine(std::uint8_t _owner, EngineKind _kind, Protocol::VoxelPosition _cellVoxels);
+  /// Places a siege engine of _owner's standing in _cellVoxels, facing _quarterTurns, for scenarios
+  /// and tests.
+  Protocol::EntityId AddSiegeEngine(std::uint8_t _owner, EngineKind _kind, Protocol::VoxelPosition _cellVoxels,
+                                    std::uint32_t _quarterTurns = 0);
+
+  /// Stamps the server data's template _templateId with the minimum corner of its footprint at
+  /// _originVoxels, turned _quarterTurns clockwise seen from above, by edits between ticks, as a
+  /// scenario places one, and records it as a structure named _name. Its voxels are searched in the
+  /// next step 5, as every edit is. Throws std::invalid_argument for a template the data lacks.
+  Protocol::EntityId AddStructure(std::uint8_t _owner, std::string_view _templateId, Protocol::VoxelPosition _originVoxels,
+                                  std::uint32_t _quarterTurns, std::string_view _name);
+
+  [[nodiscard]] const std::map<Protocol::EntityId, Structure>& Structures() const noexcept;
 
   /// Removes a squad and its units. Their ids are never given out again.
   void RemoveSquad(Protocol::EntityId _squad);
@@ -261,6 +289,8 @@ private:
   std::optional<std::pair<std::int32_t, std::int32_t>> Slump(std::int32_t _x, std::int32_t _z);
   /// Whether a shot that reached _point has left the world.
   [[nodiscard]] bool OutsideWorld(const FixedPosition& _point) const noexcept;
+  /// The structure whose box holds _voxel, the lowest id where boxes overlap, or NO_ENTITY.
+  [[nodiscard]] Protocol::EntityId StructureHolding(Protocol::VoxelPosition _voxel) const;
 
   /// Asks for a squad's search from where its first unit stands, or the cell it is stepping into, to
   /// its goal, replacing any it has.
@@ -292,6 +322,7 @@ private:
   std::map<Protocol::EntityId, SiegeEngine> m_siegeEngines;
   std::map<Protocol::EntityId, Shot> m_shots;
   std::map<Protocol::EntityId, Collapse> m_collapses;
+  std::map<Protocol::EntityId, Structure> m_structures;
   std::vector<ShotHit> m_tickHits;
   std::vector<CrushEvent> m_tickCrushes;
   // The edits made after the last step 5 in the tick before: its steps 6 and 7. The next step 5

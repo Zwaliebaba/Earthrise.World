@@ -234,13 +234,107 @@ Protocol::EntityId World::AddSquad(std::uint8_t _owner, NavigationClass _class, 
   return squadId;
 }
 
-Protocol::EntityId World::AddSiegeEngine(std::uint8_t _owner, EngineKind _kind, Protocol::VoxelPosition _cellVoxels)
+Protocol::EntityId World::AddSiegeEngine(std::uint8_t _owner, EngineKind _kind, Protocol::VoxelPosition _cellVoxels,
+                                         std::uint32_t _quarterTurns)
 {
   const Protocol::EntityId id = NewEntityId();
-  m_siegeEngines.emplace(
-    id, SiegeEngine{
-          .id = id, .owner = _owner, .kind = _kind, .position = CellFloorMiddle(_cellVoxels), .cellVoxels = _cellVoxels, .reloadTicks = 0});
+  m_siegeEngines.emplace(id, SiegeEngine{.id = id,
+                                         .owner = _owner,
+                                         .kind = _kind,
+                                         .position = CellFloorMiddle(_cellVoxels),
+                                         .cellVoxels = _cellVoxels,
+                                         .reloadTicks = 0,
+                                         .quarterTurns = _quarterTurns % 4});
   return id;
+}
+
+Protocol::EntityId World::AddStructure(std::uint8_t _owner, std::string_view _templateId, Protocol::VoxelPosition _originVoxels,
+                                       std::uint32_t _quarterTurns, std::string_view _name)
+{
+  const ServerTemplate* found = Data().FindTemplate(_templateId);
+  if (found == nullptr)
+  {
+    throw std::invalid_argument("the server data holds no template " + std::string(_templateId));
+  }
+  const TemplateShape shape = found->Shape();
+  const auto width = static_cast<std::int32_t>(shape.widthVoxels);
+  const auto depth = static_cast<std::int32_t>(shape.depthVoxels);
+  const std::uint32_t turns = _quarterTurns % 4;
+  for (std::uint32_t y = 0; y < shape.heightVoxels; ++y)
+  {
+    for (std::int32_t z = 0; z < depth; ++z)
+    {
+      for (std::int32_t x = 0; x < width; ++x)
+      {
+        const std::uint8_t index = shape.At(static_cast<std::uint32_t>(x), y, static_cast<std::uint32_t>(z));
+        if (index == Protocol::Chunk::EMPTY)
+        {
+          continue;
+        }
+        // Clockwise seen from above, as the voxel pass turns a batch: one turn takes +z to +x, and the
+        // footprint's minimum corner stays at the origin.
+        std::int32_t turnedX = x;
+        std::int32_t turnedZ = z;
+        switch (turns)
+        {
+        case 1:
+          turnedX = z;
+          turnedZ = width - 1 - x;
+          break;
+        case 2:
+          turnedX = width - 1 - x;
+          turnedZ = depth - 1 - z;
+          break;
+        case 3:
+          turnedX = depth - 1 - z;
+          turnedZ = x;
+          break;
+        default:
+          break;
+        }
+        m_voxels.Edit({.xVoxels = _originVoxels.xVoxels + turnedX,
+                       .yVoxels = _originVoxels.yVoxels + static_cast<std::int32_t>(y),
+                       .zVoxels = _originVoxels.zVoxels + turnedZ},
+                      index);
+      }
+    }
+  }
+  const Protocol::EntityId id = NewEntityId();
+  m_structures.emplace(id, Structure{.id = id,
+                                     .owner = _owner,
+                                     .templateId = std::string(_templateId),
+                                     .originVoxels = _originVoxels,
+                                     .quarterTurns = turns,
+                                     .name = std::string(_name)});
+  return id;
+}
+
+const std::map<Protocol::EntityId, Structure>& World::Structures() const noexcept
+{
+  return m_structures;
+}
+
+Protocol::EntityId World::StructureHolding(Protocol::VoxelPosition _voxel) const
+{
+  for (const auto& [id, structure] : m_structures)
+  {
+    const ServerTemplate* found = Data().FindTemplate(structure.templateId);
+    if (found == nullptr)
+    {
+      continue;
+    }
+    const bool across = structure.quarterTurns % 2 == 1;
+    const auto extentX = static_cast<std::int32_t>(across ? found->depthVoxels : found->widthVoxels);
+    const auto extentZ = static_cast<std::int32_t>(across ? found->widthVoxels : found->depthVoxels);
+    const Protocol::VoxelPosition& origin = structure.originVoxels;
+    if (_voxel.xVoxels >= origin.xVoxels && _voxel.xVoxels < origin.xVoxels + extentX && _voxel.zVoxels >= origin.zVoxels &&
+        _voxel.zVoxels < origin.zVoxels + extentZ && _voxel.yVoxels >= origin.yVoxels &&
+        _voxel.yVoxels < origin.yVoxels + static_cast<std::int32_t>(found->heightVoxels))
+    {
+      return id;
+    }
+  }
+  return Protocol::NO_ENTITY;
 }
 
 void World::RemoveSquad(Protocol::EntityId _squad)
@@ -620,7 +714,9 @@ void World::SearchSupport()
     }
     const Protocol::EntityId id = NewEntityId();
     CollapsePlan plan = PlanCollapse(piece, edits, m_voxels, Data());
-    m_collapses.emplace(id, Collapse{.id = id, .piece = std::move(piece), .plan = std::move(plan), .ticksElapsed = 0, .struck = {}});
+    const Protocol::EntityId structure = StructureHolding(piece.front());
+    m_collapses.emplace(
+      id, Collapse{.id = id, .piece = std::move(piece), .plan = std::move(plan), .ticksElapsed = 0, .struck = {}, .structure = structure});
   }
 }
 

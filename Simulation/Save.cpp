@@ -69,6 +69,30 @@ template <typename Enum> Enum ReadEnum(Core::ByteReader& _reader, Enum _last, co
   return static_cast<Enum>(value);
 }
 
+std::uint32_t ReadQuarterTurns(Core::ByteReader& _reader)
+{
+  const std::uint8_t value = _reader.ReadU8();
+  if (value > 3)
+  {
+    Refuse("an entity is turned " + std::to_string(value) + " quarter turns, more than 3");
+  }
+  return value;
+}
+
+void WriteText(Core::ByteWriter& _writer, std::string_view _text)
+{
+  _writer.WriteU32(static_cast<std::uint32_t>(_text.size()));
+  _writer.WriteBytes(std::as_bytes(std::span(_text.data(), _text.size())));
+}
+
+std::string ReadText(Core::ByteReader& _reader)
+{
+  const std::span<const std::byte> bytes = _reader.ReadBytes(_reader.ReadU32());
+  std::string text(bytes.size(), '\0');
+  std::ranges::transform(bytes, text.begin(), [](std::byte _byte) { return static_cast<char>(_byte); });
+  return text;
+}
+
 bool ReadBool(Core::ByteReader& _reader)
 {
   const std::uint8_t value = _reader.ReadU8();
@@ -168,6 +192,7 @@ void WriteRecord(Core::ByteWriter& _writer, const SiegeEngine& _engine)
   WriteFixedPosition(_writer, _engine.position);
   WritePosition(_writer, _engine.cellVoxels);
   _writer.WriteU32(_engine.reloadTicks);
+  _writer.WriteU8(static_cast<std::uint8_t>(_engine.quarterTurns));
 }
 
 SiegeEngine ReadSiegeEngine(Core::ByteReader& _reader)
@@ -177,7 +202,8 @@ SiegeEngine ReadSiegeEngine(Core::ByteReader& _reader)
           .kind = ReadEnum(_reader, EngineKind::Trebuchet, "kind of engine"),
           .position = ReadFixedPosition(_reader),
           .cellVoxels = ReadPosition(_reader),
-          .reloadTicks = _reader.ReadU32()};
+          .reloadTicks = _reader.ReadU32(),
+          .quarterTurns = ReadQuarterTurns(_reader)};
 }
 
 void WriteFixed(Core::ByteWriter& _writer, Core::Fixed _value)
@@ -261,11 +287,17 @@ void WriteRecord(Core::ByteWriter& _writer, const Collapse& _collapse)
   {
     _writer.WriteU64(unit);
   }
+  _writer.WriteU64(_collapse.structure);
 }
 
 Collapse ReadCollapse(Core::ByteReader& _reader)
 {
-  Collapse collapse{.id = _reader.ReadU64(), .piece = ReadPositions(_reader), .plan = {}, .ticksElapsed = 0, .struck = {}};
+  Collapse collapse{.id = _reader.ReadU64(),
+                    .piece = ReadPositions(_reader),
+                    .plan = {},
+                    .ticksElapsed = 0,
+                    .struck = {},
+                    .structure = Protocol::NO_ENTITY};
   CollapsePlan& plan = collapse.plan;
   plan.direction = ReadEnum(_reader, FallDirection::West, "fall direction");
   plan.warningTicks = _reader.ReadU32();
@@ -284,7 +316,29 @@ Collapse ReadCollapse(Core::ByteReader& _reader)
   {
     collapse.struck.push_back(_reader.ReadU64());
   }
+  collapse.structure = _reader.ReadU64();
   return collapse;
+}
+
+void WriteRecord(Core::ByteWriter& _writer, const Structure& _structure)
+{
+  _writer.WriteU64(_structure.id);
+  _writer.WriteU8(_structure.owner);
+  WriteText(_writer, _structure.templateId);
+  WritePosition(_writer, _structure.originVoxels);
+  _writer.WriteU8(static_cast<std::uint8_t>(_structure.quarterTurns));
+  WriteText(_writer, _structure.name);
+}
+
+Structure ReadStructure(Core::ByteReader& _reader)
+{
+  Structure structure{
+    .id = _reader.ReadU64(), .owner = _reader.ReadU8(), .templateId = {}, .originVoxels = {}, .quarterTurns = 0, .name = {}};
+  structure.templateId = ReadText(_reader);
+  structure.originVoxels = ReadPosition(_reader);
+  structure.quarterTurns = ReadQuarterTurns(_reader);
+  structure.name = ReadText(_reader);
+  return structure;
 }
 
 /// One entity: its tag, its record's version and length, and the record.
@@ -307,9 +361,10 @@ void WriteEntities(Core::ByteWriter& _writer, const World& _world)
   const std::map<Protocol::EntityId, SiegeEngine>& engines = _world.SiegeEngines();
   const std::map<Protocol::EntityId, Shot>& shots = _world.Shots();
   const std::map<Protocol::EntityId, Collapse>& collapses = _world.Collapses();
+  const std::map<Protocol::EntityId, Structure>& structures = _world.Structures();
   // Every entity in id order, across the kinds (ADR-014, decision 4).
   std::vector<std::pair<Protocol::EntityId, SaveEntityTag>> order;
-  order.reserve(squads.size() + units.size() + engines.size() + shots.size() + collapses.size());
+  order.reserve(squads.size() + units.size() + engines.size() + shots.size() + collapses.size() + structures.size());
   for (const auto& [id, squad] : squads)
   {
     order.emplace_back(id, SaveEntityTag::Squad);
@@ -329,6 +384,10 @@ void WriteEntities(Core::ByteWriter& _writer, const World& _world)
   for (const auto& [id, collapse] : collapses)
   {
     order.emplace_back(id, SaveEntityTag::Collapse);
+  }
+  for (const auto& [id, structure] : structures)
+  {
+    order.emplace_back(id, SaveEntityTag::Structure);
   }
   std::ranges::sort(order);
   _writer.WriteU32(static_cast<std::uint32_t>(order.size()));
@@ -350,6 +409,9 @@ void WriteEntities(Core::ByteWriter& _writer, const World& _world)
       break;
     case SaveEntityTag::Collapse:
       WriteEntity(_writer, tag, collapses.at(id));
+      break;
+    case SaveEntityTag::Structure:
+      WriteEntity(_writer, tag, structures.at(id));
       break;
     }
   }
@@ -520,6 +582,12 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
       {
         Collapse collapse = ReadCollapse(record);
         world.m_collapses.emplace(collapse.id, std::move(collapse));
+        break;
+      }
+      case SaveEntityTag::Structure:
+      {
+        Structure structure = ReadStructure(record);
+        world.m_structures.emplace(structure.id, std::move(structure));
         break;
       }
       default:

@@ -69,6 +69,7 @@
     <ClCompile Include="MovementTests.cpp" />
     <ClCompile Include="DropTests.cpp" />
     <ClCompile Include="BreachRunTests.cpp" />
+    <ClCompile Include="StructureTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

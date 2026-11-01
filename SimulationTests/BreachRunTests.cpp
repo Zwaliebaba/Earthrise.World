@@ -40,6 +40,7 @@ struct Outcome
   std::vector<Simulation::ShotHit> hits;
   bool everyCraterOpened = true;               // each hit voxel and the one behind it empty the tick it struck
   std::vector<Simulation::Collapse> collapses; // each as it started
+  std::map<Protocol::EntityId, std::string> structureNames;
   bool piecesHeldThroughTheirWarnings = true;
   std::vector<Simulation::CrushEvent> crushes;
   std::uint32_t firstFallTick = 0;                // the tick the first piece left the grid
@@ -82,6 +83,10 @@ Outcome RunBreach()
   Simulation::World world(outcome.desc);
   outcome.run = Simulation::BuildBreachRun(world);
   const Simulation::BreachRun& run = outcome.run;
+  for (const auto& [id, structure] : world.Structures())
+  {
+    outcome.structureNames.emplace(id, structure.name);
+  }
   Simulation::ReplayRecorder recorder(world);
   bool beforeBreachSaved = false;
   bool midFallSaved = false;
@@ -229,6 +234,16 @@ public:
     Assert::AreEqual(92U, collapse.plan.warningTicks);
     Assert::IsTrue(outcome.piecesHeldThroughTheirWarnings);
     Assert::IsTrue(collapse.plan.direction == Simulation::FallDirection::East);
+  }
+
+  TEST_METHOD(TheSlotThatFallsIsW2s)
+  {
+    // The enclosure is W1 to W10, south side first, so the middle south section, the target, is W2,
+    // and the collapse names it (M3-B1).
+    const Outcome& outcome = Breach();
+    Assert::AreEqual(std::size_t{10}, outcome.structureNames.size());
+    Assert::AreEqual(std::size_t{1}, outcome.collapses.size());
+    Assert::AreEqual(std::string("W2"), outcome.structureNames.at(outcome.collapses.front().structure));
   }
 
   TEST_METHOD(ItsRubbleKeepsItsMaterial)
