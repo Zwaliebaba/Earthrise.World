@@ -32,7 +32,7 @@ struct RuleField
 
 // Every key the simulation reads, in ascending order, as the bake writes them. A key the file holds
 // and this table does not is refused, and so is one this table needs and the file lacks.
-constexpr std::array<RuleField, 43> RULE_FIELDS = {{
+constexpr std::array<RuleField, 44> RULE_FIELDS = {{
   {"bedrockCraterVoxels", &Rules::bedrockCraterVoxels, nullptr},
   {"buildingStoneCraterVoxels", &Rules::buildingStoneCraterVoxels, nullptr},
   {"buildingStoneSpanVoxels", &Rules::buildingStoneSpanVoxels, nullptr},
@@ -65,6 +65,7 @@ constexpr std::array<RuleField, 43> RULE_FIELDS = {{
   {"machinesSpeedMetersPerTick", nullptr, &Rules::machinesSpeedMetersPerTick},
   {"machinesWidthVoxels", &Rules::machinesWidthVoxels, nullptr},
   {"pathNodesPerTick", &Rules::pathNodesPerTick, nullptr},
+  {"queryWorkPerTick", &Rules::queryWorkPerTick, nullptr},
   {"shotLaunchHeightVoxels", &Rules::shotLaunchHeightVoxels, nullptr},
   {"shotMaxRangeVoxels", &Rules::shotMaxRangeVoxels, nullptr},
   {"shotMinRangeVoxels", &Rules::shotMinRangeVoxels, nullptr},

@@ -202,6 +202,7 @@ class ServerBakeTests(unittest.TestCase):
     self.assertEqual(2293, rules["machinesSpeedMetersPerTick"])
     self.assertEqual(20, rules["warningBaseTicks"])
     self.assertEqual(1607, rules["gravityMetersPerTickSquared"])
+    self.assertEqual(16, rules["queryWorkPerTick"])
     self.assertEqual(sorted(rules), list(rules))
 
   def test_a_span_that_is_not_a_whole_number_of_voxels_fails(self):

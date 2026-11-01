@@ -67,6 +67,47 @@ void World::Submit(std::uint8_t _player, std::span<const std::byte> _command)
   m_pendingCommands.push_back({.player = _player, .bytes = {_command.begin(), _command.end()}});
 }
 
+void World::Ask(std::uint8_t _player, std::span<const std::byte> _query)
+{
+  m_pendingQueries.push_back({.player = _player, .bytes = {_query.begin(), _query.end()}});
+  if (m_pendingQueries.size() > MAX_PENDING_QUERIES)
+  {
+    m_pendingQueries.pop_front();
+  }
+}
+
+std::vector<std::vector<std::byte>> World::TakeAnswers()
+{
+  return std::exchange(m_answers, {});
+}
+
+bool World::Quiet() const noexcept
+{
+  if (!m_shots.empty() || !m_collapses.empty() || !m_slumpQueue.empty() || !m_searches.empty() || !m_unsearchedEdits.empty() ||
+      !m_voxels.TickEdits().empty() || !m_pendingCommands.empty())
+  {
+    return false;
+  }
+  // A unit stands still at its place in its squad's file: in no step, and at the cell it stops in.
+  for (const auto& [id, squad] : m_squads)
+  {
+    for (std::size_t place = 0; place < squad.units.size(); ++place)
+    {
+      const auto unit = m_units.find(squad.units[place]);
+      if (unit == m_units.end() || squad.trail.empty())
+      {
+        continue;
+      }
+      const std::size_t end = squad.trail.size() - 1 - std::min(place, squad.trail.size() - 1);
+      if (unit->second.stepEffort > 0 || unit->second.trailStep < end)
+      {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 void World::Tick()
 {
   m_tickCrushes.clear();
@@ -1194,7 +1235,71 @@ Protocol::CollapseView World::ViewOf(const Collapse& _collapse) const
 
 void World::AnswerQueries()
 {
-  // Step 12: queries within the tick's budget (ADR-009), which M3 sets.
+  // Step 12: the queries, oldest first, on the tick's state, within queryWorkPerTick units of work
+  // (ADR-009, decision 5; ADR-020, decision 6). A query that does not fit what is left waits for the
+  // next tick, unless nothing has been answered yet this tick, so that one dearer than the whole
+  // budget cannot block the queue for good.
+  constexpr std::int32_t AIM_CHECK_WORK = 1;
+  constexpr std::int32_t TILE_REACH_WORK = 1;
+  constexpr std::int32_t SECTION_INTEGRITY_WORK = 8; // the most support searches it runs (M3-B5)
+  const std::int32_t budget = Data().Tuning().queryWorkPerTick;
+  std::int32_t left = budget;
+  while (!m_pendingQueries.empty())
+  {
+    const SubmittedCommand& asked = m_pendingQueries.front();
+    Core::ByteReader reader(asked.bytes);
+    const Protocol::QueryRequest request = Protocol::DecodeQueryRequest(reader);
+    if (!reader.AtEnd())
+    {
+      throw std::invalid_argument("a query's bytes run on past the query");
+    }
+    const std::int32_t work = std::holds_alternative<Protocol::SectionIntegrity>(request.query)
+                                ? SECTION_INTEGRITY_WORK
+                                : (std::holds_alternative<Protocol::TileReach>(request.query) ? TILE_REACH_WORK : AIM_CHECK_WORK);
+    if (work > left && left < budget)
+    {
+      break;
+    }
+    Core::ByteWriter writer;
+    Protocol::Encode(Protocol::Answer{.queryId = request.id, .tick = m_tick, .reading = Answer(asked.player, request.query)}, writer);
+    m_answers.push_back(writer.TakeBytes());
+    left -= work;
+    m_pendingQueries.pop_front();
+    if (left <= 0)
+    {
+      break;
+    }
+  }
+}
+
+Protocol::Reading World::Answer([[maybe_unused]] std::uint8_t _player, const Protocol::Query& _query) const
+{
+  // Empty readings until M3-B4 to B6 land each kind's own; the budget and the plumbing are this
+  // order's. Answers pass the state update's filter, which passes everything in M3.
+  if (const auto* integrity = std::get_if<Protocol::SectionIntegrity>(&_query))
+  {
+    return Protocol::IntegrityReading{.structure = integrity->structure,
+                                      .ground = Protocol::GroundKind::Earth,
+                                      .canBeUndermined = false,
+                                      .holeWidthVoxels = 0,
+                                      .holeHeightVoxels = 0,
+                                      .holeFallWidthVoxels = 0,
+                                      .hasOpening = false,
+                                      .openingFloorVoxels = 0,
+                                      .openingFloor = Protocol::OpeningFloor::Stone,
+                                      .openingClearVoxels = 0,
+                                      .routeNow = false,
+                                      .gapRunVoxels = 0,
+                                      .gapFallRunVoxels = 0,
+                                      .falling = false,
+                                      .weakMinVoxels = {},
+                                      .weakMaxVoxels = {}};
+  }
+  if (const auto* reach = std::get_if<Protocol::TileReach>(&_query))
+  {
+    return Protocol::TileReachReading{.tileX = reach->tileX, .tileZ = reach->tileZ, .usable = {}, .reached = {}};
+  }
+  return Protocol::AimReading{.verdict = Protocol::AimVerdict::OutOfRange, .distanceMeters = 0, .strikes = false, .strikeVoxels = {}};
 }
 
 } // namespace Simulation

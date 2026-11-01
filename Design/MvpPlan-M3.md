@@ -422,7 +422,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 - **Read first:** ADR-009; ADR-020, decisions 5 and 6; ADR-013, decision 6; `Protocol/Command.cpp`; `Simulation/ServerData.cpp`'s `RULE_FIELDS`; `Tools/CheckAssets.py`, check 10; *Contracts*, `Protocol` and `Simulation`.
 - **Changes:**
   - **`Protocol/Query.h` and `.cpp`,** in the filter `Queries`: the three queries, the three readings, `Encode` and `Decode` for requests and answers.
-  - **`World::Ask`, `TakeAnswers`, `AnswerQueries`** (step 12) and `MAX_PENDING_QUERIES`; the three kinds dispatch to B4, B5 and B6, which this order lands as stubs that throw `std::logic_error`, so that the budget and the plumbing are tested here and each reading in its own order.
+  - **`World::Ask`, `TakeAnswers`, `AnswerQueries`** (step 12) and `MAX_PENDING_QUERIES`; the three kinds dispatch to B4, B5 and B6, which this order lands as stubs that return empty readings, so that the budget and the plumbing are tested here and each reading in its own order. (Written first as stubs that throw `std::logic_error`, which the budget tests could not drive; corrected by B3.)
   - **`queryWorkPerTick`** in `GameData/Server/Rules.json` at 16, `Rules.h`, `RULE_FIELDS`, and `Tools/TestBakeContent.py`'s RULE test, which reads the key back.
   - **`World::Quiet`.**
 - **Tests:**

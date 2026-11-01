@@ -13,6 +13,9 @@
     <Filter Include="State">
       <UniqueIdentifier>{B67DBAD4-E3E1-56C8-9DBA-AFF459913EA4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Queries">
+      <UniqueIdentifier>{E3ED0BE9-DDCA-5C1B-887D-E31140A9DF59}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -57,5 +60,11 @@
     <ClInclude Include="StateUpdate.h">
       <Filter>State</Filter>
     </ClInclude>
+    <ClInclude Include="Query.h">
+      <Filter>Queries</Filter>
+    </ClInclude>
+    <ClCompile Include="Query.cpp">
+      <Filter>Queries</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

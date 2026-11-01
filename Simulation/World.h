@@ -10,6 +10,7 @@
 #include "FixedPosition.h"
 #include "NavigationGrid.h"
 #include "PathSearch.h"
+#include "Query.h"
 #include "ServerData.h"
 #include "Shot.h"
 #include "StateUpdate.h"
@@ -17,6 +18,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <map>
 #include <optional>
@@ -210,6 +212,21 @@ public:
   /// The chunks changed since the last call (ADR-002, decision 3).
   [[nodiscard]] std::vector<Protocol::ChunkSnapshot> Publish();
 
+  /// At most this many queries wait; one more drops the oldest (ADR-009, decision 5).
+  static constexpr std::size_t MAX_PENDING_QUERIES = 64;
+
+  /// Queues a query's bytes from _player for step 12 (ADR-009; ADR-020, decision 6). Past
+  /// MAX_PENDING_QUERIES the oldest pending query is dropped. Queries change nothing, are not saved
+  /// and do not reach the state hash: a client asks again.
+  void Ask(std::uint8_t _player, std::span<const std::byte> _query);
+
+  /// The answers produced since the last call, encoded, in the order answered.
+  [[nodiscard]] std::vector<std::vector<std::byte>> TakeAnswers();
+
+  /// Nothing in flight: no shot, no collapse, no slump or search pending, no edit unsearched, and every
+  /// unit standing still. What the breach lab's fast-forward stops on (M3-B7).
+  [[nodiscard]] bool Quiet() const noexcept;
+
   /// What step 11 published at the end of the last tick: the whole state the player sees, as values
   /// (ADR-020, decision 3). Empty before the first tick, and after a load until the next.
   [[nodiscard]] const Protocol::StateUpdate& State() const noexcept;
@@ -302,6 +319,8 @@ private:
   /// The state _player may see: the filter of ADR-002, decision 4, through which M4's fog goes. M3
   /// has one player and no fog, so it passes everything (ADR-020, decision 3).
   [[nodiscard]] Protocol::StateUpdate StateFor(std::uint8_t _player) const;
+  /// The reading a query asks for, on the tick's state (ADR-009, decision 3): M3-B4 to B6.
+  [[nodiscard]] Protocol::Reading Answer(std::uint8_t _player, const Protocol::Query& _query) const;
   /// A collapse as a state update shows it.
   [[nodiscard]] Protocol::CollapseView ViewOf(const Collapse& _collapse) const;
   /// The structure whose box holds _voxel, the lowest id where boxes overlap, or NO_ENTITY.
@@ -342,6 +361,8 @@ private:
   // so the client sees the last of their landing land. Not saved: the next tick reads nothing of it.
   std::vector<Protocol::CollapseView> m_endedCollapses;
   Protocol::StateUpdate m_state;
+  std::deque<SubmittedCommand> m_pendingQueries; // a query is bytes from a player, as a command is
+  std::vector<std::vector<std::byte>> m_answers;
   std::vector<ShotHit> m_tickHits;
   std::vector<CrushEvent> m_tickCrushes;
   // The edits made after the last step 5 in the tick before: its steps 6 and 7. The next step 5

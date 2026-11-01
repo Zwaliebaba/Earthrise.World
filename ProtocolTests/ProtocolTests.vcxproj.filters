@@ -24,5 +24,8 @@
     <ClCompile Include="CommandTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="QueryTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

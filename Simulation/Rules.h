@@ -50,6 +50,9 @@ struct Rules
   // The work budgets a tick (ADR-013, decision 6; item 13): Proposed until M2-G2 measures them.
   std::int32_t slumpVoxelsPerTick; // voxels slump moves
   std::int32_t pathNodesPerTick;   // nodes the path searches expand
+  // The units of work step 12 spends on queries (ADR-009, amended; ADR-020, decision 6): an aim check
+  // 1, a tile's reach 1, a section's integrity 8. Proposed until M3-G3 measures it (M3's values, item 10).
+  std::int32_t queryWorkPerTick;
 
   // The navigation classes (item 10; ADR-015, decision 2): a climb of 1 m over a run of ClimbRun
   // cells, a headroom, a width, the deepest water forded, and the factors that slow it on rubble and
