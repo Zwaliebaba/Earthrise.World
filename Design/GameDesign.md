@@ -1,6 +1,6 @@
 # Earthrise.World — Game Design
 
-**Status:** Draft, 2026-10-30; revised 2026-10-31, when the owner accepted the game description, and again the same day after the [design review](Review/GameDescription-2026-10-31.md), and on 2026-11-01 for M1's values and M2's. M1's renderer spike implements part of the MVP; the rest is not implemented. Each section says what kind of statement it holds: **Decided** records the owner's answers, **Proposed** is a recommendation awaiting the owner, **Open** is what nobody has decided yet. A proposal becomes a decision only when the owner accepts it, and this document is updated when that happens.
+**Status:** Draft, 2026-10-30; revised 2026-10-31, when the owner accepted the game description, and again the same day after the [design review](Review/GameDescription-2026-10-31.md), and on 2026-11-01 for M1's values and M2's, and for M2's close. M1's renderer spike implements part of the MVP; the rest is not implemented. Each section says what kind of statement it holds: **Decided** records the owner's answers, **Proposed** is a recommendation awaiting the owner, **Open** is what nobody has decided yet. A proposal becomes a decision only when the owner accepts it, and this document is updated when that happens.
 
 This document says what the game is. [GameDescription.md](GameDescription.md) describes the whole game at length, for designers reviewing it. The owner accepted it in full on 2026-10-31, so everything it states is Decided; this document records that and holds what is still Proposed or Open. The design review that followed the same day is recorded below, and its decisions are written into both documents. Where the two differ, this document governs. [AGENTS.md](../AGENTS.md) says how the code is written, and [`Design/ADR/`](ADR/) records the engineering decisions that follow from it.
 
@@ -172,7 +172,7 @@ The owner settled the open items of the readiness review ([Review/MvpReadiness-2
 1. **Claude sessions write the code;** the owner runs it and judges it.
    - Code, tools and checkers are written in Claude sessions and pushed to branches, and CI compiles Debug|x64. It compiled Debug|ARM64 as well until the owner dropped that the same day ([ADR-007](ADR/ADR-007-platforms-and-input.md), amended); ARM64 is now built by hand.
    - The owner runs the builds on Windows, judges the look and the measurements, and approves each milestone.
-   - The plan's estimates are rescaled from the real pace of the first milestones. (Since 2026-11-01 the plan forecasts calendar weeks and owner hours instead, *Planning M2*.)
+   - The plan's estimates are rescaled from the real pace of the first milestones. (Since 2026-11-01 the plan forecast calendar weeks and owner hours instead, *Planning M2*; on closing M2 the same day the owner dropped time from the plan altogether, *No time logging*.)
 2. **MvpPlan.md is accepted through M2,** together with the renderer spike's six questions, its pass mark and the 1 m kill criterion. M3 to M7 stay Proposed until after M1.
 3. **How the pass mark is measured:**
    - on a desktop RTX 3060 at 1920 × 1080 (on the owner's RTX 3070 Ti Laptop GPU instead, from 2026-11-01: *Closing M0 and M1*);
@@ -270,8 +270,8 @@ The owner settled how M2 is planned and when it starts ([MvpPlan.md](MvpPlan.md)
 2. **Effort is not estimated, and there is no build budget.**
    - FTE-months and FTE-days are dropped from the plan.
    - The build budget is removed, with its cut order. What to cut, if scope must shrink, is the owner's call when it arises.
-   - Claude sessions write the code, so what sets the pace is the owner's hours, the owner's decisions and CI's round trips.
-   - Each milestone forecasts its calendar weeks and the owner's hours, and logs both.
+   - Claude sessions write the code, so what sets the pace is the owner's decisions and CI's round trips.
+   - Each milestone forecasts its calendar weeks and the owner's hours, and logs both. (Dropped on closing M2, *No time logging*.)
 3. **Work is planned as work orders,** each a self-contained brief a Claude session can carry out without rebuilding its scope from the other documents. M2's are in [MvpPlan-M2.md](MvpPlan-M2.md).
 4. **One commit per order, one pull request per phase.** A phase is a group of orders that lands together (AGENTS.md §6).
 5. **An ADR may be written ahead of its code.** It stays Proposed until the pull request that first implements it marks it Accepted (AGENTS.md §6).
@@ -289,7 +289,7 @@ The owner answered MvpPlan.md's thirteen M2 inputs, taking each proposal as writ
    - forest;
    - one river with fords, whose banks rise 1 m in 3 from the water, so every navigation class can cross there (Decided 2026-11-01, after the [M2 report](Review/M2-2026-11-01.md) found cavalry and machines could not reach the fords; GENERATOR_VERSION 2).
 
-   The owner judges the first maps in the renderer spike.
+   The owner judged the map in the renderer spike, fords included, on closing M2 (*Closing M2*).
 4. **A collapse warns for 1 s plus the time a foot soldier at 1.4 m/s takes to walk the piece's height,** rounded up to whole ticks: 135 ticks for an 8 m piece.
 5. **The fall lasts the free-fall time from the piece's height,** under gravity of 9.81 m/s², rounded up to whole ticks: 26 ticks for 8 m.
    - The piece leaves the grid on the fall's first tick.
@@ -328,15 +328,36 @@ The owner answered MvpPlan.md's thirteen M2 inputs, taking each proposal as writ
     - **Water:** nothing; the shot stops.
 
     For M2 the shot reloads in 20 s, the Siege route table's reload, and reaches 12–50 m and descends at 45° or steeper (the paper tests' items 12 and 13). It leaves from 10 m above the engine's cell, about where the cocked model's arm releases, and falls under gravity of 9.81 m/s². The ram's craters are M4's.
-13. **The work budgets a tick,** voxels slumped and path nodes expanded, are set by the implementer from M2's measurements to fit item 2 (Proposed until measured).
+13. **The work budgets a tick,** voxels slumped and path nodes expanded, are set by the implementer from M2's measurements to fit item 2 (Decided on closing M2, *Closing M2*, item 2).
 
     **Proposed (M2-G2):** 256 voxels slumped and 4,096 path nodes expanded a tick, unchanged from the values the orders started with. Measured on 2026-11-01 in the Linux container with clang 18 at -O2, not the benchmark machine: a search expands about 1,000 nodes a millisecond (33,077 nodes in 35 ms across the MVP map), so a full budget is about 4.4 ms, and the costliest tick of the breach run that is play rather than set-up, a fall with its slump and its rebuild, took 9.2 ms. The two together stay under item 2's 25 ms. The breach run's 95th percentile is 0.001 ms, since 95% of its 2,401 ticks have nothing to do, and its slowest tick is tick 0, which takes in the run's own levelling and enclosure, 19 to 28 ms over three runs. The owner's run of `SimulationBench --breach-run` on the benchmark machine replaces these figures.
+
+    **Measured on the benchmark machine, 2026-11-01** (*Closing M2*, below): over three Release runs the slowest tick of play took 4.9 ms, 4.0 ms and 5.9 ms against item 2's 25 ms, tick 0 took 12 to 16 ms, and the 95th percentile of every tick stayed at 0.001 ms or under. The budgets fit item 2 with room to spare, and the owner decided them in *Closing M2*.
 14. **Ground, and the spans not yet decided.**
     - Palette.json gives each index a server-side `ground` flag. Units stand only on ground, and building stone in an outcrop is ground while masonry, the same behaviour laid by a template, is not.
     - Ground: terrain, fields, roads and every rubble. Not ground: masonry, timber, roof, leaves and decorations.
     - Leaves span 3 m, a canopy's 2.2 m radius rounded up. Common rock spans 2 m, as stone does. Stone's 2 m and timber's 5 m stand.
 15. **Queries are budgeted in units of work,** a number answered a tick, oldest dropped first. The simulation reads no clock anywhere ([ADR-009](ADR/ADR-009-queries-across-the-server-boundary.md), amended).
 16. **Five older inconsistencies are Open questions,** each for the milestone that must settle it (*Open questions*).
+
+### 2026-11-01: closing M2
+
+The owner closed M2 on the [M2 report](Review/M2-2026-11-01.md) and the runs taken on the benchmark machine the same day, after pull request #42 merged.
+
+1. **The tick fits its target.** `SimulationBench --breach-run`, Release x64, on the benchmark laptop's CPU: the slowest tick of play took 4.9 ms, 4.0 ms and 5.9 ms over three runs against item 2's 25 ms, and tick 0, the run's set-up, took 12 to 16 ms. That is the last line of MvpPlan.md's M2 done-when; every headless line passes in CI (the report, *What the done-when showed*).
+2. **The work budgets are Decided:** 256 voxels slumped and 4,096 path nodes expanded a tick, as *M2's values*, item 13, proposed. The breach run's slowest tick of play exercises both, a fall with its slump, its rebuild and the squad's search, and it took under a quarter of the target.
+3. **The renderer spike is unchanged, and it draws the generated map.** The test scene draws the town, the quarry and its walkers, the trebuchets, the river and the breach as before, and its voxel pass measured 2.370 ms against the 8 ms pass mark; `--generated-map` draws the MVP map at 2.131 ms. **The graded fords look good,** judged by the owner by eye in a run panned to one: the banks read as a ramp every class can walk, against the steep valley sides elsewhere. **The spike's refusal of a stale `Content` is waived:** no run provoked it, `ServerDataTests` covers the reader's own refusals, and M2 closes without it.
+4. **The breach reads as a breach,** as the owner judged after the report (MvpPlan.md, M2's risks): craters that weaken the wall, and a collapse whose rubble makes the way in. M3 asks players to predict that behaviour.
+5. **The record.** M2 was carried out in two pull requests, #32 for the plan and phase A and #42 for phases B to G, one draft pull request for B to G by the owner's choice in place of one a phase. Nothing about time is recorded (*No time logging*, below).
+6. **M2 is closed.** M3 to M7 stay Proposed (*Starting the MVP*, item 2). M3 is planned next as M2 was (*Planning M2*): as work orders, with the owner's inputs written down before the code that rests on them, and its plan is accepted when the owner merges it. ADR-006 stays Proposed until after M3, by its own terms.
+
+### 2026-11-01: no time logging
+
+The owner dropped time from the plan on closing M2.
+
+1. **The plan neither forecasts nor logs time.** No calendar weeks, no owner hours, no start and finish dates, and no rescaling of one milestone's forecast from another's pace. A milestone is planned as orders and pull requests, and it closes on its done-when. The plan already estimated no effort (*Planning M2*, item 2); this drops the calendar and the hours that replaced it.
+2. **Why.** This is a hobby project with one developer, and Claude sessions write the code. What paces it is the owner's attention, which no number captures, and a figure nobody acts on is a chore rather than a measurement: M1's hours were never logged, and M2's were a round guess given on request.
+3. **What stays.** The pull requests, the commits, one per order, and what CI found are the record, and they are in the history whether or not a table repeats them. What M1 and M2 logged stays where it is as a record and is not continued.
 
 ## Pillars (Decided)
 

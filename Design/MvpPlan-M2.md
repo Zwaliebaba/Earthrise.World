@@ -1,18 +1,18 @@
 # Earthrise.World — M2 work orders
 
-**Status:** Proposed, 2026-11-01, with [MvpPlan.md](MvpPlan.md)'s M2 revision. No order from phase B on starts before M1 closes (GameDesign.md, *Planning M2*); phase A is paper. "Input N" means MvpPlan.md, M2, input N. These orders carry out M2 as MvpPlan.md, M2, defines it, under [ADR-013](ADR/ADR-013-ticks-numbers-and-randomness.md) to [ADR-016](ADR/ADR-016-server-data-format.md). Where an order and those differ, they win, and the order is corrected.
+**Status:** Carried out, 2026-11-01, every order, and M2 closed the same day (GameDesign.md, *Closing M2*; the [M2 report](Review/M2-2026-11-01.md)). Proposed the same day with [MvpPlan.md](MvpPlan.md)'s M2 revision. No order from phase B on starts before M1 closes (GameDesign.md, *Planning M2*); phase A is paper. "Input N" means MvpPlan.md, M2, input N. These orders carry out M2 as MvpPlan.md, M2, defines it, under [ADR-013](ADR/ADR-013-ticks-numbers-and-randomness.md) to [ADR-016](ADR/ADR-016-server-data-format.md). Where an order and those differ, they win, and the order is corrected.
 
 **An order is one commit, and a phase is one pull request** (AGENTS.md §6). There are 31 orders in seven phases:
 
-| Phase | Orders | What lands | Waits on | Owner hours |
-|---|---|---|---|---|
-| A | A1 | The owner's decisions, written down | The owner's answers to MvpPlan.md, M2, inputs 1–15 | 3 |
-| B | B1–B6 | `Core`'s numbers, randomness and bytes; the float check; `ServerData` | A, and M1 closed | 1 |
-| C | C1–C5 | Commands, edits, the world and its tick, saves, replays | B | 0.5 |
-| D | D1–D3 | The generator | C | 4 |
-| E | E1–E7 | The shot, craters, the collapse, slump | C | 3 |
-| F | F1–F6 | Navigation | C; F6 also phase E | 2 |
-| G | G1–G3 | The done-when, the tick's timing, the report | D, E, F | 3 |
+| Phase | Orders | What lands | Waits on |
+|---|---|---|---|
+| A | A1 | The owner's decisions, written down | The owner's answers to MvpPlan.md, M2, inputs 1–15 |
+| B | B1–B6 | `Core`'s numbers, randomness and bytes; the float check; `ServerData` | A, and M1 closed |
+| C | C1–C5 | Commands, edits, the world and its tick, saves, replays | B |
+| D | D1–D3 | The generator | C |
+| E | E1–E7 | The shot, craters, the collapse, slump | C |
+| F | F1–F6 | Navigation | C; F6 also phase E |
+| G | G1–G3 | The done-when, the tick's timing, the report | D, E, F |
 
 D, E and F each branch from `main` once C has merged, and can run side by side. Each fills its own steps of the tick, which C lands as empty functions.
 
@@ -32,7 +32,7 @@ D, E and F each branch from `main` once C has merged, and can run side by side. 
 9. **Accept the ADR you implement.** The commit that first implements an ADR marks it Accepted, with the date and any amendment the code forced (AGENTS.md §6), and notes the earlier ADRs' *Left open* items it closes. Each order says which ADR, if any.
 10. **Hand the spike to the owner.** An order that changes `RendererSpike` lists it under *Owner runs*, and the owner launches the spike before the phase merges (AGENTS.md §3).
 11. **Leave out-of-scope work out.** What a session notices beyond its order goes in the PR description, not the commit.
-12. **Log the phase.** Its last commit fills in its row of the time log in MvpPlan.md, M2: dates, the PR, its commits, CI runs and the owner's hours.
+12. **Log the phase.** Dropped on closing M2 (GameDesign.md, *No time logging*): nothing about time is logged. The pull request and its commits, one per order, are the record. (Until then, a phase's last commit filled in its row in MvpPlan.md, M2, with dates, the PR, its commits, CI runs and the owner's hours.)
 
 ## Contracts
 
@@ -248,7 +248,6 @@ struct CollapsePlan
   - **The ADRs** are edited where the owner changed them. They stay Proposed (AGENTS.md §6).
   - **The scenario line:** if the owner takes ADR-014, decision 7, GameDesign.md's line "A scenario is a save" is rewritten as that ADR's consequences give it.
 - **Tests:** none. The checkers run, and every relative link resolves.
-- **Owner hours:** 3.
 
 ## Phase B — `Core` and server data
 
@@ -449,7 +448,7 @@ struct CollapsePlan
 ### M2-D3 — The spike draws a generated map
 - **Waits on:** D1.
 - **Changes:** `RendererSpike --generated-map <seed>` draws the generated map with no units and no edits, the camera at its middle.
-- **Owner runs:** the spike, and judges the map against input 3 (owner hours: 4). Changes the owner asks for become orders D4, D5 and so on, one commit each, in this phase's PR.
+- **Owner runs:** the spike, and judges the map against input 3. Changes the owner asks for become orders D4, D5 and so on, one commit each, in this phase's PR.
 
 ## Phase E — Destruction
 
@@ -642,7 +641,7 @@ struct CollapsePlan
 - **Changes:**
   - **`SimulationBench --breach-run`** times every tick of the breach run. It writes a CSV holding the per-tick times, their 95th percentile against input 2's target, the build id, and the CPU from `PROCESSOR_IDENTIFIER` and `NUMBER_OF_PROCESSORS`, read with `std::getenv`, so no Windows header is needed.
   - **The work budgets** are tuned to fit input 2's target and recorded as Proposed in GameDesign.md, *M2's values* (input 13).
-- **Owner runs:** the bench on the benchmark machine (owner hours: 1).
+- **Owner runs:** the bench on the benchmark machine.
 
 ### M2-G3 — The report
 - **Waits on:** G2.
@@ -651,7 +650,6 @@ struct CollapsePlan
     - what the done-when showed;
     - what a breach looks like under the rules on the 1 m grid;
     - the budgets measured;
-    - the CI runs per order and the owner's hours per phase;
+    - the CI runs per order (the owner's hours per phase were asked for too, until the owner dropped time from the plan, GameDesign.md, *No time logging*);
     - each ADR amendment.
-  - **MvpPlan.md:** its time log is complete, and M3's forecast is written from M2's pace.
-- **Owner hours:** 2, to read the report and sign M2 off.
+  - **MvpPlan.md:** its M2 record is complete, and what M3 inherits from M2 is written.
