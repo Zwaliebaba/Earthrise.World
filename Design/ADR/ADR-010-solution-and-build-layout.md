@@ -34,10 +34,10 @@
    | `Content` | static library | Core | The client's baked tables (ADR-008) |
    | `Simulation` | static library | Core, Protocol | The minimal chunk store with copy-on-write snapshots; in M1 also the first support search, the navigation tiles and the test world; the rest in M2 |
    | `RendererSpike` | Windows executable | Core, Engine, Protocol, Content, Simulation | The spike's scene script, camera path and measurements |
-   | `SimulationBench` | console executable | Core, Protocol, Content, Simulation | Spike question 6 |
+   | `SimulationBench` | console executable | Core, Protocol, Simulation | Spike question 6 |
    | `CoreTests`, `EngineTests`, `ProtocolTests`, `ContentTests`, `SimulationTests` | CppUnitTest DLLs | their library | Unit tests, each starting with `SuiteSmoke`. `EngineTests` holds the render tests on WARP ([ADR-012](ADR-012-render-tests-on-warp.md)) |
 
-   `SimulationBench` gained Content during M1 (amended 2026-11-01, by the owner, GameDesign.md, *M1's open values*, item 9). The test world it measures is built in Simulation from templates handed in through `Simulation::TemplateLookup`, and until the server bake writes the templates (M2) the bench hands in Content's. Simulation itself never depends on Content, and the edge goes when the bench reads the server's data instead.
+   `SimulationBench` gained Content during M1 (amended 2026-11-01, by the owner, GameDesign.md, *M1's open values*, item 9). The test world it measures is built in Simulation from templates handed in through `Simulation::TemplateLookup`, and until the server bake wrote the templates the bench handed in Content's. Simulation itself never depends on Content. **The edge went in M2** (amended again 2026-11-01, by order M2-B6): the bench is a `wmain` that reads `ServerData\ServerData.bin` from beside its own executable, found from its first argument, and hands in `ServerData::Templates()` ([ADR-016](ADR-016-server-data-format.md)).
 
    `EngineTests` and `ContentTests` joined during M1, with the engine base and the client bake (MvpPlan.md, M1 tasks 2 and 4), once their libraries held code to test. `Client` and `Earthrise` join when M3 and M4 need them. A project joins the solution when the milestone that first uses it starts, never earlier.
 3. **Output goes to `$(SolutionDir)$(Platform)\$(Configuration)\`** for every project: libraries, executables and test DLLs.
@@ -67,7 +67,7 @@
 7. **The bake is a build step of `Content`.**
    - A target runs `python Tools/BakeContent.py` before compiling. It takes `GameData/` as inputs and writes headers to `$(IntDir)Generated\`, so the build is incremental.
    - Python comes from `PATH`, version 3.12 or later as CI pins it. When Python is missing, the build fails with a message saying so.
-   - The server half of the bake (ADR-008), with its own target, comes in M2.
+   - The server half of the bake (ADR-008) is a target of its own, `BakeServerData`, in `Simulation.vcxproj` (M2-B6, [ADR-016](ADR-016-server-data-format.md), decision 5). It runs `python Tools/BakeContent.py --server` before compiling, with the server's sources as inputs, and writes `$(OutDir)ServerData\ServerData.bin`. `Build/CheckProjectFiles.py` lets `Content` and `Simulation` bake, and no other project.
 8. **The clang-tidy setup is corrected:**
    - **The header filter becomes `(^|[/\\])(Core|Engine|Protocol|Content|Simulation|RendererSpike|SimulationBench|[A-Za-z0-9]+Tests)[/\\][A-Za-z0-9]+\.h$`.** A project name then matches only as a whole path segment directly above the header. Generated headers sit one folder deeper, in `Generated\`, and never match.
    - **`Build/RunClangTidy.py` takes each translation unit's flags from the project files and the property sheet:** include directories, defines and the precompiled header. They are never written by hand.
@@ -104,5 +104,5 @@
 ## Left open
 
 - The `.filters` groups of each project, which are chosen as each project is created (AGENTS.md §2).
-- Where `ServerData`'s bake target lives, decided in M2.
+- Where `ServerData`'s bake target lives, decided in M2. *(Closed by [ADR-016](ADR-016-server-data-format.md), decision 5: `Simulation.vcxproj`, implemented by M2-B6.)*
 - A Release build in CI, which stays out (AGENTS.md §6).

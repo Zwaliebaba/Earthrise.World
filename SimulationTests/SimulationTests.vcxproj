@@ -46,6 +46,8 @@
     <ClCompile Include="SupportSearchTests.cpp" />
     <ClCompile Include="NavigationGridTests.cpp" />
     <ClCompile Include="TestWorldTests.cpp" />
+    <ClInclude Include="ServerDataFile.h" />
+    <ClCompile Include="ServerDataTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

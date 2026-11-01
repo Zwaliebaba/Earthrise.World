@@ -13,6 +13,9 @@
     <Filter Include="Navigation">
       <UniqueIdentifier>{D71EF418-0B81-5264-9984-C577885DFC7C}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Data">
+      <UniqueIdentifier>{279CC4D9-2169-5C1B-8AA1-7CE8C22B5334}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -51,5 +54,14 @@
     <ClCompile Include="TestWorld.cpp">
       <Filter>World</Filter>
     </ClCompile>
+    <ClInclude Include="ServerData.h">
+      <Filter>Data</Filter>
+    </ClInclude>
+    <ClCompile Include="ServerData.cpp">
+      <Filter>Data</Filter>
+    </ClCompile>
+    <ClInclude Include="Rules.h">
+      <Filter>Data</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

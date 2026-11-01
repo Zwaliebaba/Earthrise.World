@@ -2,6 +2,7 @@
 
 #include "ChunkStore.h"
 #include "NavigationGrid.h"
+#include "ServerDataFile.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
@@ -22,8 +23,7 @@ constexpr std::int16_t GROUND = 3; // a unit stands in the cell above the earth'
 
 const Simulation::MaterialRules& Rules()
 {
-  static const Simulation::MaterialRules RULES = Simulation::StandInMaterialRules(1);
-  return RULES;
+  return BakedServerData().Materials();
 }
 
 void Fill(Simulation::ChunkStore& _store, std::int32_t _x0, std::int32_t _x1, std::int32_t _y0, std::int32_t _y1, std::int32_t _z0,

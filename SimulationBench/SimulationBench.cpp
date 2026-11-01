@@ -1,8 +1,8 @@
 #include "pch.h"
 
-#include "Catalog.h"
 #include "ChunkStore.h"
 #include "NavigationGrid.h"
+#include "ServerData.h"
 #include "SupportSearch.h"
 #include "TestWorld.h"
 
@@ -16,6 +16,9 @@
 // voxel, which is exactly the chunks the split world would hold; its search and its tiles are
 // timed on a split copy of the region they read. Wall-clock time is fine here: the bench measures
 // the simulation, it is not part of it.
+//
+// The materials and the templates are the server bake's, read from ServerData\ beside the bench's
+// own executable (ADR-016), so the bench reads no client content (ADR-010, amended).
 
 namespace
 {
@@ -31,23 +34,6 @@ constexpr double BYTES_PER_MEGABYTE = 1024.0 * 1024.0;
 constexpr std::int32_t HALF_METER_CHUNK_SPAN = Protocol::CHUNK_EDGE_VOXELS / 2; // 1 m voxels a 0.5 m chunk covers
 
 using Clock = std::chrono::steady_clock;
-
-Simulation::TemplateLookup ContentTemplates()
-{
-  // Content's templates until the server bake (M2): the owner's choice of 2026-11-01, ADR-010 amended.
-  return [](std::string_view _id) -> std::optional<Simulation::TemplateShape>
-  {
-    const Content::TemplateView* found = Content::FindTemplate(_id);
-    if (found == nullptr)
-    {
-      return std::nullopt;
-    }
-    return Simulation::TemplateShape{.widthVoxels = found->grid.widthVoxels,
-                                     .heightVoxels = found->grid.heightVoxels,
-                                     .depthVoxels = found->grid.depthVoxels,
-                                     .indices = found->grid.indices};
-  };
-}
 
 double MillisecondsSince(Clock::time_point _start)
 {
@@ -116,7 +102,8 @@ double Megabytes(std::size_t _chunks)
 }
 
 /// One world's measurements, at 1 m and at 0.5 m.
-void Measure(std::string_view _name, Simulation::ChunkStore& _store, const Simulation::TestWorld& _world, double _buildMilliseconds)
+void Measure(std::string_view _name, Simulation::ChunkStore& _store, const Simulation::TestWorld& _world, double _buildMilliseconds,
+             const Simulation::ServerData& _data)
 {
   const Clock::time_point publishStart = Clock::now();
   static_cast<void>(_store.Publish());
@@ -128,7 +115,7 @@ void Measure(std::string_view _name, Simulation::ChunkStore& _store, const Simul
                Megabytes(chunks.halfMeter), chunks.halfMeter);
 
   // The breach: the curtain section just north of the test town's breach collapses into rubble.
-  const Simulation::MaterialRules oneMeterRules = Simulation::StandInMaterialRules(1);
+  const Simulation::MaterialRules& oneMeterRules = _data.Materials();
   Simulation::TestWorldEdits edits(_store, _world, SEED);
   const std::vector<Protocol::VoxelPosition> collapse = edits.Collapse(_store);
   const Simulation::SupportRules support{.materials = &oneMeterRules,
@@ -158,7 +145,7 @@ void Measure(std::string_view _name, Simulation::ChunkStore& _store, const Simul
   // At 0.5 m, on a split copy of the region the search reads and of the touched tile.
   const auto [minX, maxX] = std::ranges::minmax(collapse | std::views::transform(&Protocol::VoxelPosition::xVoxels));
   const auto [minZ, maxZ] = std::ranges::minmax(collapse | std::views::transform(&Protocol::VoxelPosition::zVoxels));
-  const Simulation::MaterialRules halfMeterRules = Simulation::StandInMaterialRules(2);
+  const Simulation::MaterialRules halfMeterRules = Simulation::ScaleSpans(oneMeterRules, 2);
   const auto reach = static_cast<std::int32_t>(Simulation::LongestSpanVoxels(oneMeterRules)) * 2 + 1;
   const std::int32_t regionMinX = std::min(minX - reach, tileX * Simulation::NavigationGrid::TILE_EDGE_CELLS);
   const std::int32_t regionMinZ = std::min(minZ - reach, tileZ * Simulation::NavigationGrid::TILE_EDGE_CELLS);
@@ -204,33 +191,40 @@ void Measure(std::string_view _name, Simulation::ChunkStore& _store, const Simul
                halfTile.slowestMilliseconds);
 }
 
-int Run()
+int Run(const std::filesystem::path& _executable)
 {
   std::println("SimulationBench: the renderer spike's question 6, at 1 m and at 0.5 m (ADR-006). Times are this machine's.");
+  // The server's data sits beside the executable, in the build's output folder (ADR-010, decision 3).
+  const Simulation::ServerData data = Simulation::ServerData::Load(_executable.parent_path() / "ServerData" / "ServerData.bin");
   {
     Simulation::ChunkStore store;
     const Clock::time_point start = Clock::now();
-    const Simulation::TestWorld world = Simulation::BuildTestWorld(store, MVP_MAP_VOXELS, SEED, ContentTemplates());
-    Measure("The MVP map (the test world at 512 m)", store, world, MillisecondsSince(start));
+    const Simulation::TestWorld world = Simulation::BuildTestWorld(store, MVP_MAP_VOXELS, SEED, data.Templates());
+    Measure("The MVP map (the test world at 512 m)", store, world, MillisecondsSince(start), data);
   }
   {
     Simulation::ChunkStore store;
     const Clock::time_point start = Clock::now();
-    const Simulation::TestWorld world = Simulation::BuildSeasonWorld(store, SEASON_WORLD_VOXELS, SEASON_HOLDINGS, SEED, ContentTemplates());
-    Measure("The season world (2 km, 32 holdings)", store, world, MillisecondsSince(start));
+    const Simulation::TestWorld world = Simulation::BuildSeasonWorld(store, SEASON_WORLD_VOXELS, SEASON_HOLDINGS, SEED, data.Templates());
+    Measure("The season world (2 km, 32 holdings)", store, world, MillisecondsSince(start), data);
   }
   return 0;
 }
 
 } // namespace
 
-int main()
+int wmain(int _argumentCount, wchar_t** _arguments)
 {
-  // std::println throws std::format_error on a bad format string. A bench that fails says why and
-  // exits non-zero, rather than letting the exception escape main.
+  // std::println throws std::format_error on a bad format string, and ServerData refuses a file it
+  // cannot read. A bench that fails says why and exits non-zero, rather than letting the exception
+  // escape wmain.
   try
   {
-    return Run();
+    if (_argumentCount < 1 || _arguments == nullptr || _arguments[0] == nullptr)
+    {
+      throw std::runtime_error("the bench was started without its own path, so it cannot find its ServerData folder");
+    }
+    return Run(std::filesystem::absolute(_arguments[0]));
   }
   catch (const std::exception& error)
   {

@@ -31,7 +31,7 @@
   <Import Project="$(MSBuildThisFileDirectory)..\Build\Earthrise.props" />
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)Core;$(SolutionDir)Protocol;$(SolutionDir)Content;$(SolutionDir)Simulation;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Core;$(SolutionDir)Protocol;$(SolutionDir)Simulation;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -50,9 +50,6 @@
     </ProjectReference>
     <ProjectReference Include="..\Protocol\Protocol.vcxproj">
       <Project>{287CBEC4-BB6B-5814-8635-28ED704782A0}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\Content\Content.vcxproj">
-      <Project>{E8120D3B-EED3-501F-BF4A-F241B23E38A0}</Project>
     </ProjectReference>
     <ProjectReference Include="..\Simulation\Simulation.vcxproj">
       <Project>{D9C86E98-FC2C-536F-8658-B2EA71C141A1}</Project>

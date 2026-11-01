@@ -27,5 +27,11 @@
     <ClCompile Include="TestWorldTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClInclude Include="ServerDataFile.h">
+      <Filter>Suites</Filter>
+    </ClInclude>
+    <ClCompile Include="ServerDataTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

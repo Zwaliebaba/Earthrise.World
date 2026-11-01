@@ -166,27 +166,11 @@ ModelPlacement Stand(const Simulation::ChunkStore& _store, const Simulation::Tes
 
 } // namespace
 
-Simulation::TemplateLookup ContentTemplates()
-{
-  return [](std::string_view _id) -> std::optional<Simulation::TemplateShape>
-  {
-    const Content::TemplateView* found = Content::FindTemplate(_id);
-    if (found == nullptr)
-    {
-      return std::nullopt;
-    }
-    return Simulation::TemplateShape{.widthVoxels = found->grid.widthVoxels,
-                                     .heightVoxels = found->grid.heightVoxels,
-                                     .depthVoxels = found->grid.depthVoxels,
-                                     .indices = found->grid.indices};
-  };
-}
-
-TestScene BuildTestScene(Simulation::ChunkStore& _store, std::uint64_t _seed)
+TestScene BuildTestScene(Simulation::ChunkStore& _store, std::uint64_t _seed, const Simulation::TemplateLookup& _templates)
 {
   // The world is Simulation's stand-in for the generator; the scene adds what only the client
   // draws: the units and the models (ADR-006).
-  TestScene scene{.world = Simulation::BuildTestWorld(_store, Simulation::TestWorld::SCENE_EDGE_VOXELS, _seed, ContentTemplates()),
+  TestScene scene{.world = Simulation::BuildTestWorld(_store, Simulation::TestWorld::SCENE_EDGE_VOXELS, _seed, _templates),
                   .fixedModels = {},
                   .walkers = {},
                   .centerXMeters = 0.0F,

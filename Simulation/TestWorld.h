@@ -31,9 +31,9 @@ struct TemplateShape
   }
 };
 
-/// Finds a template's shape by its id, or nothing. In M1 the spike and the bench pass Content's
-/// templates through it; from M2 the server bake's take their place, and Simulation reads no
-/// client content (the owner's choice of 2026-11-01; ADR-010, amended).
+/// Finds a template's shape by its id, or nothing. The spike and the bench pass the server bake's
+/// templates through it (ServerData::Templates), so Simulation reads no client content (the owner's
+/// choice of 2026-11-01; ADR-010, amended).
 using TemplateLookup = std::function<std::optional<TemplateShape>(std::string_view)>;
 
 /// A voxel a collapse brought down, and what it was: what the client scatters the collapse's debris

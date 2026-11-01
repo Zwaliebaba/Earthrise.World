@@ -18,7 +18,9 @@
 #include "PointerInput.h"
 #include "ResourceBarrier.h"
 #include "SceneScript.h"
+#include "ServerData.h"
 #include "ShadowMap.h"
+#include "SharedHash.h"
 #include "SunProjection.h"
 #include "SwapChain.h"
 #include "UploadRing.h"
@@ -340,8 +342,8 @@ std::int64_t PerformanceTicks() noexcept
   return ticks.QuadPart;
 }
 
-/// The folder the measured run writes into: Measurements\ beside the executable.
-std::filesystem::path MeasurementFolder()
+/// The folder the executable sits in: the build's output folder (ADR-010, decision 3).
+std::filesystem::path ExecutableFolder()
 {
   std::wstring path(32768, L'\0');
   const DWORD length = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
@@ -350,7 +352,29 @@ std::filesystem::path MeasurementFolder()
     throw std::runtime_error("the spike could not find where its executable is");
   }
   path.resize(length);
-  return std::filesystem::path(path).parent_path() / L"Measurements";
+  return std::filesystem::path(path).parent_path();
+}
+
+/// The folder the measured run writes into: Measurements\ beside the executable.
+std::filesystem::path MeasurementFolder()
+{
+  return ExecutableFolder() / L"Measurements";
+}
+
+/// The server's data, from ServerData\ beside the executable (ADR-016). The spike draws Content's
+/// templates over a world built from these, so it refuses to start when the two halves were baked
+/// from different sources, naming both hashes (ADR-016, decision 7): the likely cause is one half
+/// rebuilt without the other.
+Simulation::ServerData LoadServerData()
+{
+  Simulation::ServerData data = Simulation::ServerData::Load(ExecutableFolder() / L"ServerData" / L"ServerData.bin");
+  if (data.SharedHash() != Content::SharedHash())
+  {
+    throw std::runtime_error(std::format("the server's data and Content were baked from different sources: ServerData's shared hash is "
+                                         "{:016x}, Content's is {:016x}. Rebuild the solution.",
+                                         data.SharedHash(), Content::SharedHash()));
+  }
+  return data;
 }
 
 DirectX::XMVECTOR SunTowards() noexcept
@@ -521,7 +545,8 @@ int Run(const Options& _options)
   // the store publishes (ADR-002, decision 3). For the 0.5 m world the client draws from a second
   // store, the first split eight ways, which takes every edit the first makes.
   Simulation::ChunkStore store;
-  const RendererSpike::TestScene scene = RendererSpike::BuildTestScene(store, SCENE_SEED);
+  const Simulation::ServerData serverData = LoadServerData();
+  const RendererSpike::TestScene scene = RendererSpike::BuildTestScene(store, SCENE_SEED, serverData.Templates());
   Simulation::ChunkStore halfMeterStore;
   if (_options.halfMeterWorld)
   {

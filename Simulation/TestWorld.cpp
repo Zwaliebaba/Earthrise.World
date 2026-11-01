@@ -37,7 +37,7 @@ constexpr std::uint8_t ROOF = 12;
 constexpr std::uint8_t FIELD_A = 13;
 constexpr std::uint8_t FIELD_B = 14;
 constexpr std::uint8_t ROAD = 15;
-constexpr std::uint8_t OPENING = 20;
+constexpr std::uint8_t OPENING_IN_TIMBER = 29; // a door: an opening's look, timber's behaviour (M2's values, item 7)
 
 // The breach's middle along the west curtain, and the stretch in front of it the ditch leaves undug,
 // 9 m, so the attackers' approach reads (the render-fix package, item 6).
@@ -590,7 +590,7 @@ void BuildDitchAndRampart(const Site& _site)
 void BuildCottage(const Site& _site, std::int32_t _x, std::int32_t _z, std::int32_t _width, std::int32_t _depth)
 {
   _site.Box(_x, _x + _width - 1, G, G + 2, _z, _z + _depth - 1, TIMBER);
-  _site.Box(_x + _width / 2, _x + _width / 2, G, G + 1, _z, _z, OPENING);
+  _site.Box(_x + _width / 2, _x + _width / 2, G, G + 1, _z, _z, OPENING_IN_TIMBER);
   _site.Box(_x - 1, _x + _width, G + 3, G + 3, _z - 1, _z + _depth, ROOF);
   _site.Box(_x - 1, _x + _width, G + 4, G + 4, _z, _z + _depth - 1, ROOF);
   _site.Box(_x - 1, _x + _width, G + 5, G + 5, _z + 1, _z + _depth - 2, ROOF);

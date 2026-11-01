@@ -55,12 +55,10 @@ struct TestScene
   float centerZMeters;
 };
 
-/// Content's templates, as Simulation's test world takes them until the server bake (M2).
-[[nodiscard]] Simulation::TemplateLookup ContentTemplates();
-
-/// Writes the scene's world into _store, publishes nothing, and returns it with its models. Throws
-/// std::runtime_error when a template or model it needs is not in Content.
-[[nodiscard]] TestScene BuildTestScene(Simulation::ChunkStore& _store, std::uint64_t _seed);
+/// Writes the scene's world into _store from _templates, the server bake's (ServerData::Templates),
+/// publishes nothing, and returns it with its models. Throws std::runtime_error when a template it
+/// needs is not in _templates or a model is not in Content.
+[[nodiscard]] TestScene BuildTestScene(Simulation::ChunkStore& _store, std::uint64_t _seed, const Simulation::TemplateLookup& _templates);
 
 /// Where each walker is at _frame, at 60 frames a second, standing on the ground there and facing
 /// the way it walks, in whole quarter turns. Appends to _placements.

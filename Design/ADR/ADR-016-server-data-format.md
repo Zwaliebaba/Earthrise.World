@@ -8,6 +8,7 @@
   - **How a source converts is named by its key's unit.** Meters convert to voxels and seconds to ticks, each of which must come out whole; meters a second and a second squared convert to `Core::Fixed` a tick and a tick squared, floored once; voxels, cells and factors are whole as they stand. `Tools/CheckAssets.py`, check 10, holds the table, and the bake converts with it.
   - **The ground flag and the rubble index live on each palette entry,** as server-side fields `ground` and `rubble`. A decoration's host behaviour is a palette entry of its own, with a `decorates` field naming the decoration whose look it has: 29 an opening in timber, 30 an opening in stone, 31 iron in timber, at the indices after the last one used.
   - **Spans are in both sections:** `RULE` holds each behaviour's, and `MATL` gives each index its behaviour's.
+- **Decisions 5 to 7 landed with M2-B6** (2026-11-01): the `BakeServerData` target in `Simulation.vcxproj`; `Simulation::ServerData`, which `SimulationTests`, `SimulationBench` and `RendererSpike` read; and the spike's refusal to start on a shared-hash mismatch. `StandInMaterialRules` went, and `ScaleSpans` takes its place for ADR-006's 0.5 m comparison. The reader also refuses a section it does not know, and one that appears twice.
 
 ## Context
 

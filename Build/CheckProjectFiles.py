@@ -121,6 +121,7 @@ UNIT_TEST_LIB = r"$(VCInstallDir)Auxiliary\VS\UnitTest\lib"
 GENERATED_INCLUDE = r"$(IntDir)Generated"
 ITEM_KIND = {".h": "ClInclude", ".cpp": "ClCompile", ".hlsl": "FXCompile", ".hlsli": "None", ".manifest": "Manifest",
              ".rc": "ResourceCompile"}
+BAKING_PROJECTS = {"Content", "Simulation"}
 FORBIDDEN_EXTENSIONS = {".hpp", ".hh", ".hxx", ".cc", ".cxx", ".c", ".inl"}
 DEFAULT_FILTERS = {"Source Files", "Header Files", "Resource Files"}
 
@@ -370,9 +371,10 @@ def CheckItems(_report, _project, _names):
   registered = {}
   for item in _project.items:
     if item.kind == "BakeInput":
-      # The bake's inputs (ADR-010, decision 7): content sources, read by Content's bake target only.
-      if _project.name != "Content":
-        _report.Error(path, f"BakeInput {item.include}: only Content bakes (ADR-010, decision 7)")
+      # The bake's inputs: content sources, read by Content's bake target for the client (ADR-010,
+      # decision 7) and by Simulation's for the server (ADR-016, decision 5), and by no other project.
+      if _project.name not in BAKING_PROJECTS:
+        _report.Error(path, f"BakeInput {item.include}: only Content and Simulation bake (ADR-010, decision 7; ADR-016, decision 5)")
       elif not item.include.startswith((r"$(SolutionDir)GameData" + "\\", r"$(SolutionDir)Tools" + "\\")) or item.metadata:
         _report.Error(path, f"BakeInput {item.include}: bake inputs are files under GameData\\ or Tools\\")
       continue
