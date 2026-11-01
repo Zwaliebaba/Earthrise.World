@@ -64,7 +64,7 @@
      - every squad marked short of its goal.
 7. **Units follow their squad's path, in fixed point.**
    - Figures and engines move between cell centres along links, at their class speed. Positions are `Core::Fixed` ([ADR-013](ADR-013-ticks-numbers-and-randomness.md)), and a figure stands at its cell's height.
-   - How figures arrange about the path, and how they keep apart, comes with combat in M4. Until then they may pass through each other.
+   - How figures arrange about the path, and how they keep apart, comes with combat in M4, which schedules it as *formations and separation* ([MvpPlan.md](../MvpPlan.md), M4). Until then they may pass through each other.
 8. **Units whose cells change are moved in one step, after the rebuild.** The step runs in unit-id order:
    - **Ground gone:** a unit whose cell's height fell drops to it. A drop over 3 m raises a crush event that carries the drop. The damage it does is M4's statistics.
    - **Cell filled:** a unit whose cell's height rose is lifted to the new surface, with the collapse's damage when a collapse filled it.
@@ -97,5 +97,5 @@
 
 - **A tile-level graph** (Botea, Müller and Schaeffer, *Near optimal hierarchical path-finding*, 2004). It is added only if M2 measures cross-map searches running too far past the node budget.
 - **Flow fields for many units** with one goal.
-- **Formations and separation,** in M4.
+- **Formations and separation,** scheduled in M4 with its own estimate and done-when ([MvpPlan.md](../MvpPlan.md), M4). An ADR records how figures keep apart when it is built. Like the rest of movement, it stays inside navigation: nothing pushes a unit (ADR-004, decision 6).
 - **The classes' values,** and the trebuchet's packed width once its packed model is drawn.

@@ -148,13 +148,13 @@ The order is fixed, so that one build replays the same commands to the same resu
 | M1 | Renderer spike | ADR-006's measurements for the 1 m baseline and a 0.5 m world, on the benchmark machine, and on the Surface once one is available; the look's acceptance checks pass | 7.5–11.5 |
 | M2 | Headless simulation | A scripted breach and units pathing through it, replaying identically | 9–16 |
 | M3 | Breach lab | The first measured reading on H2's predictions | 1.5–2.5 |
-| M4 | Siege trial | A Siege trial that can be played, with its control | 9–17 |
+| M4 | Siege trial | A Siege trial that can be played, with its control | 9.5–18 |
 | M5 | Siege playtest | The verdict on H2 | 1–2 |
 | M6 | Hold trial | A Hold trial that can be played, with its control | 5–9 |
 | M7 | Hold playtest | The verdict on H1, and so the MVP's | 1–2 |
-| | **Total** | | **34.5–61** |
+| | **Total** | | **35–62** |
 
-The total is a little above the build budget's 32–56 for this stage (GameDesign.md, *Build budget*). The difference is the breach lab and the split into two playtests, which buy a verdict on H2 before the economy is built, bringing up ARM64 and measuring the Surface in M1, pulling the chunk store and the client's bake forward into M1, and the parts M2's table had left out (M2, 2026-11-01). M0 to M5 come to 28.5–50 FTE-months. At 20 hours a week, half of full time, that puts the verdict on H2 about 5–8 years in, and the MVP's verdict about 6–10 years in. That reading assumes a person writes the code. With Claude sessions writing it and the owner giving about 20 hours a week to running and judging it, the calendar comes from M1's measured pace instead (*The spike's own estimate*, under M1). The spike's ratio will move both.
+The total is a little above the build budget's 32–56 for this stage (GameDesign.md, *Build budget*). The difference is the breach lab and the split into two playtests, which buy a verdict on H2 before the economy is built, bringing up ARM64 and measuring the Surface in M1, pulling the chunk store and the client's bake forward into M1, and the parts M2's table had left out (M2, 2026-11-01). M0 to M5 come to 29–51 FTE-months. At 20 hours a week, half of full time, that puts the verdict on H2 about 5–8 years in, and the MVP's verdict about 6–10 years in. That reading assumes a person writes the code. With Claude sessions writing it and the owner giving about 20 hours a week to running and judging it, the calendar comes from M1's measured pace instead (*The spike's own estimate*, under M1). The spike's ratio will move both.
 
 **The critical path** runs M1 → M2 → M4 → M5. The paper tests in M0, the template tool and the placeholder art can run alongside it.
 
@@ -401,6 +401,7 @@ Run it with six people (F-48).
 ### M4 — Siege trial
 
 **Build:**
+- **formations and separation** (ADR-015, decision 7): how a squad's figures arrange about its path and keep apart, in fixed point inside the deterministic tick, so that no two figures stand in the same place and a breach passes figures at a limited rate. Until M4, figures may pass through each other. How they keep apart is recorded in an ADR when it is built;
 - units, stats and combat, physical shots for arrows and bolts (the trebuchet's shot and craters come from M2), hits on units, elevation, garrisons and the gatehouse's passage attack;
 - drawing units and buildings;
 - fog with the visibility filter and last-seen land;
@@ -410,10 +411,11 @@ Run it with six people (F-48).
 - the Siege defender AI;
 - the storming win and the loss rule;
 - the control version of the trial;
-- logging of breach points, shots, the stone spent by each side, and predictions.
+- logging of breach points, shots, the stone spent by each side, predictions, and how many figures pass through each breach a minute.
 
 | Part | FTE-months |
 |---|---|
+| Formations and separation (ADR-015, decision 7) | 0.5–1 |
 | Combat (the trebuchet's shot moved to M2) | 2–3.5 |
 | Units and buildings drawn | 1.5–3 |
 | Fog | 1–1.5 |
@@ -423,7 +425,7 @@ Run it with six people (F-48).
 | Siege AI | 1–2 |
 | Control | 0.5–1 |
 
-**Done when** the trial can be won by storming and lost by the clock or by running out of attackers, the control plays the same in everything but the wall rule, the HUD renders without overlap or clipped text at the sizes Hud.md §11 names, and the AGENTS.md checklist passes, including running the executable.
+**Done when** the trial can be won by storming and lost by the clock or by running out of attackers, the control plays the same in everything but the wall rule, the HUD renders without overlap or clipped text at the sizes Hud.md §11 names, a squad sent through a breach passes it with no two figures overlapping, at a rate the breach log records and that replays identically, and the AGENTS.md checklist passes, including running the executable.
 
 ### M5 — Siege playtest: the verdict on H2
 
