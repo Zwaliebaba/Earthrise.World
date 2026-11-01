@@ -11,8 +11,8 @@ namespace Spike
 
 /// The spike's measured run (MvpPlan.md, M1 task 10; ADR-011, decision 10): a row for each frame of
 /// the camera path and one for each scripted edit, written as two CSV files and reduced to the 95th
-/// percentile of the voxel pass's GPU time, which is how the pass mark is read (GameDesign.md,
-/// *Starting the MVP*).
+/// percentile of the voxel pass's GPU time, its shadow passes included, which is how the pass mark
+/// is read (GameDesign.md, *Starting the MVP*).
 class Measurement
 {
 public:
@@ -28,9 +28,10 @@ public:
     std::uint32_t frame; // along the camera path
     float azimuthDegrees;
     std::uint64_t voxelsDrawn;
-    double voxelPassMilliseconds; // GPU, from timestamps around the voxel pass
-    double frameMilliseconds;     // CPU, from the previous frame's start to this one's
-    double rebuildMilliseconds;   // CPU, the scripted edits and the chunk records rebuilt for them
+    double voxelPassMilliseconds;  // GPU, from timestamps around the voxel pass
+    double shadowPassMilliseconds; // GPU, the two shadow passes, which the pass mark counts with it
+    double frameMilliseconds;      // CPU, from the previous frame's start to this one's
+    double rebuildMilliseconds;    // CPU, the scripted edits and the chunk records rebuilt for them
   };
 
   struct EditRow

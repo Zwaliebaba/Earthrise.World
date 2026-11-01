@@ -16,6 +16,8 @@
 #include "PointerInput.h"
 #include "ResourceBarrier.h"
 #include "SceneScript.h"
+#include "ShadowMap.h"
+#include "SunProjection.h"
 #include "SwapChain.h"
 #include "UploadRing.h"
 #include "UpscalePass.h"
@@ -68,6 +70,19 @@ constexpr float HEMISPHERE_INTENSITY = 1.0F;
 constexpr float PI = 3.14159265F;
 constexpr std::uint8_t WATER_INDEX = 9;
 
+// The sun's shadow maps (ADR-011, decision 9; RendererLook.md §6): the world's, drawn when it
+// changes, and the models', drawn each frame, both over the whole world with a margin. Over the
+// 128 m scene a static-map texel is about 5 cm. Under the Golden sun, 35 degrees up, ground's depth
+// in the sun's view changes by about 1.4 texels' worth a texel, so the filter's 1.5-texel reach spans
+// about 10 cm of depth. A hit is moved 10 cm out along its normal before it reads the maps, which
+// puts it 17 cm above the ground along the sun's ray, and its depth gets no further bias. These are
+// first values, tuned against check 11 (ADR-011, *Left open*).
+constexpr std::uint32_t STATIC_SHADOW_TEXELS = 4096;
+constexpr std::uint32_t DYNAMIC_SHADOW_TEXELS = 2048;
+constexpr float SHADOW_MARGIN_METERS = 2.0F;
+constexpr float SHADOW_NORMAL_OFFSET_METERS = 0.1F;
+constexpr float SHADOW_DEPTH_BIAS = 0.0F;
+
 // The scene's target: 8 bits a channel through an sRGB view, as the back buffer, because the output
 // is sRGB with no tone mapping (RendererLook.md). The upscale reads it through the same view.
 constexpr DXGI_FORMAT SCENE_FORMAT = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
@@ -104,9 +119,12 @@ constexpr std::uint32_t LATENCY_INTERVAL_FRAMES = PATH_FRAMES_PER_SECOND;
 constexpr std::uint32_t LATENCY_OFFSET_FRAMES = PATH_FRAMES_PER_SECOND / 2;
 static_assert(PATH_FRAMES_PER_SECOND == Simulation::TestWorldEdits::FRAMES_PER_SECOND, "the path and the scene's edits step together");
 
-// The GPU timer's spans.
+// The GPU timer's spans. Every frame opens and closes each of them, the static shadow map's empty
+// on a frame that does not redraw it, because a span left out reads as nonsense (GpuTimer.h).
 constexpr std::uint32_t VOXEL_PASS_SPAN = 0;
-constexpr std::uint32_t SPAN_COUNT = 1;
+constexpr std::uint32_t STATIC_SHADOW_SPAN = 1;
+constexpr std::uint32_t DYNAMIC_SHADOW_SPAN = 2;
+constexpr std::uint32_t SPAN_COUNT = 3;
 
 struct Options
 {
@@ -323,11 +341,29 @@ std::filesystem::path MeasurementFolder()
   return std::filesystem::path(path).parent_path() / L"Measurements";
 }
 
+DirectX::XMVECTOR SunTowards() noexcept
+{
+  return DirectX::XMVector3Normalize(DirectX::XMVectorSet(SUN_TOWARDS[0], SUN_TOWARDS[1], SUN_TOWARDS[2], 0.0F));
+}
+
+/// The sun's frame for a shadow map _edgeTexels across: its view-projection, the ray away from the
+/// sun, and the map as the viewport.
+Engine::VoxelPass::FrameConstants MakeSunFrame(const DirectX::XMFLOAT4X4& _sunViewProjection, std::uint32_t _edgeTexels) noexcept
+{
+  Engine::VoxelPass::FrameConstants frame{};
+  frame.viewProjection = _sunViewProjection;
+  DirectX::XMStoreFloat4x4(&frame.inverseViewProjection, DirectX::XMMatrixInverse(nullptr, DirectX::XMLoadFloat4x4(&_sunViewProjection)));
+  DirectX::XMStoreFloat4(&frame.rayDirection, DirectX::XMVectorNegate(SunTowards()));
+  const auto edge = static_cast<float>(_edgeTexels);
+  frame.viewportPixels = {edge, edge, 1.0F / edge, 1.0F / edge};
+  return frame;
+}
+
 /// The frame's constants for a target _widthPixels by _heightPixels that the display shows at
 /// _displayAspect, width over height. The two aspects differ by the rounding of the render scale,
 /// and the display's is the one the picture keeps.
 Engine::VoxelPass::FrameConstants MakeFrame(const Engine::OrthographicCamera& _camera, float _displayAspect, std::uint32_t _widthPixels,
-                                            std::uint32_t _heightPixels)
+                                            std::uint32_t _heightPixels, const DirectX::XMFLOAT4X4& _sunViewProjection)
 {
   const auto width = static_cast<float>(_widthPixels);
   const auto height = static_cast<float>(_heightPixels);
@@ -337,8 +373,10 @@ Engine::VoxelPass::FrameConstants MakeFrame(const Engine::OrthographicCamera& _c
   DirectX::XMStoreFloat4x4(&frame.inverseViewProjection, DirectX::XMMatrixInverse(nullptr, viewProjection));
   DirectX::XMStoreFloat4(&frame.rayDirection, _camera.Forward());
   frame.viewportPixels = {width, height, 1.0F / width, 1.0F / height};
-  DirectX::XMStoreFloat4(&frame.lightDirection,
-                         DirectX::XMVector3Normalize(DirectX::XMVectorSet(SUN_TOWARDS[0], SUN_TOWARDS[1], SUN_TOWARDS[2], 0.0F)));
+  DirectX::XMStoreFloat4(&frame.lightDirection, SunTowards());
+  frame.shadowViewProjection = _sunViewProjection;
+  frame.shadowParameters = {SHADOW_NORMAL_OFFSET_METERS, SHADOW_DEPTH_BIAS, 1.0F / static_cast<float>(STATIC_SHADOW_TEXELS),
+                            1.0F / static_cast<float>(DYNAMIC_SHADOW_TEXELS)};
   frame.sunRadiance = Radiance(SUN_SRGB, SUN_INTENSITY);
   frame.skyRadiance = Radiance(SKY_SRGB, HEMISPHERE_INTENSITY);
   frame.groundRadiance = Radiance(GROUND_SRGB, HEMISPHERE_INTENSITY);
@@ -404,7 +442,9 @@ std::optional<Spike::Measurement::FrameRow> TakeWaitingRow(std::optional<Spike::
   std::optional<Spike::Measurement::FrameRow> row = std::exchange(_waiting, std::nullopt);
   if (row.has_value())
   {
-    row->voxelPassMilliseconds = _timer.ReadMilliseconds(_slot)[VOXEL_PASS_SPAN];
+    const std::vector<double> spans = _timer.ReadMilliseconds(_slot);
+    row->voxelPassMilliseconds = spans[VOXEL_PASS_SPAN];
+    row->shadowPassMilliseconds = spans[STATIC_SHADOW_SPAN] + spans[DYNAMIC_SHADOW_SPAN];
   }
   return row;
 }
@@ -437,7 +477,10 @@ int Run(const Options& _options)
   Engine::DepthTarget depth(device.Device(), sceneColor.WidthPixels(), sceneColor.HeightPixels());
   Engine::FrameRing frames(device.Device(), device.DirectQueue());
   Engine::UploadRing ring(device.Device(), UPLOAD_RING_BYTES);
-  const Engine::VoxelPass pass(device.Device(), {.colorFormat = SCENE_FORMAT, .depthFormat = Engine::DepthTarget::FORMAT});
+  Engine::VoxelPass pass(device.Device(), {.colorFormat = SCENE_FORMAT, .depthFormat = Engine::DepthTarget::FORMAT});
+  Engine::ShadowMap staticShadow(device.Device(), STATIC_SHADOW_TEXELS);
+  Engine::ShadowMap dynamicShadow(device.Device(), DYNAMIC_SHADOW_TEXELS);
+  pass.SetShadowMaps(staticShadow.Texture(), dynamicShadow.Texture());
   Engine::UpscalePass upscale(device.Device(), {.targetFormat = Engine::SwapChain::VIEW_FORMAT});
   upscale.SetSource(sceneColor.Texture());
   const Engine::GpuTimer gpuTimer(device.Device(), device.DirectQueue().Queue(),
@@ -459,6 +502,14 @@ int Run(const Options& _options)
   Simulation::ChunkStore& shownStore = _options.halfMeterWorld ? halfMeterStore : store;
   std::vector<Protocol::ChunkSnapshot> published = shownStore.Publish();
   Simulation::TestWorldEdits edits(store, scene.world, SCENE_SEED);
+  // The sun's view over the whole world, its height included, for both shadow maps.
+  const auto worldEdgeMeters = static_cast<float>(scene.world.edgeVoxels);
+  DirectX::XMFLOAT4X4 sunViewProjection{};
+  DirectX::XMStoreFloat4x4(
+    &sunViewProjection,
+    Engine::SunViewProjection(SunTowards(), DirectX::XMFLOAT3{0.0F, 0.0F, 0.0F},
+                              DirectX::XMFLOAT3{worldEdgeMeters, static_cast<float>(Simulation::TestWorld::HEIGHT_VOXELS), worldEdgeMeters},
+                              SHADOW_MARGIN_METERS));
   std::vector<Spike::ModelPlacement> placements;
   // The frame the scene's edits and walkers are at: the path's in a measured run, else counted from
   // the start.
@@ -482,6 +533,7 @@ int Run(const Options& _options)
   // Each frame slot's row, waiting for its timestamps, which come back when the slot is next used.
   std::array<std::optional<Spike::Measurement::FrameRow>, Engine::FrameRing::FRAMES_IN_FLIGHT> waitingRows{};
   double voxelPassMilliseconds = 0.0;
+  double shadowPassMilliseconds = 0.0;
   LARGE_INTEGER ticksPerSecond{};
   QueryPerformanceFrequency(&ticksPerSecond);
   Engine::PointerInput pointer;
@@ -578,13 +630,15 @@ int Run(const Options& _options)
     if (const std::optional<Spike::Measurement::FrameRow> row = TakeWaitingRow(waitingRows[slot], gpuTimer, slot))
     {
       voxelPassMilliseconds = row->voxelPassMilliseconds;
+      shadowPassMilliseconds = row->shadowPassMilliseconds;
       if (measure)
       {
         measurement.AddFrame(*row);
       }
     }
     const auto rebuildStart = std::chrono::steady_clock::now();
-    if (!published.empty())
+    const bool worldChanged = !published.empty();
+    if (worldChanged)
     {
       worldView.TakeSnapshots(commandList, ring, published);
       published.clear();
@@ -596,8 +650,28 @@ int Run(const Options& _options)
     worldView.PlaceModels(commandList, ring, placements);
     const float displayAspect = static_cast<float>(swapChain.WidthPixels()) / static_cast<float>(swapChain.HeightPixels());
     const D3D12_GPU_VIRTUAL_ADDRESS frameConstants =
-      UploadConstants(ring, MakeFrame(camera, displayAspect, sceneColor.WidthPixels(), sceneColor.HeightPixels()));
+      UploadConstants(ring, MakeFrame(camera, displayAspect, sceneColor.WidthPixels(), sceneColor.HeightPixels(), sunViewProjection));
     const D3D12_GPU_VIRTUAL_ADDRESS paletteConstants = UploadConstants(ring, palette);
+
+    // The sun's shadow maps: the world's when it changed, the models' every frame (ADR-011,
+    // decision 9). Both are timed, and the pass mark counts them with the voxel pass.
+    gpuTimer.Begin(commandList, slot, STATIC_SHADOW_SPAN);
+    if (worldChanged || !staticShadow.Readable())
+    {
+      const D3D12_GPU_VIRTUAL_ADDRESS staticSunFrame = UploadConstants(ring, MakeSunFrame(sunViewProjection, STATIC_SHADOW_TEXELS));
+      staticShadow.BeginDrawing(commandList);
+      pass.BeginShadow(commandList, staticSunFrame, paletteConstants);
+      worldView.DrawChunks(commandList, pass);
+      staticShadow.EndDrawing(commandList);
+    }
+    gpuTimer.End(commandList, slot, STATIC_SHADOW_SPAN);
+    gpuTimer.Begin(commandList, slot, DYNAMIC_SHADOW_SPAN);
+    const D3D12_GPU_VIRTUAL_ADDRESS dynamicSunFrame = UploadConstants(ring, MakeSunFrame(sunViewProjection, DYNAMIC_SHADOW_TEXELS));
+    dynamicShadow.BeginDrawing(commandList);
+    pass.BeginShadow(commandList, dynamicSunFrame, paletteConstants);
+    worldView.DrawModels(commandList, pass);
+    dynamicShadow.EndDrawing(commandList);
+    gpuTimer.End(commandList, slot, DYNAMIC_SHADOW_SPAN);
 
     // The scene, at the render scale, into its own target.
     const D3D12_RESOURCE_BARRIER toScene =
@@ -632,6 +706,7 @@ int Run(const Options& _options)
                                                      .azimuthDegrees = DirectX::XMConvertToDegrees(camera.AzimuthRadians()),
                                                      .voxelsDrawn = worldView.RecordsDrawn(),
                                                      .voxelPassMilliseconds = 0.0,
+                                                     .shadowPassMilliseconds = 0.0,
                                                      .frameMilliseconds = 1000.0 * lapSeconds,
                                                      .rebuildMilliseconds = rebuildMilliseconds};
     const std::uint64_t fenceValue = frames.End();
@@ -720,11 +795,11 @@ int Run(const Options& _options)
     if (titleSeconds >= TITLE_REFRESH_SECONDS)
     {
       const std::wstring title =
-        std::format(L"{} | {} | {:.2f} ms a frame, voxel pass {:.2f} ms on the GPU | {} voxels, world in {} m | render {} x {} at {:.2f} | "
-                    L"view {:.0f} m, azimuth {:.0f}{}",
-                    TITLE, device.AdapterName(), 1000.0 * titleSeconds / titleFrames, voxelPassMilliseconds, worldView.RecordsDrawn(),
-                    worldVoxelMeters, sceneColor.WidthPixels(), sceneColor.HeightPixels(), renderScale, camera.ViewHeightMeters(),
-                    DirectX::XMConvertToDegrees(camera.AzimuthRadians()),
+        std::format(L"{} | {} | {:.2f} ms a frame, voxel pass {:.2f} ms and shadows {:.2f} ms on the GPU | {} voxels, world in {} m | "
+                    L"render {} x {} at {:.2f} | view {:.0f} m, azimuth {:.0f}{}",
+                    TITLE, device.AdapterName(), 1000.0 * titleSeconds / titleFrames, voxelPassMilliseconds, shadowPassMilliseconds,
+                    worldView.RecordsDrawn(), worldVoxelMeters, sceneColor.WidthPixels(), sceneColor.HeightPixels(), renderScale,
+                    camera.ViewHeightMeters(), DirectX::XMConvertToDegrees(camera.AzimuthRadians()),
                     measure ? std::format(L" | measuring, frame {} of {}", pathFrame, path.FrameCount()) : std::wstring{});
       SetWindowTextW(window.Handle(), title.c_str());
       titleSeconds = 0.0;

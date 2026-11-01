@@ -108,10 +108,25 @@
     <ClCompile Include="VoxelPass.cpp">
       <Filter>Rendering</Filter>
     </ClCompile>
+    <ClInclude Include="ShadowMap.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="ShadowMap.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClInclude Include="SunProjection.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="SunProjection.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
     <FXCompile Include="Shader\VoxelVS.hlsl">
       <Filter>Shader</Filter>
     </FXCompile>
     <FXCompile Include="Shader\VoxelPS.hlsl">
+      <Filter>Shader</Filter>
+    </FXCompile>
+    <FXCompile Include="Shader\VoxelShadowPS.hlsl">
       <Filter>Shader</Filter>
     </FXCompile>
     <None Include="Shader\VoxelCommon.hlsli">
