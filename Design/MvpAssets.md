@@ -20,7 +20,7 @@ Buildings, used by both the simulation and the client. The costs are counted und
 | T4 | Tower | 7 × 12 × 7 | 479 m³ stone | Firing platform | Hollow, with 2 m walls. The platform is the top 3 m, merlons included. A slit on each face at each storey. |
 | T5 | Gatehouse | 9 × 12 × 7 | 585 m³ stone + 12 m³ timber | Gate | The gate is 3 m wide and 4 m high. The garrison fires down into the passage. |
 | T6 | Palisade | 8 × 4 × 2 | 35 m³ timber | None | |
-| T7 | Palisade gate | 8 × 5 × 1 | 32 m³ timber | Gate | Its iron fittings cost as timber. The grid has 1 m of padding in front, which the baker trims. |
+| T7 | Palisade gate | 8 × 5 × 1 | 32 m³ timber | Gate | Its iron fittings cost as timber. The grid has 1 m of padding in front, which the baker trims. T2, T8 and T9 carry empty padding too, which it trims the same way. |
 | T8 | Quarry yard | 7 × 3 × 6 | 41 m³ timber | Shed | The stone drop site. Its stone stack is stock. The shed stands on four corner posts. |
 | T9 | Lumber camp | 7 × 3 × 6 | 38 m³ timber | Shed | The timber drop site. Its log stack is stock. The shed stands on four corner posts. |
 
@@ -67,7 +67,7 @@ The packages made choices the design documents had not fixed. The owner adopted 
 - **Hollow buildings:** towers and the keep are hollow, with 2 m walls and floors, so they cost less than their outline. The first package's walls were 1.5 m, which the 1 m grid cannot draw.
 - **The standard ditch** is 5 m wide at the top and 2 m deep, with 1:1 sides. Those are 45°, the slope at which earth stands. On the 1 m grid the sides step: 4 m wide in the top metre and 2 m in the second, which is 6 m² of cross-section, the same as the 1:1 profile. The rampart is built from the spoil on the side towards the keep.
 - **Unit cues:** one cue per unit type, as listed under Models.
-- **Render-only colours:** horse #5e4330, leather (hides and hoods) #6e5a3e, timber rubble #5f4530 and earth rubble #7d6044. Rock rubble is #7f7c77, which is provisional.
+- **Colours added for the look:** horse #5e4330 and leather (hides and hoods) #6e5a3e, which are render-only; timber rubble #5f4530, earth rubble #7d6044 and rock rubble #7f7c77, provisional, which the simulation now leaves when a collapse falls (GameDesign.md, *M2's values*, item 7).
 
 ## Known issues
 
@@ -78,7 +78,7 @@ The packages made choices the design documents had not fixed. The owner adopted 
 - **T2's banner was removed.** The conversion dropped its pole and left two faction voxels floating. Banners are 0.5 m models (ADR-006). T2's preview still shows the banner. The render-fix package's T2 brought the two voxels back, and they were removed again.
 - **The first conversion lost the openings** (fixed 2026-11-01, from the render-fix package in [Reference/RenderFixPackage/](Reference/RenderFixPackage/)). A majority vote over 2 × 2 × 2 blocks let a 0.5 m slit lose to the stone around it: the keep kept 4 openings of 54, and the gatehouse none. The package's conversion lets an opening win any block it touches, and T1, T2, T4 and T5 were taken from it. Its asset sheet draws slits on only two faces of the keep and the towers, so the other two faces were given the same pattern (the owner's choice). An opening costs as the stone it sits in (ADR-005), so the package's lower stone figures for T2, T4 and T5 are not used. The previews in `Design/Previews/` predate the openings.
 - **T2's roof is stone on a pier** (2026-11-01, the owner's choice). The render-fix package made the keep's floors and roof stone again, but an 8 × 8 m stone roof cannot stand where stone spans 2 m: the support search finds 16 of its voxels unsupported. The floors stay timber, and a 2 × 2 m stone pier up the middle carries a stone roof, with every roof voxel within 2 m of support. The support search finds nothing unsupported in it. T2's preview shows a stone roof and no pier.
-- **The package's costs left decorations out.** `Manifest.json` keeps each original figure as `packageCostM3`, next to the recount. T1, T2, T4 and T7 cost slightly more than the package said.
+- **The package's costs left decorations out.** `Manifest.json` keeps each original figure as `packageCostM3`, next to the recount. T1, T2, T4 and T7 cost slightly more than the package said. T2 has changed more since: at stone's 2 m span its floors became timber and its roof stone on a pier, so it is 1,650 m³ of stone and 120 m³ of timber against the package's 1,718 m³ of stone, and the render-fix package's 1,668 (GameDesign.md, *the paper tests' values*, item 1).
 - **The scene prompt builds its walls 1.5 m thick.** T3 is 2 m. Where they differ, the templates win ([MvpPlan.md](MvpPlan.md), M1).
 
 ## Previews

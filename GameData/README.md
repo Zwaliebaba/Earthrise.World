@@ -1,12 +1,12 @@
 # GameData
 
-The game's content sources, split by who reads them ([ADR-008](../Design/ADR/ADR-008-server-and-client-game-data.md)). Nothing here is loaded directly. The bake, `Tools/BakeContent.py`, turns the client's content into the `Content` library, compiled in, and the server's into files in `<outputdir>\ServerData`, which the simulation reads at startup. Its client half exists: it writes the palette's colours, the templates' client view, the models and the shared hash (ADR-008, decision 5). Its server half follows in M2. [ADR-005](../Design/ADR/ADR-005-content-formats.md) is the format, [ADR-006](../Design/ADR/ADR-006-voxel-sizes.md) sets the two voxel sizes, and [Design/MvpAssets.md](../Design/MvpAssets.md) is the catalogue.
+The game's content sources, split by who reads them ([ADR-008](../Design/ADR/ADR-008-server-and-client-game-data.md)). Nothing here is loaded directly. The bake, `Tools/BakeContent.py`, turns the client's content into the `Content` library, compiled in, and the server's into files in `<outputdir>\ServerData`, which the simulation reads at startup. Its client half exists: it writes the palette's look (colours, jitter and shade sets), the templates' client view, the models and the shared hash (ADR-008, decision 5). Its server half follows in M2. [ADR-005](../Design/ADR/ADR-005-content-formats.md) is the format, [ADR-006](../Design/ADR/ADR-006-voxel-sizes.md) sets the two voxel sizes, and [Design/MvpAssets.md](../Design/MvpAssets.md) is the catalogue.
 
 | Path | Holds | Voxel | Read by |
 |---|---|---|---|
 | `Server/Templates/` | T1–T9, the buildings | 1 m | The simulation; the client gets their shape, colours and cost from the bake |
 | `Server/Palette.json` | Material index → colour, jitter, jitter cell, AO set, grid, behaviour | | The simulation (behaviours); the client gets the colours from the bake |
-| `Client/Models/` | One figure for each unit type (U1–U5, S2), the ram (S1) and the trebuchet (S3) | 0.5 m | The client |
+| `Client/Models/` | One figure for each unit type (U1–U5, S2), the ram (S1), the trebuchet (S3), and the placeholder mantlet (P1) and banner (P2) drawn for the renderer spike | 0.5 m | The client |
 | `Client/Fonts/` | Earthrise Mason: `EarthriseMason-glyphs.json`, the source | | The client ([Design/Hud.md](../Design/Hud.md) §9) |
 | `Illustrations/` | Squads (U2–U5, S2) and six laborers at 0.5 m; earthworks (E1, E2) and material samples (M1, M2) at 1 m | Both | Nobody: documentation and tests |
 | `Manifest.json` | Every asset: id, kind, grid, files, size, voxel count, counted cost, critical part, known issues. Paths are relative to this folder | | The asset check |
@@ -31,8 +31,9 @@ These files come from the owner's second package, kept unchanged in [`Design/Ref
 
 - **Sorted** into templates, models and illustrations, and **re-pathed** in `Manifest.json`. They moved from `Assets/` to this folder's server and client trees on 2026-10-31 (ADR-008).
 - **One figure for each unit type** (`Client/Models/earthrise-u*-05m.json` and `earthrise-s2-sapper-05m.json`), cut from each squad. Each figure is the squad's first connected figure. Every squad's figures were checked to be identical first.
-- **Template costs recounted** under ADR-005, with decorations costed as the material they sit in. The package left openings and fittings out, so T1, T2, T4 and T7 cost slightly more than the package said. Each of those entries keeps the package's figure as `packageCostM3`.
+- **Template costs recounted** under ADR-005, with decorations costed as the material they sit in. The package left openings and fittings out, so T1, T2, T4 and T7 cost slightly more than the package said. T2 has changed more since: at stone's 2 m span its floors became timber and its roof stone on a 2 × 2 m pier, so it is 1,650 m³ of stone and 120 m³ of timber against the package's 1,718 m³ of stone (GameDesign.md, *the paper tests' values*, item 1). Each of those entries keeps the package's figure as `packageCostM3`.
 - **T2's two banner voxels removed.** The conversion dropped the banner's pole and left them floating. Its preview still shows the banner.
+- **T1, T2, T4 and T5 retaken from the render-fix package** (2026-11-01, [`Design/Reference/RenderFixPackage/`](../Design/Reference/RenderFixPackage/)), whose conversion keeps openings, with slits added to the keep's and the towers' two bare faces. [MvpAssets.md](../Design/MvpAssets.md) says what changed.
 - **The palette:**
   - It gained a `behavior` for every index, and seven entries from [RendererLook.md](../Design/RendererLook.md): water (9), leaves A and B (10, 11), fields A and B (13, 14), road (15), and rock rubble (28). The colour for rock rubble is provisional.
   - **Three indices moved** to match the package's look spec: water is now 9, and leaves A and B are 10 and 11. The first import had leaves at 9 and 10 and water at 11. Nothing had been baked, so nothing depended on the old numbers; from here on the indices are frozen (ADR-005).
@@ -42,7 +43,7 @@ These files come from the owner's second package, kept unchanged in [`Design/Ref
   - every world asset is an automatic conversion, to be redrawn natively at 1 m;
   - T8's and T9's sheds gained posts on 2026-10-31, which their previews in `Design/Previews/` predate;
   - E1's rampart holds 48 m³ against 32 m³ dug, and is topped with grass;
-  - T7's grid has 1 m of empty padding in front, which the baker trims.
+  - T7's grid has 1 m of empty padding in front, and T2's, T8's and T9's grids carry empty padding too, all of which the baker trims.
 - **The package's `.vox` copies were dropped** when the `.json` became the only committed source (ADR-008). `Tools/ExportVox.py` reproduces their voxels; the package keeps the originals.
 - **The legend names inside the asset files are left unchanged.** For example, they still say "dressed stone". The palette's name is the one that counts.
 - **The package's integration command** (`commands/integrate-look-v2.md`) was not installed into `.claude/commands/`. It is kept with the package as a record of what was asked.

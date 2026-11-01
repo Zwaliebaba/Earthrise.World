@@ -4,7 +4,7 @@
 
 #include "Percentile.h"
 
-namespace Spike
+namespace RendererSpike
 {
 
 namespace
@@ -145,4 +145,4 @@ std::wstring Measurement::Write(const std::filesystem::path& _folder, std::wstri
   return results + std::format(L"Written to {}.", _folder.wstring());
 }
 
-} // namespace Spike
+} // namespace RendererSpike

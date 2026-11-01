@@ -1,6 +1,6 @@
 # ADR-006 — The world and the simulation use 1 m voxels; models use 0.5 m
 
-**Status:** Proposed, 2026-10-31. The owner adopted it as the design baseline the same day ([GameDesign.md](../GameDesign.md)). This ADR is accepted after M3: the M1 renderer spike fills in the measurements below, and the M3 breach lab reads predictions on the 1 m world. It comes from the owner's second asset package, whose draft is kept unchanged in [Reference/SiegePrototypeV2/](../Reference/SiegePrototypeV2/). It supersedes the earlier choice of 0.5 m for everything ([RendererLook.md](../RendererLook.md), first version).
+**Status:** Proposed, 2026-10-31. The owner adopted it as the design baseline the same day ([GameDesign.md](../GameDesign.md)). This ADR is accepted after M3: the M1 renderer spike filled in the measurements below on 2026-11-01, and the M3 breach lab reads predictions on the 1 m world. It comes from the owner's second asset package, whose draft is kept unchanged in [Reference/SiegePrototypeV2/](../Reference/SiegePrototypeV2/). It supersedes the earlier choice of 0.5 m for everything ([RendererLook.md](../RendererLook.md), first version).
 
 ## Context
 
@@ -23,7 +23,7 @@ The owner also plans the Surface Pro, whose integrated GPU the spike measures, a
 1. **The world voxel is the simulation voxel, and it is 1 m.** That covers terrain, every template, earthworks, quarries, craters, rubble and trees. Support, collapse, slump, navigation, edits and cost all run on it.
 2. **Models use 0.5 m voxels.** That covers units, siege engines, mantlets, carts, banners and the client's debris.
    - A model is drawn through ADR-001's pipeline at its entity's position.
-   - It is rotated in 90° steps, so its voxels stay axis-aligned.
+   - It is rotated in 90° steps, so its voxels stay axis-aligned. Debris is the exception: it tumbles as oriented voxels and rests at its final angles (GameDesign.md, M1's open values, item 7; ADR-011, amended).
    - It is never written into the world grid.
    - Moving parts, such as the trebuchet's arm, switch between baked poses.
 3. **Walls are 2 m thick, and thick walls 3 m.** A building still costs exactly its volume, so a standard section of 8 × 2 × 6 m costs 96 m³ and a thick one costs half as much again.
@@ -49,13 +49,15 @@ The owner also plans the Surface Pro, whose integrated GPU the spike measures, a
 
 ## To be measured in M1 and M3
 
+M1's figures were measured on 2026-11-01 on the benchmark machine (GameDesign.md, *Closing M0 and M1*): an NVIDIA GeForce RTX 3070 Ti Laptop GPU on driver 32.0.16.1060 and an Intel Core i7-12700H, from a Release|x64 build. The GPU rows come from `RendererSpike.exe --measure`, with `--half-meter-world` for the 0.5 m column: one 60 s scripted path each, 3,540 frames after warm-up, drawn at 1920 × 1080. The CPU rows come from `SimulationBench.exe`, the median of its repeated runs. [Review/M1Report-2026-11-01.md](../Review/M1Report-2026-11-01.md) gives the rest.
+
 | Measure | 1 m world + 0.5 m models | 0.5 m world |
 |---|---|---|
-| Voxel pass, 95th percentile, shadows included, scripted path at the default zoom, 1080p, desktop RTX 3060 (ms) | | |
-| Edit-to-screen latency (frames) | | |
-| Support search over a breach region (ms) | | |
-| Navigation tile rebuild (ms) | | |
-| Memory for the MVP map plus a season of edits (MB) | | |
+| Voxel pass, 95th percentile, shadows included, scripted path at the default zoom, 1080p, RTX 3070 Ti Laptop GPU (ms) | 2.16 | 3.69 |
+| Edit-to-screen latency, in display refreshes from publication to present (median, worst) | 1, 1 | 1, 2 |
+| Support search over a breach region: MVP map; 2 km season world (ms, median) | 1.97; 3.72 | 14.31; 24.59 |
+| Navigation tile rebuild, one 32 m tile: MVP map; 2 km season world (ms, median) | 1.32; 3.30 | 6.53; 13.35 |
+| Memory: the MVP map; the 2 km world with a season of edits (MB) | 8.1; 132.0 | 44.0; 538.1 |
 | Breach-prediction accuracy in M3 (median) | | not measured: M3 builds only the 1 m world |
 
 **Accept if** the 1 m baseline meets the pass mark and the M3 prediction accuracy reaches a median of 0.65 or more. **Otherwise** revisit the decision with the 0.5 m figures.
@@ -63,6 +65,6 @@ The owner also plans the Surface Pro, whose integrated GPU the spike measures, a
 ## Left open
 
 - Redrawing the world templates natively at 1 m. Today's are automatic conversions from 0.5 m, to be redrawn before the M4 Siege castle is final.
-- Crater radius and depth for each weapon and material, in 1 m voxels.
+- Crater radius and depth for each weapon and material, in 1 m voxels. *(The trebuchet's decided for M2: GameDesign.md, M2's values, item 12. The ram's in M4.)*
 - ~~The method for model contact shading.~~ Settled 2026-11-01 (GameDesign.md, *M1's open values*): baked per instance on the CPU.
 - Platforms beyond the Windows PC.

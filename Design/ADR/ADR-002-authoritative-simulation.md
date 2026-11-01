@@ -1,6 +1,6 @@
 # ADR-002 — The simulation is authoritative and sits behind a server boundary from the first line
 
-**Status:** Accepted, 2026-10-31. Proposed 2026-10-30 and revised the same day after a design review (decisions 3 and 6); accepted by the owner after the review of the game description. [ADR-008](ADR-008-server-and-client-game-data.md) extends decision 6: a replay is promised within one build and one set of server data. [ADR-009](ADR-009-queries-across-the-server-boundary.md) adds read-only queries and their answers to decision 2's messages. Nothing implements it yet.
+**Status:** Accepted, 2026-10-31. Proposed 2026-10-30 and revised the same day after a design review (decisions 3 and 6); accepted by the owner after the review of the game description. [ADR-008](ADR-008-server-and-client-game-data.md) extends decision 6: a replay is promised within one build and one set of server data. [ADR-009](ADR-009-queries-across-the-server-boundary.md) adds read-only queries and their answers to decision 2's messages. M1 implements decision 3's chunk snapshots, copied on write (`Protocol/ChunkSnapshot.h`, `Simulation/ChunkStore.h`); the rest comes in M2. [ADR-013](ADR-013-ticks-numbers-and-randomness.md), Proposed, answers the tick rate and number representation left open below.
 
 ## Context
 

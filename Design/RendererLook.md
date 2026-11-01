@@ -16,20 +16,20 @@ This is the look specification for the voxel renderer, the first step in GameDes
 | **Models** | **0.5 m** | Units, rams, trebuchets, mantlets, carts, banners and debris | **No.** Units and engines are entities, and debris is spectacle. |
 
 - **The world voxel is the simulation voxel.** The 512 m MVP map, about 64 m deep, is about 17 million voxels, against about 134 million at 0.5 m.
-- **Models are drawn at their entity's position** through ADR-001's pipeline. They are rotated in 90° steps, so their voxels stay axis-aligned, and they are never written into the world grid.
-- **Debris.** A collapse's result is 1 m rubble in the world. The client scatters 0.5 m model debris over it: loose blocks of 0.5–1 m, and 0.5 m pebbles. The debris is deterministic from the collapse's id, so every client shows the same. It never blocks a path or a shot.
-- **Terrain heights come in whole metres,** which is one voxel. Earth stands at up to 45°, so no earth column stands more than one voxel above its neighbour (GameDesign.md).
+- **Models are drawn at their entity's position** through ADR-001's pipeline. They are rotated in 90° steps, so their voxels stay axis-aligned, and they are never written into the world grid. Debris is the exception: it turns as oriented voxels (below).
+- **Debris.** A collapse's result is 1 m rubble in the world. The client scatters 0.5 m model debris over it: loose blocks of 0.5–1 m, and 0.5 m pebbles. The debris is deterministic from the collapse's id, so every client shows the same. It falls with the collapse for about 1.5 s, turning, as oriented voxels, and then lies on the rubble at its final angles for good (GameDesign.md, *M1's open values*, item 7). It never blocks a path or a shot.
+- **Terrain heights come in whole metres,** which is one voxel. Earth stands at up to 45°, so no earth column stands more than one voxel above any of its four side neighbours (GameDesign.md).
 
 ## 2. Sizes
 
 - **Walls.** A standard wall is 2 m thick, two voxels, and a section of 8 × 2 × 6 m costs 96 m³ of stone. A thick wall is 3 m, and costs half as much again.
 - **Battlements.** Merlons are 1 m wide and 1 m tall, with 1 m gaps. Arrow slits and windows are 1 × 2 m openings.
-- **Buildings.** A tower is 7 × 7 m and about 12 m high, hollow, with 2 m walls. The keep is 12 × 12 m and 16 m high, with a forebuilding. The hall is about 11 × 7 m, in timber.
+- **Buildings.** A tower is 7 × 7 m and about 12 m high, hollow, with 2 m walls. The keep is 12 × 12 m, 16 m to its roof and 19 m to the top of its parapets, with a forebuilding. The hall is about 11 × 7 m, in timber.
 - **Earthworks.** The standard ditch is 4–5 m wide and 2 m deep, with stepped 1 m sides. Its rampart is 2 m high.
 - **Units are tokens.** A unit is 1 × 1 × 4 model voxels, 0.5 × 0.5 × 2 m.
   - A spear, a bow, a shield or a tool sits beside the body as 0.5 m voxels, which gives each unit type its cue.
   - Units move as a whole and may bob; no limbs animate.
-  - A gap one world voxel wide and two high is a route.
+  - A gap one world voxel wide and two high is a route for foot; cavalry and machines need more (GameDesign.md, *M2's values*, item 10).
 - **Engines.** The trebuchet is about 12 m long and 13 m tall, built of 0.5 m beams; its arm switches between baked poses (cocked, released, packed). The ram is about 3 × 7 m.
 - **Why two grids.** A 0.5 m world looked restless and costs eight times as much. A 1 m world is calm, but units drawn in it lose their cues. Units are entities anyway, so they keep the finer grid.
 
@@ -114,7 +114,7 @@ ao = (side1 && side2) ? 0 : 3 - (side1 + side2 + corner)
 - **Implementation:**
   - **World voxels:** the 24 corner values (6 faces × 4 corners, 2 bits each) are computed when a chunk's records are built, and stored in each voxel's record. An edit rebuilds the records around it, across chunk borders.
   - **Models:** a model's own corner values are baked once.
-  - **Contact with the world:** this depends on where the model stands. The spike chooses between baking it per instance on the CPU and sampling an occupancy volume in the shader (ADR-006).
+  - **Contact with the world:** this depends on where the model stands. It is baked per instance on the CPU (GameDesign.md, *M1's open values*, item 6; ADR-006).
 
 ## 6. Lighting
 
@@ -154,12 +154,12 @@ Lighting is diffuse only: Lambert, with no metalness and no specular highlights.
 
 1. Ground at the default framing reads calm, with no speckle. One jitter cell is one 1 m world voxel.
 2. Masonry and raw building stone can be told apart at the default zoom.
-3. A breach reads as ragged: a 1 m notch, with model debris over 1 m rubble. The craters' shapes come from the simulation, which stamps them irregularly but deterministically.
+3. A breach reads as ragged: a 1 m notch, with model debris over 1 m rubble. The craters' shapes come from the simulation, which stamps a fixed footprint for each weapon and material (GameDesign.md, *M2's values*, item 12); the debris over them makes the edge ragged.
 4. Every MVP unit type can be identified at the default zoom by its cue. Sappers and spearmen must differ, and faction colour must be identifiable.
 5. Units visibly stand on the ground. Contact shading is present, and no model floats above the 1 m surface or sinks into it.
 6. A world edit changes the voxel's colour and AO, and its neighbours', on the next frame, with no seams. A collapse's model debris looks the same on every client, because it comes from the collapse's id.
 7. The same seed and edits produce the same colours on every machine.
 8. Fords can be told apart from deep water.
 9. Rubble of stone can be told apart from waste rubble.
-10. The voxel pass stays within 8 ms at 1080p at the default zoom on an RTX 3060-class GPU. This is the M1 pass mark, measured as GameDesign.md states it: the 95th percentile on a desktop RTX 3060, shadow passes included, over a scripted camera path through all four rotations, with units moving and edits running.
+10. The voxel pass stays within 8 ms at 1080p at the default zoom on the benchmark GPU, an RTX 3070 Ti Laptop GPU (GameDesign.md, *Closing M0 and M1*). This is the M1 pass mark, measured as GameDesign.md states it: the 95th percentile on that GPU, shadow passes included, over a scripted camera path through all four rotations, with units moving and edits running.
 11. Shadows land where the sun puts them: no acne on lit faces, no gap between a wall, tower, tree or unit and its shadow at the default zoom, and an edit's shadow changes within a frame of the edit.

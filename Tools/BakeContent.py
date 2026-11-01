@@ -1,8 +1,8 @@
 """Bakes GameData/ into what the build compiles in or ships (ADR-005, ADR-008, ADR-010 decision 7).
 
 The client half writes C++ headers into the build's intermediate folder, where the Content library compiles them
-in: the palette's colours, the client view of every template in GameData/Server/Templates/, every model in
-GameData/Client/Models/, and the shared hash. The server half, writing <outputdir>\\ServerData, follows in M2.
+in: the palette's look (colours, jitter and shade sets), the client view of every template in
+GameData/Server/Templates/, every model in GameData/Client/Models/, and the shared hash. The server half, writing <outputdir>\\ServerData, follows in M2.
 
 The client view of a template (ADR-008, decision 2) is its id and display name, its size in voxels after trimming
 the empty padding, so that the occupied voxels' minimum corner is its origin (ADR-005, decision 2), its voxel edge in
