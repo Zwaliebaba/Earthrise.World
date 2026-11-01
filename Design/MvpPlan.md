@@ -269,6 +269,7 @@ At the end of M1:
 | 5 | 2026-10-31 | | #13, #15 | | ADR-001's pipeline: the voxel pass and its render tests, then the spike's first scene of chunks and models |
 | 6 | 2026-10-31 | | #16 | | The strategy camera and its controls |
 | 8 | 2026-10-31 | | #17 | | The render scale and its bilinear upscale |
+| 10 | 2026-11-01 | | #19 | | Measurement: the GPU timer, the scripted path, the CSV and its 95th percentile, edit-to-present latency |
 
 ### M2 — Headless simulation
 
