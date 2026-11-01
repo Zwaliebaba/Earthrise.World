@@ -107,8 +107,6 @@ public:
     Assert::AreEqual(static_cast<float>(SCENE) - 93.5F, world.WorldZMeters(93.5F));
     const std::int32_t pitZ = world.WorldZVoxels(93);
     Assert::IsTrue(static_cast<float>(pitZ) < world.CastleZMeters());
-    constexpr std::int32_t TOP = Simulation::TestWorld::HEIGHT_VOXELS - 1;
-    constexpr std::int32_t GROUND = Simulation::TestWorld::CASTLE_GROUND_VOXELS;
     Assert::IsTrue(Simulation::TopSolidAtOrBelow(store, 74, pitZ, TOP) < GROUND - 5);
     Assert::IsTrue(Simulation::TopSolidAtOrBelow(store, 74, world.WorldZVoxels(34), TOP) >= GROUND - 2);
     // A turn's sense reverses, and a front facing the scene's +z faces the world's -z.
