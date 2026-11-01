@@ -366,7 +366,7 @@ public:
 
 // Client/HudModel.h — Hud.md §10, the part M3 builds. Plain fields, built each frame from the Session.
 struct HudResource { std::string key; std::string value; bool warn; };
-struct HudObjective { std::string title; std::string detail; };
+struct HudObjective { std::string title; std::string detail; bool detailOff; }; // detailOff: in off text, as FIRE while the trebuchet reloads (E4)
 struct HudMode { std::string command; std::string banner; }; // empty command when none
 struct HudAlert { std::string text; std::string sub; std::optional<Protocol::VoxelPosition> location; bool urgent; double expiresSeconds; };
 struct HudModel
@@ -584,7 +584,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 ### M3-E4 — FIRE, the attack cursor and click-to-fire
 - **Waits on:** E2, E3 and B4, and D2 for the strike mark.
 - **Read first:** Hud.md §7, the trebuchet's card, §8, *Targeting modes* and *The attack cursor*; ADR-020, decision 5; ADR-021, decision 4; `Protocol/Command.h`.
-- **Changes:** with a trebuchet selected, F enters FIRE: the banner `FIRE · RIGHT-CLICK A TARGET · CANCEL · ESC`, the crosshair, and the attack cursor, a ring with its label following the pointer, read from the aim check the session asks for the voxel under the pointer each frame it moves: `IN RANGE · d m`, `BLOCKED · d m`, `TOO CLOSE · d m` or `OUT OF RANGE · d m`, in good or bad, with the strike voxel marked through the overlay pipeline. A right click fires a `FireEngine` at the picked voxel, as bytes, and leaves the mode unless Shift is held; Esc cancels. A right click with the trebuchet selected and no mode fires too (Hud.md §8, *Order*). FIRE is disabled, in off text, while the trebuchet reloads. Every command is recorded with its source and time for G1's log.
+- **Changes:** with a trebuchet selected, F enters FIRE: the banner `FIRE · RIGHT-CLICK A TARGET · CANCEL · ESC`, the crosshair, and the attack cursor, a ring with its label following the pointer, read from the aim check the session asks for the voxel under the pointer each frame it moves: `IN RANGE · d m`, `BLOCKED · d m`, `TOO CLOSE · d m` or `OUT OF RANGE · d m`, in good or bad, with the strike voxel marked through the overlay pipeline. A right click fires a `FireEngine` at the picked voxel, as bytes, and leaves the mode unless Shift is held; Esc cancels. A right click with the trebuchet selected and no mode fires too (Hud.md §8, *Order*). FIRE is disabled, in off text, while the trebuchet reloads: the objective line, which names the selection (E3), reads `F FIRE` while it is loaded and `RELOADING` in off text while it is not. Every command is recorded with its source and time for G1's log.
 - **Tests:** **`FireModeTests`:** F with a trebuchet selected enters the mode and sets the banner; a right click submits `FireEngine{engine, pickedVoxel}` and leaves the mode; with Shift it stays; Esc leaves it; without a selection F does nothing; the cursor's label follows the reading's verdict and distance.
 - **Owner runs:** `Earthrise --windowed`: select the trebuchet, enter FIRE, move the cursor over the wall and read the four verdicts and the strike mark one voxel above the aim at the foot of the wall, fire five shots along W2's foot and see the slot fall, as the script did.
 
