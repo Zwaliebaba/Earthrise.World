@@ -1266,10 +1266,9 @@ void World::AnswerQueries()
   }
 }
 
-Protocol::Reading World::Answer([[maybe_unused]] std::uint8_t _player, const Protocol::Query& _query) const
+Protocol::Reading World::Answer(std::uint8_t _player, const Protocol::Query& _query) const
 {
-  // Empty readings until M3-B4 to B6 land each kind's own; the budget and the plumbing are this
-  // order's. Answers pass the state update's filter, which passes everything in M3.
+  // Answers pass the state update's filter, which passes everything in M3.
   if (const auto* integrity = std::get_if<Protocol::SectionIntegrity>(&_query))
   {
     if (m_structures.contains(integrity->structure))
@@ -1296,9 +1295,41 @@ Protocol::Reading World::Answer([[maybe_unused]] std::uint8_t _player, const Pro
   }
   if (const auto* reach = std::get_if<Protocol::TileReach>(&_query))
   {
-    return Protocol::TileReachReading{.tileX = reach->tileX, .tileZ = reach->tileZ, .usable = {}, .reached = {}};
+    return TileReachReadingFor(*reach);
   }
   return AimReadingFor(_player, std::get<Protocol::AimCheck>(_query));
+}
+
+Protocol::TileReachReading World::TileReachReadingFor(const Protocol::TileReach& _reach) const
+{
+  // The tile's reach from the start cell, from the components step 8 brought up to date (M3-B6). A
+  // tile or a start off the grid reads empty, as a structure the world no longer holds does: the
+  // client asks about what is on its screen.
+  Protocol::TileReachReading reading{.tileX = _reach.tileX, .tileZ = _reach.tileZ, .usable = {}, .reached = {}};
+  const std::int32_t width = m_navigation.WidthCells();
+  const Protocol::VoxelPosition start = _reach.startCellVoxels;
+  const bool inside = start.xVoxels >= 0 && start.zVoxels >= 0 && start.xVoxels < width && start.zVoxels < m_navigation.DepthCells() &&
+                      _reach.tileX >= 0 && _reach.tileZ >= 0 && _reach.tileX < m_navigation.TilesAcross() &&
+                      _reach.tileZ < m_navigation.TilesDeep();
+  if (!inside)
+  {
+    return reading;
+  }
+  const NavigationGrid::TileReach reach =
+    m_navigation.ReachInTile(std::int64_t{start.zVoxels} * width + start.xVoxels, _reach.tileX, _reach.tileZ, _reach.navigationClass);
+  for (std::size_t bit = 0; bit < reach.usable.size(); ++bit)
+  {
+    const auto mask = static_cast<std::uint8_t>(1U << (bit % 8));
+    if (reach.usable.test(bit))
+    {
+      reading.usable.at(bit / 8) |= mask;
+    }
+    if (reach.reached.test(bit))
+    {
+      reading.reached.at(bit / 8) |= mask;
+    }
+  }
+  return reading;
 }
 
 Protocol::AimReading World::AimReadingFor(std::uint8_t _player, const Protocol::AimCheck& _aim) const

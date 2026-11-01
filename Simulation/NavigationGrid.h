@@ -7,6 +7,7 @@
 #include "Rules.h"
 
 #include <array>
+#include <bitset>
 #include <cstdint>
 #include <span>
 #include <utility>
@@ -144,6 +145,19 @@ public:
   /// changed the grid since UpdateReach.
   [[nodiscard]] std::int64_t NearestReachable(std::int64_t _start, std::int64_t _goal, NavigationClass _class) const;
 
+  /// A tile's cells, bit z * TILE_EDGE_CELLS + x within the tile: those a class can enter, and of those
+  /// the ones it can reach from a start (M3-B6; ADR-015, *Consequences*): what the passability view draws.
+  struct TileReach
+  {
+    std::bitset<static_cast<std::size_t>(TILE_EDGE_CELLS) * TILE_EDGE_CELLS> usable;
+    std::bitset<static_cast<std::size_t>(TILE_EDGE_CELLS) * TILE_EDGE_CELLS> reached;
+  };
+
+  /// The tile's reach from _start, a cell index as NearestReachable takes it, from the per-tile
+  /// components, the same answer the squads move by. Throws std::logic_error when a rebuild has changed
+  /// the grid since UpdateReach, and std::out_of_range for a tile or a start off the grid.
+  [[nodiscard]] TileReach ReachInTile(std::int64_t _start, std::int32_t _tileX, std::int32_t _tileZ, NavigationClass _class) const;
+
   /// The cell nearest (_x, _z) by octile distance that a class can enter, ties to the lower index, or
   /// -1 when it can enter none (M2-F6; ADR-015, decision 7).
   [[nodiscard]] std::int64_t NearestUsable(std::int32_t _x, std::int32_t _z, NavigationClass _class) const;
@@ -172,6 +186,17 @@ private:
   [[nodiscard]] bool StraightOpen(std::int32_t _x, std::int32_t _z, std::int32_t _dx, std::int32_t _dz, const ClassRule& _rule,
                                   std::size_t _class) const;
   void LabelTile(std::size_t _class, std::int32_t _tileX, std::int32_t _tileZ);
+  /// The components reached from the start cell's, numbered across the grid, and the tiles they lie in:
+  /// a walk over the links that cross tile borders, which stops once every number in _until is reached.
+  struct Walked
+  {
+    std::vector<std::uint8_t> reached;
+    std::vector<std::uint8_t> tileReached;
+  };
+  [[nodiscard]] Walked WalkComponents(std::int32_t _startX, std::int32_t _startZ, std::size_t _class,
+                                      std::span<const std::size_t> _until) const;
+  /// A component's number across the grid.
+  [[nodiscard]] std::size_t ComponentNumber(std::int32_t _x, std::int32_t _z, std::size_t _class) const;
   void MarkChanged(std::int32_t _x, std::int32_t _z);
   [[nodiscard]] bool Inside(std::int32_t _x, std::int32_t _z) const noexcept;
   [[nodiscard]] std::size_t Index(std::int32_t _x, std::int32_t _z) const noexcept;

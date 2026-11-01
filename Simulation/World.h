@@ -321,6 +321,8 @@ private:
   [[nodiscard]] Protocol::Reading Answer(std::uint8_t _player, const Protocol::Query& _query) const;
   /// The attack cursor's reading for an engine of _player's aimed at a voxel (M3-B4).
   [[nodiscard]] Protocol::AimReading AimReadingFor(std::uint8_t _player, const Protocol::AimCheck& _aim) const;
+  /// A tile's reach for the passability view (M3-B6).
+  [[nodiscard]] Protocol::TileReachReading TileReachReadingFor(const Protocol::TileReach& _reach) const;
   /// A collapse as a state update shows it.
   [[nodiscard]] Protocol::CollapseView ViewOf(const Collapse& _collapse) const;
   /// The structure whose box holds _voxel, the lowest id where boxes overlap, or NO_ENTITY.
