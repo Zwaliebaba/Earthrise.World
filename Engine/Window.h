@@ -11,7 +11,8 @@ class KeyboardInput;
 class PointerInput;
 
 /// A top-level window for the renderer: resizable, sized for the monitor's DPI, and closed by the
-/// user or the system. Per-monitor DPI awareness comes from the executable's manifest (ADR-011).
+/// user or the system. It is borderless over the whole monitor at full screen, never exclusive
+/// (ADR-011, decision 1). Per-monitor DPI awareness comes from the executable's manifest.
 class Window
 {
 public:
@@ -20,6 +21,7 @@ public:
     const wchar_t* title;
     std::uint32_t clientWidthPixels; // at 96 DPI; scaled to the system's DPI
     std::uint32_t clientHeightPixels;
+    bool fullScreen; // starts borderless over its monitor; the client size is then the window's when it leaves full screen
   };
 
   struct Size
@@ -46,6 +48,11 @@ public:
   /// The client area in physical pixels; zero while the window is minimized.
   [[nodiscard]] Size ClientSize() const noexcept;
 
+  /// Covers the monitor the window is on, borderless, or goes back to the frame and place it had.
+  /// Throws std::system_error when Windows will not say where the window or its monitor is.
+  void SetFullScreen(bool _fullScreen);
+  [[nodiscard]] bool IsFullScreen() const noexcept;
+
   /// Handles every pending message. Returns false once the application has been asked to quit.
   [[nodiscard]] static bool PumpMessages() noexcept;
 
@@ -60,6 +67,8 @@ private:
   static LRESULT CALLBACK Procedure(HWND _window, UINT _message, WPARAM _wParam, LPARAM _lParam) noexcept;
 
   HWND m_handle = nullptr;
+  WINDOWPLACEMENT m_windowedPlacement{.length = sizeof(WINDOWPLACEMENT)}; // where to go back to from full screen
+  bool m_fullScreen = false;
 };
 
 } // namespace Engine

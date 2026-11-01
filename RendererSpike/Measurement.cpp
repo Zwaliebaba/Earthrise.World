@@ -73,15 +73,16 @@ std::wstring Measurement::Write(const std::filesystem::path& _folder, std::wstri
     }
   }
 
-  const bool atPassMarkSize = _setup.displayWidthPixels == PASS_MARK_WIDTH_PIXELS &&
-                              _setup.displayHeightPixels == PASS_MARK_HEIGHT_PIXELS && !_setup.resizedDuringRun;
+  // The voxel pass's work is set by the size the scene draws at, not by the display's.
+  const bool atPassMarkSize =
+    _setup.renderWidthPixels == PASS_MARK_WIDTH_PIXELS && _setup.renderHeightPixels == PASS_MARK_HEIGHT_PIXELS && !_setup.resizedDuringRun;
   std::wstring results = std::format(L"Voxel pass, 95th percentile: {:.3f} ms over {} frames, against a pass mark of {:.0f} ms.\n", p95,
                                      measured.size(), PASS_MARK_MILLISECONDS);
   if (!atPassMarkSize)
   {
-    results +=
-      std::format(L"Not a pass-mark run: the display was {} x {}{}, not {} x {}.\n", _setup.displayWidthPixels, _setup.displayHeightPixels,
-                  _setup.resizedDuringRun ? L" and changed during the run" : L"", PASS_MARK_WIDTH_PIXELS, PASS_MARK_HEIGHT_PIXELS);
+    results += std::format(L"Not a pass-mark run: the scene drew at {} x {}, not {} x {}{}.\n", _setup.renderWidthPixels,
+                           _setup.renderHeightPixels, PASS_MARK_WIDTH_PIXELS, PASS_MARK_HEIGHT_PIXELS,
+                           _setup.resizedDuringRun ? L", and the window changed size during the run" : L"");
   }
   if (shownRefreshes.empty())
   {
