@@ -47,6 +47,9 @@ struct Rules
   // Loose material rests at least this far below the top of a structure beside it (item 9).
   std::int32_t looseRestBelowTopVoxels;
 
+  // The work budgets a tick (ADR-013, decision 6; item 13): Proposed until M2-G2 measures them.
+  std::int32_t slumpVoxelsPerTick; // voxels slump moves
+
   // The navigation classes (item 10; ADR-015, decision 2): a climb of 1 m over a run of ClimbRun
   // cells, a headroom, a width, the deepest water forded, and the factors that slow it on rubble and
   // in a ford.

@@ -414,7 +414,117 @@ bool World::Fall(Collapse& _collapse)
 
 void World::SettleLoose()
 {
-  // Step 7: slump and loose material, within the tick's budget (M2-E6, E7).
+  // Step 7: slump (M2-E6; GameDesign.md, M2's values, item 9). Every column the tick's edits touched,
+  // and its four neighbours, joins the queue; then, in column-index order, a column whose top voxel
+  // is loose and stands more than a voxel above a neighbour's top sends it to the lowest such
+  // neighbour, ties north, east, south, west, up to slumpVoxelsPerTick voxels a tick. What waits is
+  // saved.
+  for (const Protocol::VoxelPosition& voxel : m_voxels.TickEdits())
+  {
+    QueueSlump(voxel.xVoxels, voxel.zVoxels);
+  }
+  std::int32_t budget = Data().Tuning().slumpVoxelsPerTick;
+  while (budget > 0 && !m_slumpQueue.empty())
+  {
+    const std::int64_t column = *m_slumpQueue.begin();
+    m_slumpQueue.erase(m_slumpQueue.begin());
+    const auto x = static_cast<std::int32_t>(column % WidthVoxels());
+    const auto z = static_cast<std::int32_t>(column / WidthVoxels());
+    const std::optional<std::pair<std::int32_t, std::int32_t>> to = Slump(x, z);
+    if (to.has_value())
+    {
+      --budget;
+      QueueSlump(x, z);
+      QueueSlump(to->first, to->second);
+    }
+  }
+}
+
+std::int32_t World::WidthVoxels() const noexcept
+{
+  return m_desc.widthChunks * Protocol::CHUNK_EDGE_VOXELS;
+}
+
+std::int32_t World::DepthVoxels() const noexcept
+{
+  return m_desc.depthChunks * Protocol::CHUNK_EDGE_VOXELS;
+}
+
+std::int32_t World::HeightVoxels() const noexcept
+{
+  return m_desc.heightChunks * Protocol::CHUNK_EDGE_VOXELS;
+}
+
+std::int32_t World::TopOf(std::int32_t _x, std::int32_t _z) const
+{
+  const MaterialRules& materials = Data().Materials();
+  for (std::int32_t y = HeightVoxels() - 1; y >= 0; --y)
+  {
+    const std::uint8_t index = m_voxels.At({.xVoxels = _x, .yVoxels = y, .zVoxels = _z});
+    if (index != Protocol::Chunk::EMPTY && !materials.at(index).liquid)
+    {
+      return y;
+    }
+  }
+  return -1;
+}
+
+void World::QueueSlump(std::int32_t _x, std::int32_t _z)
+{
+  constexpr std::array<std::array<std::int32_t, 2>, 5> AROUND = {{{0, 0}, {0, 1}, {1, 0}, {0, -1}, {-1, 0}}};
+  for (const auto& [dx, dz] : AROUND)
+  {
+    const std::int32_t x = _x + dx;
+    const std::int32_t z = _z + dz;
+    if (x >= 0 && x < WidthVoxels() && z >= 0 && z < DepthVoxels())
+    {
+      m_slumpQueue.insert(std::int64_t{z} * WidthVoxels() + x);
+    }
+  }
+}
+
+std::optional<std::pair<std::int32_t, std::int32_t>> World::Slump(std::int32_t _x, std::int32_t _z)
+{
+  constexpr std::uint8_t EARTH = 2; // a grass voxel that moves lands as earth: only the generator places grass
+  constexpr std::uint8_t GRASS = 1;
+  const std::int32_t top = TopOf(_x, _z);
+  if (top < 0)
+  {
+    return std::nullopt;
+  }
+  const Protocol::VoxelPosition from{.xVoxels = _x, .yVoxels = top, .zVoxels = _z};
+  const std::uint8_t index = m_voxels.At(from);
+  const Behavior behavior = Data().Materials().at(index).behavior;
+  if (behavior != Behavior::Earth && behavior != Behavior::StoneRubble && behavior != Behavior::WasteRubble)
+  {
+    return std::nullopt;
+  }
+  // North, east, south, west: +z, +x, -z, -x.
+  constexpr std::array<std::array<std::int32_t, 2>, 4> SIDES = {{{0, 1}, {1, 0}, {0, -1}, {-1, 0}}};
+  std::optional<std::pair<std::int32_t, std::int32_t>> lowest;
+  std::int32_t lowestTop = 0;
+  for (const auto& [dx, dz] : SIDES)
+  {
+    const std::int32_t x = _x + dx;
+    const std::int32_t z = _z + dz;
+    if (x < 0 || x >= WidthVoxels() || z < 0 || z >= DepthVoxels())
+    {
+      continue;
+    }
+    const std::int32_t neighborTop = TopOf(x, z);
+    if (top > neighborTop + 1 && (!lowest.has_value() || neighborTop < lowestTop))
+    {
+      lowest = std::pair{x, z};
+      lowestTop = neighborTop;
+    }
+  }
+  if (!lowest.has_value())
+  {
+    return std::nullopt;
+  }
+  m_voxels.Edit(from, Protocol::Chunk::EMPTY);
+  m_voxels.Edit({.xVoxels = lowest->first, .yVoxels = lowestTop + 1, .zVoxels = lowest->second}, index == GRASS ? EARTH : index);
+  return lowest;
 }
 
 void World::RebuildNavigation()

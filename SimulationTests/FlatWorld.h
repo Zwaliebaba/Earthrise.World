@@ -18,9 +18,17 @@ struct FlatWorld
   static constexpr std::int32_t GROUND_VOXELS = 8; // the first empty voxel: units stand at this height
   static constexpr std::uint64_t BUILD_ID = 0xb0116e57;
 
-  [[nodiscard]] static Simulation::World::Desc Desc(std::int32_t _widthChunks = 2, std::int32_t _depthChunks = 2)
+  /// The baked server data with slump turned off, for the suites that look at a heap before it settles.
+  [[nodiscard]] static const Simulation::ServerData* NoSlump()
   {
-    return {.serverData = &BakedServerData(),
+    static const Simulation::ServerData DATA = BakedServerDataWith("slumpVoxelsPerTick", 0);
+    return &DATA;
+  }
+
+  [[nodiscard]] static Simulation::World::Desc Desc(std::int32_t _widthChunks = 2, std::int32_t _depthChunks = 2,
+                                                    const Simulation::ServerData* _data = &BakedServerData())
+  {
+    return {.serverData = _data,
             .buildId = BUILD_ID,
             .worldSeed = 1,
             .resourceSeed = 2,

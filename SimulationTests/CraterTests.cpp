@@ -140,7 +140,8 @@ public:
 
   TEST_METHOD(EditsTheCraterInTheTick)
   {
-    Simulation::World world(FlatWorld::Desc());
+    // Slump is off, so the crater stays open to be seen.
+    Simulation::World world(FlatWorld::Desc(2, 2, FlatWorld::NoSlump()));
     const Protocol::EntityId engine = world.AddSiegeEngine(1, Simulation::EngineKind::Trebuchet, At(5, FlatWorld::GROUND_VOXELS, 32));
     Core::ByteWriter writer;
     Protocol::Encode(Protocol::FireEngine{.engine = engine, .targetVoxels = At(45, FlatWorld::GROUND_VOXELS - 1, 32)}, writer);

@@ -317,7 +317,8 @@ void WriteEntities(Core::ByteWriter& _writer, const World& _world)
 }
 
 void WritePendingWork(Core::ByteWriter& _writer, std::span<const SubmittedCommand> _commands,
-                      std::span<const Protocol::VoxelPosition> _unsearched, std::span<const Protocol::VoxelPosition> _betweenTicks)
+                      std::span<const Protocol::VoxelPosition> _unsearched, std::span<const Protocol::VoxelPosition> _betweenTicks,
+                      const std::set<std::int64_t>& _slumpQueue)
 {
   _writer.WriteU32(static_cast<std::uint32_t>(_commands.size()));
   for (const SubmittedCommand& command : _commands)
@@ -328,6 +329,11 @@ void WritePendingWork(Core::ByteWriter& _writer, std::span<const SubmittedComman
   }
   WritePositions(_writer, _unsearched);
   WritePositions(_writer, _betweenTicks);
+  _writer.WriteU32(static_cast<std::uint32_t>(_slumpQueue.size()));
+  for (const std::int64_t column : _slumpQueue)
+  {
+    _writer.WriteI64(column);
+  }
 }
 
 } // namespace
@@ -367,7 +373,7 @@ std::vector<std::byte> WriteSave(const World& _world)
   }
 
   WriteEntities(writer, _world);
-  WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits());
+  WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits(), _world.m_slumpQueue);
   return writer.TakeBytes();
 }
 
@@ -485,6 +491,11 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
     {
       world.m_voxels.RestoreTickEdit(edit);
     }
+    const std::uint32_t slumping = reader.ReadU32();
+    for (std::uint32_t number = 0; number < slumping; ++number)
+    {
+      world.m_slumpQueue.insert(reader.ReadI64());
+    }
     if (!reader.AtEnd())
     {
       Refuse("it holds bytes after its last section");
@@ -507,7 +518,7 @@ std::uint64_t StateHash(const World& _world)
   writer.WriteU32(_world.m_tick);
   writer.WriteU64(_world.m_nextEntityId);
   WriteEntities(writer, _world);
-  WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits());
+  WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits(), _world.m_slumpQueue);
   return Core::Fnv1a64(writer.Bytes(), _world.m_voxels.VoxelHash());
 }
 

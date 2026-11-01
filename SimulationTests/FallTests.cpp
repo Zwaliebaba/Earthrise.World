@@ -5,7 +5,8 @@
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 // A collapse's fall (M2-E4; GameDesign.md, M2's values, items 5, 7 and 8): a masonry block on a pier
-// under its east edge, whose pier is dug away, so the block falls east.
+// under its east edge, whose pier is dug away, so the block falls east. Slump is turned off, so the
+// heap stays as the fall leaves it.
 
 namespace SimulationTests
 {
@@ -87,7 +88,7 @@ TEST_CLASS(FallTests)
 public:
   TEST_METHOD(LandsAsManyVoxelsAsFell)
   {
-    Simulation::World world(FlatWorld::Desc());
+    Simulation::World world(FlatWorld::Desc(2, 2, FlatWorld::NoSlump()));
     const Run run = FallEast(world, MASONRY);
     std::size_t rubble = 0;
     for (std::int32_t y = GROUND; y < GROUND + 8; ++y)
@@ -107,7 +108,7 @@ public:
 
   TEST_METHOD(LeavesRubbleOfEachMaterial)
   {
-    Simulation::World world(FlatWorld::Desc());
+    Simulation::World world(FlatWorld::Desc(2, 2, FlatWorld::NoSlump()));
     static_cast<void>(FallEast(world, TIMBER));
     // Timber leaves timber rubble, east of where it stood, within the piece's 4 m.
     for (std::int32_t x = 13; x <= 16; ++x)
@@ -119,7 +120,7 @@ public:
 
   TEST_METHOD(ChangesNothingOutsideThePieceAndTheStrip)
   {
-    Simulation::World world(FlatWorld::Desc());
+    Simulation::World world(FlatWorld::Desc(2, 2, FlatWorld::NoSlump()));
     const Run run = FallEast(world, MASONRY);
     for (const std::vector<Protocol::VoxelPosition>& edits : run.editsByTick)
     {
@@ -135,7 +136,7 @@ public:
 
   TEST_METHOD(SpreadsTheEditsOverTheFall)
   {
-    Simulation::World world(FlatWorld::Desc());
+    Simulation::World world(FlatWorld::Desc(2, 2, FlatWorld::NoSlump()));
     const Run run = FallEast(world, MASONRY);
     Assert::AreEqual(static_cast<std::size_t>(run.collapse.plan.fallTicks), run.editsByTick.size());
     Assert::AreEqual(std::uint32_t{19}, run.collapse.plan.fallTicks); // 4 m
@@ -151,7 +152,7 @@ public:
 
   TEST_METHOD(HitsEachUnitInTheStripOnce)
   {
-    Simulation::World world(FlatWorld::Desc());
+    Simulation::World world(FlatWorld::Desc(2, 2, FlatWorld::NoSlump()));
     const Run run = FallEast(world, MASONRY);
     Assert::AreEqual(std::size_t{1}, run.crushes.size());
     Assert::AreEqual(Protocol::EntityId{2}, run.crushes.front().unit); // the first squad's one unit

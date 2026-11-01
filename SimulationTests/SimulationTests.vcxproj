@@ -60,6 +60,7 @@
     <ClCompile Include="CollapseTests.cpp" />
     <ClCompile Include="FallTests.cpp" />
     <ClCompile Include="CascadeTests.cpp" />
+    <ClCompile Include="SlumpTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

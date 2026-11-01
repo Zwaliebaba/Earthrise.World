@@ -15,6 +15,8 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <optional>
+#include <set>
 #include <span>
 #include <vector>
 
@@ -234,6 +236,16 @@ private:
   void Fire(std::uint8_t _player, const Protocol::FireEngine& _fire);
   /// Runs one tick of a collapse's fall; returns whether it has ended.
   [[nodiscard]] bool Fall(Collapse& _collapse);
+  [[nodiscard]] std::int32_t WidthVoxels() const noexcept;
+  [[nodiscard]] std::int32_t DepthVoxels() const noexcept;
+  [[nodiscard]] std::int32_t HeightVoxels() const noexcept;
+  /// The height of a column's highest voxel that is neither empty nor water, or -1.
+  [[nodiscard]] std::int32_t TopOf(std::int32_t _x, std::int32_t _z) const;
+  /// Queues a column and its four neighbours for slump.
+  void QueueSlump(std::int32_t _x, std::int32_t _z);
+  /// Moves a column's top voxel to its lowest neighbour more than a voxel below it, if it is loose;
+  /// returns the neighbour, or nothing.
+  std::optional<std::pair<std::int32_t, std::int32_t>> Slump(std::int32_t _x, std::int32_t _z);
   /// Whether a shot that reached _point has left the world.
   [[nodiscard]] bool OutsideWorld(const FixedPosition& _point) const noexcept;
 
@@ -254,6 +266,8 @@ private:
   // searches them with its own tick's edits so far (MvpPlan.md, *One simulation tick*).
   std::vector<Protocol::VoxelPosition> m_unsearchedEdits;
   std::size_t m_searchedThrough = 0; // how many of this tick's edits step 5 searched
+  // The columns waiting for slump, by column index, z * width + x (M2-E6).
+  std::set<std::int64_t> m_slumpQueue;
   std::vector<Protocol::VoxelPosition> m_lastTickEdits;
 };
 
