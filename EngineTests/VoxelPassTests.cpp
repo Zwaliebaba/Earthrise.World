@@ -24,8 +24,9 @@ constexpr std::uint32_t TARGET_PIXELS = 64;
 constexpr float VIEW_METERS = 4.0F; // the orthographic view is 4 m across, so a pixel is 1/16 m
 constexpr DXGI_FORMAT COLOR_FORMAT = DXGI_FORMAT_R8G8B8A8_UNORM;
 constexpr DXGI_FORMAT DEPTH_FORMAT = DXGI_FORMAT_D32_FLOAT;
-constexpr std::uint8_t ORANGE = 6; // linear (1, 0.5, 0.25) in these scenes' palette
-constexpr std::uint8_t GREEN = 7;  // linear (0, 1, 0)
+constexpr std::uint8_t ORANGE = 6;   // linear (1, 0.5, 0.25) in these scenes' palette
+constexpr std::uint8_t GREEN = 7;    // linear (0, 1, 0)
+constexpr std::uint8_t SWAPPED = 16; // no colour of its own in these scenes' palette: drawn only through a swap
 constexpr int COLOR_TOLERANCE = 2;
 constexpr float DEPTH_TOLERANCE = 1.0e-4F;
 
@@ -147,8 +148,18 @@ template <typename Pixel> std::vector<Pixel> ReadPixels(const TextureCopy& _copy
   return pixels;
 }
 
-/// Draws _records as one batch at the origin with 1 m voxels, and reads the frame back.
-Readback Render(Engine::GpuDevice& _device, const Engine::VoxelPass::FrameConstants& _frame, std::span<const Engine::VoxelRecord> _records)
+/// One batch at the origin with 1 m voxels, drawn as it is.
+constexpr Engine::VoxelPass::Batch PLAIN_BATCH{.originMeters = {0.0F, 0.0F, 0.0F},
+                                               .voxelEdgeMeters = 1.0F,
+                                               .quarterTurns = 0,
+                                               .widthCells = 0,
+                                               .depthCells = 0,
+                                               .swapFromIndex = 0,
+                                               .swapToIndex = 0};
+
+/// Draws _records as one batch, and reads the frame back.
+Readback Render(Engine::GpuDevice& _device, const Engine::VoxelPass::FrameConstants& _frame, std::span<const Engine::VoxelRecord> _records,
+                const Engine::VoxelPass::Batch& _batch = PLAIN_BATCH)
 {
   ID3D12Device* device = _device.Device();
   winrt::com_ptr<ID3D12Resource> color =
@@ -196,7 +207,7 @@ Readback Render(Engine::GpuDevice& _device, const Engine::VoxelPass::FrameConsta
   commandList->RSSetViewports(1, &viewport);
   commandList->RSSetScissorRects(1, &scissor);
   pass.Begin(commandList, frame->gpuAddress, palette->gpuAddress);
-  pass.Draw(commandList, records->gpuAddress, static_cast<std::uint32_t>(_records.size()), {0.0F, 0.0F, 0.0F}, 1.0F);
+  pass.Draw(commandList, records->gpuAddress, static_cast<std::uint32_t>(_records.size()), _batch);
 
   const std::array<D3D12_RESOURCE_BARRIER, 2> toCopy = {
     Engine::TransitionBarrier(color.get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE),
@@ -318,6 +329,60 @@ public:
     Assert::AreEqual(1.0F, frame.DepthAt(40, 24), DEPTH_TOLERANCE, L"at the near plane");
     Assert::IsTrue(Near(frame.ColorAt(31, 24), 0, 0, 0), L"and nothing beyond the voxel");
     AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(TurnsABatchAQuarterAboutItsFootprint)
+  {
+    // Orange at x 0 and green at x 1, a 2 x 1 footprint. A quarter turn clockwise seen from above
+    // takes +z to +x: green comes to (0, 0) and orange to (0, 1), up the screen, in the same
+    // footprint corner. Each 1 m voxel covers 16 x 16 pixels, z 0 at y [16, 32) and z 1 at y [0, 16).
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const std::array<Engine::VoxelRecord, 2> records = {Engine::MakeVoxelRecord(0, 0, 0, ORANGE), Engine::MakeVoxelRecord(1, 0, 0, GREEN)};
+    Engine::VoxelPass::Batch turned = PLAIN_BATCH;
+    turned.quarterTurns = 1;
+    turned.widthCells = 2;
+    turned.depthCells = 1;
+    const Readback frame = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), records, turned);
+    Assert::IsTrue(Near(frame.ColorAt(40, 24), 0, 255, 0), (L"green at (0, 0): " + Describe(frame.ColorAt(40, 24))).c_str());
+    Assert::IsTrue(Near(frame.ColorAt(40, 8), 255, 128, 64), (L"orange at (0, 1): " + Describe(frame.ColorAt(40, 8))).c_str());
+    Assert::IsTrue(Near(frame.ColorAt(56, 24), 0, 0, 0), (L"nothing left at (1, 0): " + Describe(frame.ColorAt(56, 24))).c_str());
+
+    // Unturned, it is drawn as it was built: orange at (0, 0) and green at (1, 0).
+    turned.quarterTurns = 0;
+    const Readback unturned = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), records, turned);
+    Assert::IsTrue(Near(unturned.ColorAt(40, 24), 255, 128, 64) && Near(unturned.ColorAt(56, 24), 0, 255, 0));
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(SwapsOnePaletteIndex)
+  {
+    // The swapped index draws as green, and orange beside it is left alone.
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const std::array<Engine::VoxelRecord, 2> records = {Engine::MakeVoxelRecord(0, 0, 0, SWAPPED),
+                                                        Engine::MakeVoxelRecord(1, 0, 0, ORANGE)};
+    Engine::VoxelPass::Batch swapped = PLAIN_BATCH;
+    swapped.swapFromIndex = SWAPPED;
+    swapped.swapToIndex = GREEN;
+    const Readback frame = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), records, swapped);
+    Assert::IsTrue(Near(frame.ColorAt(40, 24), 0, 255, 0), Describe(frame.ColorAt(40, 24)).c_str());
+    Assert::IsTrue(Near(frame.ColorAt(56, 24), 255, 128, 64), Describe(frame.ColorAt(56, 24)).c_str());
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(RefusesATurnItCannotMake)
+  {
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const Engine::VoxelPass pass(device.Device(), {.colorFormat = COLOR_FORMAT, .depthFormat = DEPTH_FORMAT});
+    Engine::FrameRing frames(device.Device(), device.DirectQueue());
+    ID3D12GraphicsCommandList* commandList = frames.Begin();
+    Engine::VoxelPass::Batch batch = PLAIN_BATCH;
+    batch.quarterTurns = 4;
+    Assert::ExpectException<std::invalid_argument>([&pass, commandList, batch] { pass.Draw(commandList, 0, 1, batch); });
+    batch.quarterTurns = 1;
+    batch.widthCells = 65;
+    batch.depthCells = 1;
+    Assert::ExpectException<std::invalid_argument>([&pass, commandList, batch] { pass.Draw(commandList, 0, 1, batch); });
+    device.DirectQueue().WaitFor(frames.End());
   }
 };
 

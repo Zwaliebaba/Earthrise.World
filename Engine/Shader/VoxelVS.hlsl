@@ -7,7 +7,7 @@
 VoxelInterpolants main(uint _vertexId : SV_VertexID, uint _instanceId : SV_InstanceID)
 {
   const uint2 record = g_records[_instanceId];
-  const float3 boxMin = g_batch.originMeters + float3(RecordCell(record.x)) * g_batch.voxelEdgeMeters;
+  const float3 boxMin = g_batch.originMeters + float3(TurnedCell(RecordCell(record.x), g_batch.turn)) * g_batch.voxelEdgeMeters;
   const float3 boxMax = boxMin + g_batch.voxelEdgeMeters;
 
   float2 low = float2(1.0e30, 1.0e30);
@@ -30,6 +30,7 @@ VoxelInterpolants main(uint _vertexId : SV_VertexID, uint _instanceId : SV_Insta
   output.position = float4((_vertexId & 1u) != 0 ? high.x : low.x, (_vertexId & 2u) != 0 ? high.y : low.y, min(nearestDepth, 1.0), 1.0);
   output.boxCenter = boxMin + 0.5 * g_batch.voxelEdgeMeters;
   output.boxRadius = 0.5 * g_batch.voxelEdgeMeters;
-  output.paletteIndex = RecordPaletteIndex(record.x);
+  const uint paletteIndex = RecordPaletteIndex(record.x);
+  output.paletteIndex = paletteIndex == g_batch.swapFromIndex ? g_batch.swapToIndex : paletteIndex;
   return output;
 }

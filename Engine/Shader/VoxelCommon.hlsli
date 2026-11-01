@@ -20,8 +20,12 @@ struct PaletteConstants
 
 struct BatchConstants
 {
-  float3 originMeters; // the batch's minimum corner
+  float3 originMeters; // the minimum corner of the batch's footprint, after any turn
   float voxelEdgeMeters;
+  uint turn;          // quarter turns clockwise seen from above in bits 0-1; the width less one in
+                      // cells in bits 2-7 and the depth less one in bits 8-13, before the turn
+  uint swapFromIndex; // drawn as swapToIndex; 0 swaps nothing
+  uint swapToIndex;
 };
 
 ConstantBuffer<FrameConstants> g_frame : register(b0);
@@ -49,6 +53,29 @@ uint3 RecordCell(uint _word)
 uint RecordPaletteIndex(uint _word)
 {
   return (_word >> 18) & 255u;
+}
+
+// A cell turned by the batch's quarter turns, clockwise seen from above, so that one turns +z
+// towards +x, about the batch's footprint: the turned footprint keeps its minimum corner at the
+// origin. VoxelPass.h's Batch states the same.
+uint3 TurnedCell(uint3 _cell, uint _turn)
+{
+  const uint quarterTurns = _turn & 3u;
+  const uint lastX = (_turn >> 2) & 63u;
+  const uint lastZ = (_turn >> 8) & 63u;
+  if (quarterTurns == 1u)
+  {
+    return uint3(_cell.z, _cell.y, lastX - _cell.x);
+  }
+  if (quarterTurns == 2u)
+  {
+    return uint3(lastX - _cell.x, _cell.y, lastZ - _cell.z);
+  }
+  if (quarterTurns == 3u)
+  {
+    return uint3(lastZ - _cell.z, _cell.y, _cell.x);
+  }
+  return _cell;
 }
 
 float MaxComponent(float3 _value)

@@ -16,12 +16,14 @@ enum RootParameter : UINT
 {
   RootFrame,   // b0, a root CBV
   RootPalette, // b1, a root CBV
-  RootBatch,   // b2, four root constants
+  RootBatch,   // b2, root constants
   RootRecords, // t0, a root SRV
   RootCount
 };
 
-constexpr UINT BATCH_CONSTANT_COUNT = 4;
+// The origin and the voxel edge, the turn packed with the extent, and the swap's two indices.
+constexpr UINT BATCH_CONSTANT_COUNT = 7;
+constexpr std::uint32_t MAX_EXTENT_CELLS = 64; // a record's cell has 6 bits an axis (VoxelRecord.h)
 
 winrt::com_ptr<ID3D12RootSignature> MakeRootSignature(ID3D12Device* _device)
 {
@@ -133,13 +135,31 @@ void VoxelPass::Begin(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL
 }
 
 void VoxelPass::Draw(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _records, std::uint32_t _recordCount,
-                     const DirectX::XMFLOAT3& _originMeters, float _voxelEdgeMeters) const
+                     const Batch& _batch) const
 {
+  if (_batch.quarterTurns > 3)
+  {
+    throw std::invalid_argument("a batch turns by 0 to 3 quarter turns");
+  }
+  const auto fits = [](std::uint32_t _cells) { return _cells >= 1 && _cells <= MAX_EXTENT_CELLS; };
+  if (_batch.quarterTurns != 0 && (!fits(_batch.widthCells) || !fits(_batch.depthCells)))
+  {
+    throw std::invalid_argument("a turned batch needs its extent, 1 to 64 cells along x and z");
+  }
   if (_recordCount == 0)
   {
     return;
   }
-  const std::array<float, BATCH_CONSTANT_COUNT> batch{_originMeters.x, _originMeters.y, _originMeters.z, _voxelEdgeMeters};
+  // The turn, and the extent less one in 6 bits each, which is what the vertex shader turns about.
+  const std::uint32_t turn =
+    _batch.quarterTurns == 0 ? 0U : _batch.quarterTurns | ((_batch.widthCells - 1) << 2) | ((_batch.depthCells - 1) << 8);
+  const std::array<std::uint32_t, BATCH_CONSTANT_COUNT> batch{std::bit_cast<std::uint32_t>(_batch.originMeters.x),
+                                                              std::bit_cast<std::uint32_t>(_batch.originMeters.y),
+                                                              std::bit_cast<std::uint32_t>(_batch.originMeters.z),
+                                                              std::bit_cast<std::uint32_t>(_batch.voxelEdgeMeters),
+                                                              turn,
+                                                              _batch.swapFromIndex,
+                                                              _batch.swapToIndex};
   _commandList->SetGraphicsRoot32BitConstants(RootBatch, BATCH_CONSTANT_COUNT, batch.data(), 0);
   _commandList->SetGraphicsRootShaderResourceView(RootRecords, _records);
   _commandList->DrawInstanced(4, _recordCount, 0, 0);

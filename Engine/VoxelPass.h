@@ -33,6 +33,24 @@ public:
   /// One linear colour per palette index.
   static constexpr std::uint32_t PALETTE_ENTRIES = 256;
 
+  /// Where one batch lands and how it is drawn, as Shader/VoxelCommon.hlsli reads its root
+  /// constants. A chunk is drawn as it is; a model may be turned and have one colour swapped.
+  struct Batch
+  {
+    DirectX::XMFLOAT3 originMeters; // the minimum corner of the batch's footprint, after any turn
+    float voxelEdgeMeters;
+    /// Quarter turns about the vertical, clockwise seen from above, so that one turns +z towards
+    /// +x (ADR-011, decision 6). The turn keeps the footprint's minimum corner at the origin, which
+    /// is why it needs the batch's extent, before the turn, in cells along x and z: 1 to 64 each.
+    std::uint32_t quarterTurns;
+    std::uint32_t widthCells;
+    std::uint32_t depthCells;
+    /// Voxels of palette index swapFromIndex are drawn as swapToIndex, such as a model's faction
+    /// colour as its owner's. Index 0 is never drawn, so 0 swaps nothing.
+    std::uint8_t swapFromIndex;
+    std::uint8_t swapToIndex;
+  };
+
   struct Desc
   {
     DXGI_FORMAT colorFormat;
@@ -46,10 +64,10 @@ public:
   /// addresses. The caller has set the render target, depth target, viewport and scissor.
   void Begin(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _frameConstants, D3D12_GPU_VIRTUAL_ADDRESS _palette) const;
 
-  /// Draws _recordCount VoxelRecords at _records, one batch: a chunk or a model, whose minimum
-  /// corner is _originMeters and whose voxels are _voxelEdgeMeters on each edge.
+  /// Draws _recordCount VoxelRecords at _records as one batch: a chunk or a model. Throws
+  /// std::invalid_argument for a turn of four or more, or a turned batch's extent outside 1 to 64.
   void Draw(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _records, std::uint32_t _recordCount,
-            const DirectX::XMFLOAT3& _originMeters, float _voxelEdgeMeters) const;
+            const Batch& _batch) const;
 
 private:
   winrt::com_ptr<ID3D12RootSignature> m_rootSignature;

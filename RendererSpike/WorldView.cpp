@@ -139,7 +139,14 @@ void WorldView::Draw(ID3D12GraphicsCommandList* _commandList, const Engine::Voxe
   {
     if (batch.records)
     {
-      _pass.Draw(_commandList, batch.records->GpuAddress(), batch.count, batch.originMeters, batch.voxelEdgeMeters);
+      _pass.Draw(_commandList, batch.records->GpuAddress(), batch.count,
+                 {.originMeters = batch.originMeters,
+                  .voxelEdgeMeters = batch.voxelEdgeMeters,
+                  .quarterTurns = 0,
+                  .widthCells = 0,
+                  .depthCells = 0,
+                  .swapFromIndex = 0,
+                  .swapToIndex = 0});
     }
   }
   for (const ModelPlacement& placement : m_placements)
@@ -147,8 +154,14 @@ void WorldView::Draw(ID3D12GraphicsCommandList* _commandList, const Engine::Voxe
     const Batch& batch = m_models.at(placement.modelId);
     if (batch.records)
     {
-      _pass.Draw(_commandList, batch.records->GpuAddress(), batch.count, {placement.xMeters, placement.yMeters, placement.zMeters},
-                 batch.voxelEdgeMeters);
+      _pass.Draw(_commandList, batch.records->GpuAddress(), batch.count,
+                 {.originMeters = {placement.xMeters, placement.yMeters, placement.zMeters},
+                  .voxelEdgeMeters = batch.voxelEdgeMeters,
+                  .quarterTurns = 0,
+                  .widthCells = 0,
+                  .depthCells = 0,
+                  .swapFromIndex = 0,
+                  .swapToIndex = 0});
     }
   }
 }
