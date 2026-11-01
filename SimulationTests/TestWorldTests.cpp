@@ -80,6 +80,40 @@ public:
     }
   }
 
+  TEST_METHOD(SplitsEachVoxelIntoEight)
+  {
+    Simulation::ChunkStore oneMeter;
+    oneMeter.Set({.xVoxels = 3, .yVoxels = 5, .zVoxels = 7}, MASONRY);
+    oneMeter.Set({.xVoxels = 4, .yVoxels = 5, .zVoxels = 7}, 2);
+    Simulation::ChunkStore halfMeter;
+    Simulation::SplitToHalfMeters(oneMeter, 0, 0, 8, 8, halfMeter);
+    for (const Protocol::VoxelPosition& half : Simulation::HalfMeterVoxels({.xVoxels = 3, .yVoxels = 5, .zVoxels = 7}))
+    {
+      Assert::IsTrue(half.xVoxels / 2 == 3 && half.yVoxels / 2 == 5 && half.zVoxels / 2 == 7);
+      Assert::AreEqual(MASONRY, halfMeter.At(half));
+    }
+    Assert::AreEqual(std::uint8_t{2}, halfMeter.At({.xVoxels = 9, .yVoxels = 11, .zVoxels = 15}));
+    Assert::AreEqual(std::uint8_t{0}, halfMeter.At({.xVoxels = 5, .yVoxels = 11, .zVoxels = 15}));
+  }
+
+  TEST_METHOD(SplitsAnEditAsTheWorldWouldBeSplit)
+  {
+    Simulation::ChunkStore oneMeter;
+    oneMeter.Set({.xVoxels = 3, .yVoxels = 5, .zVoxels = 7}, MASONRY);
+    Simulation::ChunkStore halfMeter;
+    Simulation::SplitToHalfMeters(oneMeter, 0, 0, 8, 8, halfMeter);
+    const std::array<Protocol::VoxelPosition, 2> changed = {
+      {{.xVoxels = 3, .yVoxels = 5, .zVoxels = 7}, {.xVoxels = 3, .yVoxels = 6, .zVoxels = 7}}};
+    oneMeter.Set(changed[0], 0);
+    oneMeter.Set(changed[1], MASONRY);
+    Simulation::SplitChanges(oneMeter, changed, halfMeter);
+    Simulation::ChunkStore fresh;
+    Simulation::SplitToHalfMeters(oneMeter, 0, 0, 8, 8, fresh);
+    Assert::IsTrue(SameVoxels(halfMeter, fresh));
+    Assert::AreEqual(std::uint8_t{0}, halfMeter.At({.xVoxels = 6, .yVoxels = 10, .zVoxels = 14}));
+    Assert::AreEqual(MASONRY, halfMeter.At({.xVoxels = 7, .yVoxels = 13, .zVoxels = 15}));
+  }
+
   TEST_METHOD(RefusesAMissingTemplateAndABadEdge)
   {
     Simulation::ChunkStore store;

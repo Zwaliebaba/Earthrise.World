@@ -40,6 +40,11 @@
 // Measurements\, before it exits (MvpPlan.md, M1 task 10; GameDesign.md, *Starting the MVP*). Its
 // scene draws at the pass mark's 1920 x 1080 times the render scale, whatever the display's size,
 // and is scaled to the display (the owner's choice of 2026-11-01).
+//
+// `--half-meter-world` draws the 0.5 m world of ADR-006's comparison instead: the same world with
+// each voxel split into eight, its edits split with it (GameDesign.md, M1's open values, item 8;
+// MvpPlan.md, M1 task 12). The units and the camera are the same, so the two runs differ only in
+// the world's voxel size.
 
 namespace
 {
@@ -98,6 +103,7 @@ struct Options
   float renderScale;
   bool measure;
   bool windowed;
+  bool halfMeterWorld;
 };
 
 /// The scene's size for a display _display pixels across: the render scale of the display, or for
@@ -338,14 +344,22 @@ int Run(const Options& _options)
   upscale.SetSource(sceneColor.Texture());
   const Engine::GpuTimer gpuTimer(device.Device(), device.DirectQueue().Queue(),
                                   {.slotCount = Engine::FrameRing::FRAMES_IN_FLIGHT, .spanCount = SPAN_COUNT});
-  Spike::WorldView worldView(device.Device());
+  const float worldVoxelMeters = _options.halfMeterWorld ? 0.5F : 1.0F;
+  Spike::WorldView worldView(device.Device(), worldVoxelMeters);
   const FlushOnExit flushOnExit{device.DirectQueue()};
 
   // The simulation's side: the scene goes into the chunk store, and the client draws only from what
-  // the store publishes (ADR-002, decision 3).
+  // the store publishes (ADR-002, decision 3). For the 0.5 m world the client draws from a second
+  // store, the first split eight ways, which takes every edit the first makes.
   Simulation::ChunkStore store;
   const Spike::TestScene scene = Spike::BuildTestScene(store, SCENE_SEED);
-  std::vector<Protocol::ChunkSnapshot> published = store.Publish();
+  Simulation::ChunkStore halfMeterStore;
+  if (_options.halfMeterWorld)
+  {
+    Simulation::SplitToHalfMeters(store, 0, 0, scene.world.edgeVoxels - 1, scene.world.edgeVoxels - 1, halfMeterStore);
+  }
+  Simulation::ChunkStore& shownStore = _options.halfMeterWorld ? halfMeterStore : store;
+  std::vector<Protocol::ChunkSnapshot> published = shownStore.Publish();
   Simulation::TestWorldEdits edits(store, scene.world, SCENE_SEED);
   std::vector<Spike::ModelPlacement> placements;
   // The frame the scene's edits and walkers are at: the path's in a measured run, else counted from
@@ -435,9 +449,14 @@ int Run(const Options& _options)
     // The scene's scripted edits: the quarrying, and the collapse (task 9). The client sees them in
     // this frame, from what the store publishes (ADR-002, decision 3).
     const auto editStart = std::chrono::steady_clock::now();
-    if (!edits.Apply(store, sceneFrame).empty())
+    const std::vector<Protocol::VoxelPosition> changedVoxels = edits.Apply(store, sceneFrame);
+    if (!changedVoxels.empty())
     {
-      std::vector<Protocol::ChunkSnapshot> changed = store.Publish();
+      if (_options.halfMeterWorld)
+      {
+        Simulation::SplitChanges(store, changedVoxels, halfMeterStore);
+      }
+      std::vector<Protocol::ChunkSnapshot> changed = shownStore.Publish();
       published.insert(published.end(), changed.begin(), changed.end());
       if (measure && sceneFrame >= WARM_UP_FRAMES && sceneFrame % LATENCY_INTERVAL_FRAMES == LATENCY_OFFSET_FRAMES)
       {
@@ -586,6 +605,7 @@ int Run(const Options& _options)
            .renderWidthPixels = sceneColor.WidthPixels(),
            .renderHeightPixels = sceneColor.HeightPixels(),
            .renderScale = renderScale,
+           .worldVoxelMeters = worldVoxelMeters,
            .tearing = device.TearingSupported(),
            .resizedDuringRun = resizedDuringRun,
            .path = std::format(L"round a {:.0f} m square at a view height of {:.0f} m, a quarter turn at each corner, {} legs of {} frames "
@@ -607,10 +627,10 @@ int Run(const Options& _options)
     if (titleSeconds >= TITLE_REFRESH_SECONDS)
     {
       const std::wstring title =
-        std::format(L"{} | {} | {:.2f} ms a frame, voxel pass {:.2f} ms on the GPU | {} voxels | render {} x {} at {:.2f} | view {:.0f} m, "
-                    L"azimuth {:.0f}{}",
+        std::format(L"{} | {} | {:.2f} ms a frame, voxel pass {:.2f} ms on the GPU | {} voxels, world in {} m | render {} x {} at {:.2f} | "
+                    L"view {:.0f} m, azimuth {:.0f}{}",
                     TITLE, device.AdapterName(), 1000.0 * titleSeconds / titleFrames, voxelPassMilliseconds, worldView.RecordsDrawn(),
-                    sceneColor.WidthPixels(), sceneColor.HeightPixels(), renderScale, camera.ViewHeightMeters(),
+                    worldVoxelMeters, sceneColor.WidthPixels(), sceneColor.HeightPixels(), renderScale, camera.ViewHeightMeters(),
                     DirectX::XMConvertToDegrees(camera.AzimuthRadians()),
                     measure ? std::format(L" | measuring, frame {} of {}", pathFrame, path.FrameCount()) : std::wstring{});
       SetWindowTextW(window.Handle(), title.c_str());
@@ -636,7 +656,8 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
     const std::wstring_view commandLine = _commandLine != nullptr ? _commandLine : L"";
     return Run({.renderScale = RenderScaleFrom(commandLine),
                 .measure = HasFlag(commandLine, L"--measure"),
-                .windowed = HasFlag(commandLine, L"--windowed")});
+                .windowed = HasFlag(commandLine, L"--windowed"),
+                .halfMeterWorld = HasFlag(commandLine, L"--half-meter-world")});
   }
   catch (const winrt::hresult_error& error)
   {

@@ -807,6 +807,54 @@ std::int32_t TopSolidAtOrBelow(const ChunkStore& _store, std::int32_t _x, std::i
   return -1;
 }
 
+std::array<Protocol::VoxelPosition, 8> HalfMeterVoxels(Protocol::VoxelPosition _oneMeter) noexcept
+{
+  std::array<Protocol::VoxelPosition, 8> voxels{};
+  for (std::int32_t sub = 0; sub < 8; ++sub)
+  {
+    voxels[static_cast<std::size_t>(sub)] = {.xVoxels = 2 * _oneMeter.xVoxels + (sub & 1),
+                                             .yVoxels = 2 * _oneMeter.yVoxels + ((sub >> 1) & 1),
+                                             .zVoxels = 2 * _oneMeter.zVoxels + ((sub >> 2) & 1)};
+  }
+  return voxels;
+}
+
+void SplitToHalfMeters(const ChunkStore& _oneMeter, std::int32_t _minXVoxels, std::int32_t _minZVoxels, std::int32_t _maxXVoxels,
+                       std::int32_t _maxZVoxels, ChunkStore& _halfMeter)
+{
+  for (std::int32_t y = 0; y < HEIGHT; ++y)
+  {
+    for (std::int32_t z = _minZVoxels; z <= _maxZVoxels; ++z)
+    {
+      for (std::int32_t x = _minXVoxels; x <= _maxXVoxels; ++x)
+      {
+        const Protocol::VoxelPosition voxel{.xVoxels = x, .yVoxels = y, .zVoxels = z};
+        const std::uint8_t index = _oneMeter.At(voxel);
+        if (index == 0)
+        {
+          continue;
+        }
+        for (const Protocol::VoxelPosition& half : HalfMeterVoxels(voxel))
+        {
+          _halfMeter.Set(half, index);
+        }
+      }
+    }
+  }
+}
+
+void SplitChanges(const ChunkStore& _oneMeter, std::span<const Protocol::VoxelPosition> _changed, ChunkStore& _halfMeter)
+{
+  for (const Protocol::VoxelPosition& voxel : _changed)
+  {
+    const std::uint8_t index = _oneMeter.At(voxel);
+    for (const Protocol::VoxelPosition& half : HalfMeterVoxels(voxel))
+    {
+      _halfMeter.Set(half, index);
+    }
+  }
+}
+
 TestWorldEdits::TestWorldEdits(const ChunkStore& _store, const TestWorld& _world, std::uint64_t _seed)
   : m_sceneXVoxels(_world.sceneXVoxels),
     m_sceneZVoxels(_world.sceneZVoxels)

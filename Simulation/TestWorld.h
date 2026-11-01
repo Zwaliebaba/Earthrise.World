@@ -3,6 +3,7 @@
 #include "ChunkCoordinate.h"
 #include "ChunkStore.h"
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -77,6 +78,21 @@ struct TestWorld
 
 /// The height of the highest solid voxel in a column at or below _fromVoxels, or -1 for none.
 [[nodiscard]] std::int32_t TopSolidAtOrBelow(const ChunkStore& _store, std::int32_t _x, std::int32_t _z, std::int32_t _fromVoxels);
+
+// The 0.5 m world of ADR-006's comparison is the 1 m world with each voxel split into eight, so the
+// two differ only in voxel size (GameDesign.md, M1's open values, item 8).
+
+/// The eight 0.5 m voxels a 1 m voxel covers, at twice its coordinates.
+[[nodiscard]] std::array<Protocol::VoxelPosition, 8> HalfMeterVoxels(Protocol::VoxelPosition _oneMeter) noexcept;
+
+/// Copies the columns from (_minXVoxels, _minZVoxels) to (_maxXVoxels, _maxZVoxels), both included and
+/// all of the test world's height, from a 1 m store into _halfMeter, each voxel split into eight.
+void SplitToHalfMeters(const ChunkStore& _oneMeter, std::int32_t _minXVoxels, std::int32_t _minZVoxels, std::int32_t _maxXVoxels,
+                       std::int32_t _maxZVoxels, ChunkStore& _halfMeter);
+
+/// Makes in _halfMeter the changes _changed made in _oneMeter: each changed voxel's eight take what
+/// it now holds.
+void SplitChanges(const ChunkStore& _oneMeter, std::span<const Protocol::VoxelPosition> _changed, ChunkStore& _halfMeter);
 
 /// The test world's scripted edits, stepped by frame at 60 a second for the measured path's 60 s,
 /// then stopped (GameDesign.md, *Starting the MVP*, item 3): quarrying at the four-faction peak the

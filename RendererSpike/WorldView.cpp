@@ -12,7 +12,6 @@ namespace Spike
 namespace
 {
 
-constexpr float WORLD_VOXEL_METERS = 1.0F;
 // The palette's faction colour, which a model draws in its side's colour (GameData/Server/Palette.json).
 constexpr std::uint8_t FACTION_INDEX = 16;
 
@@ -23,8 +22,9 @@ std::span<const std::byte> BytesOf(std::span<const Engine::VoxelRecord> _records
 
 } // namespace
 
-WorldView::WorldView(ID3D12Device* _device)
-  : m_device(_device)
+WorldView::WorldView(ID3D12Device* _device, float _worldVoxelMeters)
+  : m_device(_device),
+    m_worldVoxelMeters(_worldVoxelMeters)
 {
 }
 
@@ -85,9 +85,10 @@ void WorldView::RebuildChunk(ID3D12GraphicsCommandList* _commandList, Engine::Up
   const std::vector<Engine::VoxelRecord> records = Engine::BuildVisibleRecords(
     {.paletteIndices = snapshot.voxels->Voxels(), .xVoxels = EDGE, .yVoxels = EDGE, .zVoxels = EDGE}, solidOutside);
   Batch batch = Upload(_commandList, _ring, records);
-  batch.originMeters = {static_cast<float>(coordinate.xChunks * EDGE), static_cast<float>(coordinate.yChunks * EDGE),
-                        static_cast<float>(coordinate.zChunks * EDGE)};
-  batch.voxelEdgeMeters = WORLD_VOXEL_METERS;
+  batch.originMeters = {static_cast<float>(coordinate.xChunks * EDGE) * m_worldVoxelMeters,
+                        static_cast<float>(coordinate.yChunks * EDGE) * m_worldVoxelMeters,
+                        static_cast<float>(coordinate.zChunks * EDGE) * m_worldVoxelMeters};
+  batch.voxelEdgeMeters = m_worldVoxelMeters;
   const auto old = m_chunks.find(_key);
   if (old != m_chunks.end() && old->second.records)
   {

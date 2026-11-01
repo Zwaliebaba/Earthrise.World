@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <exception>
 #include <functional>
+#include <iterator>
 #include <optional>
 #include <print>
 #include <ranges>

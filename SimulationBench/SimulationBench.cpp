@@ -115,32 +115,6 @@ double Megabytes(std::size_t _chunks)
   return static_cast<double>(_chunks) * static_cast<double>(sizeof(Protocol::Chunk)) / BYTES_PER_MEGABYTE;
 }
 
-/// Splits a region of a 1 m world into 0.5 m voxels: the box from (_minX, _minZ) to (_maxX, _maxZ),
-/// all of its height, copied into _split at twice the resolution and the same origin. It fills
-/// rather than returns, as ChunkStore's move may throw under the debug library.
-void SplitRegion(const Simulation::ChunkStore& _store, std::int32_t _minX, std::int32_t _minZ, std::int32_t _maxX, std::int32_t _maxZ,
-                 Simulation::ChunkStore& _split)
-{
-  for (std::int32_t y = 0; y < Simulation::TestWorld::HEIGHT_VOXELS; ++y)
-  {
-    for (std::int32_t z = _minZ; z <= _maxZ; ++z)
-    {
-      for (std::int32_t x = _minX; x <= _maxX; ++x)
-      {
-        const std::uint8_t index = _store.At({.xVoxels = x, .yVoxels = y, .zVoxels = z});
-        if (index == 0)
-        {
-          continue;
-        }
-        for (std::int32_t sub = 0; sub < 8; ++sub)
-        {
-          _split.Set({.xVoxels = 2 * x + (sub & 1), .yVoxels = 2 * y + ((sub >> 1) & 1), .zVoxels = 2 * z + ((sub >> 2) & 1)}, index);
-        }
-      }
-    }
-  }
-}
-
 /// One world's measurements, at 1 m and at 0.5 m.
 void Measure(std::string_view _name, Simulation::ChunkStore& _store, const Simulation::TestWorld& _world, double _buildMilliseconds)
 {
@@ -191,16 +165,11 @@ void Measure(std::string_view _name, Simulation::ChunkStore& _store, const Simul
   const std::int32_t regionMaxX = std::max(maxX + reach, (tileX + 1) * Simulation::NavigationGrid::TILE_EDGE_CELLS - 1);
   const std::int32_t regionMaxZ = std::max(maxZ + reach, (tileZ + 1) * Simulation::NavigationGrid::TILE_EDGE_CELLS - 1);
   Simulation::ChunkStore half;
-  SplitRegion(_store, regionMinX, regionMinZ, regionMaxX, regionMaxZ, half);
+  Simulation::SplitToHalfMeters(_store, regionMinX, regionMinZ, regionMaxX, regionMaxZ, half);
   std::vector<Protocol::VoxelPosition> halfCollapse;
   for (const Protocol::VoxelPosition& voxel : collapse)
   {
-    for (std::int32_t sub = 0; sub < 8; ++sub)
-    {
-      halfCollapse.push_back({.xVoxels = 2 * voxel.xVoxels + (sub & 1),
-                              .yVoxels = 2 * voxel.yVoxels + ((sub >> 1) & 1),
-                              .zVoxels = 2 * voxel.zVoxels + ((sub >> 2) & 1)});
-    }
+    std::ranges::copy(Simulation::HalfMeterVoxels(voxel), std::back_inserter(halfCollapse));
   }
   const Simulation::SupportRules halfSupport{.materials = &halfMeterRules,
                                              .anchorDepthVoxels = 2 * ANCHOR_DEPTH_METERS,
