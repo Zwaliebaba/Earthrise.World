@@ -642,7 +642,7 @@ struct CollapsePlan
 - **Changes:**
   - **`SimulationBench --breach-run`** times every tick of the breach run. It writes a CSV holding the per-tick times, their 95th percentile against input 2's target, the build id, and the CPU from `PROCESSOR_IDENTIFIER` and `NUMBER_OF_PROCESSORS`, read with `std::getenv`, so no Windows header is needed.
   - **The work budgets** are tuned to fit input 2's target and recorded as Proposed in GameDesign.md, *M2's values* (input 13).
-- **Owner runs:** the bench on the RTX 3060 machine (owner hours: 1).
+- **Owner runs:** the bench on the benchmark machine (owner hours: 1).
 
 ### M2-G3 — The report
 - **Waits on:** G2.
