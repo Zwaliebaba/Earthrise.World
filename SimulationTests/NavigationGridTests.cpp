@@ -41,12 +41,12 @@ void Fill(Simulation::ChunkStore& _store, std::int32_t _x0, std::int32_t _x1, st
   }
 }
 
-Simulation::ChunkStore Ground()
+/// Lays the bedrock and earth every test stands on in _store. It fills rather than returns, as
+/// ChunkStore's move may throw under the debug library (bugprone-exception-escape).
+void Ground(Simulation::ChunkStore& _store)
 {
-  Simulation::ChunkStore store;
-  Fill(store, 0, EDGE - 1, 0, 0, 0, EDGE - 1, BEDROCK);
-  Fill(store, 0, EDGE - 1, 1, 2, 0, EDGE - 1, EARTH);
-  return store;
+  Fill(_store, 0, EDGE - 1, 0, 0, 0, EDGE - 1, BEDROCK);
+  Fill(_store, 0, EDGE - 1, 1, 2, 0, EDGE - 1, EARTH);
 }
 
 Simulation::NavigationGrid Grid()
@@ -63,7 +63,8 @@ TEST_CLASS(NavigationGridTests)
 public:
   TEST_METHOD(WalksFlatGroundEveryWay)
   {
-    const Simulation::ChunkStore store = Ground();
+    Simulation::ChunkStore store;
+    Ground(store);
     Simulation::NavigationGrid grid = Grid();
     grid.RebuildAll(store);
     Assert::AreEqual(GROUND, grid.WalkableHeight(20, 20));
@@ -76,7 +77,8 @@ public:
 
   TEST_METHOD(ClimbsOneMeterAStepButNotTwo)
   {
-    Simulation::ChunkStore store = Ground();
+    Simulation::ChunkStore store;
+    Ground(store);
     Fill(store, 30, 30, 3, 3, 0, EDGE - 1, EARTH);       // a 1 m step at x 30
     Fill(store, 40, EDGE - 1, 3, 4, 0, EDGE - 1, EARTH); // a 2 m step at x 40
     Simulation::NavigationGrid grid = Grid();
@@ -89,7 +91,8 @@ public:
   TEST_METHOD(NeverStandsOnAStructureButPassesUnderAGate)
   {
     // A wall 6 m high along x 20 with a gate 3 m wide and 4 m high through it at z 30 to 32.
-    Simulation::ChunkStore store = Ground();
+    Simulation::ChunkStore store;
+    Ground(store);
     Fill(store, 20, 21, 3, 8, 0, EDGE - 1, MASONRY);
     Fill(store, 20, 21, 3, 6, 30, 32, 0);
     Simulation::NavigationGrid grid = Grid();
@@ -102,7 +105,8 @@ public:
 
   TEST_METHOD(WadesAFordButNotDeepWater)
   {
-    Simulation::ChunkStore store = Ground();
+    Simulation::ChunkStore store;
+    Ground(store);
     Fill(store, 10, 12, 2, 2, 0, EDGE - 1, WATER); // one voxel of water over earth: a ford
     Fill(store, 50, 52, 1, 2, 0, EDGE - 1, WATER); // two voxels: too deep
     Simulation::NavigationGrid grid = Grid();
@@ -113,7 +117,8 @@ public:
 
   TEST_METHOD(OpensABreachWhenItsTileIsRebuilt)
   {
-    Simulation::ChunkStore store = Ground();
+    Simulation::ChunkStore store;
+    Ground(store);
     Fill(store, 20, 21, 3, 8, 0, EDGE - 1, MASONRY);
     Simulation::NavigationGrid grid = Grid();
     grid.RebuildAll(store);
@@ -139,7 +144,8 @@ public:
   TEST_METHOD(RebuildsTheNeighborsLinksIntoATile)
   {
     // A cell on a tile's edge changes, and the cell across the edge, in the next tile, must see it.
-    Simulation::ChunkStore store = Ground();
+    Simulation::ChunkStore store;
+    Ground(store);
     Simulation::NavigationGrid grid = Grid();
     grid.RebuildAll(store);
     Fill(store, 32, 32, 3, 4, 10, 10, EARTH); // a 2 m mound at the west edge of tile (1, 0)

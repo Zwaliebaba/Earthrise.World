@@ -51,12 +51,11 @@ void Fill(Simulation::ChunkStore& _store, std::int32_t _x0, std::int32_t _x1, st
   }
 }
 
-/// A bedrock floor 20 x 20 at y 0.
-Simulation::ChunkStore Floor()
+/// Lays a bedrock floor 20 x 20 at y 0 in _store. It fills rather than returns, as ChunkStore's
+/// move may throw under the debug library (bugprone-exception-escape).
+void Floor(Simulation::ChunkStore& _store)
 {
-  Simulation::ChunkStore store;
-  Fill(store, -10, 9, 0, 0, -10, 9, BEDROCK);
-  return store;
+  Fill(_store, -10, 9, 0, 0, -10, 9, BEDROCK);
 }
 
 /// A column at x 0 from y 1 to 4, and an arm along +x at y 4 of _length voxels, in _material. The
@@ -75,7 +74,8 @@ TEST_CLASS(SupportSearchTests)
 public:
   TEST_METHOD(KeepsAColumnStandingOnBedrock)
   {
-    Simulation::ChunkStore store = Floor();
+    Simulation::ChunkStore store;
+    Floor(store);
     Fill(store, 0, 0, 1, 6, 0, 0, MASONRY);
     const std::array<Protocol::VoxelPosition, 1> edits = {{{.xVoxels = 0, .yVoxels = 6, .zVoxels = 0}}};
     Assert::IsTrue(Simulation::FindUnsupported(store, RulesWithSurface(4), edits).pieces.empty());
@@ -83,7 +83,8 @@ public:
 
   TEST_METHOD(HoldsStoneOutToItsSpanAndNoFurther)
   {
-    Simulation::ChunkStore store = Floor();
+    Simulation::ChunkStore store;
+    Floor(store);
     const std::array<Protocol::VoxelPosition, 1> two = {BuildArm(store, MASONRY, 2)};
     Assert::IsTrue(Simulation::FindUnsupported(store, RulesWithSurface(4), two).pieces.empty(), L"2 m of stone stands");
 
@@ -96,7 +97,8 @@ public:
 
   TEST_METHOD(HoldsTimberOutToFiveMeters)
   {
-    Simulation::ChunkStore store = Floor();
+    Simulation::ChunkStore store;
+    Floor(store);
     const std::array<Protocol::VoxelPosition, 1> five = {BuildArm(store, TIMBER, 5)};
     Assert::IsTrue(Simulation::FindUnsupported(store, RulesWithSurface(4), five).pieces.empty());
     const std::array<Protocol::VoxelPosition, 1> seven = {BuildArm(store, TIMBER, 7)};
@@ -110,7 +112,8 @@ public:
     // An 8 m wall on 3 m of earth over bedrock. Digging the earth out under its middle 6 m leaves
     // the middle of the wall more than 2 m from either end, and connectivity alone would keep it
     // up as a bridge (ADR-004, decision 2). Earth carries support, so the ends stand.
-    Simulation::ChunkStore store = Floor();
+    Simulation::ChunkStore store;
+    Floor(store);
     Fill(store, -2, 9, 1, 3, -2, 2, EARTH);
     Fill(store, 0, 7, 4, 6, 0, 1, MASONRY);
     std::vector<Protocol::VoxelPosition> dug;
@@ -155,7 +158,8 @@ public:
   {
     // A floating stone voxel far from the edit is not the search's business: it searches the
     // edit's region, never the world (ADR-004, consequences).
-    Simulation::ChunkStore store = Floor();
+    Simulation::ChunkStore store;
+    Floor(store);
     store.Set({.xVoxels = 9, .yVoxels = 8, .zVoxels = 9}, MASONRY);
     Fill(store, 0, 0, 1, 3, 0, 0, MASONRY);
     const std::array<Protocol::VoxelPosition, 1> edits = {{{.xVoxels = 0, .yVoxels = 3, .zVoxels = 0}}};
@@ -178,7 +182,8 @@ public:
   TEST_METHOD(IgnoresWhatLiesBelowTheEdit)
   {
     // Paths run only down or sideways, so an edit cannot unsupport anything below it.
-    Simulation::ChunkStore store = Floor();
+    Simulation::ChunkStore store;
+    Floor(store);
     store.Set({.xVoxels = 1, .yVoxels = 2, .zVoxels = 4}, MASONRY); // floating, below the edit
     const std::array<Protocol::VoxelPosition, 1> edits = {{{.xVoxels = 1, .yVoxels = 5, .zVoxels = 4}}};
     Assert::IsTrue(Simulation::FindUnsupported(store, RulesWithSurface(4), edits).pieces.empty());
