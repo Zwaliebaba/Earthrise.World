@@ -126,6 +126,8 @@ Lighting is diffuse only: Lambert, with no metalness and no specular highlights.
 | Morning | #fff3e2 | 2.4 | (60, 120, 80) | #dfe8f0 / #5d5446 | 1.15 | #c9d3d6 |
 | Dusk | #ff9858 | 2.3 | (−130, 42, 25) | #5b6690 / #2a2018 | 0.7 | #2c2b34 |
 
+- **The directions are the prototype's, in its right-handed frame, where +z is south.** The engine's +z is north, so it negates z: the Golden sun is (−90, 75, −55) in the world, in the south-west ([ADR-013](ADR/ADR-013-the-prototypes-frame-and-the-worlds.md)).
+
 - **The intensities are three.js r160 physical units.** Match them by eye, not by number. Three.js's Lambert term divides by π, so the engine is expected to scale these intensities by 1/π. That has to be checked against the prototype before it is relied on. (Checked 2026-11-01 against r160's source: `BRDF_Lambert` returns the albedo over π for the sun and the hemisphere alike, and with `useLegacyLights` false, r160's default, `WebGLLights` scales no light by π. The engine divides by π.)
 - **Corner AO multiplies the albedo before lighting,** as in the prototype, so AO stays visible in shadow.
 - **There is one directional shadow from the sun, soft-edged** (PCF or similar). It goes through ADR-001's voxel path (decision 5), not through rays traced towards the sun.
@@ -135,7 +137,7 @@ Lighting is diffuse only: Lambert, with no metalness and no specular highlights.
 ## 7. Camera and level of detail
 
 - **Orthographic and isometric,** 34° above the horizon (0.6 rad).
-- **It rotates in 90° steps,** eased over about 0.3 s. The default azimuth is −45°, from the south-west.
+- **It rotates in 90° steps,** eased over about 0.3 s. The default azimuth is −45°, from the south-west. That is the prototype's azimuth, measured from its +z, south; measured from the world's +z, north, the south-west is −135° (ADR-013).
 - **It zooms** from about 12 m of view height (single stones) to about 260 m (a whole holding).
 - **Pixel sizes at 1080p.**
   - At the default framing of about 84 m of view height, a world voxel is about 13 px and a model voxel about 6–7 px.

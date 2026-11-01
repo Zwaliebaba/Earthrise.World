@@ -156,6 +156,39 @@ public:
     Assert::ExpectException<std::out_of_range>([&grid] { (void)grid.At(8, 0, 0); });
     Assert::ExpectException<std::out_of_range>([&grid] { (void)grid.At(0, 0, 2); });
   }
+
+  TEST_METHOD(MirrorsALayerFileInX)
+  {
+    // The trebuchet's layer file draws its counterweight (palette index 21) at the high-x end and its sling's cloth
+    // (23) at the low-x end. The bake mirrors x, so that the shape looks as drawn in the world's frame (ADR-013).
+    constexpr std::uint8_t COUNTERWEIGHT = 21;
+    constexpr std::uint8_t CLOTH = 23;
+    const Content::VoxelGrid& grid = Content::FindModel("S3")->grid;
+    std::size_t counterweights = 0;
+    std::size_t cloths = 0;
+    for (std::uint32_t y = 0; y < grid.heightVoxels; ++y)
+    {
+      for (std::uint32_t z = 0; z < grid.depthVoxels; ++z)
+      {
+        for (std::uint32_t x = 0; x < grid.widthVoxels; ++x)
+        {
+          const std::uint8_t index = grid.At(x, y, z);
+          const bool lowHalf = 2 * x < grid.widthVoxels;
+          if (index == COUNTERWEIGHT)
+          {
+            Assert::IsTrue(lowHalf);
+            ++counterweights;
+          }
+          else if (index == CLOTH)
+          {
+            Assert::IsFalse(lowHalf);
+            ++cloths;
+          }
+        }
+      }
+    }
+    Assert::IsTrue(counterweights > 0 && cloths > 0);
+  }
 };
 
 } // namespace ContentTests

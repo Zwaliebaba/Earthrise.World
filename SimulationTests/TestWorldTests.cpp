@@ -80,6 +80,27 @@ public:
     }
   }
 
+  TEST_METHOD(MirrorsTheSceneNorthToSouth)
+  {
+    // The v5 scene's +z is south and the world's is north (ADR-013): the quarry the prototype digs
+    // under the castle's south wall, at the scene's (74, 93), is at the world's lower z.
+    Simulation::ChunkStore store;
+    const Simulation::TestWorld world = Simulation::BuildTestWorld(store, SCENE, SEED, OneVoxel);
+    Assert::AreEqual(SCENE - 1, world.WorldZVoxels(0));
+    Assert::AreEqual(static_cast<float>(SCENE) - 93.5F, world.WorldZMeters(93.5F));
+    const std::int32_t pitZ = world.WorldZVoxels(93);
+    Assert::IsTrue(static_cast<float>(pitZ) < world.CastleZMeters());
+    constexpr std::int32_t TOP = Simulation::TestWorld::HEIGHT_VOXELS - 1;
+    constexpr std::int32_t GROUND = Simulation::TestWorld::CASTLE_GROUND_VOXELS;
+    Assert::IsTrue(Simulation::TopSolidAtOrBelow(store, 74, pitZ, TOP) < GROUND - 5);
+    Assert::IsTrue(Simulation::TopSolidAtOrBelow(store, 74, world.WorldZVoxels(34), TOP) >= GROUND - 2);
+    // A turn's sense reverses, and a front facing the scene's +z faces the world's -z.
+    for (const auto& [scene, expected] : {std::pair{0U, 2U}, std::pair{1U, 1U}, std::pair{2U, 0U}, std::pair{3U, 3U}})
+    {
+      Assert::AreEqual(expected, Simulation::TestWorld::WorldQuarterTurns(scene));
+    }
+  }
+
   TEST_METHOD(SplitsEachVoxelIntoEight)
   {
     Simulation::ChunkStore oneMeter;

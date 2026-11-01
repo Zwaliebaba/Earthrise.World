@@ -15,7 +15,8 @@ namespace Simulation
 {
 
 /// A template's shape as Simulation reads it: its box of palette indices, x fastest, then z, then
-/// y, as a layer file's layers[y][z][x], 0 where it is empty.
+/// y, 0 where it is empty. Its front is +z, and it is the layer file mirrored in x, as the bake
+/// writes it, so that it looks as drawn in the world's frame (ADR-013).
 struct TemplateShape
 {
   std::uint32_t widthVoxels;
@@ -39,11 +40,28 @@ using TemplateLookup = std::function<std::optional<TemplateShape>(std::string_vi
 /// task 9) on a seeded integer height field, for the renderer spike at 128 m and for SimulationBench
 /// at 512 m, the MVP map's size, with the v5 scene's square at its middle (GameDesign.md, M1's
 /// open values, item 5).
+///
+/// The scene is stated in the frame its prototype draws in, where +z is south, and the world's +z
+/// is north, so the square is mirrored north to south on its way in (ADR-013). These functions take
+/// a scene coordinate to the world's.
 struct TestWorld
 {
   static constexpr std::int32_t HEIGHT_VOXELS = 48;
   static constexpr std::int32_t SCENE_EDGE_VOXELS = 128;
   static constexpr std::int32_t CASTLE_GROUND_VOXELS = 15;
+
+  /// The world's voxel that a scene voxel is.
+  [[nodiscard]] std::int32_t WorldXVoxels(std::int32_t _sceneXVoxels) const noexcept;
+  [[nodiscard]] std::int32_t WorldZVoxels(std::int32_t _sceneZVoxels) const noexcept;
+  /// The world's point that a point in the scene's meters is.
+  [[nodiscard]] float WorldXMeters(float _sceneXMeters) const noexcept;
+  [[nodiscard]] float WorldZMeters(float _sceneZMeters) const noexcept;
+  /// The world's quarter turns, clockwise seen from above, for a turn the scene states: the mirror
+  /// takes a front facing the scene's +z, south, to the world's -z, and reverses the sense of a turn.
+  [[nodiscard]] static constexpr std::uint32_t WorldQuarterTurns(std::uint32_t _sceneQuarterTurns) noexcept
+  {
+    return (6 - _sceneQuarterTurns % 4) % 4;
+  }
 
   std::int32_t edgeVoxels;
   std::int32_t sceneXVoxels; // where the v5 scene's square starts
