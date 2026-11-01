@@ -22,6 +22,9 @@
     <Filter Include="Camera">
       <UniqueIdentifier>{8E4A997B-2933-5059-AE68-C4146C544FB0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Interface">
+      <UniqueIdentifier>{497780CB-E892-5E7C-9DEA-C6AD9C9ADC1B}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -207,5 +210,20 @@
     <None Include="Shader\UpscaleCommon.hlsli">
       <Filter>Shader</Filter>
     </None>
+    <FXCompile Include="Shader\InterfaceVS.hlsl">
+      <Filter>Shader</Filter>
+    </FXCompile>
+    <FXCompile Include="Shader\InterfacePS.hlsl">
+      <Filter>Shader</Filter>
+    </FXCompile>
+    <None Include="Shader\InterfaceCommon.hlsli">
+      <Filter>Shader</Filter>
+    </None>
+    <ClInclude Include="InterfacePass.h">
+      <Filter>Interface</Filter>
+    </ClInclude>
+    <ClCompile Include="InterfacePass.cpp">
+      <Filter>Interface</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

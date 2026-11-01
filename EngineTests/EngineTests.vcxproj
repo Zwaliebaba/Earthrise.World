@@ -52,6 +52,7 @@
     <ClCompile Include="UpscalePassTests.cpp" />
     <ClCompile Include="GpuTimerTests.cpp" />
     <ClCompile Include="CameraPathTests.cpp" />
+    <ClCompile Include="InterfacePassTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

@@ -117,6 +117,11 @@ bool Window::IsFullScreen() const noexcept
   return m_fullScreen;
 }
 
+std::uint32_t Window::Dpi() const noexcept
+{
+  return GetDpiForWindow(m_handle);
+}
+
 bool Window::PumpMessages() noexcept
 {
   return Pump(nullptr, nullptr);

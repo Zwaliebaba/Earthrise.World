@@ -53,6 +53,9 @@ public:
   void SetFullScreen(bool _fullScreen);
   [[nodiscard]] bool IsFullScreen() const noexcept;
 
+  /// The DPI of the monitor the window is on, through GetDpiForWindow: 96 at 100 %.
+  [[nodiscard]] std::uint32_t Dpi() const noexcept;
+
   /// Handles every pending message. Returns false once the application has been asked to quit.
   [[nodiscard]] static bool PumpMessages() noexcept;
 

@@ -1,6 +1,6 @@
 # ADR-019 — Text and the interface pass
 
-**Status:** Proposed, 2026-11-01, with the M3 plan ([MvpPlan.md](../MvpPlan.md), M3; [MvpPlan-M3.md](../MvpPlan-M3.md)). It is the text ADR that [ADR-005](ADR-005-content-formats.md), decision 1, [ADR-011](ADR-011-renderer-first-choices.md), *Consequences*, and [Hud.md](../Hud.md) §9 schedule for M3: the font's baked form, and how text and the HUD's panels reach the screen. The owner gave it the go-ahead on 2026-11-01, as written (MvpPlan.md, M3, input 1; GameDesign.md, *M3's values*, item 1), and the commit that first implements it, order M3-D1, marks it Accepted (AGENTS.md §6).
+**Status:** Accepted, 2026-11-01, by order M3-D1, which adds the interface pass; decision 1's baked font landed with M3-B8 before it. Proposed the same day with the M3 plan ([MvpPlan.md](../MvpPlan.md), M3; [MvpPlan-M3.md](../MvpPlan-M3.md)). It is the text ADR that [ADR-005](ADR-005-content-formats.md), decision 1, [ADR-011](ADR-011-renderer-first-choices.md), *Consequences*, and [Hud.md](../Hud.md) §9 schedule for M3: the font's baked form, and how text and the HUD's panels reach the screen. The owner gave it the go-ahead on 2026-11-01, as written (MvpPlan.md, M3, input 1; GameDesign.md, *M3's values*, item 1), and order M3-D1 marked it Accepted (AGENTS.md §6). The pass samples the atlas by a load of the texel under each pixel's centre, which is point sampling with no sampler.
 
 ## Context
 
