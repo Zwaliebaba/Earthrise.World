@@ -24,6 +24,15 @@ namespace Simulation
 class VoxelWorld
 {
 public:
+  VoxelWorld() = default;
+  ~VoxelWorld() = default;
+  VoxelWorld(const VoxelWorld&) = default;
+  VoxelWorld& operator=(const VoxelWorld&) = default;
+  // A move may allocate under the debug library's checked containers, whose std::map allocates in
+  // its move constructor, so it is not noexcept (bugprone-exception-escape).
+  VoxelWorld(VoxelWorld&&) noexcept(false) = default;
+  VoxelWorld& operator=(VoxelWorld&&) noexcept(false) = default;
+
   /// The store, for the generator to fill the base. Throws std::logic_error once Edit has been
   /// called: from then on every change is an edit.
   [[nodiscard]] ChunkStore& Base();

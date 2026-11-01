@@ -26,6 +26,15 @@ namespace Simulation
 class ChunkStore
 {
 public:
+  ChunkStore() = default;
+  ~ChunkStore() = default;
+  ChunkStore(const ChunkStore&) = default;
+  ChunkStore& operator=(const ChunkStore&) = default;
+  // A move may allocate under the debug library's checked containers, whose std::map allocates in
+  // its move constructor, so it is not noexcept (bugprone-exception-escape).
+  ChunkStore(ChunkStore&&) noexcept(false) = default;
+  ChunkStore& operator=(ChunkStore&&) noexcept(false) = default;
+
   /// The palette index at a voxel, as the simulation last set it, whether published or not.
   [[nodiscard]] std::uint8_t At(Protocol::VoxelPosition _position) const;
 

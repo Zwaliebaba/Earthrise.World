@@ -115,6 +115,13 @@ public:
   /// Generates every chunk through VoxelWorld::Base(). Throws std::invalid_argument for a Desc with
   /// no server data, no generator, no surface or no chunks.
   explicit World(const Desc& _desc);
+  ~World() = default;
+  World(const World&) = default;
+  World& operator=(const World&) = default;
+  // A move may allocate under the debug library's checked containers, whose std::map allocates in
+  // its move constructor, so it is not noexcept (bugprone-exception-escape).
+  World(World&&) noexcept(false) = default;
+  World& operator=(World&&) noexcept(false) = default;
 
   /// Queues a command's bytes from _player. They are decoded and applied in the next Tick's step 1,
   /// in the order they were submitted.
