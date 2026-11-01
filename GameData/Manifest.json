@@ -754,6 +754,58 @@
    "knownIssues": [
     "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before the M4 Siege castle is final."
    ]
+  },
+  {
+   "id": "P1",
+   "key": "mantlet",
+   "name": "Mantlet",
+   "grid": "models",
+   "voxelSize": 0.5,
+   "role": "A timber screen that attackers stand behind. Placeholder: not yet a design.",
+   "criticalPart": null,
+   "silhouetteCue": "A timber screen 2.5 m wide, braced from behind",
+   "sizeVoxels": {
+    "x": 5,
+    "y": 4,
+    "z": 3
+   },
+   "sizeMetres": {
+    "x": 2.5,
+    "y": 2.0,
+    "z": 1.5
+   },
+   "voxelCount": 23,
+   "authoring": "placeholder, native 0.5 m, drawn for the renderer spike (MvpPlan.md, M1 task 9); the owner may replace it",
+   "files": {
+    "json": "Client/Models/earthrise-p1-mantlet-05m.json"
+   },
+   "kind": "model"
+  },
+  {
+   "id": "P2",
+   "key": "banner",
+   "name": "Banner",
+   "grid": "models",
+   "voxelSize": 0.5,
+   "role": "A faction banner on a building. Placeholder: not yet a design.",
+   "criticalPart": null,
+   "silhouetteCue": "A 7 m pole with a 3 m faction flag",
+   "sizeVoxels": {
+    "x": 7,
+    "y": 14,
+    "z": 1
+   },
+   "sizeMetres": {
+    "x": 3.5,
+    "y": 7.0,
+    "z": 0.5
+   },
+   "voxelCount": 50,
+   "authoring": "placeholder, native 0.5 m, drawn for the renderer spike (MvpPlan.md, M1 task 9); the owner may replace it",
+   "files": {
+    "json": "Client/Models/earthrise-p2-banner-05m.json"
+   },
+   "kind": "model"
   }
  ]
 }

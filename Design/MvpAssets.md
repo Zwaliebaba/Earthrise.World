@@ -41,6 +41,14 @@ Drawn by the client only. Models set no costs and no rules (ADR-005, decision 8)
 
 The figures are the same as in the first package, which already drew them at 0.5 m.
 
+**Placeholders** for the renderer spike's test scene (MvpPlan.md, M1 task 9), which `GameData/` lacked. They are drawn to the v5 scene's shapes, and the owner may replace them:
+
+| Id | Model | Size (voxels) | Size (m) | Cue |
+|---|---|---|---|---|
+| P1 | Mantlet | 5 × 4 × 3 | 2.5 × 2 × 1.5 | A timber screen braced from behind, its front +z |
+| P2 | Banner | 7 × 14 × 1 | 3.5 × 7 × 0.5 | A 7 m pole with a 3 m faction flag |
+
+The scene's trees and cottages are not models. They are 1 m world voxels, as ADR-006 puts trees, drawn by the scene script. Its quarry stock is T8's, whose template holds it.
 ## Illustrations
 
 These are for documentation and tests, and are never baked:

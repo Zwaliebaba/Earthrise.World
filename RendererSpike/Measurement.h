@@ -30,6 +30,7 @@ public:
     std::uint64_t voxelsDrawn;
     double voxelPassMilliseconds; // GPU, from timestamps around the voxel pass
     double frameMilliseconds;     // CPU, from the previous frame's start to this one's
+    double rebuildMilliseconds;   // CPU, the scripted edits and the chunk records rebuilt for them
   };
 
   struct EditRow
@@ -51,6 +52,7 @@ public:
     bool tearing;                     // DXGI let the run present without waiting for the vertical blank
     bool resizedDuringRun;            // the window's size changed while the path ran, which stalls a frame
     std::wstring path;                // the camera path, in words
+    std::wstring edits;               // the scripted edits, in words
     std::uint32_t firstMeasuredFrame; // the frames before it warm up and are left out
   };
 

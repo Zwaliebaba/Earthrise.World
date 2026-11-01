@@ -13,6 +13,8 @@ namespace
 {
 
 constexpr float WORLD_VOXEL_METERS = 1.0F;
+// The palette's faction colour, which a model draws in its side's colour (GameData/Server/Palette.json).
+constexpr std::uint8_t FACTION_INDEX = 16;
 
 std::span<const std::byte> BytesOf(std::span<const Engine::VoxelRecord> _records)
 {
@@ -116,6 +118,8 @@ void WorldView::PlaceModels(ID3D12GraphicsCommandList* _commandList, Engine::Upl
                                   [](std::int32_t, std::int32_t, std::int32_t) { return false; });
     Batch batch = Upload(_commandList, _ring, records);
     batch.voxelEdgeMeters = static_cast<float>(model->grid.voxelEdgeMillimeters) / 1000.0F;
+    batch.widthCells = model->grid.widthVoxels;
+    batch.depthCells = model->grid.depthVoxels;
     m_models.emplace(placement.modelId, std::move(batch));
   }
   m_placements = _placements;
@@ -124,7 +128,12 @@ void WorldView::PlaceModels(ID3D12GraphicsCommandList* _commandList, Engine::Upl
 WorldView::Batch WorldView::Upload(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring,
                                    std::span<const Engine::VoxelRecord> _records) const
 {
-  Batch batch{.records = nullptr, .count = static_cast<std::uint32_t>(_records.size()), .originMeters = {}, .voxelEdgeMeters = 0.0F};
+  Batch batch{.records = nullptr,
+              .count = static_cast<std::uint32_t>(_records.size()),
+              .originMeters = {},
+              .voxelEdgeMeters = 0.0F,
+              .widthCells = 0,
+              .depthCells = 0};
   if (!_records.empty())
   {
     batch.records = std::make_unique<Engine::StaticBuffer>(m_device, _records.size_bytes());
@@ -157,11 +166,12 @@ void WorldView::Draw(ID3D12GraphicsCommandList* _commandList, const Engine::Voxe
       _pass.Draw(_commandList, batch.records->GpuAddress(), batch.count,
                  {.originMeters = {placement.xMeters, placement.yMeters, placement.zMeters},
                   .voxelEdgeMeters = batch.voxelEdgeMeters,
-                  .quarterTurns = 0,
-                  .widthCells = 0,
-                  .depthCells = 0,
-                  .swapFromIndex = 0,
-                  .swapToIndex = 0});
+                  .quarterTurns = placement.quarterTurns,
+                  .widthCells = batch.widthCells,
+                  .depthCells = batch.depthCells,
+                  // A model's faction colour is drawn as its side's (RendererLook.md).
+                  .swapFromIndex = placement.sideColorIndex != 0 ? FACTION_INDEX : std::uint8_t{0},
+                  .swapToIndex = placement.sideColorIndex});
     }
   }
 }

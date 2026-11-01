@@ -23,9 +23,11 @@
 #include "Window.h"
 #include "WorldView.h"
 
-// The renderer spike (MvpPlan.md, M1). It draws a first scene through the voxel pass: world chunks
-// built from the simulation's snapshots and 0.5 m models in the same pass, at a render scale of its
-// own, scaled to the window. The look and the v5 test scene follow, one task at a time.
+// The renderer spike (MvpPlan.md, M1). It draws the v5 test scene through the voxel pass: world
+// chunks built from the simulation's snapshots and 0.5 m models in the same pass, at a render scale
+// of its own, scaled to the window. For the first 60 s the scene runs its scripted edits, quarrying
+// and a wall collapse; its units walk for as long as it runs (MvpPlan.md, M1 task 9). The look
+// follows.
 //
 // It starts borderless over the whole monitor (ADR-011, decision 1), and Alt+Enter switches between
 // that and a window. `--windowed` starts it in a window.
@@ -33,8 +35,8 @@
 // `--render-scale 0.75` draws the scene at three quarters of the window's size in each direction;
 // the default is 1 (ADR-011, decision 3).
 //
-// `--measure` flies the scripted camera path once without waiting for the vertical blank, with an
-// edit published each second, and writes what it measured as CSV beside the executable, in
+// `--measure` flies the scripted camera path once without waiting for the vertical blank, while the
+// scene's edits run, and writes what it measured as CSV beside the executable, in
 // Measurements\, before it exits (MvpPlan.md, M1 task 10; GameDesign.md, *Starting the MVP*). Its
 // scene draws at the pass mark's 1920 x 1080 times the render scale, whatever the display's size,
 // and is scaled to the display (the owner's choice of 2026-11-01).
@@ -73,9 +75,6 @@ constexpr float PAN_VIEWS_PER_SECOND = 0.8F;
 
 constexpr double TITLE_REFRESH_SECONDS = 0.5;
 
-// The camera target's height above the ground's datum, as the spike has always stood it.
-constexpr float TARGET_HEIGHT_METERS = 6.0F;
-
 // The measured run's camera path (GameDesign.md, *Starting the MVP*, the owner's choice of
 // 2026-11-01): round a 48 m square about the scene at the default zoom, a quarter turn at each
 // corner, four legs of 15 s stepped at 60 frames a second, and the first second left out as warm-up.
@@ -84,14 +83,11 @@ constexpr float PATH_STEP_SECONDS = 1.0F / static_cast<float>(PATH_FRAMES_PER_SE
 constexpr std::uint32_t PATH_LEG_FRAMES = 15 * PATH_FRAMES_PER_SECOND;
 constexpr float PATH_SIDE_METERS = 48.0F;
 constexpr std::uint32_t WARM_UP_FRAMES = PATH_FRAMES_PER_SECOND;
-// The scripted edit: until task 9's quarrying, the run digs out and puts back one ground voxel each
-// second, half a second into it, so that edit-to-present latency has something to time. It is the
-// top voxel of the ground at this column, inside the walls.
-constexpr std::uint32_t EDIT_INTERVAL_FRAMES = PATH_FRAMES_PER_SECOND;
-constexpr std::uint32_t EDIT_OFFSET_FRAMES = PATH_FRAMES_PER_SECOND / 2;
-constexpr std::int32_t EDIT_X_VOXELS = 40;
-constexpr std::int32_t EDIT_Z_VOXELS = 44;
-constexpr std::int32_t EDIT_TOP_SEARCH_VOXELS = 64;
+// The scene's scripted edits publish every frame. Edit-to-present latency is timed on one
+// publication a second, half a second into it.
+constexpr std::uint32_t LATENCY_INTERVAL_FRAMES = PATH_FRAMES_PER_SECOND;
+constexpr std::uint32_t LATENCY_OFFSET_FRAMES = PATH_FRAMES_PER_SECOND / 2;
+static_assert(PATH_FRAMES_PER_SECOND == Spike::SceneEdits::FRAMES_PER_SECOND, "the path and the scene's edits step together");
 
 // The GPU timer's spans.
 constexpr std::uint32_t VOXEL_PASS_SPAN = 0;
@@ -159,6 +155,14 @@ std::array<DirectX::XMFLOAT4, Engine::VoxelPass::PALETTE_ENTRIES> LinearPalette(
   {
     const std::uint32_t srgb = Content::PaletteColorSrgb(static_cast<std::uint8_t>(index));
     const auto channel = [srgb](int _shift) { return SrgbToLinear(static_cast<float>((srgb >> _shift) & 0xffU) / 255.0F); };
+    colors[index] = {channel(16), channel(8), channel(0), 1.0F};
+  }
+  // The two sides' faction colours, in entries beyond the materials'.
+  for (const auto& [index, srgb] : {std::pair{Spike::ATTACKER_COLOR_INDEX, Spike::ATTACKER_COLOR_SRGB},
+                                    std::pair{Spike::DEFENDER_COLOR_INDEX, Spike::DEFENDER_COLOR_SRGB}})
+  {
+    const std::uint32_t side = srgb;
+    const auto channel = [side](int _shift) { return SrgbToLinear(static_cast<float>((side >> _shift) & 0xffU) / 255.0F); };
     colors[index] = {channel(16), channel(8), channel(0), 1.0F};
   }
   return colors;
@@ -235,21 +239,6 @@ std::filesystem::path MeasurementFolder()
   }
   path.resize(length);
   return std::filesystem::path(path).parent_path() / L"Measurements";
-}
-
-/// The top voxel of the ground at the scripted edit's column, and what it holds.
-std::pair<Protocol::VoxelPosition, std::uint8_t> EditVoxel(const Simulation::ChunkStore& _store)
-{
-  for (std::int32_t y = EDIT_TOP_SEARCH_VOXELS; y >= 0; --y)
-  {
-    const Protocol::VoxelPosition position{.xVoxels = EDIT_X_VOXELS, .yVoxels = y, .zVoxels = EDIT_Z_VOXELS};
-    const std::uint8_t index = _store.At(position);
-    if (index != 0)
-    {
-      return {position, index};
-    }
-  }
-  throw std::runtime_error("the scripted edit's column holds no ground");
 }
 
 /// The frame's constants for a target _widthPixels by _heightPixels that the display shows at
@@ -357,7 +346,11 @@ int Run(const Options& _options)
   Simulation::ChunkStore store;
   const Spike::TestScene scene = Spike::BuildTestScene(store, SCENE_SEED);
   std::vector<Protocol::ChunkSnapshot> published = store.Publish();
-  bool modelsPlaced = false;
+  Spike::SceneEdits edits(store, SCENE_SEED);
+  std::vector<Spike::ModelPlacement> placements;
+  // The frame the scene's edits and walkers are at: the path's in a measured run, else counted from
+  // the start.
+  std::uint32_t sceneFrame = 0;
   const std::array<DirectX::XMFLOAT4, Engine::VoxelPass::PALETTE_ENTRIES> palette = LinearPalette();
 
   Engine::OrthographicCamera camera({.elevationRadians = DirectX::XMConvertToRadians(ELEVATION_DEGREES),
@@ -366,11 +359,10 @@ int Run(const Options& _options)
                                      .minViewHeightMeters = MIN_VIEW_HEIGHT_METERS,
                                      .maxViewHeightMeters = MAX_VIEW_HEIGHT_METERS,
                                      .rotationSeconds = ROTATION_SECONDS,
-                                     .targetMeters = {scene.centerXMeters, TARGET_HEIGHT_METERS, scene.centerZMeters}});
-  const Engine::CameraPath path({.centerMeters = {scene.centerXMeters, TARGET_HEIGHT_METERS, scene.centerZMeters},
+                                     .targetMeters = {scene.centerXMeters, scene.centerYMeters, scene.centerZMeters}});
+  const Engine::CameraPath path({.centerMeters = {scene.centerXMeters, scene.centerYMeters, scene.centerZMeters},
                                  .sideMeters = PATH_SIDE_METERS,
                                  .legFrames = PATH_LEG_FRAMES});
-  const auto [editPosition, editGround] = EditVoxel(store);
   Spike::Measurement measurement;
   std::vector<PendingEdit> pendingEdits;
   std::uint32_t pathFrame = 0;
@@ -430,17 +422,7 @@ int Run(const Options& _options)
       }
       camera.SetTargetMeters(pose.targetMeters);
       camera.Update(PATH_STEP_SECONDS);
-      if (pathFrame >= WARM_UP_FRAMES && pathFrame % EDIT_INTERVAL_FRAMES == EDIT_OFFSET_FRAMES)
-      {
-        // Dig the voxel out, or put it back, and publish: the client sees it in this frame.
-        store.Set(editPosition, store.At(editPosition) == 0 ? editGround : std::uint8_t{0});
-        published = store.Publish();
-        const std::optional<DXGI_FRAME_STATISTICS> statistics = swapChain.FrameStatistics();
-        pendingEdits.push_back({.frame = pathFrame,
-                                .presentCount = std::nullopt,
-                                .refreshAtPublish = statistics ? static_cast<std::int64_t>(statistics->SyncRefreshCount) : -1,
-                                .publishedTicks = PerformanceTicks()});
-      }
+      sceneFrame = pathFrame;
     }
     else
     {
@@ -449,6 +431,26 @@ int Run(const Options& _options)
     }
     lastXPixels = pointer.XPixels();
     lastYPixels = pointer.YPixels();
+
+    // The scene's scripted edits: the quarrying, and the collapse (task 9). The client sees them in
+    // this frame, from what the store publishes (ADR-002, decision 3).
+    const auto editStart = std::chrono::steady_clock::now();
+    if (edits.Apply(store, sceneFrame) > 0)
+    {
+      std::vector<Protocol::ChunkSnapshot> changed = store.Publish();
+      published.insert(published.end(), changed.begin(), changed.end());
+      if (measure && sceneFrame >= WARM_UP_FRAMES && sceneFrame % LATENCY_INTERVAL_FRAMES == LATENCY_OFFSET_FRAMES)
+      {
+        const std::optional<DXGI_FRAME_STATISTICS> statistics = swapChain.FrameStatistics();
+        pendingEdits.push_back({.frame = sceneFrame,
+                                .presentCount = std::nullopt,
+                                .refreshAtPublish = statistics ? static_cast<std::int64_t>(statistics->SyncRefreshCount) : -1,
+                                .publishedTicks = PerformanceTicks()});
+      }
+    }
+    const std::chrono::duration<double, std::milli> editTime = std::chrono::steady_clock::now() - editStart;
+    placements = scene.fixedModels;
+    Spike::PlaceWalkers(store, scene, sceneFrame, placements);
     const std::uint64_t completed = device.DirectQueue().CompletedValue();
     ring.Reclaim(completed);
     worldView.Release(completed);
@@ -466,16 +468,17 @@ int Run(const Options& _options)
       }
       waitingRows[slot].reset();
     }
+    const auto rebuildStart = std::chrono::steady_clock::now();
     if (!published.empty())
     {
       worldView.TakeSnapshots(commandList, ring, published);
       published.clear();
     }
-    if (!modelsPlaced)
-    {
-      worldView.PlaceModels(commandList, ring, scene.models);
-      modelsPlaced = true;
-    }
+    // What the edits cost the CPU: the store's edit and publication, and the chunks' rebuilt records
+    // with their neighbours' (GameDesign.md, the renderer spike's question 5).
+    const double rebuildMilliseconds =
+      editTime.count() + std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - rebuildStart).count();
+    worldView.PlaceModels(commandList, ring, placements);
     const float displayAspect = static_cast<float>(swapChain.WidthPixels()) / static_cast<float>(swapChain.HeightPixels());
     const D3D12_GPU_VIRTUAL_ADDRESS frameConstants =
       UploadConstants(ring, MakeFrame(camera, displayAspect, sceneColor.WidthPixels(), sceneColor.HeightPixels()));
@@ -514,7 +517,8 @@ int Run(const Options& _options)
                                                      .azimuthDegrees = DirectX::XMConvertToDegrees(camera.AzimuthRadians()),
                                                      .voxelsDrawn = worldView.RecordsDrawn(),
                                                      .voxelPassMilliseconds = 0.0,
-                                                     .frameMilliseconds = 1000.0 * lapSeconds};
+                                                     .frameMilliseconds = 1000.0 * lapSeconds,
+                                                     .rebuildMilliseconds = rebuildMilliseconds};
     const std::uint64_t fenceValue = frames.End();
     ring.Retire(fenceValue);
     worldView.Retire(fenceValue);
@@ -586,6 +590,10 @@ int Run(const Options& _options)
                                L"stepped at {} a second",
                                PATH_SIDE_METERS, DEFAULT_VIEW_HEIGHT_METERS, Engine::CameraPath::LEG_COUNT, PATH_LEG_FRAMES,
                                PATH_FRAMES_PER_SECOND),
+           .edits =
+             std::format(L"quarrying {} voxels a second, the west curtain's northern section collapsing at frame {}, {} units walking "
+                         L"2 m circles at 1.4 m/s; latency timed on one publication a second",
+                         Spike::SceneEdits::QUARRY_VOXELS_PER_SECOND, Spike::SceneEdits::COLLAPSE_FRAME, scene.walkers.size()),
            .firstMeasuredFrame = WARM_UP_FRAMES});
         MessageBoxW(window.Handle(), results.c_str(), TITLE, MB_ICONINFORMATION | MB_OK);
         return 0;
@@ -606,6 +614,10 @@ int Run(const Options& _options)
       SetWindowTextW(window.Handle(), title.c_str());
       titleSeconds = 0.0;
       titleFrames = 0;
+    }
+    if (!measure)
+    {
+      ++sceneFrame;
     }
     pointer.EndFrame();
     keyboard.EndFrame();

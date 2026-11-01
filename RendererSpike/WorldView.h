@@ -39,7 +39,8 @@ public:
   void TakeSnapshots(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring,
                      std::span<const Protocol::ChunkSnapshot> _snapshots);
 
-  /// Builds a batch for each model the placements use. Throws std::runtime_error for an unknown model.
+  /// Draws these placements from now on, building a batch for each model they use that has none
+  /// yet. Called each frame, as units move. Throws std::runtime_error for an unknown model.
   void PlaceModels(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, const std::vector<ModelPlacement>& _placements);
 
   void Draw(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const;
@@ -60,6 +61,8 @@ private:
     std::uint32_t count;
     DirectX::XMFLOAT3 originMeters;
     float voxelEdgeMeters;
+    std::uint32_t widthCells; // a model's extent along x and z, which turning it needs
+    std::uint32_t depthCells;
   };
 
   void RebuildChunk(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, std::uint64_t _key);
