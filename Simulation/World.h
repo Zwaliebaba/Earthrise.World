@@ -5,12 +5,14 @@
 #include "CollapsePlan.h"
 #include "Command.h"
 #include "EntityId.h"
+#include "EntityKinds.h"
 #include "Fixed.h"
 #include "FixedPosition.h"
 #include "NavigationGrid.h"
 #include "PathSearch.h"
 #include "ServerData.h"
 #include "Shot.h"
+#include "StateUpdate.h"
 #include "VoxelWorld.h"
 
 #include <cstddef>
@@ -70,12 +72,12 @@ struct Unit
   Protocol::VoxelPosition cellVoxels; // the cell it stands in
   std::uint32_t trailStep;            // the cell of its squad's trail it stands in, or steps toward
   std::int64_t stepEffort;            // how far into that step, in Fixed's raw meters times the ground's factor; 0 when it stands
+  Protocol::UnitKind kind;            // which figure it is, and so which model the client draws
 };
 
-enum class EngineKind : std::uint8_t
-{
-  Trebuchet
-};
+using Protocol::EngineKind;
+using Protocol::FixedPosition;
+using Protocol::UnitKind;
 
 /// A siege engine placed in the world.
 struct SiegeEngine
@@ -123,6 +125,9 @@ struct Collapse
   std::vector<Protocol::EntityId> struck;
   /// The structure whose box holds the piece's first voxel when the collapse starts, or NO_ENTITY.
   Protocol::EntityId structure;
+  /// The piece's voxels as they were when it left the grid, on the fall's first tick: what the
+  /// client scatters its debris from. Empty until then.
+  std::vector<PlacedVoxel> fallen;
 };
 
 /// A unit hit by a collapse or a fall: what M4 turns into damage.
@@ -205,6 +210,10 @@ public:
   /// The chunks changed since the last call (ADR-002, decision 3).
   [[nodiscard]] std::vector<Protocol::ChunkSnapshot> Publish();
 
+  /// What step 11 published at the end of the last tick: the whole state the player sees, as values
+  /// (ADR-020, decision 3). Empty before the first tick, and after a load until the next.
+  [[nodiscard]] const Protocol::StateUpdate& State() const noexcept;
+
   [[nodiscard]] const Desc& Description() const noexcept;
   [[nodiscard]] const ServerData& Data() const noexcept;
 
@@ -231,9 +240,10 @@ public:
   /// they stood at its end, each once, in first-edit order.
   [[nodiscard]] std::span<const Protocol::VoxelPosition> LastTickEdits() const noexcept;
 
-  /// Places a squad of _owner's, with one unit standing in each of _cellsVoxels, for scenarios and
-  /// tests. The squad takes the first new id and its units the next, in the order given.
-  Protocol::EntityId AddSquad(std::uint8_t _owner, NavigationClass _class, std::span<const Protocol::VoxelPosition> _cellsVoxels);
+  /// Places a squad of _owner's figures of _kind, with one unit standing in each of _cellsVoxels, for
+  /// scenarios and tests. The squad takes the first new id and its units the next, in the order given.
+  Protocol::EntityId AddSquad(std::uint8_t _owner, NavigationClass _class, std::span<const Protocol::VoxelPosition> _cellsVoxels,
+                              UnitKind _kind = UnitKind::Spearman);
 
   /// Places a siege engine of _owner's standing in _cellVoxels, facing _quarterTurns, for scenarios
   /// and tests.
@@ -289,6 +299,11 @@ private:
   std::optional<std::pair<std::int32_t, std::int32_t>> Slump(std::int32_t _x, std::int32_t _z);
   /// Whether a shot that reached _point has left the world.
   [[nodiscard]] bool OutsideWorld(const FixedPosition& _point) const noexcept;
+  /// The state _player may see: the filter of ADR-002, decision 4, through which M4's fog goes. M3
+  /// has one player and no fog, so it passes everything (ADR-020, decision 3).
+  [[nodiscard]] Protocol::StateUpdate StateFor(std::uint8_t _player) const;
+  /// A collapse as a state update shows it.
+  [[nodiscard]] Protocol::CollapseView ViewOf(const Collapse& _collapse) const;
   /// The structure whose box holds _voxel, the lowest id where boxes overlap, or NO_ENTITY.
   [[nodiscard]] Protocol::EntityId StructureHolding(Protocol::VoxelPosition _voxel) const;
 
@@ -323,6 +338,10 @@ private:
   std::map<Protocol::EntityId, Shot> m_shots;
   std::map<Protocol::EntityId, Collapse> m_collapses;
   std::map<Protocol::EntityId, Structure> m_structures;
+  // The collapses whose fall ended this tick, as their last view: step 11 publishes them once more,
+  // so the client sees the last of their landing land. Not saved: the next tick reads nothing of it.
+  std::vector<Protocol::CollapseView> m_endedCollapses;
+  Protocol::StateUpdate m_state;
   std::vector<ShotHit> m_tickHits;
   std::vector<CrushEvent> m_tickCrushes;
   // The edits made after the last step 5 in the tick before: its steps 6 and 7. The next step 5

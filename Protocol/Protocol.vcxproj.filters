@@ -10,6 +10,9 @@
     <Filter Include="Commands">
       <UniqueIdentifier>{050D32E8-5B56-551B-A333-16F19AA84A6A}</UniqueIdentifier>
     </Filter>
+    <Filter Include="State">
+      <UniqueIdentifier>{B67DBAD4-E3E1-56C8-9DBA-AFF459913EA4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -42,5 +45,17 @@
     <ClCompile Include="Command.cpp">
       <Filter>Commands</Filter>
     </ClCompile>
+    <ClInclude Include="FixedPosition.h">
+      <Filter>State</Filter>
+    </ClInclude>
+    <ClInclude Include="EntityKinds.h">
+      <Filter>State</Filter>
+    </ClInclude>
+    <ClInclude Include="PlacedVoxel.h">
+      <Filter>State</Filter>
+    </ClInclude>
+    <ClInclude Include="StateUpdate.h">
+      <Filter>State</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

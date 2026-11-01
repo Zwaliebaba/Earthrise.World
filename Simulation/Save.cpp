@@ -170,6 +170,7 @@ void WriteRecord(Core::ByteWriter& _writer, const Unit& _unit)
   WritePosition(_writer, _unit.cellVoxels);
   _writer.WriteU32(_unit.trailStep);
   _writer.WriteI64(_unit.stepEffort);
+  _writer.WriteU8(static_cast<std::uint8_t>(_unit.kind));
 }
 
 Unit ReadUnit(Core::ByteReader& _reader)
@@ -181,7 +182,8 @@ Unit ReadUnit(Core::ByteReader& _reader)
           .position = ReadFixedPosition(_reader),
           .cellVoxels = ReadPosition(_reader),
           .trailStep = _reader.ReadU32(),
-          .stepEffort = _reader.ReadI64()};
+          .stepEffort = _reader.ReadI64(),
+          .kind = ReadEnum(_reader, UnitKind::Sapper, "kind of unit")};
 }
 
 void WriteRecord(Core::ByteWriter& _writer, const SiegeEngine& _engine)
@@ -288,6 +290,12 @@ void WriteRecord(Core::ByteWriter& _writer, const Collapse& _collapse)
     _writer.WriteU64(unit);
   }
   _writer.WriteU64(_collapse.structure);
+  _writer.WriteU32(static_cast<std::uint32_t>(_collapse.fallen.size()));
+  for (const PlacedVoxel& voxel : _collapse.fallen)
+  {
+    WritePosition(_writer, voxel.position);
+    _writer.WriteU8(voxel.paletteIndex);
+  }
 }
 
 Collapse ReadCollapse(Core::ByteReader& _reader)
@@ -297,7 +305,8 @@ Collapse ReadCollapse(Core::ByteReader& _reader)
                     .plan = {},
                     .ticksElapsed = 0,
                     .struck = {},
-                    .structure = Protocol::NO_ENTITY};
+                    .structure = Protocol::NO_ENTITY,
+                    .fallen = {}};
   CollapsePlan& plan = collapse.plan;
   plan.direction = ReadEnum(_reader, FallDirection::West, "fall direction");
   plan.warningTicks = _reader.ReadU32();
@@ -317,6 +326,12 @@ Collapse ReadCollapse(Core::ByteReader& _reader)
     collapse.struck.push_back(_reader.ReadU64());
   }
   collapse.structure = _reader.ReadU64();
+  const std::uint32_t fallen = _reader.ReadU32();
+  for (std::uint32_t number = 0; number < fallen; ++number)
+  {
+    const Protocol::VoxelPosition position = ReadPosition(_reader);
+    collapse.fallen.push_back({.position = position, .paletteIndex = _reader.ReadU8()});
+  }
   return collapse;
 }
 

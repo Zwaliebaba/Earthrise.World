@@ -70,6 +70,7 @@ void World::Submit(std::uint8_t _player, std::span<const std::byte> _command)
 void World::Tick()
 {
   m_tickCrushes.clear();
+  m_endedCollapses.clear();
   ApplyCommands();
   AdvanceJobs();
   MoveUnits();
@@ -119,6 +120,11 @@ VoxelWorld& World::Voxels() noexcept
 std::vector<Protocol::ChunkSnapshot> World::Publish()
 {
   return m_voxels.Publish();
+}
+
+const Protocol::StateUpdate& World::State() const noexcept
+{
+  return m_state;
 }
 
 const World::Desc& World::Description() const noexcept
@@ -205,7 +211,8 @@ std::span<const Protocol::VoxelPosition> World::LastTickEdits() const noexcept
   return m_lastTickEdits;
 }
 
-Protocol::EntityId World::AddSquad(std::uint8_t _owner, NavigationClass _class, std::span<const Protocol::VoxelPosition> _cellsVoxels)
+Protocol::EntityId World::AddSquad(std::uint8_t _owner, NavigationClass _class, std::span<const Protocol::VoxelPosition> _cellsVoxels,
+                                   UnitKind _kind)
 {
   const Protocol::EntityId squadId = NewEntityId();
   Squad squad{.id = squadId,
@@ -227,7 +234,8 @@ Protocol::EntityId World::AddSquad(std::uint8_t _owner, NavigationClass _class, 
                                  .position = CellFloorMiddle(cell),
                                  .cellVoxels = cell,
                                  .trailStep = 0,
-                                 .stepEffort = 0});
+                                 .stepEffort = 0,
+                                 .kind = _kind});
     squad.units.push_back(unitId);
   }
   m_squads.emplace(squadId, std::move(squad));
@@ -715,8 +723,13 @@ void World::SearchSupport()
     const Protocol::EntityId id = NewEntityId();
     CollapsePlan plan = PlanCollapse(piece, edits, m_voxels, Data());
     const Protocol::EntityId structure = StructureHolding(piece.front());
-    m_collapses.emplace(
-      id, Collapse{.id = id, .piece = std::move(piece), .plan = std::move(plan), .ticksElapsed = 0, .struck = {}, .structure = structure});
+    m_collapses.emplace(id, Collapse{.id = id,
+                                     .piece = std::move(piece),
+                                     .plan = std::move(plan),
+                                     .ticksElapsed = 0,
+                                     .struck = {},
+                                     .structure = structure,
+                                     .fallen = {}});
   }
 }
 
@@ -732,6 +745,7 @@ void World::AdvanceCollapses()
     if (collapse.ticksElapsed > collapse.plan.warningTicks && Fall(collapse))
     {
       ended.push_back(id);
+      m_endedCollapses.push_back(ViewOf(collapse));
     }
   }
   for (const Protocol::EntityId id : ended)
@@ -747,9 +761,10 @@ bool World::Fall(Collapse& _collapse)
   if (fallTick == 1)
   {
     // The piece leaves the grid on the fall's first tick, and every unit standing in the strip is hit,
-    // once (items 5 and 8).
+    // once (items 5 and 8). What it was is kept for the client's debris (M3-B2).
     for (const Protocol::VoxelPosition& voxel : _collapse.piece)
     {
+      _collapse.fallen.push_back({.position = voxel, .paletteIndex = m_voxels.At(voxel)});
       m_voxels.Edit(voxel, Protocol::Chunk::EMPTY);
     }
     std::set<std::pair<std::int32_t, std::int32_t>> strip;
@@ -1099,8 +1114,82 @@ void World::CheckRules()
 
 void World::PublishState()
 {
-  // Step 11: state updates filtered by what each player sees. M2 is headless; Publish() hands the
-  // chunks to whoever asks.
+  // Step 11: the state update, filtered by what the player sees (ADR-002, decision 4; ADR-020,
+  // decision 3). Publish() hands the chunks to whoever asks.
+  m_state = StateFor(0);
+}
+
+Protocol::StateUpdate World::StateFor([[maybe_unused]] std::uint8_t _player) const
+{
+  Protocol::StateUpdate state{
+    .tick = m_tick, .structures = {}, .engines = {}, .squads = {}, .units = {}, .shots = {}, .collapses = {}, .hits = {}};
+  for (const auto& [id, structure] : m_structures)
+  {
+    state.structures.push_back({.id = id,
+                                .owner = structure.owner,
+                                .templateId = structure.templateId,
+                                .originVoxels = structure.originVoxels,
+                                .quarterTurns = structure.quarterTurns,
+                                .name = structure.name});
+  }
+  for (const auto& [id, engine] : m_siegeEngines)
+  {
+    state.engines.push_back({.id = id,
+                             .owner = engine.owner,
+                             .kind = engine.kind,
+                             .cellVoxels = engine.cellVoxels,
+                             .quarterTurns = engine.quarterTurns,
+                             .reloadTicks = engine.reloadTicks});
+  }
+  for (const auto& [id, squad] : m_squads)
+  {
+    state.squads.push_back({.id = id,
+                            .owner = squad.owner,
+                            .units = squad.units,
+                            .hasGoal = squad.hasGoal,
+                            .goalVoxels = squad.goalVoxels,
+                            .shortOfGoal = squad.shortOfGoal});
+  }
+  for (const auto& [id, unit] : m_units)
+  {
+    state.units.push_back(
+      {.id = id, .squad = unit.squad, .owner = unit.owner, .kind = unit.kind, .position = unit.position, .cellVoxels = unit.cellVoxels});
+  }
+  for (const auto& [id, shot] : m_shots)
+  {
+    state.shots.push_back({.id = id, .engine = shot.engine, .position = ShotPositionAt(shot.arc, shot.ticksFlown)});
+  }
+  // The collapses still running and those whose fall ended this tick, in id order.
+  for (const auto& [id, collapse] : m_collapses)
+  {
+    state.collapses.push_back(ViewOf(collapse));
+  }
+  state.collapses.insert(state.collapses.end(), m_endedCollapses.begin(), m_endedCollapses.end());
+  std::ranges::sort(state.collapses, {}, &Protocol::CollapseView::id);
+  for (const ShotHit& hit : m_tickHits)
+  {
+    state.hits.push_back({.shot = hit.shot, .voxel = hit.voxel});
+  }
+  return state;
+}
+
+Protocol::CollapseView World::ViewOf(const Collapse& _collapse) const
+{
+  const CollapsePlan& plan = _collapse.plan;
+  const std::uint32_t warned = std::min(_collapse.ticksElapsed, plan.warningTicks);
+  const std::uint32_t fallen = _collapse.ticksElapsed > plan.warningTicks ? _collapse.ticksElapsed - plan.warningTicks : 0;
+  const std::uint64_t fallTicks = std::max<std::uint32_t>(plan.fallTicks, 1);
+  // As Fall lands them: in equal parts over the fall's ticks.
+  const std::uint64_t landed = plan.landing.size() * std::min<std::uint64_t>(fallen, fallTicks) / fallTicks;
+  return {.id = _collapse.id,
+          .structure = _collapse.structure,
+          .warningTicksLeft = plan.warningTicks - warned,
+          .fallTicksLeft = fallen >= plan.fallTicks ? 0 : plan.fallTicks - fallen,
+          .piece = _collapse.piece,
+          .strip = plan.strip,
+          .landing = plan.landing,
+          .landedVoxels = static_cast<std::uint32_t>(landed),
+          .fallen = _collapse.fallen};
 }
 
 void World::AnswerQueries()

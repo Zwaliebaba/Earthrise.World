@@ -2,6 +2,7 @@
 
 #include "ChunkCoordinate.h"
 #include "ChunkStore.h"
+#include "EntityKinds.h"
 #include "MaterialRules.h"
 #include "Rules.h"
 
@@ -14,13 +15,9 @@
 namespace Simulation
 {
 
-/// How a unit moves: by its climb, headroom, width and fords (ADR-015, decision 2).
-enum class NavigationClass : std::uint8_t
-{
-  Foot,
-  Cavalry,
-  Machines
-};
+/// How a unit moves: by its climb, headroom, width and fords (ADR-015, decision 2). Protocol's, since
+/// it crosses the boundary in state updates (ADR-020).
+using Protocol::NavigationClass;
 
 inline constexpr std::size_t NAVIGATION_CLASS_COUNT = 3;
 

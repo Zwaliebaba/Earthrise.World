@@ -123,9 +123,6 @@
     <ClCompile Include="Generator.cpp">
       <Filter>Generation</Filter>
     </ClCompile>
-    <ClInclude Include="FixedPosition.h">
-      <Filter>World</Filter>
-    </ClInclude>
     <ClInclude Include="Shot.h">
       <Filter>Destruction</Filter>
     </ClInclude>

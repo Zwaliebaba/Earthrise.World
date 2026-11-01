@@ -14,6 +14,8 @@
 namespace Simulation
 {
 
+using Protocol::FixedPosition;
+
 /// A trebuchet shot's arc (GameDesign.md, M2's values, item 12): it leaves shotLaunchHeightVoxels
 /// above the middle of the engine's cell and comes down at exactly 45 degrees onto the middle of the
 /// target voxel's top face, under gravity. With the launch h above the aim point and the aim d away

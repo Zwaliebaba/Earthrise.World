@@ -99,5 +99,8 @@
     <ClCompile Include="StructureTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="StateUpdateTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

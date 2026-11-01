@@ -2,6 +2,7 @@
 
 #include "ChunkCoordinate.h"
 #include "ChunkStore.h"
+#include "PlacedVoxel.h"
 
 #include <array>
 #include <cstdint>
@@ -38,11 +39,7 @@ using TemplateLookup = std::function<std::optional<TemplateShape>(std::string_vi
 
 /// A voxel a collapse brought down, and what it was: what the client scatters the collapse's debris
 /// from (RendererLook.md §1).
-struct FallenVoxel
-{
-  Protocol::VoxelPosition position;
-  std::uint8_t paletteIndex;
-};
+using FallenVoxel = Protocol::PlacedVoxel;
 
 /// What a collapse did: the voxels that fell, with what they were, and the rubble they became.
 struct CollapseRecord

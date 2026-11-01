@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ChunkCoordinate.h"
+#include "PlacedVoxel.h"
 #include "ServerData.h"
 #include "SupportSearch.h"
 #include "VoxelWorld.h"
@@ -22,14 +23,9 @@ enum class FallDirection : std::uint8_t
   West
 };
 
-/// A voxel a collapse writes: a rubble voxel landing, or a structure voxel crushed in place.
-struct PlacedVoxel
-{
-  Protocol::VoxelPosition position;
-  std::uint8_t paletteIndex;
-
-  friend constexpr bool operator==(const PlacedVoxel&, const PlacedVoxel&) = default;
-};
+/// A voxel a collapse writes: a rubble voxel landing, or a structure voxel crushed in place. Protocol's,
+/// since a collapse's view carries its landing (ADR-020).
+using Protocol::PlacedVoxel;
 
 /// What a piece's collapse does (ADR-004, decisions 3 and 4; GameDesign.md, M2's values, items 4 to
 /// 8): every view, preview and AI asks PlanCollapse, never a copy of its rule (ADR-004, decision 5).
