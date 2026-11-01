@@ -1,6 +1,6 @@
 # Earthrise.World — M3 work orders
 
-**Status:** Proposed, 2026-11-01, with [MvpPlan.md](MvpPlan.md)'s M3 revision, which is accepted when the owner merges its pull request, #45 (GameDesign.md, *Closing M2*, item 6). The owner answered MvpPlan.md, M3, inputs 1–15 the same day, taking every proposal (order M3-A1; GameDesign.md, *M3's values*). No order from phase B on starts before that pull request merges; phase A is paper. "Input N" means MvpPlan.md, M3, input N. These orders carry out M3 as MvpPlan.md, M3, defines it, under [ADR-018](ADR/ADR-018-text-and-the-interface-pass.md) to [ADR-020](ADR/ADR-020-world-overlays.md). Where an order and those differ, they win, and the order is corrected.
+**Status:** Proposed, 2026-11-01, with [MvpPlan.md](MvpPlan.md)'s M3 revision, which is accepted when the owner merges its pull request, #45 (GameDesign.md, *Closing M2*, item 6). The owner answered MvpPlan.md, M3, inputs 1–15 the same day, taking every proposal (order M3-A1; GameDesign.md, *M3's values*). No order from phase B on starts before that pull request merges; phase A is paper. "Input N" means MvpPlan.md, M3, input N. These orders carry out M3 as MvpPlan.md, M3, defines it, under [ADR-019](ADR/ADR-019-text-and-the-interface-pass.md) to [ADR-021](ADR/ADR-021-world-overlays.md). Where an order and those differ, they win, and the order is corrected.
 
 **An order is one commit, and a phase is one pull request** (AGENTS.md §6), or one draft pull request for B to G if the owner chooses that again, as in M2. There are 24 orders in seven phases:
 
@@ -28,7 +28,7 @@ D needs only A, so it can run beside B and C in its own pull request; everything
 5. **Name the commit for the order.** Its subject starts with the order's id, as in `M3-B3: Answer queries within the tick's budget`.
 6. **Register every file** in its project's `.vcxproj` and `.filters`, under the functional filter the order names. Folders stay flat (AGENTS.md §2). A new project goes into `Earthrise.slnx`, `.clang-tidy`'s `HeaderFilterRegex` and the checker's layering table in the commit that creates it.
 7. **Write the tests the order names.** They go in `<Project>Tests/<Type>Tests.cpp`, in `TEST_CLASS(<Type>Tests)`, with methods named for the behaviour they check. A render test creates its device with `GpuDevice::Desc::useWarp` and asserts coverage, colour and depth by number, never a golden image (ADR-012).
-8. **Save what you add.** An order that adds an entity kind adds it to the save and to the state update, and extends `SaveTests` and `StateUpdateTests`, in the same commit (ADR-014, decision 4; ADR-019, decision 3).
+8. **Save what you add.** An order that adds an entity kind adds it to the save and to the state update, and extends `SaveTests` and `StateUpdateTests`, in the same commit (ADR-014, decision 4; ADR-020, decision 3).
 9. **Accept the ADR you implement.** The commit that first implements an ADR marks it Accepted, with the date and any amendment the code forced (AGENTS.md §6). Each order says which ADR, if any.
 10. **Hand the screen to the owner.** An order that draws or takes input lists what the owner should see under *Owner runs*, and the owner launches it before the phase merges (AGENTS.md §3). A Claude session cannot see a frame; what the owner reports comes back as a fix commit, or as a new order in the same phase, as M2-D3 provided for.
 11. **Leave out-of-scope work out.** What a session notices beyond its order goes in the PR description, not the commit.
@@ -50,7 +50,7 @@ enum class NavigationClass : std::uint8_t { Foot, Cavalry, Machines };
 enum class EngineKind : std::uint8_t { Trebuchet };
 enum class UnitKind : std::uint8_t { Laborer, Spearman, Archer, Outrider, ManAtArms, Sapper }; // which model the client draws (MvpAssets.md, U1–U5, S2)
 
-// Protocol/StateUpdate.h — ADR-019, decision 3: the whole visible state, a value, once a tick. Every
+// Protocol/StateUpdate.h — ADR-020, decision 3: the whole visible state, a value, once a tick. Every
 // vector is in id order. No byte encoding until online work; M3 copies the struct.
 struct StructureView { EntityId id; std::uint8_t owner; std::string templateId; VoxelPosition originVoxels; std::uint32_t quarterTurns; std::string name; };
 struct EngineView { EntityId id; std::uint8_t owner; EngineKind kind; VoxelPosition cellVoxels; std::uint32_t quarterTurns; std::uint32_t reloadTicks; };
@@ -82,7 +82,7 @@ struct StateUpdate
   std::vector<ShotHitView> hits; // the tick's
 };
 
-// Protocol/Query.h — ADR-009, ADR-019 decisions 5 and 6. On the wire: u32 query id, u16 tag, u16 record
+// Protocol/Query.h — ADR-009, ADR-020 decisions 5 and 6. On the wire: u32 query id, u16 tag, u16 record
 // version (1), then the fields in declaration order. An answer: u32 query id, u32 tick, u16 tag, u16
 // version, the reading's fields. Tags: 1 aim check, 2 section integrity, 3 tile reach.
 struct AimCheck { EntityId engine; VoxelPosition targetVoxels; };
@@ -162,7 +162,7 @@ public:
   [[nodiscard]] const std::map<Protocol::EntityId, Structure>& Structures() const noexcept;
   /// What step 11 published at the end of the last tick, filtered for the one player M3 has.
   [[nodiscard]] const Protocol::StateUpdate& State() const noexcept;
-  /// Queues a query's bytes from _player for step 12 (ADR-009; ADR-019, decision 6). Past
+  /// Queues a query's bytes from _player for step 12 (ADR-009; ADR-020, decision 6). Past
   /// MAX_PENDING_QUERIES the oldest pending query is dropped.
   void Ask(std::uint8_t _player, std::span<const std::byte> _query);
   /// The answers produced since the last call, encoded, in the order answered.
@@ -231,7 +231,7 @@ public:
 ### `Content` (B8)
 
 ```cpp
-// Content/Font.h — ADR-018, decision 1. Baked from GameData/Client/Fonts/EarthriseMason-glyphs.json.
+// Content/Font.h — ADR-019, decision 1. Baked from GameData/Client/Fonts/EarthriseMason-glyphs.json.
 struct Glyph
 {
   char32_t codePoint;
@@ -252,7 +252,7 @@ inline constexpr std::uint32_t FONT_GLYPH_COUNT = 127;
 ### `Engine` (D1, D2, E3)
 
 ```cpp
-// Engine/InterfacePass.h — ADR-018, decision 3. Shaders InterfaceVS.hlsl and InterfacePS.hlsl.
+// Engine/InterfacePass.h — ADR-019, decision 3. Shaders InterfaceVS.hlsl and InterfacePS.hlsl.
 struct InterfaceQuad
 {
   float xPixels, yPixels, widthPixels, heightPixels; // top-left origin, in the target's pixels
@@ -275,7 +275,7 @@ public:
             std::uint32_t _targetWidthPixels, std::uint32_t _targetHeightPixels) const;
 };
 
-// Engine/VoxelPass.h gains (ADR-020, decision 1):
+// Engine/VoxelPass.h gains (ADR-021, decision 1):
 /// Binds the overlay pipeline: records drawn flat in their palette colour at _alpha, blended over the
 /// scene, tested against its depth with GREATER_EQUAL and writing none. Draw then draws batches as
 /// after Begin.
@@ -298,10 +298,10 @@ using SolidAt = std::function<bool(std::int32_t, std::int32_t, std::int32_t)>; /
 ```cpp
 // Client/Look.h — RendererLook.md's numbers, moved from the spike: the Golden preset, the shadow maps'
 // sizes and biases, the camera's angles and zoom range, the model voxel's edge, and the palette entries
-// above the materials': 240 attacker, 241 defender, 242 ford, and ADR-020's overlays, 243 good, 244 bad,
+// above the materials': 240 attacker, 241 defender, 242 ford, and ADR-021's overlays, 243 good, 244 bad,
 // 245 accent, 246 dim, 247 text, in Hud.md §2's colours.
 
-// Client/TickClock.h — ADR-019, decision 4.
+// Client/TickClock.h — ADR-020, decision 4.
 class TickClock
 {
 public:
@@ -314,7 +314,7 @@ public:
   [[nodiscard]] bool Paused() const noexcept;
 };
 
-// Client/Session.h — ADR-019, decision 2: the client's copy of what it was told, and what it asks.
+// Client/Session.h — ADR-020, decision 2: the client's copy of what it was told, and what it asks.
 class Session
 {
 public:
@@ -364,7 +364,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 - **Changes:**
   - **GameDesign.md** gains `### <date>: M3's values`, with each input as Decided in the owner's words, or as the owner changed it. Input 10 stays Proposed, because G3 measures it. The Open questions *Craters at 1 m* and *The HUD's sizes* are rewritten as the owner decides them (inputs 11 and 8).
   - **MvpPlan.md:** each input's row says Decided, and input 1 records the go-ahead for each ADR.
-  - **The ADRs** are edited where the owner changed them, and stay Proposed (AGENTS.md §6). ADR-007 gains its amendment on mouse messages (input 15) and ADR-010 the note that its decision 2 is amended by ADR-019 on acceptance.
+  - **The ADRs** are edited where the owner changed them, and stay Proposed (AGENTS.md §6). ADR-007 gains its amendment on mouse messages (input 15) and ADR-010 the note that its decision 2 is amended by ADR-020 on acceptance.
   - **Hud.md:** its Proposed items that the inputs decide, the DPI bands and the camera framing, are marked Decided or changed.
 - **Tests:** none. The checkers run, and every relative link resolves.
 
@@ -386,7 +386,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 
 ### M3-B2 — State updates as values
 - **Waits on:** B1.
-- **Read first:** ADR-002, decision 3; ADR-019, decision 3; *Contracts*, `Protocol`.
+- **Read first:** ADR-002, decision 3; ADR-020, decision 3; *Contracts*, `Protocol`.
 - **Changes:**
   - **`Protocol`:** `FixedPosition.h` and `EntityKinds.h` moved in, `StateUpdate.h` new, in the filter `State`. `Simulation` and `RendererSpike` keep compiling through using-declarations and include changes only.
   - **`Unit::kind`,** which `AddSquad` takes; the breach run's squad is men-at-arms.
@@ -396,11 +396,11 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
   - A collapse's view carries its piece and strip from its first warning tick, `fallen` and `rubble` empty until the fall's first tick and growing with it, and `warningTicksLeft` counting down to 0.
   - The tick's hits match `LastTickHits`.
   - A unit's position in the update equals the unit's.
-- **ADR:** ADR-019, decision 3, implemented; the ADR stays Proposed until C1.
+- **ADR:** ADR-020, decision 3, implemented; the ADR stays Proposed until C1.
 
 ### M3-B3 — Queries within the tick's budget
 - **Waits on:** B2, and input 10.
-- **Read first:** ADR-009; ADR-019, decisions 5 and 6; ADR-013, decision 6; `Protocol/Command.cpp`; `Simulation/ServerData.cpp`'s `RULE_FIELDS`; `Tools/CheckAssets.py`, check 10; *Contracts*, `Protocol` and `Simulation`.
+- **Read first:** ADR-009; ADR-020, decisions 5 and 6; ADR-013, decision 6; `Protocol/Command.cpp`; `Simulation/ServerData.cpp`'s `RULE_FIELDS`; `Tools/CheckAssets.py`, check 10; *Contracts*, `Protocol` and `Simulation`.
 - **Changes:**
   - **`Protocol/Query.h` and `.cpp`,** in the filter `Queries`: the three queries, the three readings, `Encode` and `Decode` for requests and answers.
   - **`World::Ask`, `TakeAnswers`, `AnswerQueries`** (step 12) and `MAX_PENDING_QUERIES`; the three kinds dispatch to B4, B5 and B6, which this order lands as stubs that throw `std::logic_error`, so that the budget and the plumbing are tested here and each reading in its own order.
@@ -419,7 +419,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 
 ### M3-B4 — The aim check
 - **Waits on:** B3.
-- **Read first:** Hud.md §8, *The attack cursor*; ADR-019, decision 5; `Simulation/Shot.cpp`.
+- **Read first:** Hud.md §8, *The attack cursor*; ADR-020, decision 5; `Simulation/Shot.cpp`.
 - **Changes:** `TraceShot`, factored from the shot's flight so that both use it, in the filter `Destruction`; the aim check answered: TOO CLOSE and OUT OF RANGE from `AimShot`'s range test, otherwise the arc traced to its strike, IN RANGE when the strike is the target or one of its six face neighbours and BLOCKED otherwise; the distance across the ground, floored.
 - **Tests:** **`AimCheckTests`:**
   - On the breach run before any shot, the five scripted aim points read IN RANGE, each with a strike one voxel above its aim point, as the M2 report describes.
@@ -430,7 +430,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 
 ### M3-B5 — The integrity reading
 - **Waits on:** B3, and input 5.
-- **Read first:** GameDescription.md, *Readability*; Review/PaperTests/BreachPrediction.md, *The readouts*, *The 16 states* and *Ambiguities*, items 1, 3 and 5; `Tools/PaperTests/BreachPrediction.py`; ADR-004, decisions 2 and 5; ADR-020, decision 4; *Contracts*, `Simulation`.
+- **Read first:** GameDescription.md, *Readability*; Review/PaperTests/BreachPrediction.md, *The readouts*, *The 16 states* and *Ambiguities*, items 1, 3 and 5; `Tools/PaperTests/BreachPrediction.py`; ADR-004, decisions 2 and 5; ADR-021, decision 4; *Contracts*, `Simulation`.
 - **Changes:** `Simulation/Integrity.h` and `.cpp`, in the filter `Destruction`, and the section-integrity query answered from it.
   - **The three readings** follow the paper test's definitions, over the structure's own footprint box: the widest opening through the whole thickness below the battlements, the lowest opening with its floor and clear height, and the longest gap under the lowest course across the whole thickness.
   - **The fall width and the fall run come from the resolver** (input 5): on a scratch copy of the chunks the section touches, the hole is widened one column at a time, alternately each side, and `FindUnsupported` is run after each, until it finds a piece or the section's width is reached; the gap under the foundation is lengthened the same way. The scratch copy is dropped; the world is unchanged.
@@ -465,8 +465,8 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
   - An item resolved twice gives the same hash, and resolved from a save taken between its two halves gives the same key and hash.
 
 ### M3-B8 — The font's bake
-- **Waits on:** A1, for ADR-018's go-ahead.
-- **Read first:** ADR-018, decision 1; Hud.md §9; `Tools/BakeContent.py`'s client half; `Content/Palette.cpp`, which reads a generated table; *Contracts*, `Content`.
+- **Waits on:** A1, for ADR-019's go-ahead.
+- **Read first:** ADR-019, decision 1; Hud.md §9; `Tools/BakeContent.py`'s client half; `Content/Palette.cpp`, which reads a generated table; *Contracts*, `Content`.
 - **Changes:**
   - **`Tools/BakeContent.py --client`** writes `FontTable.h` from the glyph JSON; `Content.vcxproj`'s bake inputs and outputs name the JSON and the header.
   - **`Content/Font.h` and `.cpp`,** in the filter `Fonts`.
@@ -477,17 +477,17 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 ## Phase C — The client and the executable join
 
 ### M3-C1 — `Client`, `ClientTests` and `Earthrise`
-- **Waits on:** A1, for ADR-019's go-ahead.
-- **Read first:** ADR-010, decisions 2 and 4; ADR-019, decision 1; `RendererSpike/RendererSpike.vcxproj` and its manifest; `Build/CheckProjectFiles.py`; `Build/TestCheckers.py`; AGENTS.md §2 and §6.
+- **Waits on:** A1, for ADR-020's go-ahead.
+- **Read first:** ADR-010, decisions 2 and 4; ADR-020, decision 1; `RendererSpike/RendererSpike.vcxproj` and its manifest; `Build/CheckProjectFiles.py`; `Build/TestCheckers.py`; AGENTS.md §2 and §6.
 - **Changes:**
   - **Three projects,** each flat, with `pch.h`, in `Earthrise.slnx` and `.clang-tidy`'s registry: `Client`, a static library on `Core`, `Engine`, `Protocol` and `Content`, with its include directories; `ClientTests`, with `SuiteSmoke`; `Earthrise`, a Windows executable on every library, with a manifest for per-monitor DPI, whose `wWinMain` opens the window full screen, makes the device and the swap chain, presents a cleared frame a second until closed, and shows an error box as the spike does. `--windowed` as the spike.
   - **The layering check:** `Build/CheckProjectFiles.py` gains the table of which project may reference which, from MvpPlan.md's *Solution layout*, and checks every `ProjectReference` and `AdditionalIncludeDirectories` against it; a library never references a test suite. `Build/TestCheckers.py` gains the broken variant "a library referencing a test suite".
-  - **ADR-010** is amended: `Client` and `Earthrise` join in M3, `RendererSpike` references `Client` (C2), and the checker holds the layering table. **ADR-019** is marked Accepted. **AGENTS.md** §2's list of what the tree holds counts fifteen projects.
+  - **ADR-010** is amended: `Client` and `Earthrise` join in M3, `RendererSpike` references `Client` (C2), and the checker holds the layering table. **ADR-020** is marked Accepted. **AGENTS.md** §2's list of what the tree holds counts fifteen projects.
 - **Tests:** `SuiteSmoke` in `ClientTests`; `Build/TestCheckers.py` passes the repository and fails the new variant for its reason. CI builds and runs every suite.
 
 ### M3-C2 — The world view moves into `Client`
 - **Waits on:** C1 and B2.
-- **Read first:** `RendererSpike/WorldView.h`, `Debris.h`, `SceneScript.h`'s `ModelPlacement`, and the constants at the top of `RendererSpike.cpp`; ADR-019, decision 1.
+- **Read first:** `RendererSpike/WorldView.h`, `Debris.h`, `SceneScript.h`'s `ModelPlacement`, and the constants at the top of `RendererSpike.cpp`; ADR-020, decision 1.
 - **Changes:**
   - `WorldView`, `Debris` and `ModelPlacement` move to `Client`, in the filter `World`, unchanged but for their namespace and for `Debris` taking `Protocol::FallenVoxel`. `Client/Look.h` takes the spike's look constants and palette entries, in the filter `Look`.
   - `RendererSpike` references `Client`, includes these from it, and deletes its copies. Its loop, its measurement and its scene script stay as they are.
@@ -496,10 +496,10 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 
 ### M3-C3 — The breach run on screen
 - **Waits on:** C2 and B3, and inputs 4, 12 and 14.
-- **Read first:** ADR-019, decisions 2 and 4; ADR-016, decision 7; ADR-014, decision 6; `RendererSpike/RendererSpike.cpp`'s `Run`, `Steer` and `MakeFrame`; `SimulationBench/SimulationBench.cpp`'s `BuildIdOf`; RendererLook.md §7; Hud.md §3, *The camera frames the uncovered area*, and §7's global keys; *Contracts*, `Client`.
+- **Read first:** ADR-020, decisions 2 and 4; ADR-016, decision 7; ADR-014, decision 6; `RendererSpike/RendererSpike.cpp`'s `Run`, `Steer` and `MakeFrame`; `SimulationBench/SimulationBench.cpp`'s `BuildIdOf`; RendererLook.md §7; Hud.md §3, *The camera frames the uncovered area*, and §7's global keys; *Contracts*, `Client`.
 - **Changes:**
   - **`Client::TickClock`, `Client::Session`, `Client::Camera`** (Hud.md's keys, moved from the spike's `Steer`, with the look-at point offset below the top bar's 44 logical px) and **`Client::WorldRenderer`** (the spike's frame: the two shadow maps, the voxel pass, the debris, the upscale, and the GPU timer, so that the title shows the voxel pass's time), in the filters `Time`, `Session`, `Camera` and `Rendering`.
-  - **ADR-016,** decision 7, is amended: `Earthrise` compares the two shared hashes from M3, not M4 (ADR-019, decision 7).
+  - **ADR-016,** decision 7, is amended: `Earthrise` compares the two shared hashes from M3, not M4 (ADR-020, decision 7).
   - **`Earthrise`** loads `ServerData` from beside itself, computes its build id, refuses a shared-hash mismatch, builds the lab's site through `BuildLabSite` (B7) or, until B7 lands, the breach run, and runs it live: each frame the clock's ticks, each tick the session's command and query bytes handed over, the world ticked, and its state, snapshots and answers handed back. The breach run's script fires as scripted; the trebuchet draws as S3 at its cell facing the wall, the squad as six U5, a shot as one 0.5 m oriented voxel of stone rubble's colour, the collapse with its debris from the collapse view's fallen voxels and rubble. The camera starts at the default azimuth and view height on W2. `--speed 10` runs the clock at ten times, for the owner to see the whole run quickly.
 - **Tests:** **`TickClockTests`:** 1/60 s a frame gives a tick every third frame on average and 20 a second; a 1 s frame gives 8 and keeps 12 for later; paused gives none; speed 10 gives ten times the ticks. **`SessionTests`:** a received update replaces the last; commands and queries come out as the bytes `Encode` writes; the newest answer per key replaces the last.
 - **Owner runs:** `Earthrise --windowed`, and with `--speed 10`: the enclosure, the trebuchet and the men-at-arms; five shots that leave craters where the M2 report says; the slot's warning and fall with debris; the squad walking through. The voxel pass's time in the title.
@@ -507,31 +507,31 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 ## Phase D — `Engine`: text and overlays
 
 ### M3-D1 — The interface pass
-- **Waits on:** A1, for ADR-018's go-ahead.
-- **Read first:** ADR-018, decision 3; ADR-011, decisions 2 and 3; ADR-012; `Engine/UpscalePass.h` and its shaders; `EngineTests/UpscalePassTests.cpp`; *Contracts*, `Engine`.
+- **Waits on:** A1, for ADR-019's go-ahead.
+- **Read first:** ADR-019, decision 3; ADR-011, decisions 2 and 3; ADR-012; `Engine/UpscalePass.h` and its shaders; `EngineTests/UpscalePassTests.cpp`; *Contracts*, `Engine`.
 - **Changes:** `Engine/InterfacePass.h` and `.cpp`, `Engine/Shader/InterfaceVS.hlsl` and `InterfacePS.hlsl`, in the filter `Interface`; `Engine::Window::Dpi`.
 - **Tests:** **`InterfacePassTests`** on WARP, into a 64 × 64 target cleared to a known colour, with a 4 × 4 atlas of two set and two clear texels:
   - A textured quad 8 × 8 over the atlas covers exactly the pixels of its set texels at scale 2, in its colour, and leaves the clear texels' pixels at the clear colour.
   - A solid quad at 0.92 alpha blends to the expected linear colour within 2 of 255.
   - Two overlapping quads draw in order: the later one on top.
   - Nothing outside any quad changes.
-- **ADR:** marks ADR-018 Accepted.
+- **ADR:** marks ADR-019 Accepted.
 
 ### M3-D2 — The overlay pipeline
-- **Waits on:** A1, for ADR-020's go-ahead.
-- **Read first:** ADR-020, decision 1; `Engine/VoxelPass.cpp`'s pipeline states; `EngineTests/VoxelPassTests.cpp`; *Contracts*, `Engine`.
+- **Waits on:** A1, for ADR-021's go-ahead.
+- **Read first:** ADR-021, decision 1; `Engine/VoxelPass.cpp`'s pipeline states; `EngineTests/VoxelPassTests.cpp`; *Contracts*, `Engine`.
 - **Changes:** `VoxelPass::BeginOverlay` and its pipeline state, with a blend state, `GREATER_EQUAL` and no depth write, through the existing shaders with a root constant for the alpha and the flat colour, in the filter `Rendering`.
 - **Tests:** **`VoxelPassTests`** gains:
   - An overlay box on an opaque voxel blends the overlay's colour over the voxel's at every pixel the voxel covers, and nowhere else.
   - An overlay box behind an opaque voxel changes nothing.
   - An overlay box in the open blends over the clear colour, and the depth buffer is unchanged.
-- **ADR:** marks ADR-020 Accepted.
+- **ADR:** marks ADR-021 Accepted.
 
 ## Phase E — The HUD's first pieces, and FIRE
 
 ### M3-E1 — Text on screen
 - **Waits on:** B8, C3 and D1, and input 9.
-- **Read first:** ADR-018, decisions 2, 4 and 5; Hud.md §2 and §9; *Contracts*, `Client`.
+- **Read first:** ADR-019, decisions 2, 4 and 5; Hud.md §2 and §9; *Contracts*, `Client`.
 - **Changes:** `Client::FontAtlas` (the 160 × 80 texture from `Content::Glyphs`, uploaded once), `Client::TextLayout` (measure and lay out at a whole-pixel scale), `Client::UiScale` (the DPI bands, and `--ui-scale`), `Client::Strings` (every string the HUD can draw, as `inline constexpr std::string_view`s), in the filter `Text`; `WorldRenderer` gains the interface pass after the upscale; `Earthrise` draws the title's figures as text in the top-left corner, as a first use.
 - **Tests:** **`TextLayoutTests`:** `W2` at scale 2 is 22 px wide (5 + 1 + 5 at 2 px, less the last advance's gap as the layout defines it); a string's quads land on whole pixels; the UI scale at 96, 120, 144 and 192 DPI is 1, 1, 1.5 and 2; **`StringsTests`:** every code point of every string in `Client/Strings.h` has a glyph.
 - **Owner runs:** none of its own; E2's covers it.
@@ -551,7 +551,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 
 ### M3-E4 — FIRE, the attack cursor and click-to-fire
 - **Waits on:** E2, E3 and B4, and D2 for the strike mark.
-- **Read first:** Hud.md §7, the trebuchet's card, §8, *Targeting modes* and *The attack cursor*; ADR-019, decision 5; ADR-020, decision 4; `Protocol/Command.h`.
+- **Read first:** Hud.md §7, the trebuchet's card, §8, *Targeting modes* and *The attack cursor*; ADR-020, decision 5; ADR-021, decision 4; `Protocol/Command.h`.
 - **Changes:** with a trebuchet selected, F enters FIRE: the banner `FIRE · RIGHT-CLICK A TARGET · CANCEL · ESC`, the crosshair, and the attack cursor, a ring with its label following the pointer, read from the aim check the session asks for the voxel under the pointer each frame it moves: `IN RANGE · d m`, `BLOCKED · d m`, `TOO CLOSE · d m` or `OUT OF RANGE · d m`, in good or bad, with the strike voxel marked through the overlay pipeline. A right click fires a `FireEngine` at the picked voxel, as bytes, and leaves the mode unless Shift is held; Esc cancels. A right click with the trebuchet selected and no mode fires too (Hud.md §8, *Order*). FIRE is disabled, in off text, while the trebuchet reloads. Every command is recorded with its source and time for G1's log.
 - **Tests:** **`FireModeTests`:** F with a trebuchet selected enters the mode and sets the banner; a right click submits `FireEngine{engine, pickedVoxel}` and leaves the mode; with Shift it stays; Esc leaves it; without a selection F does nothing; the cursor's label follows the reading's verdict and distance.
 - **Owner runs:** `Earthrise --windowed`: select the trebuchet, enter FIRE, move the cursor over the wall and read the four verdicts and the strike mark one voxel above the aim at the foot of the wall, fire five shots along W2's foot and see the slot fall, as the script did.
@@ -560,19 +560,19 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 
 ### M3-F1 — The collapse preview and its alerts
 - **Waits on:** E4, and input 6.
-- **Read first:** ADR-020, decision 4; Hud.md §10, *The MVP's alerts*; GameDescription.md, *Support and collapse*, item 1.
+- **Read first:** ADR-021, decision 4; Hud.md §10, *The MVP's alerts*; GameDescription.md, *Support and collapse*, item 1.
 - **Changes:** `Client::Overlays`, in the filter `Views`, builds overlay batches from the session: for each collapse in warning, its piece in bad, pulsing with a period of a second, and its strip's cells in bad on the ground; the alerts `W2 WILL FALL IN n S`, counting down, urgent, and `W2 HAS FALLEN` when it falls, from the collapse view's structure name. The preview draws while the integrity view is on (F1); the alerts always.
 - **Tests:** **`OverlaysTests`:** a collapse view with a 9-voxel piece and a 10-cell strip gives 19 overlay records in the right entries; the alert text counts down in whole seconds, rounding up; a collapse with no structure says `A WALL WILL FALL`.
 
 ### M3-F2 — The integrity view
 - **Waits on:** F1 and B5, and input 5.
-- **Read first:** ADR-020, decision 4; Review/PaperTests/BreachPrediction.md, *The readouts*; Hud.md §10's readout rows.
+- **Read first:** ADR-021, decision 4; Review/PaperTests/BreachPrediction.md, *The readouts*; Hud.md §10's readout rows.
 - **Changes:** with F1 on (the default), the session asks each structure's integrity whenever a snapshot under it changes or a collapse touches it, and `Overlays` draws for each a label anchored above the section's middle, projected each frame and kept on whole pixels: the name at the names' size, then rows at the labels' size: `HOLE w m · falls at F m` or `HOLE none`, `OPENING ground 1 m · too low` as the paper test words its verdicts, `GAP none` or `GAP r m · falls at R m`, `GROUND earth · can be undermined` in bad or `GROUND rock · cannot be undermined` in good, and `FALLS` in bad while a collapse of it runs. The weak point's box is tinted accent. F1 toggles the view and the model records it.
 - **Tests:** **`OverlaysTests`** gains: a reading becomes the expected rows word for word; the weak point's box gives its voxels as records; F1 toggles both the label and the tint; a label never leaves the screen's bounds when its anchor is near an edge.
 
 ### M3-F3 — The passability view
 - **Waits on:** F2 and B6, and input 7.
-- **Read first:** ADR-020, decision 4; ADR-015, *Consequences*; GameDesign.md, *Hypotheses*, H2's "open".
+- **Read first:** ADR-021, decision 4; ADR-015, *Consequences*; GameDesign.md, *Hypotheses*, H2's "open".
 - **Changes:** with F2 on, the session asks reach for every tile the camera sees, from the player's squad's start cell, and asks again when a snapshot in or beside the tile changes or the camera moves to new tiles; `Overlays` draws each reached cell in good and each usable unreached cell in dim, as a box in the cell the unit stands in; the alert `BREACH OPEN AT W2` when the courtyard's goal cell first reads reached. F2 toggles the view.
 - **Tests:** **`OverlaysTests`** gains: a tile reading of n reached and m usable cells gives n good and m − n dim records at the cells' walkable heights; the alert fires once, on the first update that reaches the goal; tiles off screen are not asked for.
 - **Owner runs:** `Earthrise --windowed`, and with `--speed 10`: with F1 on, W2's label and the weak point's tint before the shots, the readings changing shot by shot, the piece pulsing in its warning with its strip on the ground, and the alerts; with F2 on, the courtyard dim until the fall and good after it, with the ramp's cells the route in; both views at 1280 × 720 and 1920 × 1080. What the owner asks changed becomes F4, F5 and so on, one commit each, in this phase's PR.

@@ -363,7 +363,7 @@ The owner dropped time from the plan on closing M2.
 
 The owner answered MvpPlan.md's fifteen M3 inputs, taking each proposal as written (work order M3-A1). MvpPlan.md's M3 revision is accepted when the owner merges its pull request, #45, and no M3 code is written before then (*Closing M2*, item 6). Item 10 is the implementer's, measured in M3 and recorded here as Proposed until it is.
 
-1. **ADR-018 to ADR-020 have the go-ahead,** as written, with ADR-010's amendment: `Client` and `Earthrise` join the solution in M3, and `RendererSpike` references `Client` for the world view. Each ADR is marked Accepted by the commit that first implements it.
+1. **ADR-019 to ADR-021 have the go-ahead,** as written, with ADR-010's amendment: `Client` and `Earthrise` join the solution in M3, and `RendererSpike` references `Client` for the world view. Each ADR is marked Accepted by the commit that first implements it.
 2. **The breach lab's items.**
    - **Sixteen,** L01 to L16. Each is a fresh world at the M2 breach run's site, with prior damage from scripted shots, a marked aim voxel, and N fixed for the item, from 1 to 5.
    - **The question:** WILL W2 BE OPEN TO FOOT AFTER n SHOTS AT THE MARK?, answered OPEN or SHUT, with no time limit.

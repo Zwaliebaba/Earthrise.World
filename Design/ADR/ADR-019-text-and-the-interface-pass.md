@@ -1,4 +1,4 @@
-# ADR-018 — Text and the interface pass
+# ADR-019 — Text and the interface pass
 
 **Status:** Proposed, 2026-11-01, with the M3 plan ([MvpPlan.md](../MvpPlan.md), M3; [MvpPlan-M3.md](../MvpPlan-M3.md)). It is the text ADR that [ADR-005](ADR-005-content-formats.md), decision 1, [ADR-011](ADR-011-renderer-first-choices.md), *Consequences*, and [Hud.md](../Hud.md) §9 schedule for M3: the font's baked form, and how text and the HUD's panels reach the screen. The owner gave it the go-ahead on 2026-11-01, as written (MvpPlan.md, M3, input 1; GameDesign.md, *M3's values*, item 1), and the commit that first implements it, order M3-D1, marks it Accepted (AGENTS.md §6).
 
@@ -26,7 +26,7 @@
 - **`Tools/BakeContent.py`** gains the font, `Content` gains `Font.h`, and `Tools/CheckAssets.py` checks the glyph JSON: 127 glyphs, rows as wide as the glyph says, no code point twice, and the symbols and icons Hud.md §9 lists all present.
 - **`Engine`** gains `InterfacePass`, with its shaders `InterfaceVS.hlsl` and `InterfacePS.hlsl`, and a render test on WARP ([ADR-012](ADR-012-render-tests-on-warp.md)): a glyph quad at scale 2 covers exactly its pixels and nothing else, and a solid quad at 0.92 alpha blends to the expected colour.
 - **`Client`** gains the atlas, the text layout, the UI scale and the string table. **`Engine::Window`** gives the DPI of the monitor it is on.
-- **The frame's order** becomes: shadows, the scene at its render scale, the overlays ([ADR-020](ADR-020-world-overlays.md)), the upscale, then the interface pass into the back buffer.
+- **The frame's order** becomes: shadows, the scene at its render scale, the overlays ([ADR-021](ADR-021-world-overlays.md)), the upscale, then the interface pass into the back buffer.
 
 ## What this forecloses
 
