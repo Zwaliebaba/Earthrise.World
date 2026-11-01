@@ -256,7 +256,7 @@ inline constexpr std::uint32_t FONT_CELL_ROWS = 10;
 inline constexpr std::uint32_t FONT_BASELINE_ROW = 7;
 inline constexpr std::uint32_t FONT_GLYPH_COUNT = 127;
 
-// Content/Debris.h — input 16. Baked from GameData/Manifest.json's debrisByRubble (MvpAssets.md, *Poses, projectiles,
+// Content/DebrisChoice.h — input 16. Baked from GameData/Manifest.json's debrisByRubble (MvpAssets.md, *Poses, projectiles,
 // gates and debris*).
 struct DebrisChoice
 {
@@ -496,10 +496,10 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 - **Read first:** ADR-019, decision 1; Hud.md §9; MvpAssets.md, *Poses, projectiles, gates and debris*; `GameData/Manifest.json`'s `debrisByRubble`; `Tools/BakeContent.py`'s client half; `Content/Palette.cpp`, which reads a generated table; *Contracts*, `Content`.
 - **Changes:**
   - **`Tools/BakeContent.py --client`** writes `FontTable.h` from the glyph JSON, and `DebrisTable.h` from `Manifest.json`'s `debrisByRubble`, each tint as the palette index of that colour; `Content.vcxproj`'s bake inputs and outputs name both sources and both headers.
-  - **`Content/Font.h` and `.cpp`,** in the filter `Fonts`; **`Content/Debris.h` and `.cpp`,** in the filter `Catalog`, beside the models.
+  - **`Content/Font.h` and `.cpp`,** in the filter `Fonts`; **`Content/DebrisChoice.h` and `.cpp`,** in the filter `Catalog`, beside the models, named for their type so that `Client`'s `Debris.h` (C2) does not hide them on the include path.
   - **`Tools/CheckAssets.py`** gains check 13, after main's check 12 for line models: the glyph file holds 127 glyphs, each row as wide as its glyph says, no code point twice, every row made of `.` and `#`, and the 15 symbols and 25 icons of Hud.md §9 present. It gains check 14 too: each `debrisByRubble` row names a palette index whose behaviour is a rubble, models that are in `GameData/Client/Models/`, and a tint, if any, that is exactly one palette entry's colour.
   - **`Tools/TestCheckAssets.py`** and **`Tools/TestBakeContent.py`** gain the font and the table: a broken glyph fails, a row naming a model that does not exist fails, the baked rows of `1` are its bitmap, and rock rubble's row bakes D1–D3 with tint index 28.
-- **Tests:** **`DebrisTests`** (`ContentTests`): four choices in ascending rubble index, 8, 25, 26 and 28; 25 gives D4 and D5 with no tint; every model named is in `Models()`; `FindDebrisChoice(6)` is null. **`FontTests`** (`ContentTests`): 127 glyphs in ascending code point; `FindGlyph(U'1')`'s rows are the seven known masks, with `topRow` 1 and `advancePixels` 6; `FindGlyph(U'$')` is null, since the font lacks it; every icon code point U+E000 to U+E018 is present and 9 wide.
+- **Tests:** **`DebrisChoiceTests`** (`ContentTests`): four choices in ascending rubble index, 8, 25, 26 and 28; 25 gives D4 and D5 with no tint; every model named is in `Models()`; `FindDebrisChoice(6)` is null. **`FontTests`** (`ContentTests`): 127 glyphs in ascending code point; `FindGlyph(U'1')`'s rows are the seven known masks, with `topRow` 1 and `advancePixels` 6; `FindGlyph(U'$')` is null, since the font lacks it; every icon code point U+E000 to U+E018 is present and 9 wide.
 
 ## Phase C — The client and the executable join
 
