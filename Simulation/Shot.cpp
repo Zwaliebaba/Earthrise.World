@@ -149,6 +149,39 @@ std::vector<Protocol::VoxelPosition> CraterVoxels(Protocol::VoxelPosition _hit, 
   return shape;
 }
 
+ShotStep StepShot(const ShotArc& _arc, std::uint32_t _ticksFlown, const VoxelWorld& _world, std::int32_t _widthVoxels,
+                  std::int32_t _depthVoxels)
+{
+  const FixedPosition from = ShotPositionAt(_arc, _ticksFlown);
+  const FixedPosition to = ShotPositionAt(_arc, _ticksFlown + 1);
+  const std::optional<Protocol::VoxelPosition> hit = TraverseVoxels(
+    from, to, [&_world](Protocol::VoxelPosition _voxel) { return _voxel.yVoxels >= 0 && _world.At(_voxel) != Protocol::Chunk::EMPTY; });
+  if (hit.has_value())
+  {
+    return {.hit = hit, .left = false};
+  }
+  const std::int32_t x = to.xMeters.FloorWhole();
+  const std::int32_t z = to.zMeters.FloorWhole();
+  return {.hit = std::nullopt, .left = to.yMeters.Raw() < 0 || x < 0 || z < 0 || x >= _widthVoxels || z >= _depthVoxels};
+}
+
+std::optional<Protocol::VoxelPosition> TraceShot(const ShotArc& _arc, const VoxelWorld& _world, std::int32_t _widthVoxels,
+                                                 std::int32_t _depthVoxels)
+{
+  // A shot that left the world's top would come down again, so only the ground and the edges end it;
+  // the arc reaches the ground long before this many ticks.
+  constexpr std::uint32_t MOST_TICKS = 100000;
+  for (std::uint32_t ticks = 0; ticks < MOST_TICKS; ++ticks)
+  {
+    const ShotStep step = StepShot(_arc, ticks, _world, _widthVoxels, _depthVoxels);
+    if (step.hit.has_value() || step.left)
+    {
+      return step.hit;
+    }
+  }
+  return std::nullopt;
+}
+
 Protocol::VoxelPosition VoxelHolding(const FixedPosition& _point) noexcept
 {
   return {.xVoxels = _point.xMeters.FloorWhole(), .yVoxels = _point.yMeters.FloorWhole(), .zVoxels = _point.zMeters.FloorWhole()};

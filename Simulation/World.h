@@ -314,13 +314,13 @@ private:
   /// or, resting on a structure or too near the top of one beside it, on and away (M2-E6, E7).
   /// Returns the neighbour it went to, or nothing.
   std::optional<std::pair<std::int32_t, std::int32_t>> Slump(std::int32_t _x, std::int32_t _z);
-  /// Whether a shot that reached _point has left the world.
-  [[nodiscard]] bool OutsideWorld(const FixedPosition& _point) const noexcept;
   /// The state _player may see: the filter of ADR-002, decision 4, through which M4's fog goes. M3
   /// has one player and no fog, so it passes everything (ADR-020, decision 3).
   [[nodiscard]] Protocol::StateUpdate StateFor(std::uint8_t _player) const;
   /// The reading a query asks for, on the tick's state (ADR-009, decision 3): M3-B4 to B6.
   [[nodiscard]] Protocol::Reading Answer(std::uint8_t _player, const Protocol::Query& _query) const;
+  /// The attack cursor's reading for an engine of _player's aimed at a voxel (M3-B4).
+  [[nodiscard]] Protocol::AimReading AimReadingFor(std::uint8_t _player, const Protocol::AimCheck& _aim) const;
   /// A collapse as a state update shows it.
   [[nodiscard]] Protocol::CollapseView ViewOf(const Collapse& _collapse) const;
   /// The structure whose box holds _voxel, the lowest id where boxes overlap, or NO_ENTITY.

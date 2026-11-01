@@ -72,6 +72,7 @@
     <ClCompile Include="StructureTests.cpp" />
     <ClCompile Include="StateUpdateTests.cpp" />
     <ClCompile Include="QueryBudgetTests.cpp" />
+    <ClCompile Include="AimCheckTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

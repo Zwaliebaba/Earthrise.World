@@ -457,14 +457,6 @@ void World::Fire(std::uint8_t _player, const Protocol::FireEngine& _fire)
   engine->second.reloadTicks = static_cast<std::uint32_t>(Data().Tuning().shotReloadTicks);
 }
 
-bool World::OutsideWorld(const FixedPosition& _point) const noexcept
-{
-  const std::int32_t x = _point.xMeters.FloorWhole();
-  const std::int32_t z = _point.zMeters.FloorWhole();
-  return _point.yMeters.Raw() < 0 || x < 0 || z < 0 || x >= m_desc.widthChunks * Protocol::CHUNK_EDGE_VOXELS ||
-         z >= m_desc.depthChunks * Protocol::CHUNK_EDGE_VOXELS;
-}
-
 void World::AdvanceJobs()
 {
   // Step 2: designations and jobs, which M2 has none of.
@@ -689,11 +681,9 @@ void World::AdvanceShots()
   std::vector<Protocol::EntityId> landed;
   for (auto& [id, shot] : m_shots)
   {
-    const FixedPosition from = ShotPositionAt(shot.arc, shot.ticksFlown);
+    const ShotStep step = StepShot(shot.arc, shot.ticksFlown, m_voxels, WidthVoxels(), DepthVoxels());
     ++shot.ticksFlown;
-    const FixedPosition to = ShotPositionAt(shot.arc, shot.ticksFlown);
-    const std::optional<Protocol::VoxelPosition> hit = TraverseVoxels(
-      from, to, [this](Protocol::VoxelPosition _voxel) { return _voxel.yVoxels >= 0 && m_voxels.At(_voxel) != Protocol::Chunk::EMPTY; });
+    const std::optional<Protocol::VoxelPosition>& hit = step.hit;
     if (hit.has_value())
     {
       const bool alongX = std::abs(shot.arc.acrossXMeters.Raw()) >= std::abs(shot.arc.acrossZMeters.Raw());
@@ -711,7 +701,7 @@ void World::AdvanceShots()
       }
       landed.push_back(id);
     }
-    else if (OutsideWorld(to))
+    else if (step.left)
     {
       landed.push_back(id);
     }
@@ -1299,7 +1289,51 @@ Protocol::Reading World::Answer([[maybe_unused]] std::uint8_t _player, const Pro
   {
     return Protocol::TileReachReading{.tileX = reach->tileX, .tileZ = reach->tileZ, .usable = {}, .reached = {}};
   }
-  return Protocol::AimReading{.verdict = Protocol::AimVerdict::OutOfRange, .distanceMeters = 0, .strikes = false, .strikeVoxels = {}};
+  return AimReadingFor(_player, std::get<Protocol::AimCheck>(_query));
+}
+
+Protocol::AimReading World::AimReadingFor(std::uint8_t _player, const Protocol::AimCheck& _aim) const
+{
+  // Hud.md §8's attack cursor, from the shot's own arc (M3-B4): TOO CLOSE and OUT OF RANGE from the
+  // range AimShot keeps, and otherwise where the arc strikes, IN RANGE when that is the target or one
+  // of its six face neighbours and BLOCKED when it is anything else, or nothing.
+  Protocol::AimReading reading{.verdict = Protocol::AimVerdict::OutOfRange, .distanceMeters = 0, .strikes = false, .strikeVoxels = {}};
+  const auto engine = m_siegeEngines.find(_aim.engine);
+  if (engine == m_siegeEngines.end() || engine->second.owner != _player)
+  {
+    return reading;
+  }
+  const Protocol::VoxelPosition from = engine->second.cellVoxels;
+  const std::int64_t acrossX = std::int64_t{_aim.targetVoxels.xVoxels} - from.xVoxels;
+  const std::int64_t acrossZ = std::int64_t{_aim.targetVoxels.zVoxels} - from.zVoxels;
+  const std::int64_t acrossSquared = acrossX * acrossX + acrossZ * acrossZ;
+  reading.distanceMeters = static_cast<std::int32_t>(Core::IntegerSquareRoot(static_cast<std::uint64_t>(acrossSquared)));
+  const std::int64_t nearest = Data().Tuning().shotMinRangeVoxels;
+  if (acrossSquared < nearest * nearest)
+  {
+    reading.verdict = Protocol::AimVerdict::TooClose;
+    return reading;
+  }
+  const std::optional<ShotArc> arc = AimShot(from, _aim.targetVoxels, Data().Tuning());
+  if (!arc.has_value())
+  {
+    return reading; // beyond its range, or too far below the launch to reach at 45 degrees
+  }
+  const std::optional<Protocol::VoxelPosition> strike = TraceShot(*arc, m_voxels, WidthVoxels(), DepthVoxels());
+  reading.verdict = Protocol::AimVerdict::Blocked;
+  if (strike.has_value())
+  {
+    reading.strikes = true;
+    reading.strikeVoxels = *strike;
+    const std::int32_t apart = std::abs(strike->xVoxels - _aim.targetVoxels.xVoxels) +
+                               std::abs(strike->yVoxels - _aim.targetVoxels.yVoxels) +
+                               std::abs(strike->zVoxels - _aim.targetVoxels.zVoxels);
+    if (apart <= 1)
+    {
+      reading.verdict = Protocol::AimVerdict::InRange;
+    }
+  }
+  return reading;
 }
 
 } // namespace Simulation

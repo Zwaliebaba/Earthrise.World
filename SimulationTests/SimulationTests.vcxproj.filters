@@ -105,5 +105,8 @@
     <ClCompile Include="QueryBudgetTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="AimCheckTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
