@@ -32,6 +32,7 @@
 #include "UploadRing.h"
 #include "Window.h"
 #include "World.h"
+#include "WorldPicker.h"
 #include "WorldRenderer.h"
 
 // Earthrise.World (ADR-020): the executable that joins the client and the simulation in one process. Each frame the
@@ -263,6 +264,32 @@ Client::ModelPlacement Trebuchet(const Protocol::EngineView& _engine, bool _rele
           .sideColorIndex = released.sideColorIndex};
 }
 
+/// Whether _engine is drawn released at _tick: for RELEASED_POSE_TICKS after it fires.
+bool Released(const Protocol::EngineView& _engine, std::uint32_t _tick, const Client::FireTally& _tally) noexcept
+{
+  const std::optional<std::uint32_t> fired = _tally.LastFiredTick(_engine.id);
+  return fired.has_value() && _tick - *fired < Client::RELEASED_POSE_TICKS;
+}
+
+/// Each engine's footprint on the ground, in the pose it is drawn in, where a click selects it (M3-E3).
+std::vector<Client::EngineFootprint> EngineFootprints(const Client::Session& _session, const Client::FireTally& _tally)
+{
+  std::vector<Client::EngineFootprint> footprints;
+  for (const Protocol::EngineView& engine : _session.State().engines)
+  {
+    const Client::ModelPlacement placement = Trebuchet(engine, Released(engine, _session.State().tick, _tally));
+    const auto [width, depth] = Footprint(Model(placement.modelId));
+    const bool across = placement.quarterTurns % 2 == 1;
+    footprints.push_back({.engine = engine.id,
+                          .xMeters = placement.xMeters,
+                          .zMeters = placement.zMeters,
+                          .widthMeters = across ? depth : width,
+                          .depthMeters = across ? width : depth,
+                          .groundMeters = placement.yMeters});
+  }
+  return footprints;
+}
+
 std::string_view UnitModel(Protocol::UnitKind _kind) noexcept
 {
   switch (_kind)
@@ -308,9 +335,7 @@ public:
     _placements.clear();
     for (const Protocol::EngineView& engine : state.engines)
     {
-      const std::optional<std::uint32_t> fired = _tally.LastFiredTick(engine.id);
-      const bool released = fired.has_value() && state.tick - *fired < Client::RELEASED_POSE_TICKS;
-      _placements.push_back(Trebuchet(engine, released));
+      _placements.push_back(Trebuchet(engine, Released(engine, state.tick, _tally)));
     }
     for (const Protocol::UnitView& unit : state.units)
     {
@@ -404,6 +429,9 @@ int Run(const Options& _options)
   Client::Hud hud;
   Client::HudAlerts alerts;
   Client::HudModel hudModel; // as the HUD was last built, which the clicks land on
+  Client::WorldPicker picker;
+  Protocol::EntityId selected = Protocol::NO_ENTITY;
+  std::optional<DirectX::XMFLOAT4X4> drawnViewProjection; // the last frame's, which the clicks land on
   const std::array<float, 4> figuresColor = Client::LinearColor(Client::DIM_SRGB);
   std::int32_t lastXPixels = 0;
   std::int32_t lastYPixels = 0;
@@ -471,10 +499,17 @@ int Run(const Options& _options)
     }
 
     // A left click on the HUD is the HUD's (M3-E2): the camera buttons turn and zoom, and JUMP, or Space for the
-    // newest alert with a place, looks at the alert's place.
+    // newest alert with a place, looks at the alert's place. One on the world selects the engine whose footprint it
+    // lands on, or nothing, and Esc deselects (M3-E3).
     if (pointer.WasPressed(Engine::PointerInput::Button::Left))
     {
       const std::optional<Client::HudTarget> hit = hud.HitTest(pointer.XPixels(), pointer.YPixels());
+      if (!hit.has_value() && !hud.Covers(pointer.XPixels(), pointer.YPixels()) && drawnViewProjection.has_value())
+      {
+        const Engine::PickRay ray = Client::WorldPicker::RayThrough(*drawnViewProjection, pointer.XPixels(), pointer.YPixels(),
+                                                                    swapChain.WidthPixels(), swapChain.HeightPixels());
+        selected = picker.Pick(ray, EngineFootprints(session, tally)).engine;
+      }
       if (hit.has_value())
       {
         switch (hit->control)
@@ -502,6 +537,10 @@ int Run(const Options& _options)
         }
       }
     }
+    if (keyboard.WasPressed(VK_ESCAPE))
+    {
+      selected = Protocol::NO_ENTITY;
+    }
     if (keyboard.WasPressed(VK_SPACE))
     {
       const auto newest = std::ranges::find_if(hudModel.alerts, [](const Client::HudAlert& _alert) { return _alert.location.has_value(); });
@@ -528,11 +567,21 @@ int Run(const Options& _options)
     const float topBarPixels = Client::TOP_BAR_LOGICAL_PIXELS * uiScale;
     // The HUD, built from the session (M3-E2), and the frame's figures under it in the bottom-left corner.
     alerts.Expire(seconds);
+    if (std::ranges::find(session.State().engines, selected, &Protocol::EngineView::id) == session.State().engines.end())
+    {
+      selected = Protocol::NO_ENTITY;
+    }
+    // The objective line names the selection while there is one.
+    const Client::HudObjective objective =
+      selected != Protocol::NO_ENTITY
+        ? Client::HudObjective{.title = std::string(Client::TREBUCHET_NAME), .detail = std::string(Client::SELECTED_DETAIL)}
+        : Client::HudObjective{.title = std::string(Client::BREACH_OBJECTIVE_TITLE),
+                               .detail = std::string(Client::BREACH_OBJECTIVE_DETAIL)};
     hudModel = {.resources = Client::BreachResources(session.State().tick, tally.Fired(PLAYER)),
-                .objective = {.title = std::string(Client::BREACH_OBJECTIVE_TITLE), .detail = std::string(Client::BREACH_OBJECTIVE_DETAIL)},
+                .objective = objective,
                 .mode = {},
                 .alerts = alerts.Shown(),
-                .selectedEngine = Protocol::NO_ENTITY,
+                .selectedEngine = selected,
                 .integrityView = true,
                 .passabilityView = false};
     interfaceQuads.clear();
@@ -559,7 +608,9 @@ int Run(const Options& _options)
                                        .interfaceQuads = interfaceQuads};
     const std::vector<Protocol::ChunkSnapshot> snapshots = session.TakeSnapshots();
     frame.snapshots = snapshots;
+    picker.TakeSnapshots(snapshots);
     DirectX::XMStoreFloat4x4(&frame.viewProjection, camera.ViewProjection(aspect, swapChain.HeightPixels(), topBarPixels));
+    drawnViewProjection = frame.viewProjection;
     DirectX::XMStoreFloat3(&frame.forward, camera.Forward());
     renderer.Draw(frame);
     const std::uint64_t fenceValue = frames.End();

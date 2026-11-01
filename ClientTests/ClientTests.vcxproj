@@ -48,6 +48,7 @@
     <ClCompile Include="TextLayoutTests.cpp" />
     <ClCompile Include="StringsTests.cpp" />
     <ClCompile Include="HudTests.cpp" />
+    <ClCompile Include="WorldPickerTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

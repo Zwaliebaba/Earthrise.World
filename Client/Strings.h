@@ -26,14 +26,18 @@ inline constexpr std::string_view TURN_RIGHT = "↻";
 inline constexpr std::string_view ZOOM_OUT = "-";
 inline constexpr std::string_view ZOOM_IN = "+";
 
+// The objective line names the selection (M3-E3).
+inline constexpr std::string_view TREBUCHET_NAME = "TREBUCHET";
+inline constexpr std::string_view SELECTED_DETAIL = "SELECTED";
+
 // The mode banner and the alerts (M3-E2).
 inline constexpr std::string_view CANCEL_ESC = "CANCEL · ESC";
 inline constexpr std::string_view JUMP = "JUMP";
 inline constexpr std::string_view FIRE_BANNER = "FIRE · RIGHT-CLICK A TARGET";
 
 /// Every string above, for the glyph coverage test.
-inline constexpr auto ALL_STRINGS =
-  std::to_array<std::string_view>({FIGURES, TIME_KEY, TIME_VALUE, SHOTS_KEY, SHOTS_VALUE, BREACH_OBJECTIVE_TITLE, BREACH_OBJECTIVE_DETAIL,
-                                   TURN_LEFT, TURN_RIGHT, ZOOM_OUT, ZOOM_IN, CANCEL_ESC, JUMP, FIRE_BANNER});
+inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>(
+  {FIGURES, TIME_KEY, TIME_VALUE, SHOTS_KEY, SHOTS_VALUE, BREACH_OBJECTIVE_TITLE, BREACH_OBJECTIVE_DETAIL, TURN_LEFT, TURN_RIGHT, ZOOM_OUT,
+   ZOOM_IN, TREBUCHET_NAME, SELECTED_DETAIL, CANCEL_ESC, JUMP, FIRE_BANNER});
 
 } // namespace Client

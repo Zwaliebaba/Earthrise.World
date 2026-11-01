@@ -135,5 +135,11 @@
     <ClCompile Include="FireTally.cpp">
       <Filter>Session</Filter>
     </ClCompile>
+    <ClInclude Include="WorldPicker.h">
+      <Filter>Camera</Filter>
+    </ClInclude>
+    <ClCompile Include="WorldPicker.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

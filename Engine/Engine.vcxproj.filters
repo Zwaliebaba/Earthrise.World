@@ -228,5 +228,11 @@
     <ClCompile Include="InterfacePass.cpp">
       <Filter>Interface</Filter>
     </ClCompile>
+    <ClInclude Include="VoxelPick.h">
+      <Filter>Camera</Filter>
+    </ClInclude>
+    <ClCompile Include="VoxelPick.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

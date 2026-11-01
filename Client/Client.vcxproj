@@ -72,6 +72,8 @@
     <ClCompile Include="Hud.cpp" />
     <ClInclude Include="FireTally.h" />
     <ClCompile Include="FireTally.cpp" />
+    <ClInclude Include="WorldPicker.h" />
+    <ClCompile Include="WorldPicker.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

@@ -128,6 +128,8 @@
     <None Include="Shader\InterfaceCommon.hlsli" />
     <ClInclude Include="InterfacePass.h" />
     <ClCompile Include="InterfacePass.cpp" />
+    <ClInclude Include="VoxelPick.h" />
+    <ClCompile Include="VoxelPick.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
