@@ -67,6 +67,24 @@ public:
     Assert::AreEqual(STONE, VoxelsOf(first).At(0, 0, 0));
   }
 
+  TEST_METHOD(ACopyNeverSharesAChunkBeingChanged)
+  {
+    // A chunk edited and not yet published is the store's own: a copy takes its own copy of it, so an
+    // edit to either store leaves the other as it was, published or not.
+    Simulation::ChunkStore store;
+    store.Set({.xVoxels = 1, .yVoxels = 2, .zVoxels = 3}, STONE);
+    Simulation::ChunkStore copy = store;
+    copy.Set({.xVoxels = 1, .yVoxels = 2, .zVoxels = 3}, EARTH);
+    copy.Set({.xVoxels = 4, .yVoxels = 2, .zVoxels = 3}, EARTH);
+    Assert::AreEqual(STONE, store.At({.xVoxels = 1, .yVoxels = 2, .zVoxels = 3}));
+    Assert::AreEqual(Protocol::Chunk::EMPTY, store.At({.xVoxels = 4, .yVoxels = 2, .zVoxels = 3}));
+    Simulation::ChunkStore assigned;
+    assigned = store;
+    store.Set({.xVoxels = 1, .yVoxels = 2, .zVoxels = 3}, Protocol::Chunk::EMPTY);
+    Assert::AreEqual(STONE, assigned.At({.xVoxels = 1, .yVoxels = 2, .zVoxels = 3}));
+    Assert::AreEqual(EARTH, copy.At({.xVoxels = 1, .yVoxels = 2, .zVoxels = 3}));
+  }
+
   TEST_METHOD(SharesOneCopyUntilTheNextEdit)
   {
     Simulation::ChunkStore store;

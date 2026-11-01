@@ -23,6 +23,30 @@ std::uint8_t ChunkStore::At(Protocol::VoxelPosition _position) const
   return current->At(inside.xVoxels, inside.yVoxels, inside.zVoxels);
 }
 
+ChunkStore::ChunkStore(const ChunkStore& _other)
+  : m_chunks(_other.m_chunks),
+    m_changedKeys(_other.m_changedKeys),
+    m_version(_other.m_version)
+{
+  for (auto& [key, entry] : m_chunks)
+  {
+    if (entry.pending)
+    {
+      entry.pending = std::make_shared<Protocol::Chunk>(*entry.pending);
+    }
+  }
+}
+
+ChunkStore& ChunkStore::operator=(const ChunkStore& _other)
+{
+  if (this != &_other)
+  {
+    ChunkStore copy(_other);
+    *this = std::move(copy);
+  }
+  return *this;
+}
+
 void ChunkStore::Set(Protocol::VoxelPosition _position, std::uint8_t _paletteIndex)
 {
   const Protocol::ChunkCoordinate coordinate = Protocol::ChunkContaining(_position);
