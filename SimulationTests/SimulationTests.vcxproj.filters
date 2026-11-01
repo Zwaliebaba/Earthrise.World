@@ -93,5 +93,8 @@
     <ClCompile Include="DropTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="BreachRunTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

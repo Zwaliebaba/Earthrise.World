@@ -66,6 +66,12 @@
     <ClCompile Include="TestWorld.cpp">
       <Filter>World</Filter>
     </ClCompile>
+    <ClInclude Include="BreachRun.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="BreachRun.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
     <ClInclude Include="ServerData.h">
       <Filter>Data</Filter>
     </ClInclude>
