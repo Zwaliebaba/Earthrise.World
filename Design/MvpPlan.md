@@ -271,6 +271,8 @@ At the end of M1:
 | 8 | 2026-10-31 | | #17 | | The render scale and its bilinear upscale |
 | 9 | 2026-11-01 | | #21, #22 | | The v5 test scene: the batch turn and palette swap, then the scene, its edits and its moving units |
 | 10 | 2026-11-01 | | #19 | | Measurement: the GPU timer, the scripted path, the CSV and its 95th percentile, edit-to-present latency |
+| 11 | 2026-11-01 | | #24, #25 | | The support search and navigation tiles, then the test world in Simulation and `SimulationBench` on the MVP map and the season world |
+| 12 | 2026-11-01 | | #25 | | The 0.5 m column: the test world split eight ways, its memory, search and tiles |
 
 ### M2 — Headless simulation
 
