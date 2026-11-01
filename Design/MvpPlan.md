@@ -10,7 +10,7 @@ M0 and M1 were closed by the owner on 2026-11-01 (GameDesign.md, *Closing M0 and
 
 **How the work is done.** Claude sessions write the code, tools and checkers and push them to branches. CI builds Debug|x64 and runs its tests; Debug|ARM64 is built by hand (ADR-007). The owner runs the builds on Windows, judges the look and the measurements, and approves each milestone.
 
-**What is forecast, and what is not.** The plan does not estimate effort (owner, 2026-11-01). Claude sessions write the code, so the work a solo developer would put in is not what sets the pace. What sets it is the owner's hours, the owner's decisions and CI's round trips. Each milestone forecasts its calendar weeks and the owner's hours before it starts, and logs both as it goes; the measured pace of each milestone rescales the forecasts after it.
+**What is forecast, and what is not.** The plan estimates no effort and neither forecasts nor logs time (owner, 2026-11-01: effort on planning M2, time on closing it; GameDesign.md, *No time logging*). Claude sessions write the code, so the work a solo developer would put in is not what sets the pace, and what does, the owner's attention, is not a number. A milestone is planned as orders and pull requests, and it closes on its done-when.
 
 ## Scope
 
@@ -162,8 +162,6 @@ The order is fixed, so that one build replays the same commands to the same resu
 | M6 | Hold trial | A Hold trial that can be played, with its control |
 | M7 | Hold playtest | The verdict on H1, and so the MVP's |
 
-**The calendar comes from measured pace,** not from a total. M1 forecast its calendar weeks and owner hours before it started (*The spike's own estimate*, under M1), and M2 does the same (*M2's phases and forecast*). Each milestone's log then rescales the forecasts of the milestones after it.
-
 **The critical path** runs M1 → M2 → M4 → M5. The paper tests in M0, the template tool and the placeholder art can run alongside it.
 
 ### M0 — Foundations and paper tests
@@ -231,61 +229,55 @@ Each CI guard is removed once its input is there.
 - RendererLook.md's acceptance checks pass on screen;
 - ADR-006's M1 measurements are filled in for the 1 m baseline and for a 0.5 m world, and an ADR records the solution layout. ADR-006 itself is accepted after M3.
 
-If the 1 m baseline misses the pass mark, ADR-001 is revisited before any gameplay code, which is the kill criterion. The spike's estimate is then compared with its actual time, and this plan is rescaled.
+If the 1 m baseline misses the pass mark, ADR-001 is revisited before any gameplay code, which is the kill criterion. (The plan was then to be rescaled from the spike's actual time; the owner dropped that on closing M2, GameDesign.md, *No time logging*.)
 
 **Closed (2026-11-01)** by the owner ([Review/M1Report-2026-11-01.md](Review/M1Report-2026-11-01.md)). The 1 m baseline's voxel pass takes 2.16 ms at the 95th percentile on the benchmark, against 8 ms, and the owner judged RendererLook.md's acceptance checks passed on screen. ADR-006's M1 rows are filled in, and ADR-010 records the solution layout. The Surface waits for a Surface. The farthest zoom's GPU time, which question 3 also asks for, was not measured: the scripted path runs at the default zoom.
 
 ### The spike's own estimate (written 2026-10-31, before M1 starts)
 
-The review asks for this in writing before the spike starts, so that its actual time can rescale the plan (F-52). It is a judgment estimate, not a measurement. It is given in two units, plus the calendar forecast below. The work-content column it was written with, in FTE-days, was dropped on 2026-11-01 with the plan's other effort estimates.
-- **Owner hours:** the owner's time to run builds on Windows, judge the look and take the measurements. Claude sessions write the code (GameDesign.md, *Starting the MVP*).
+The review asked for this in writing before the spike started, so that its actual time could rescale the plan (F-52). The owner dropped that rescaling on closing M2, with every forecast and log of time (GameDesign.md, *No time logging*); the work-content column in FTE-days had gone on 2026-11-01 with the plan's other effort estimates, and the owner-hours column and the calendar forecast went with the rescaling. What stays is the task list and its pull requests, the record of what M1 was planned as.
 - **Pull requests:** the number of changes, each green in CI before it merges.
 
-| # | Task | Owner hours | PRs |
-|---|---|---|---|
-| 1 | The scaffold of ADR-010: the solution, ten projects, the sheet, `framework.h`, the precompiled headers, `SuiteSmoke`, built in CI on both architectures (CI has built x64 only since ADR-007's amendment) | 1 | 1 |
-| 2 | The engine base: the DPI-aware window, pointer input, the timer, the device and debug layer, the flip-model swap chain, frames in flight, descriptor heaps, the upload ring and hand-written barriers (ADR-011) | 2 | 2 |
-| 3 | A minimal chunk store with copy-on-write snapshots in `Simulation`, its `Protocol` handles and tests | 0 | 1 |
-| 4 | The client half of the bake and the asset check (ADR-005, ADR-008), with the CI step | 0.5 | 1 |
-| 5 | ADR-001's pipeline: per-chunk records, instanced quads for the orthographic camera, the ray-box test, reversed-Z with `SV_DepthLessEqual`, world chunks and 0.5 m models in one pass | 4 | 2 |
-| 6 | The camera: orthographic at 34°, rotation in 90° steps, zoom from about 12 m to about 260 m | 1 | 1 |
-| 7 | The look: jitter, baked corner shading, contact shading, Lambert and hemisphere light, the two shadow maps, impostors, debris keyed on the collapse id, the shallow-water rule | 8 | 3 |
-| 8 | The render scale and its bilinear upscale | 1 | 1 |
-| 9 | The test scene: a seeded scene script with the v5 layout, T1–T7, placeholder models, about 95 units, the quarrying and the wall collapse | 4 | 2 |
-| 10 | Measurement: timestamp queries, the scripted camera path, the CSV reduced to the 95th percentile, edit-to-screen latency | 3 | 1 |
-| 11 | In `SimulationBench`: a first support search and a navigation tile rebuild, on the MVP map and on the synthetic 2 km world | 1 | 2 |
-| 12 | The 0.5 m world for ADR-006's comparison column | 2 | 1 |
-| 13 | The acceptance checks on screen, ADR-006's table filled in, and the M1 report | 4 | 1 |
-| | **Total** | **about 32** | **19** |
+| # | Task | PRs |
+|---|---|---|
+| 1 | The scaffold of ADR-010: the solution, ten projects, the sheet, `framework.h`, the precompiled headers, `SuiteSmoke`, built in CI on both architectures (CI has built x64 only since ADR-007's amendment) | 1 |
+| 2 | The engine base: the DPI-aware window, pointer input, the timer, the device and debug layer, the flip-model swap chain, frames in flight, descriptor heaps, the upload ring and hand-written barriers (ADR-011) | 2 |
+| 3 | A minimal chunk store with copy-on-write snapshots in `Simulation`, its `Protocol` handles and tests | 1 |
+| 4 | The client half of the bake and the asset check (ADR-005, ADR-008), with the CI step | 1 |
+| 5 | ADR-001's pipeline: per-chunk records, instanced quads for the orthographic camera, the ray-box test, reversed-Z with `SV_DepthLessEqual`, world chunks and 0.5 m models in one pass | 2 |
+| 6 | The camera: orthographic at 34°, rotation in 90° steps, zoom from about 12 m to about 260 m | 1 |
+| 7 | The look: jitter, baked corner shading, contact shading, Lambert and hemisphere light, the two shadow maps, impostors, debris keyed on the collapse id, the shallow-water rule | 3 |
+| 8 | The render scale and its bilinear upscale | 1 |
+| 9 | The test scene: a seeded scene script with the v5 layout, T1–T7, placeholder models, about 95 units, the quarrying and the wall collapse | 2 |
+| 10 | Measurement: timestamp queries, the scripted camera path, the CSV reduced to the 95th percentile, edit-to-screen latency | 1 |
+| 11 | In `SimulationBench`: a first support search and a navigation tile rebuild, on the MVP map and on the synthetic 2 km world | 2 |
+| 12 | The 0.5 m world for ADR-006's comparison column | 1 |
+| 13 | The acceptance checks on screen, ADR-006's table filled in, and the M1 report | 1 |
+| | **Total** | **19** |
 
-**The owner can give about 20 hours a week** to running builds and judging them (owner, 2026-10-31). The owner's 32 hours are therefore under two weeks of their time, and the calendar is set by round trips instead. There are 19 pull requests, and about half of them need one to three rounds of the owner looking at the screen. **Forecast: M1 takes 4–8 calendar weeks.** This is a judgment, and the time log below measures it.
+There are 19 pull requests, and about half of them need one to three rounds of the owner looking at the screen.
 
 **The biggest risk to the estimate is debugging the renderer without eyes on the screen.** A Claude session cannot see a frame, so every visual defect costs a round trip through the owner. To keep that cheap, the spike writes its GPU timings to a CSV, which the owner can attach to an issue or a session. (A screenshot on demand was planned here and not built; the owner dropped it on 2026-11-01.) CI also renders each pass on WARP and checks the result by number (ADR-012), so a defect in coverage, colour or depth should reach CI before it reaches the owner. That leaves the owner's round trips for the look and the timings.
 
-**How the actual pace is recorded:**
-- each task's start and finish dates;
-- its pull requests;
-- the owner's hours, logged per task below as the work proceeds.
+**The record,** each task's pull requests:
 
-At the end of M1, the ratio of the actual owner hours and calendar weeks to this estimate rescales the forecasts written for the milestones after it.
+| # | PRs | Notes |
+|---|---|---|
+| 1 | #8 | The scaffold, with each project's first piece |
+| 2 | #10 | The engine base, and ADR-012 on render tests on WARP |
+| 3 | #9 | The chunk store with copy-on-write snapshots |
+| 4 | #12 | The client half of the bake, and the asset check |
+| 5 | #13, #15 | ADR-001's pipeline: the voxel pass and its render tests, then the spike's first scene of chunks and models |
+| 6 | #16 | The strategy camera and its controls |
+| 7 | #26, #27, #28, #29, #30 | The look: jitter, corner shading, Lambert and hemisphere light, fords and rubble colours; the two shadow maps; contact shading; impostors; the collapse's debris |
+| 8 | #17 | The render scale and its bilinear upscale |
+| 9 | #21, #22 | The v5 test scene: the batch turn and palette swap, then the scene, its edits and its moving units |
+| 10 | #19, #20 | Measurement: the GPU timer, the scripted path, the CSV and its 95th percentile, edit-to-present latency; then the borderless full screen and the measured run at 1920 × 1080 |
+| 11 | #24, #25 | The support search and navigation tiles, then the test world in Simulation and `SimulationBench` on the MVP map and the season world |
+| 12 | #25 | The 0.5 m column: the test world split eight ways, its memory, search and tiles |
+| 13 | this PR | The measured runs on the benchmark, ADR-006's table, the owner's sign-off and the M1 report |
 
-| # | Started | Finished | PRs | Owner hours | Notes |
-|---|---|---|---|---|---|
-| 1 | 2026-10-31 | 2026-10-31 | #8 | | The scaffold, with each project's first piece |
-| 2 | 2026-10-31 | 2026-10-31 | #10 | | The engine base, and ADR-012 on render tests on WARP |
-| 3 | 2026-10-31 | 2026-10-31 | #9 | | The chunk store with copy-on-write snapshots |
-| 4 | 2026-10-31 | 2026-10-31 | #12 | | The client half of the bake, and the asset check |
-| 5 | 2026-10-31 | 2026-10-31 | #13, #15 | | ADR-001's pipeline: the voxel pass and its render tests, then the spike's first scene of chunks and models |
-| 6 | 2026-10-31 | 2026-10-31 | #16 | | The strategy camera and its controls |
-| 7 | 2026-11-01 | 2026-11-01 | #26, #27, #28, #29, #30 | | The look: jitter, corner shading, Lambert and hemisphere light, fords and rubble colours; the two shadow maps; contact shading; impostors; the collapse's debris |
-| 8 | 2026-10-31 | 2026-11-01 | #17 | | The render scale and its bilinear upscale |
-| 9 | 2026-11-01 | 2026-11-01 | #21, #22 | | The v5 test scene: the batch turn and palette swap, then the scene, its edits and its moving units |
-| 10 | 2026-11-01 | 2026-11-01 | #19, #20 | | Measurement: the GPU timer, the scripted path, the CSV and its 95th percentile, edit-to-present latency; then the borderless full screen and the measured run at 1920 × 1080 |
-| 11 | 2026-11-01 | 2026-11-01 | #24, #25 | | The support search and navigation tiles, then the test world in Simulation and `SimulationBench` on the MVP map and the season world |
-| 12 | 2026-11-01 | 2026-11-01 | #25 | | The 0.5 m column: the test world split eight ways, its memory, search and tiles |
-| 13 | 2026-11-01 | 2026-11-01 | this PR | | The measured runs on the benchmark, ADR-006's table, the owner's sign-off and the M1 report |
-
-**M1 took 2 calendar days** (2026-10-31 to 2026-11-01), in 19 pull requests, against a forecast of 4–8 weeks and 19 pull requests. The owner's hours were not logged, so the ratio that rescales M2 to M7 has its calendar half only, and the plan is not rescaled until the owner's hours are in.
+**M1 was carried out in 19 pull requests,** as planned.
 
 ### M2 — Headless simulation
 
@@ -303,7 +295,7 @@ At the end of M1, the ratio of the actual owner hours and calendar weeks to this
 - **the trebuchet's shot and its craters,** moved here from M4: the done-when below needs a trebuchet to breach a wall, and M3's click-to-fire needs the shot, while neither milestone had it in its parts. Arrows, bolts and hits on units stay in M4;
 - navigation, with classes by climb, headroom and width, the search, units following their squad's path, and the drop rule (ADR-015).
 
-### M2's phases and forecast (written 2026-11-01, before M2 starts)
+### M2's phases (written 2026-11-01, before M2 starts)
 
 M2 is carried out as 31 work orders in seven phases, written out in [MvpPlan-M2.md](MvpPlan-M2.md). Each order is one commit and each phase one pull request (GameDesign.md, *Planning M2*; AGENTS.md §6). An order is a self-contained brief:
 - what it changes;
@@ -314,21 +306,20 @@ M2 is carried out as 31 work orders in seven phases, written out in [MvpPlan-M2.
 
 The plan credits what M1 already built: the chunk store, a first support search, the foot tiles, `MaterialRules` and the test world.
 
-| Phase | Orders | What lands | Needs first | Owner hours |
-|---|---|---|---|---|
-| A | 1 | The owner's decisions, written down | Inputs 1–15 below | 3 |
-| B | 6 | `Core`'s numbers, randomness and bytes; the float check; `ServerData` | A, and M1 closed | 1 |
-| C | 5 | Commands, edits, the world and its tick, saves, replays | B | 0.5 |
-| D | 3 | The generator | C; input 3 | 4 |
-| E | 7 | The trebuchet's shot, craters, the collapse, slump | C; inputs 4–9 and 12 | 3 |
-| F | 6 | Navigation | C; inputs 10 and 11; its last order also phase E | 2 |
-| G | 3 | The done-when in CI, the tick's timing, the report | D, E and F; inputs 2 and 13 | 3 |
-| | **31 orders, 7 pull requests** | | | **about 17** |
+| Phase | Orders | What lands | Needs first |
+|---|---|---|---|
+| A | 1 | The owner's decisions, written down | Inputs 1–15 below |
+| B | 6 | `Core`'s numbers, randomness and bytes; the float check; `ServerData` | A, and M1 closed |
+| C | 5 | Commands, edits, the world and its tick, saves, replays | B |
+| D | 3 | The generator | C; input 3 |
+| E | 7 | The trebuchet's shot, craters, the collapse, slump | C; inputs 4–9 and 12 |
+| F | 6 | Navigation | C; inputs 10 and 11; its last order also phase E |
+| G | 3 | The done-when in CI, the tick's timing, the report | D, E and F; inputs 2 and 13 |
+| | **31 orders, 7 pull requests** | | |
 
-**M1's ratio exists only for the calendar.** M1 took 2 calendar days against a forecast of 4–8 weeks, in 19 pull requests against 19 forecast, and its owner hours were not logged (M1, above). Scaled by that ratio alone, M2 would take days. But M1 had no research-grade work and no owner decisions outstanding, and M2 has both, so the judgment stays at 3–6 calendar weeks until M2's own log says otherwise. **Logging the owner's hours is what completes the ratio.**
-- **The code is not the constraint.** What constrains the calendar is the owner's inputs and about 17 hours, the rounds that the research-grade phases E and F take to come right, and CI's round trips, one per order at least.
+The phases' calendar forecast and owner hours, written here, were dropped on closing M2 (GameDesign.md, *No time logging*).
 - **The owner answered all 15 inputs on 2026-11-01,** before M2 starts, which removes most of the waiting.
-- **Phases D, E and F can run side by side** once C has merged, each in its own pull request, which shortens the calendar if the owner can review them together.
+- **Phases D, E and F can run side by side** once C has merged, each in its own pull request.
 
 **The owner's inputs.** Each is a design value no document gives, and AGENTS.md requires it written down before the code that rests on it. The implementer proposed them, and the owner took every proposal on 2026-11-01. A check of the documents the same day changed input 7 and added inputs 14 and 15. GameDesign.md, *M2's values*, records them all, and input 13 stays the implementer's to measure.
 
@@ -370,25 +361,20 @@ The plan credits what M1 already built: the chunk store, a first support search,
 - **On the benchmark machine:** every tick of play in the breach run, all but its set-up tick 0, fits input 2's target, measured in `SimulationBench` (the owner, after the [M2 report](Review/M2-2026-11-01.md), in place of the 95th percentile over every tick).
 - **Throughout:** the AGENTS.md checklist passes.
 
-**How the actual pace is recorded.** Each phase's last commit fills in its row below:
-- its start and finish dates;
-- its pull request;
-- its commits, one per order;
-- the CI runs its orders took, which each commit's body also states;
-- the owner's hours.
+**The record.** Each phase's pull request, its commits, one per order, and what CI found. (Each phase's last commit filled this in with dates, CI runs and the owner's hours until the owner dropped time from the plan on closing M2, GameDesign.md, *No time logging*.)
 
-| Phase | Started | Finished | PR | Commits | CI runs | Owner hours | Notes |
-|---|---|---|---|---|---|---|---|
-| Plan | 2026-11-01 | 2026-11-01 | #32 | 4 | 1 | | This plan, the work orders and ADR-013 to ADR-016, Proposed. Owner hours: in M2's total, below |
-| A | 2026-11-01 | 2026-11-01 | #32 | 1 | 1 | | The owner's 13 answers, in the plan's PR because they edit the files it adds. Owner hours: in M2's total, below |
-| B | 2026-11-01 | 2026-11-01 | #42 | 6 | 6 | | B1–B6. One draft PR for B to G by the owner's choice. Owner runs: the spike after B2, B4 and B6. Owner hours: in M2's total, below |
-| C | 2026-11-01 | 2026-11-01 | #42 | 6 | 6 | | C1–C5; C4 took two commits and two runs, its fix a commit of its own (clang-tidy 22, `bugprone-exception-escape`). Owner hours: in M2's total, below |
-| D | 2026-11-01 | 2026-11-01 | #42 | 4 | 4 | | D1–D3; D3 took two commits and two runs, its fix a commit of its own (clang-tidy 22, `bugprone-integer-division`). Owner runs: the spike with `--generated-map`. Owner hours: in M2's total, below |
-| E | 2026-11-01 | 2026-11-01 | #42 | 9 | E1: 1; then shared | | E1–E7; E2 and E4 took a second commit each, for clang-tidy 22 on `std::ranges::find` over positions. E2 onwards were pushed together at the owner's request, so CI ran on the newest commit only: five runs covered E2 to the end of G (the [M2 report](Review/M2-2026-11-01.md)). Owner hours: in M2's total, below |
-| F | 2026-11-01 | 2026-11-01 | #42 | 8 | Shared, row E | | F1–F6; F4 took a second commit for MSVC's C4244 in `std::ranges::fill`, and F5 one for C4702 after `Assert::Fail`. Cavalry's and machines' speeds and the graded fords followed the report (row G). Owner hours: in M2's total, below |
-| G | 2026-11-01 | 2026-11-01 | #42 | 9 | Shared, row E | | G1–G3, G1 with a second commit for clang-tidy 22; the report is [Review/M2-2026-11-01.md](Review/M2-2026-11-01.md). After G3, five commits carry the owner's answers to it and their record: cavalry's and machines' speeds, the fords graded for every class (GENERATOR_VERSION 2), the slowest tick of play as the timing rule, the breach judged a breach, and this log. Owner runs: `SimulationBench --breach-run` on the benchmark machine, and the spike with `--generated-map`, both taken 2026-11-01 (the report, *Owner runs*). Owner hours: in M2's total, below |
+| Phase | PR | Commits | Notes |
+|---|---|---|---|
+| Plan | #32 | 4 | This plan, the work orders and ADR-013 to ADR-016, Proposed. |
+| A | #32 | 1 | The owner's 13 answers, in the plan's PR because they edit the files it adds. |
+| B | #42 | 6 | B1–B6. One draft PR for B to G by the owner's choice. Owner runs: the spike after B2, B4 and B6. |
+| C | #42 | 6 | C1–C5; C4 took two commits and two runs, its fix a commit of its own (clang-tidy 22, `bugprone-exception-escape`). |
+| D | #42 | 4 | D1–D3; D3 took two commits and two runs, its fix a commit of its own (clang-tidy 22, `bugprone-integer-division`). Owner runs: the spike with `--generated-map`. |
+| E | #42 | 9 | E1–E7; E2 and E4 took a second commit each, for clang-tidy 22 on `std::ranges::find` over positions. E2 onwards were pushed together at the owner's request, so CI ran on the newest commit only: five runs covered E2 to the end of G (the [M2 report](Review/M2-2026-11-01.md)). |
+| F | #42 | 8 | F1–F6; F4 took a second commit for MSVC's C4244 in `std::ranges::fill`, and F5 one for C4702 after `Assert::Fail`. Cavalry's and machines' speeds and the graded fords followed the report (row G). |
+| G | #42 | 9 | G1–G3, G1 with a second commit for clang-tidy 22; the report is [Review/M2-2026-11-01.md](Review/M2-2026-11-01.md). After G3, five commits carry the owner's answers to it and their record: cavalry's and machines' speeds, the fords graded for every class (GENERATOR_VERSION 2), the slowest tick of play as the timing rule, the breach judged a breach, and this log. Owner runs: `SimulationBench --breach-run` on the benchmark machine, and the spike with `--generated-map`, both taken 2026-11-01 (the report, *Owner runs*). |
 
-**M2 took 1 calendar day** (2026-11-01), in two pull requests, #32 for the plan and phase A and #42 for phases B to G, against a forecast of 3–6 weeks and seven pull requests, and **about 1 owner hour in all** against a forecast of about 17, the owner's round figure for the day rather than a log kept phase by phase. The benchmark machine's run on 2026-11-01 met the done-when's timing line: the slowest tick of play took 4.856 ms, 4.033 ms and 5.920 ms over three Release runs, against 25 ms ([M2 report](Review/M2-2026-11-01.md), *The budgets*). **The owner closed M2 the same day** (GameDesign.md, *Closing M2*). Both halves of the ratio now exist, and M3's plan rescales M3 to M7 from them.
+**M2 was carried out in two pull requests,** #32 for the plan and phase A and #42 for phases B to G, one draft pull request for B to G by the owner's choice in place of one a phase. The benchmark machine's run on 2026-11-01 met the done-when's timing line: the slowest tick of play took 4.856 ms, 4.033 ms and 5.920 ms over three Release runs, against 25 ms ([M2 report](Review/M2-2026-11-01.md), *The budgets*). **The owner closed M2 the same day** (GameDesign.md, *Closing M2*).
 
 ### M3 — Breach lab
 
@@ -405,10 +391,10 @@ Run it with six people (F-48).
 
 **Done when** the median prediction accuracy on items split evenly between open and shut reaches 0.65 or better. If it falls short, legibility is reworked before M4. That rework counts toward the one round the kill criterion allows (GameDesign.md, *Kill criteria*).
 
-**M3's forecast, from M2's pace** (written 2026-11-01, when M2's orders were done; a judgment, not a measurement):
-- **M2's pace.** Its 30 orders from B1 to G3 were implemented in one calendar day, in 32 commits and, by the time the report was written, as many CI runs; two orders needed a second run, both for a lint the container could not reach. The owner's hours are not yet logged, so the ratio of hours to forecast is still missing, as it was after M1.
+**What M3 inherits from M2** (written 2026-11-01, when M2's orders were done; its calendar and owner-hours forecast was dropped on closing M2, GameDesign.md, *No time logging*):
+- **M2's shape.** Its 30 orders from B1 to G3 landed in 32 commits; two orders needed a second CI run, both for a lint the container could not reach.
 - **What does not carry over.** M2 was headless: every order could be built and tested in a container and confirmed by CI. M3 is a client, and AGENTS.md requires anything that draws or takes input to be run and looked at, which only the owner's Windows machine can do. Each order that draws needs an owner run, and the done-when needs six people (F-48).
-- **The forecast.** The code at M2's pace is days, not weeks. The calendar is set by the owner's runs, about one an order that draws, and by gathering six people for the test: **2 to 4 calendar weeks, and about 25 to 35 owner hours,** of which the six-person run and its preparation are about 10. The breach M2 found, one slot and a rubble ramp after five shots and 88 s (the [M2 report](Review/M2-2026-11-01.md)), is what M3's players will be asked to predict; if the owner judges it does not read as a breach, the rules change first, and that time is not in this forecast.
+- **What sets M3's length** is the owner's runs, about one an order that draws, and gathering six people for the test. The breach M2 found, one slot and a rubble ramp after five shots and 88 s (the [M2 report](Review/M2-2026-11-01.md)), is what M3's players will be asked to predict; the owner judged that it reads as a breach (M2's risks, above), so the rules stand.
 
 ### M4 — Siege trial
 
@@ -465,7 +451,7 @@ Run it with six people (F-48).
 | 1 m craters do not show which weapon made them | M3 | Tune each weapon's crater radius and depth for each material, the client's debris, and the integrity view |
 | Players cannot read breaches | M3, M5 | The single round of legibility work, then the kill criterion |
 | The Siege defender is too weak or too strong to test anything | M4 | Scripted behaviors and tuning; it plays one authored castle, not arbitrary ones |
-| The plan overruns | Every milestone | Each milestone's measured pace rescales the forecasts after it, and what to cut is the owner's call (GameDesign.md, *Planning M2*) |
+| The plan overruns | Every milestone | The plan neither forecasts nor logs time (GameDesign.md, *No time logging*); what to cut is the owner's call (*Planning M2*) |
 | Content takes longer than code | M4, M6 | The templates and models already exist in `GameData/`; one castle and two Hold maps only |
 
 ## Deferred to the Skirmish plan

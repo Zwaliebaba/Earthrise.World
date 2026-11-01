@@ -172,7 +172,7 @@ The owner settled the open items of the readiness review ([Review/MvpReadiness-2
 1. **Claude sessions write the code;** the owner runs it and judges it.
    - Code, tools and checkers are written in Claude sessions and pushed to branches, and CI compiles Debug|x64. It compiled Debug|ARM64 as well until the owner dropped that the same day ([ADR-007](ADR/ADR-007-platforms-and-input.md), amended); ARM64 is now built by hand.
    - The owner runs the builds on Windows, judges the look and the measurements, and approves each milestone.
-   - The plan's estimates are rescaled from the real pace of the first milestones. (Since 2026-11-01 the plan forecasts calendar weeks and owner hours instead, *Planning M2*.)
+   - The plan's estimates are rescaled from the real pace of the first milestones. (Since 2026-11-01 the plan forecast calendar weeks and owner hours instead, *Planning M2*; on closing M2 the same day the owner dropped time from the plan altogether, *No time logging*.)
 2. **MvpPlan.md is accepted through M2,** together with the renderer spike's six questions, its pass mark and the 1 m kill criterion. M3 to M7 stay Proposed until after M1.
 3. **How the pass mark is measured:**
    - on a desktop RTX 3060 at 1920 × 1080 (on the owner's RTX 3070 Ti Laptop GPU instead, from 2026-11-01: *Closing M0 and M1*);
@@ -270,8 +270,8 @@ The owner settled how M2 is planned and when it starts ([MvpPlan.md](MvpPlan.md)
 2. **Effort is not estimated, and there is no build budget.**
    - FTE-months and FTE-days are dropped from the plan.
    - The build budget is removed, with its cut order. What to cut, if scope must shrink, is the owner's call when it arises.
-   - Claude sessions write the code, so what sets the pace is the owner's hours, the owner's decisions and CI's round trips.
-   - Each milestone forecasts its calendar weeks and the owner's hours, and logs both.
+   - Claude sessions write the code, so what sets the pace is the owner's decisions and CI's round trips.
+   - Each milestone forecasts its calendar weeks and the owner's hours, and logs both. (Dropped on closing M2, *No time logging*.)
 3. **Work is planned as work orders,** each a self-contained brief a Claude session can carry out without rebuilding its scope from the other documents. M2's are in [MvpPlan-M2.md](MvpPlan-M2.md).
 4. **One commit per order, one pull request per phase.** A phase is a group of orders that lands together (AGENTS.md §6).
 5. **An ADR may be written ahead of its code.** It stays Proposed until the pull request that first implements it marks it Accepted (AGENTS.md §6).
@@ -348,8 +348,16 @@ The owner closed M2 on the [M2 report](Review/M2-2026-11-01.md) and the runs tak
 2. **The work budgets are Decided:** 256 voxels slumped and 4,096 path nodes expanded a tick, as *M2's values*, item 13, proposed. The breach run's slowest tick of play exercises both, a fall with its slump, its rebuild and the squad's search, and it took under a quarter of the target.
 3. **The renderer spike is unchanged, and it draws the generated map.** The test scene draws the town, the quarry and its walkers, the trebuchets, the river and the breach as before, and its voxel pass measured 2.370 ms against the 8 ms pass mark; `--generated-map` draws the MVP map at 2.131 ms. **The graded fords look good,** judged by the owner by eye in a run panned to one: the banks read as a ramp every class can walk, against the steep valley sides elsewhere. **The spike's refusal of a stale `Content` is waived:** no run provoked it, `ServerDataTests` covers the reader's own refusals, and M2 closes without it.
 4. **The breach reads as a breach,** as the owner judged after the report (MvpPlan.md, M2's risks): craters that weaken the wall, and a collapse whose rubble makes the way in. M3 asks players to predict that behaviour.
-5. **The pace.** M2 took one calendar day, 2026-11-01, in two pull requests, #32 for the plan and phase A and #42 for phases B to G, against a forecast of 3–6 calendar weeks and seven pull requests. **The owner logged about 1 hour in all,** against a forecast of about 17. That is the first owner-hours figure, since M1 did not log them, and MvpPlan.md's M3 to M7 rows are rescaled from it when M3 is planned.
+5. **The record.** M2 was carried out in two pull requests, #32 for the plan and phase A and #42 for phases B to G, one draft pull request for B to G by the owner's choice in place of one a phase. Nothing about time is recorded (*No time logging*, below).
 6. **M2 is closed.** M3 to M7 stay Proposed (*Starting the MVP*, item 2). M3 is planned next as M2 was (*Planning M2*): as work orders, with the owner's inputs written down before the code that rests on them, and its plan is accepted when the owner merges it. ADR-006 stays Proposed until after M3, by its own terms.
+
+### 2026-11-01: no time logging
+
+The owner dropped time from the plan on closing M2.
+
+1. **The plan neither forecasts nor logs time.** No calendar weeks, no owner hours, no start and finish dates, and no rescaling of one milestone's forecast from another's pace. A milestone is planned as orders and pull requests, and it closes on its done-when. The plan already estimated no effort (*Planning M2*, item 2); this drops the calendar and the hours that replaced it.
+2. **Why.** This is a hobby project with one developer, and Claude sessions write the code. What paces it is the owner's attention, which no number captures, and a figure nobody acts on is a chore rather than a measurement: M1's hours were never logged, and M2's were a round guess given on request.
+3. **What stays.** The pull requests, the commits, one per order, and what CI found are the record, and they are in the history whether or not a table repeats them. What M1 and M2 logged stays where it is as a record and is not continued.
 
 ## Pillars (Decided)
 
