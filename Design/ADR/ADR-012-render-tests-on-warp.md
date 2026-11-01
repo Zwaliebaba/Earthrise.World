@@ -29,7 +29,7 @@
    - **Why not golden images:** a golden image needs a reference someone has looked at and accepted, and none exists in M1.
 4. **The debug layer validates every test where Windows has it.** In Debug builds the tests ask for it, and an error or corruption report fails the test (`GpuDevice::TakeDebugErrors`). It ships with Windows' Graphics Tools feature, which the owner's machine can install. Whether the CI runners have it is not yet known; where they don't, the tests run unvalidated.
 5. **WARP never decides two things:**
-   - **Speed.** Every timing, the pass mark and ADR-006's measurements come from the RTX 3060-class machine, as ADR-011, decision 10 says. A time measured on WARP is not reported.
+   - **Speed.** Every timing, the pass mark and ADR-006's measurements come from the benchmark machine (an RTX 3070 Ti Laptop GPU from 2026-11-01), as ADR-011, decision 10 says. A time measured on WARP is not reported.
    - **The look.** RendererLook.md's acceptance checks are judged on screen by the owner. A render test can pass while a frame looks wrong, so anything that touches presentation is still run and looked at (AGENTS.md §3).
 
 ## Consequences
