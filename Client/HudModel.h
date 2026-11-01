@@ -25,6 +25,7 @@ struct HudObjective
 {
   std::string title;
   std::string detail;
+  bool detailOff = false; // the detail in off text: FIRE while the trebuchet reloads (M3-E4)
 };
 
 struct HudMode

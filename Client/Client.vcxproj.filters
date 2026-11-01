@@ -141,5 +141,14 @@
     <ClCompile Include="WorldPicker.cpp">
       <Filter>Camera</Filter>
     </ClCompile>
+    <ClInclude Include="OverlayBox.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="FireMode.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClCompile Include="FireMode.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

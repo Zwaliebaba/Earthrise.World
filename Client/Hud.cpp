@@ -38,6 +38,10 @@ constexpr float ALERT_GAP_LOGICAL_PIXELS = 10.0F;
 constexpr float ALERT_LINE_GAP_LOGICAL_PIXELS = 4.0F;
 constexpr float ALERT_MAX_WIDTH_LOGICAL_PIXELS = 440.0F;
 constexpr float JUMP_PADDING_LOGICAL_PIXELS = 10.0F;
+constexpr float RING_LOGICAL_PIXELS = 24.0F;
+constexpr float CURSOR_LABEL_OFFSET_LOGICAL_PIXELS = 18.0F; // from the pointer to the label's panel
+constexpr float CURSOR_PADDING_X_LOGICAL_PIXELS = 6.0F;
+constexpr float CURSOR_PADDING_Y_LOGICAL_PIXELS = 4.0F;
 
 // A cap stands on rows 1 to 7 of the font's cell (Hud.md §9), so text is centred on that band.
 constexpr std::int32_t CAP_TOP_ROW = 1;
@@ -212,7 +216,8 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, float _uiSca
     paint.Text(_model.objective.title, objectiveX, barTextTop, ACCENT_SRGB, bar);
     if (withDetail)
     {
-      paint.Text(_model.objective.detail, objectiveX + objectiveWidth - paint.Width(_model.objective.detail), barTextTop, SUB_SRGB, bar);
+      paint.Text(_model.objective.detail, objectiveX + objectiveWidth - paint.Width(_model.objective.detail), barTextTop,
+                 _model.objective.detailOff ? OFF_SRGB : SUB_SRGB, bar);
     }
   }
 
@@ -276,6 +281,25 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, float _uiSca
     }
     y += box.heightPixels + paint.Pixels(ALERTS_GAP_LOGICAL_PIXELS);
   }
+}
+
+void Hud::LayCursor(const AttackCursor& _cursor, std::int32_t _xPixels, std::int32_t _yPixels, float _uiScale,
+                    std::vector<ScreenQuad>& _quads)
+{
+  Painter paint(_uiScale, _quads, m_texts);
+  const std::int32_t ring = paint.Pixels(RING_LOGICAL_PIXELS);
+  const std::int32_t border = paint.Pixels(BORDER_LOGICAL_PIXELS);
+  const PixelRect around{_xPixels - (ring / 2), _yPixels - (ring / 2), ring, ring};
+  paint.Fill({around.xPixels, around.yPixels, ring, border}, _cursor.srgb);
+  paint.Fill({around.xPixels, around.yPixels + ring - border, ring, border}, _cursor.srgb);
+  paint.Fill({around.xPixels, around.yPixels + border, border, ring - (2 * border)}, _cursor.srgb);
+  paint.Fill({around.xPixels + ring - border, around.yPixels + border, border, ring - (2 * border)}, _cursor.srgb);
+  const std::int32_t paddingX = paint.Pixels(CURSOR_PADDING_X_LOGICAL_PIXELS);
+  const std::int32_t paddingY = paint.Pixels(CURSOR_PADDING_Y_LOGICAL_PIXELS);
+  const PixelRect panel{_xPixels + paint.Pixels(CURSOR_LABEL_OFFSET_LOGICAL_PIXELS), _yPixels - ((paint.Cell() / 2) + paddingY),
+                        paint.Width(_cursor.label) + (2 * paddingX), paint.Cell() + (2 * paddingY)};
+  paint.Fill(panel, PANEL_SRGB, PANEL_ALPHA);
+  paint.Text(_cursor.label, panel.xPixels + paddingX, panel.yPixels + paddingY, _cursor.srgb, panel);
 }
 
 std::optional<HudTarget> Hud::HitTest(std::int32_t _xPixels, std::int32_t _yPixels) const noexcept

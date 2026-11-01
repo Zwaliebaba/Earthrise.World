@@ -74,6 +74,9 @@
     <ClCompile Include="FireTally.cpp" />
     <ClInclude Include="WorldPicker.h" />
     <ClCompile Include="WorldPicker.cpp" />
+    <ClInclude Include="OverlayBox.h" />
+    <ClInclude Include="FireMode.h" />
+    <ClCompile Include="FireMode.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

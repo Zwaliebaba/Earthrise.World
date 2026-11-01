@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace Client
@@ -45,6 +46,13 @@ struct HudTarget
   PixelRect rect;
 };
 
+/// The attack cursor (Hud.md §8): a ring around the pointer, and its reading beside it, both in the reading's colour.
+struct AttackCursor
+{
+  std::string label;
+  std::uint32_t srgb;
+};
+
 /// A string the HUD drew: the cell it takes, and the element it has to fit in.
 struct HudText
 {
@@ -67,6 +75,11 @@ public:
 
   /// Lays _model out over a target _widthPixels wide at _uiScale and appends its quads, in drawing order.
   void Build(const HudModel& _model, std::uint32_t _widthPixels, float _uiScale, std::vector<ScreenQuad>& _quads);
+
+  /// Appends the attack cursor around the pointer at (_xPixels, _yPixels): the ring centred on it and the reading on a
+  /// panel to its right. It covers nothing: a click through it is the world's.
+  void LayCursor(const AttackCursor& _cursor, std::int32_t _xPixels, std::int32_t _yPixels, float _uiScale,
+                 std::vector<ScreenQuad>& _quads);
 
   /// The control under the pixel, as last built, or nothing.
   [[nodiscard]] std::optional<HudTarget> HitTest(std::int32_t _xPixels, std::int32_t _yPixels) const noexcept;

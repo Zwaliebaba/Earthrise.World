@@ -8,6 +8,8 @@
 #include "ResourceBarrier.h"
 #include "SunProjection.h"
 
+#include <tuple>
+
 namespace Client
 {
 
@@ -105,6 +107,14 @@ std::array<DirectX::XMFLOAT4, Engine::VoxelPass::PALETTE_ENTRIES> LinearPalette(
   }
   // Fords: water one world voxel deep, drawn lighter (RendererLook.md §3).
   colors[FORD_COLOR_INDEX] = ScaledLightness(colors[WATER_INDEX], FORD_LIGHTNESS_SCALE);
+  // The overlays' entries, in Hud.md §2's colours (ADR-021, decision 2).
+  for (const auto& [index, srgb] :
+       {std::pair{OVERLAY_GOOD_INDEX, GOOD_SRGB}, std::pair{OVERLAY_BAD_INDEX, BAD_SRGB}, std::pair{OVERLAY_ACCENT_INDEX, ACCENT_SRGB},
+        std::pair{OVERLAY_DIM_INDEX, DIM_SRGB}, std::pair{OVERLAY_TEXT_INDEX, TEXT_SRGB}})
+  {
+    const DirectX::XMFLOAT3 color = LinearOf(srgb);
+    colors[index] = {color.x, color.y, color.z, 1.0F};
+  }
   return colors;
 }
 
@@ -299,6 +309,7 @@ void WorldRenderer::Draw(const Frame& _frame)
     m_pass.DrawOriented(commandList, debrisAddress, debrisCount);
   }
   m_gpuTimer.End(commandList, slot, VOXEL_PASS_SPAN);
+  DrawOverlays(commandList, ring, frameConstants, paletteConstants, _frame.overlays);
 
   // Then scaled to the back buffer, which the triangle covers whole, so it needs no clear.
   const std::array<D3D12_RESOURCE_BARRIER, 2> toUpscale = {
@@ -335,6 +346,48 @@ void WorldRenderer::Draw(const Frame& _frame)
   commandList->ResourceBarrier(1, &toPresent);
   m_gpuTimer.Resolve(commandList, slot);
   m_timed.at(slot) = true;
+}
+
+void WorldRenderer::DrawOverlays(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring,
+                                 D3D12_GPU_VIRTUAL_ADDRESS _frameConstants, D3D12_GPU_VIRTUAL_ADDRESS _palette,
+                                 std::span<const OverlayLayer> _layers) const
+{
+  // A batch holds cells 0 to 63 on each axis, so the boxes go into batches of 64-voxel blocks of the world, each with
+  // its block's corner as its origin. The block's corner and the cell inside it are whole meters, so a box on a world
+  // voxel is the same box, at the same depth, as the chunk's (ADR-021, decision 1).
+  constexpr std::int32_t BLOCK_VOXELS = static_cast<std::int32_t>(Engine::VOXEL_RECORD_MAX_CELL) + 1;
+  using Block = std::tuple<std::int32_t, std::int32_t, std::int32_t>;
+  const auto blockOf = [](std::int32_t _voxels) { return _voxels >= 0 ? _voxels / BLOCK_VOXELS : ((_voxels + 1) / BLOCK_VOXELS) - 1; };
+  for (const OverlayLayer& layer : _layers)
+  {
+    if (layer.boxes.empty())
+    {
+      continue;
+    }
+    std::map<Block, std::vector<Engine::VoxelRecord>> blocks;
+    for (const OverlayBox& box : layer.boxes)
+    {
+      const Block block{blockOf(box.cellVoxels.xVoxels), blockOf(box.cellVoxels.yVoxels), blockOf(box.cellVoxels.zVoxels)};
+      blocks[block].push_back(Engine::MakeVoxelRecord(
+        static_cast<std::uint32_t>(box.cellVoxels.xVoxels - (std::get<0>(block) * BLOCK_VOXELS)),
+        static_cast<std::uint32_t>(box.cellVoxels.yVoxels - (std::get<1>(block) * BLOCK_VOXELS)),
+        static_cast<std::uint32_t>(box.cellVoxels.zVoxels - (std::get<2>(block) * BLOCK_VOXELS)), box.paletteIndex));
+    }
+    m_pass.BeginOverlay(_commandList, _frameConstants, _palette, layer.alpha);
+    for (const auto& [block, records] : blocks)
+    {
+      const auto [x, y, z] = block;
+      m_pass.Draw(
+        _commandList, UploadArray(_ring, std::span<const Engine::VoxelRecord>(records)), static_cast<std::uint32_t>(records.size()),
+        {.originMeters = {static_cast<float>(x * BLOCK_VOXELS), static_cast<float>(y * BLOCK_VOXELS), static_cast<float>(z * BLOCK_VOXELS)},
+         .voxelEdgeMeters = 1.0F,
+         .quarterTurns = 0,
+         .widthCells = static_cast<std::uint32_t>(BLOCK_VOXELS),
+         .depthCells = static_cast<std::uint32_t>(BLOCK_VOXELS),
+         .swapFromIndex = 0,
+         .swapToIndex = 0});
+    }
+  }
 }
 
 double WorldRenderer::VoxelPassMilliseconds() const noexcept

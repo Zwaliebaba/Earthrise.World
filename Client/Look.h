@@ -22,6 +22,16 @@ inline constexpr std::uint8_t FORD_COLOR_INDEX = 242;
 inline constexpr float FORD_LIGHTNESS_SCALE = 1.15F;
 inline constexpr std::uint8_t WATER_INDEX = 9;
 
+/// The palette entries the world overlays are drawn in (ADR-021, decision 2): Hud.md §2's good, bad, accent, dim and
+/// text, beyond the materials'.
+inline constexpr std::uint8_t OVERLAY_GOOD_INDEX = 243;
+inline constexpr std::uint8_t OVERLAY_BAD_INDEX = 244;
+inline constexpr std::uint8_t OVERLAY_ACCENT_INDEX = 245;
+inline constexpr std::uint8_t OVERLAY_DIM_INDEX = 246;
+inline constexpr std::uint8_t OVERLAY_TEXT_INDEX = 247;
+/// The strike mark's alpha (ADR-021, decision 4), to be judged on screen.
+inline constexpr float STRIKE_MARK_ALPHA = 0.6F;
+
 // The Golden preset (RendererLook.md §6): its clear colour #d6ccba in linear values, because the view that is cleared
 // is sRGB and encodes on write, its sun direction, towards the light, and its lights. The direction is the
 // prototype's (-90, 75, 55) with z negated, because the prototype's +z is south and the world's is north (ADR-017):

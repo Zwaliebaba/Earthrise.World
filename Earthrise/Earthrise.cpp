@@ -12,6 +12,7 @@
 #include "FrameTimer.h"
 #include "GpuDevice.h"
 #include "Hash.h"
+#include "FireMode.h"
 #include "FireTally.h"
 #include "Hud.h"
 #include "HudAlerts.h"
@@ -41,7 +42,8 @@
 // (ADR-020, decision 2). The client draws from the session alone.
 //
 // In M3-C3 it runs the M2 breach run live on the breach lab's site (M3-B7): the trebuchet's five scripted shots, the
-// slot's warning and fall with its debris, and the squad walking through.
+// slot's warning and fall with its debris, and the squad walking through. From M3-E4 the player fires: select the
+// trebuchet, press F and right-click a target. `--script` plays the five scripted shots instead.
 //
 // It starts borderless over the whole monitor (ADR-011, decision 1), and Alt+Enter switches between that and a window.
 // `--windowed` starts it in a window. `--speed 10` runs the clock at ten times. `--ui-scale 1.5` sets the UI scale over
@@ -67,6 +69,7 @@ struct Options
   bool windowed;
   double speed;
   std::optional<float> uiScale; // --ui-scale, over the display's band
+  bool scripted;                // --script: the M2 run's shots, as in M3-C3
 };
 
 /// Whether the command line holds _flag as a word of its own.
@@ -431,6 +434,8 @@ int Run(const Options& _options)
   Client::HudModel hudModel; // as the HUD was last built, which the clicks land on
   Client::WorldPicker picker;
   Protocol::EntityId selected = Protocol::NO_ENTITY;
+  Client::FireMode fire;
+  bool worldChanged = false;                              // the last frame took a changed chunk
   std::optional<DirectX::XMFLOAT4X4> drawnViewProjection; // the last frame's, which the clicks land on
   const std::array<float, 4> figuresColor = Client::LinearColor(Client::DIM_SRGB);
   std::int32_t lastXPixels = 0;
@@ -483,7 +488,8 @@ int Run(const Options& _options)
       }
       for (const Simulation::ScriptedCommand& scripted : run.script)
       {
-        if (scripted.tick == world.TickCount())
+        // The squad's order always; the shots only with --script, since the player fires (M3-E4).
+        if (scripted.tick == world.TickCount() && (_options.scripted || !std::holds_alternative<Protocol::FireEngine>(scripted.command)))
         {
           Core::ByteWriter writer;
           Protocol::Encode(scripted.command, writer);
@@ -504,7 +510,7 @@ int Run(const Options& _options)
     if (pointer.WasPressed(Engine::PointerInput::Button::Left))
     {
       const std::optional<Client::HudTarget> hit = hud.HitTest(pointer.XPixels(), pointer.YPixels());
-      if (!hit.has_value() && !hud.Covers(pointer.XPixels(), pointer.YPixels()) && drawnViewProjection.has_value())
+      if (!hit.has_value() && !hud.Covers(pointer.XPixels(), pointer.YPixels()) && drawnViewProjection.has_value() && !fire.Active())
       {
         const Engine::PickRay ray = Client::WorldPicker::RayThrough(*drawnViewProjection, pointer.XPixels(), pointer.YPixels(),
                                                                     swapChain.WidthPixels(), swapChain.HeightPixels());
@@ -527,7 +533,8 @@ int Run(const Options& _options)
           camera.Zoom(1.0F);
           break;
         case Client::HudControl::Cancel:
-          break; // no targeting mode yet (M3-E4)
+          fire.Cancel();
+          break;
         case Client::HudControl::Jump:
           if (hit->alert < hudModel.alerts.size() && hudModel.alerts.at(hit->alert).location.has_value())
           {
@@ -537,10 +544,40 @@ int Run(const Options& _options)
         }
       }
     }
-    if (keyboard.WasPressed(VK_ESCAPE))
+    // The selection, while its engine is there.
+    const auto selectedEngine = std::ranges::find(session.State().engines, selected, &Protocol::EngineView::id);
+    const Protocol::EngineView* selectedView = selectedEngine != session.State().engines.end() ? &*selectedEngine : nullptr;
+    if (selectedView == nullptr)
     {
       selected = Protocol::NO_ENTITY;
     }
+    // FIRE (M3-E4), from the world voxel under the pointer, off the HUD, while an engine is selected. Esc leaves the
+    // mode, and with none on deselects.
+    const bool pointerOnHud = hud.Covers(pointer.XPixels(), pointer.YPixels());
+    std::optional<Protocol::VoxelPosition> pointed;
+    if (selectedView != nullptr && !pointerOnHud && drawnViewProjection.has_value())
+    {
+      const Engine::PickRay ray = Client::WorldPicker::RayThrough(*drawnViewProjection, pointer.XPixels(), pointer.YPixels(),
+                                                                  swapChain.WidthPixels(), swapChain.HeightPixels());
+      const Client::WorldPick pick = picker.Pick(ray, {});
+      if (pick.voxel.has_value())
+      {
+        pointed = Protocol::VoxelPosition{pick.voxel->cell[0], pick.voxel->cell[1], pick.voxel->cell[2]};
+      }
+    }
+    const bool usedEscape = fire.Update({.fPressed = keyboard.WasPressed('F'),
+                                         .escapePressed = keyboard.WasPressed(VK_ESCAPE),
+                                         .rightClicked = pointer.WasPressed(Engine::PointerInput::Button::Right) && !pointerOnHud,
+                                         .shiftHeld = keyboard.IsDown(VK_SHIFT),
+                                         .pointedVoxels = pointed,
+                                         .worldChanged = worldChanged},
+                                        selectedView, session);
+    if (keyboard.WasPressed(VK_ESCAPE) && !usedEscape)
+    {
+      selected = Protocol::NO_ENTITY;
+      fire.Update({}, nullptr, session);
+    }
+    window.ShowCrosshair(fire.Active());
     if (keyboard.WasPressed(VK_SPACE))
     {
       const auto newest = std::ranges::find_if(hudModel.alerts, [](const Client::HudAlert& _alert) { return _alert.location.has_value(); });
@@ -567,19 +604,19 @@ int Run(const Options& _options)
     const float topBarPixels = Client::TOP_BAR_LOGICAL_PIXELS * uiScale;
     // The HUD, built from the session (M3-E2), and the frame's figures under it in the bottom-left corner.
     alerts.Expire(seconds);
-    if (std::ranges::find(session.State().engines, selected, &Protocol::EngineView::id) == session.State().engines.end())
-    {
-      selected = Protocol::NO_ENTITY;
-    }
-    // The objective line names the selection while there is one.
+    // The objective line names the selection while there is one, with FIRE's key, or RELOADING in off text.
+    const bool ready = selectedView != nullptr && selected != Protocol::NO_ENTITY && Client::FireMode::Ready(*selectedView);
     const Client::HudObjective objective =
       selected != Protocol::NO_ENTITY
-        ? Client::HudObjective{.title = std::string(Client::TREBUCHET_NAME), .detail = std::string(Client::SELECTED_DETAIL)}
+        ? Client::HudObjective{.title = std::string(Client::TREBUCHET_NAME),
+                               .detail = std::string(ready ? Client::FIRE_READY_DETAIL : Client::RELOADING_DETAIL),
+                               .detailOff = !ready}
         : Client::HudObjective{.title = std::string(Client::BREACH_OBJECTIVE_TITLE),
-                               .detail = std::string(Client::BREACH_OBJECTIVE_DETAIL)};
+                               .detail = std::string(Client::BREACH_OBJECTIVE_DETAIL),
+                               .detailOff = false};
     hudModel = {.resources = Client::BreachResources(session.State().tick, tally.Fired(PLAYER)),
                 .objective = objective,
-                .mode = {},
+                .mode = fire.Mode(),
                 .alerts = alerts.Shown(),
                 .selectedEngine = selected,
                 .integrityView = true,
@@ -592,12 +629,20 @@ int Run(const Options& _options)
                               static_cast<std::int32_t>(Client::TextLayout::CellPixels(figuresScale)),
                             figuresScale, figuresColor, interfaceQuads);
     hud.Build(hudModel, swapChain.WidthPixels(), uiScale, interfaceQuads);
+    const std::optional<Client::AttackCursor> cursor = fire.Cursor(session);
+    if (cursor.has_value() && !pointerOnHud)
+    {
+      hud.LayCursor(*cursor, pointer.XPixels(), pointer.YPixels(), uiScale, interfaceQuads);
+    }
+    // The world overlays (ADR-021): FIRE's strike mark.
+    const std::array<Client::OverlayLayer, 1> overlays = {{{.alpha = Client::STRIKE_MARK_ALPHA, .boxes = fire.StrikeMark(session)}}};
     Client::WorldRenderer::Frame frame{.commandList = commandList,
                                        .slot = slot,
                                        .ring = &ring,
                                        .snapshots = {},
                                        .placements = placements,
                                        .debris = debris,
+                                       .overlays = overlays,
                                        .viewProjection = {},
                                        .forward = {},
                                        .viewHeightMeters = camera.ViewHeightMeters(),
@@ -609,6 +654,7 @@ int Run(const Options& _options)
     const std::vector<Protocol::ChunkSnapshot> snapshots = session.TakeSnapshots();
     frame.snapshots = snapshots;
     picker.TakeSnapshots(snapshots);
+    worldChanged = !snapshots.empty();
     DirectX::XMStoreFloat4x4(&frame.viewProjection, camera.ViewProjection(aspect, swapChain.HeightPixels(), topBarPixels));
     drawnViewProjection = frame.viewProjection;
     DirectX::XMStoreFloat3(&frame.forward, camera.Forward());
@@ -646,7 +692,8 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
     const std::optional<std::string> uiScale = OptionValue(commandLine, L"--ui-scale");
     return Run({.windowed = HasFlag(commandLine, L"--windowed"),
                 .speed = SpeedFrom(commandLine),
-                .uiScale = uiScale ? std::optional<float>(Client::UiScaleFromOption(*uiScale)) : std::nullopt});
+                .uiScale = uiScale ? std::optional<float>(Client::UiScaleFromOption(*uiScale)) : std::nullopt,
+                .scripted = HasFlag(commandLine, L"--script")});
   }
   catch (const winrt::hresult_error& error)
   {

@@ -122,6 +122,20 @@ std::uint32_t Window::Dpi() const noexcept
   return GetDpiForWindow(m_handle);
 }
 
+void Window::ShowCrosshair(bool _crosshair) noexcept
+{
+  if (_crosshair == m_crosshair)
+  {
+    return;
+  }
+  m_crosshair = _crosshair;
+  // The class's cursor is what Windows sets over the client area as the pointer moves; setting it now changes it at
+  // once, without waiting for the pointer to move.
+  HCURSOR cursor = LoadCursorW(nullptr, _crosshair ? IDC_CROSS : IDC_ARROW);
+  SetClassLongPtrW(m_handle, GCLP_HCURSOR, reinterpret_cast<LONG_PTR>(cursor));
+  SetCursor(cursor);
+}
+
 bool Window::PumpMessages() noexcept
 {
   return Pump(nullptr, nullptr);

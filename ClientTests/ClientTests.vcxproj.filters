@@ -36,5 +36,8 @@
     <ClCompile Include="WorldPickerTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="FireModeTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

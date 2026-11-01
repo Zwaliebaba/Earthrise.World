@@ -17,6 +17,7 @@
 #include "InterfacePass.h"
 #include "ModelPlacement.h"
 #include "OrientedVoxel.h"
+#include "OverlayBox.h"
 #include "ScreenQuad.h"
 #include "ShadowMap.h"
 #include "UploadRing.h"
@@ -33,8 +34,8 @@ namespace Client
 {
 
 /// One frame of the world as the renderer spike draws it (M3-C3): the sun's two shadow maps, the voxel pass with the
-/// world's chunks, the models and the debris, scaled to the back buffer, and the GPU timer over the voxel pass; then the
-/// interface over it at the back buffer's size (M3-E1).
+/// world's chunks, the models and the debris, timed on the GPU; the world overlays over them (ADR-021); all of it scaled
+/// to the back buffer; then the interface over it at the back buffer's size (M3-E1).
 class WorldRenderer
 {
 public:
@@ -57,6 +58,7 @@ public:
     std::span<const Protocol::ChunkSnapshot> snapshots; // published since the last frame
     std::span<const ModelPlacement> placements;
     std::span<const Engine::OrientedVoxel> debris;
+    std::span<const OverlayLayer> overlays; // in order, after the scene and before the upscale
     DirectX::XMFLOAT4X4 viewProjection;
     DirectX::XMFLOAT3 forward;  // the camera's, along its rays
     float viewHeightMeters;     // for how large a model voxel is on screen
@@ -85,6 +87,10 @@ public:
   void Release(std::uint64_t _completedFenceValue);
 
 private:
+  /// The world overlays, layer by layer, through the voxel pass's overlay pipeline, into the scene's targets.
+  void DrawOverlays(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, D3D12_GPU_VIRTUAL_ADDRESS _frameConstants,
+                    D3D12_GPU_VIRTUAL_ADDRESS _palette, std::span<const OverlayLayer> _layers) const;
+
   static constexpr std::uint32_t VOXEL_PASS_SPAN = 0;
   static constexpr std::uint32_t STATIC_SHADOW_SPAN = 1;
   static constexpr std::uint32_t DYNAMIC_SHADOW_SPAN = 2;
