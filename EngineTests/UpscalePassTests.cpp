@@ -199,7 +199,8 @@ Image Upscale(Engine::GpuDevice& _device, const Image& _source, std::uint32_t _w
 
   Image result{.widthPixels = _widthPixels, .heightPixels = _heightPixels, .pixels = {}};
   result.pixels.resize(static_cast<std::size_t>(_widthPixels) * _heightPixels);
-  const D3D12_RANGE readRange{.Begin = 0, .End = static_cast<SIZE_T>(readback.footprint.Footprint.RowPitch) * _heightPixels};
+  // The buffer is as long as the footprint needs: every row but the last is padded to the pitch.
+  const D3D12_RANGE readRange{.Begin = 0, .End = static_cast<SIZE_T>(readback.buffer->GetDesc().Width)};
   winrt::check_hresult(readback.buffer->Map(0, &readRange, &mapped));
   for (std::uint32_t row = 0; row < _heightPixels; ++row)
   {
