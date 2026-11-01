@@ -10,13 +10,53 @@
   "models": {
    "voxelSize": 0.5,
    "simulated": false,
-   "holds": "units, siege engines, mantlets, debris, banners"
+   "holds": "units, siege engines and their poses, projectiles, open gates, mantlets, debris, banners"
   }
  },
  "axes": "y up, +z front; .json layers[y][z][x]; .vox is MagicaVoxel z-up with vox_y = depth-1-z",
  "faction": "palette index 16 (exported red #b23a2e; blue #2f5d93)",
  "spec": "Design/RendererLook.md",
- "note": "Re-pathed from the package (Design/Reference/SiegePrototypeV2/manifest.json). Paths are relative to GameData/. Template costs are recounted under ADR-005: decorations cost as the material they sit in. For models, costM3 is absent: models set no costs. The .json is the only committed source; Tools/ExportVox.py writes a .vox beside it for MagicaVoxel (ADR-008).",
+ "note": "Re-pathed from the package (Design/Reference/SiegePrototypeV2/manifest.json). Paths are relative to GameData/. Template costs are recounted under ADR-005: decorations cost as the material they sit in. For models, costM3 is absent: models set no costs. The .json is the only committed source; Tools/ExportVox.py writes a .vox beside it for MagicaVoxel (ADR-008). The runtime states of 2026-11-01, S3c, S3p, X1, X2, G1, G2 and D1 to D6, come from the owner's MVP assets v3 package (Design/Reference/MvpAssetsV3/), with the manifest's own field style, sizes of the occupied box and recounted voxels.",
+ "debrisByRubble": {
+  "note": "Which debris models the client scatters over each rubble index (ADR-006, decision 5), from the v3 package (Design/Reference/MvpAssetsV3/). The asset check does not read it, and nothing bakes it yet; the client's debris is still the spike's own pieces.",
+  "table": [
+   {
+    "rubbleIndex": 8,
+    "rubble": "stone rubble",
+    "debris": [
+     "D1",
+     "D2",
+     "D3"
+    ]
+   },
+   {
+    "rubbleIndex": 25,
+    "rubble": "timber rubble",
+    "debris": [
+     "D4",
+     "D5"
+    ]
+   },
+   {
+    "rubbleIndex": 26,
+    "rubble": "earth rubble",
+    "debris": [
+     "D6"
+    ]
+   },
+   {
+    "rubbleIndex": 28,
+    "rubble": "rock rubble",
+    "debris": [
+     "D1",
+     "D2",
+     "D3"
+    ],
+    "tint": "#7f7c77"
+   }
+  ],
+  "scatter": "Seed a PRNG with the collapse's id; one piece per about 4 m2 of rubble top, on a rubble cell's top face; a quarter turn of yaw each; an offset of 0, 0.25 or 0.5 m within the cell. Debris never blocks a path or a shot."
+ },
  "assets": [
   {
    "id": "T1",
@@ -696,7 +736,11 @@
    "files": {
     "json": "Client/Models/earthrise-s3-trebuchet-05m.json"
    },
-   "kind": "model"
+   "kind": "model",
+   "pose": "released",
+   "knownIssues": [
+    "The pose just after a throw, counterweight down and arm up, which the v3 package named released; its cocked and packed poses are S3c and S3p (2026-11-01)."
+   ]
   },
   {
    "id": "M1",
@@ -817,6 +861,349 @@
     "json": "Client/Models/earthrise-p2-banner-05m.json"
    },
    "kind": "model"
+  },
+  {
+   "id": "S3c",
+   "key": "trebuchetCocked",
+   "name": "Trebuchet, cocked",
+   "grid": "models",
+   "voxelSize": 0.5,
+   "role": "The trebuchet ready to throw: its arm hauled down so that the long end and the sling lie on the ground behind the frame, and its counterweight raised. One of S3's three baked poses (GameDesign.md, Starting the MVP, item 8).",
+   "criticalPart": null,
+   "silhouetteCue": "Arm low behind, weight high",
+   "sizeVoxels": {
+    "x": 26,
+    "y": 18,
+    "z": 7
+   },
+   "sizeMetres": {
+    "x": 13,
+    "y": 9,
+    "z": 3.5
+   },
+   "voxelCount": 213,
+   "authoring": "native 0.5 m, from the owner's MVP assets v3 package (2026-11-01, Design/Reference/MvpAssetsV3/)",
+   "files": {
+    "json": "Client/Models/earthrise-s3c-trebuchet-cocked-05m.json"
+   },
+   "kind": "model",
+   "poseOf": "S3",
+   "pose": "cocked",
+   "placement": "Its frame is drawn on the same layer-file voxels as S3's, so the two swap with no offset in the layer file's frame. After the bake trims each grid to its voxels and mirrors x (ADR-005, decision 2; ADR-017), S3c's placement is S3's moved -5 m along x: its trimmed origin lies 3.5 m further along the layer file's x than S3's, and the mirror turns that into 5 m the other way. Arithmetic on the files, not a measurement."
+  },
+  {
+   "id": "S3p",
+   "key": "trebuchetPacked",
+   "name": "Trebuchet, packed",
+   "grid": "models",
+   "voxelSize": 0.5,
+   "role": "The trebuchet marching: broken down onto a four-wheeled wagon with 2 m spoked wheels, the counterweight box at the rear, the arm laid along the top, a hide hood over the front, a draw pole and faction trim. It cannot fire. One of S3's three baked poses.",
+   "criticalPart": null,
+   "silhouetteCue": "Wagon: four 2 m wheels, faction trim",
+   "sizeVoxels": {
+    "x": 16,
+    "y": 7,
+    "z": 7
+   },
+   "sizeMetres": {
+    "x": 8,
+    "y": 3.5,
+    "z": 3.5
+   },
+   "voxelCount": 237,
+   "authoring": "native 0.5 m, from the owner's MVP assets v3 package (2026-11-01, Design/Reference/MvpAssetsV3/)",
+   "files": {
+    "json": "Client/Models/earthrise-s3p-trebuchet-packed-05m.json"
+   },
+   "kind": "model",
+   "poseOf": "S3",
+   "pose": "packed",
+   "placement": "Its own origin. The package places it at (+4, 0, +0.5) m from S3's layer-file origin, which puts the wagon's centre on the frame's centre. After the bake's trim and mirror that is S3's placement itself, (0, 0, 0): the wagon covers the frame's 8 x 3.5 m footprint. Arithmetic on the files, not a measurement.",
+   "knownIssues": [
+    "3.5 m wide, 7 voxels, where the machines class is 3 cells wide (ADR-015, decision 2; GameDesign.md, M2's values, item 10): rounded up to whole cells it needs a clearance of 4. The owner decides whether the wagon narrows to 3 m or the class widens; neither is changed here."
+   ]
+  },
+  {
+   "id": "X1",
+   "key": "trebuchetShot",
+   "name": "Trebuchet shot",
+   "grid": "models",
+   "voxelSize": 0.5,
+   "role": "One per shot in flight, drawn at the shot's position interpolated between ticks. A cube, so it needs no turn. Drawn 1 m across, about 13 px at the default zoom, where the real stone is about 0.5 m; raw building stone, since shot is cut from the stockpile.",
+   "criticalPart": null,
+   "silhouetteCue": "Raw-stone cube, 2 x 2 x 2",
+   "sizeVoxels": {
+    "x": 2,
+    "y": 2,
+    "z": 2
+   },
+   "sizeMetres": {
+    "x": 1,
+    "y": 1,
+    "z": 1
+   },
+   "voxelCount": 8,
+   "authoring": "native 0.5 m, from the owner's MVP assets v3 package (2026-11-01, Design/Reference/MvpAssetsV3/)",
+   "files": {
+    "json": "Client/Models/earthrise-x1-trebuchet-shot-05m.json"
+   },
+   "kind": "model",
+   "knownIssues": [
+    "Drawn in building stone (4), a world-only index until 2026-11-01, when the palette marked it both for this model, as opening (20) was marked for S1's wheels (GameData/README.md)."
+   ]
+  },
+  {
+   "id": "X2",
+   "key": "arrow",
+   "name": "Arrow",
+   "grid": null,
+   "voxelSize": null,
+   "role": "One per arrow in flight, drawn at the shot's position interpolated between ticks and turned freely along its velocity, pitch included. Not voxels: a 0.5 m voxel is wider than an arrow is long, so no voxel arrow reads as one at any zoom (ADR-006, decision 2's one exception; ADR-018). Drawn 1 m long against a real 0.8 m, about 13 px at the default zoom, with its width fixed in screen pixels; shorter than 6 px on screen, it is a 2 px dot. Unlit, casts no shadow, and depth-tested against the voxel pass, so walls hide it. Arrows are M4's.",
+   "criticalPart": null,
+   "silhouetteCue": "Thin line, iron head, faction fletching",
+   "sizeVoxels": null,
+   "lengthMetres": 0.8,
+   "drawnLengthMetres": 1,
+   "voxelCount": 0,
+   "authoring": "from the owner's MVP assets v3 package (2026-11-01, Design/Reference/MvpAssetsV3/), its fields renamed to the schema the bake reads",
+   "files": {
+    "json": "Client/Lines/earthrise-x2-arrow.json"
+   },
+   "kind": "line model"
+  },
+  {
+   "id": "G1",
+   "key": "gatehouseGateRaised",
+   "name": "Gatehouse gate, raised",
+   "grid": "models",
+   "voxelSize": 0.5,
+   "role": "T5's gate while its instance is open: only the iron-tipped bottom edge of the lifted gate shows, 0.5 m under the passage head, so the passage stays 3 x 3.5 m clear for the ram. The gate's voxels stay in the world grid, T5's and T7's critical part, so cost, damage and craters are unchanged; while the instance is open the client skips them and draws this instead, and navigation lets the owner's units through (M4).",
+   "criticalPart": null,
+   "silhouetteCue": "Iron-tipped lip, 3 m wide",
+   "sizeVoxels": {
+    "x": 6,
+    "y": 1,
+    "z": 1
+   },
+   "sizeMetres": {
+    "x": 3,
+    "y": 0.5,
+    "z": 0.5
+   },
+   "voxelCount": 6,
+   "authoring": "native 0.5 m, from the owner's MVP assets v3 package (2026-11-01, Design/Reference/MvpAssetsV3/)",
+   "files": {
+    "json": "Client/Models/earthrise-g1-gatehouse-gate-raised-05m.json"
+   },
+   "kind": "model",
+   "attach": {
+    "template": "T5",
+    "localOffsetMetres": {
+     "x": 3,
+     "y": 3.5,
+     "z": 6
+    },
+    "state": "open",
+    "frame": "T5's layer file, whose gate (part 1) stands at x 3 to 6 m, y 0 to 4 m and z 6 to 7 m, the front face. The offset is symmetric in x, so the bake's mirror leaves it as it is (ADR-017)."
+   },
+   "knownIssues": [
+    "T5 is redrawn before M4 with its gate at the inner end of the passage (GameDesign.md, the paper tests' values, item 14); this offset follows the gate when it moves."
+   ]
+  },
+  {
+   "id": "G2",
+   "key": "palisadeGateOpen",
+   "name": "Palisade gate, open",
+   "grid": "models",
+   "voxelSize": 0.5,
+   "role": "T7's gate while its instance is open: both leaves swung inward, to -z, through 90 degrees and lying beside the posts, so 3 m stays clear between them. The gate's voxels stay in the world grid, T5's and T7's critical part, so cost, damage and craters are unchanged; while the instance is open the client skips them and draws this instead, and navigation lets the owner's units through (M4).",
+   "criticalPart": null,
+   "silhouetteCue": "Two leaves square to the line",
+   "sizeVoxels": {
+    "x": 8,
+    "y": 6,
+    "z": 3
+   },
+   "sizeMetres": {
+    "x": 4,
+    "y": 3,
+    "z": 1.5
+   },
+   "voxelCount": 36,
+   "authoring": "native 0.5 m, from the owner's MVP assets v3 package (2026-11-01, Design/Reference/MvpAssetsV3/)",
+   "files": {
+    "json": "Client/Models/earthrise-g2-palisade-gate-open-05m.json"
+   },
+   "kind": "model",
+   "attach": {
+    "template": "T7",
+    "localOffsetMetres": {
+     "x": 2,
+     "y": 0,
+     "z": 0
+    },
+    "state": "open",
+    "frame": "T7's layer file, its empty row included: the gate (part 1) stands at x 2 to 6 m and y 0 to 3 m in the wall row, z 1 to 2 m, and the empty row z 0 to 1 m lies behind it. From the trimmed grid's origin, which the bake puts at the wall row, the offset is (2, 0, -1) m; it is symmetric in x, so the mirror leaves x as it is (ADR-005, decision 2; ADR-017)."
+   }
+  },
+  {
+   "id": "D1",
+   "key": "debrisStoneBlock",
+   "name": "Debris: stone block",
+   "grid": "models",
+   "voxelSize": 0.5,
+   "role": "Collapse debris over stone and rock rubble: one block of masonry. The client scatters it, seeded by the collapse's id, and it is never in the world (ADR-006, decision 5); over rock rubble it is tinted with rock rubble's colour.",
+   "criticalPart": null,
+   "silhouetteCue": "1 voxel, dressed stone",
+   "sizeVoxels": {
+    "x": 1,
+    "y": 1,
+    "z": 1
+   },
+   "sizeMetres": {
+    "x": 0.5,
+    "y": 0.5,
+    "z": 0.5
+   },
+   "voxelCount": 1,
+   "authoring": "native 0.5 m, from the owner's MVP assets v3 package (2026-11-01, Design/Reference/MvpAssetsV3/)",
+   "files": {
+    "json": "Client/Models/earthrise-d1-debris-stone-block-05m.json"
+   },
+   "kind": "model"
+  },
+  {
+   "id": "D2",
+   "key": "debrisStonePair",
+   "name": "Debris: stone pair",
+   "grid": "models",
+   "voxelSize": 0.5,
+   "role": "Collapse debris over stone and rock rubble: a pair of stones, masonry and stone rubble. Scattered as D1 is.",
+   "criticalPart": null,
+   "silhouetteCue": "2 voxels",
+   "sizeVoxels": {
+    "x": 2,
+    "y": 1,
+    "z": 1
+   },
+   "sizeMetres": {
+    "x": 1,
+    "y": 0.5,
+    "z": 0.5
+   },
+   "voxelCount": 2,
+   "authoring": "native 0.5 m, from the owner's MVP assets v3 package (2026-11-01, Design/Reference/MvpAssetsV3/)",
+   "files": {
+    "json": "Client/Models/earthrise-d2-debris-stone-pair-05m.json"
+   },
+   "kind": "model"
+  },
+  {
+   "id": "D3",
+   "key": "debrisStoneCorner",
+   "name": "Debris: stone corner",
+   "grid": "models",
+   "voxelSize": 0.5,
+   "role": "Collapse debris over stone and rock rubble: three stones in an L. Scattered as D1 is.",
+   "criticalPart": null,
+   "silhouetteCue": "3 voxels, L-shape",
+   "sizeVoxels": {
+    "x": 2,
+    "y": 2,
+    "z": 1
+   },
+   "sizeMetres": {
+    "x": 1,
+    "y": 1,
+    "z": 0.5
+   },
+   "voxelCount": 3,
+   "authoring": "native 0.5 m, from the owner's MVP assets v3 package (2026-11-01, Design/Reference/MvpAssetsV3/)",
+   "files": {
+    "json": "Client/Models/earthrise-d3-debris-stone-corner-05m.json"
+   },
+   "kind": "model"
+  },
+  {
+   "id": "D4",
+   "key": "debrisBeam",
+   "name": "Debris: beam",
+   "grid": "models",
+   "voxelSize": 0.5,
+   "role": "Collapse debris over timber rubble: a 1.5 m beam. Scattered as D1 is.",
+   "criticalPart": null,
+   "silhouetteCue": "1.5 m timber",
+   "sizeVoxels": {
+    "x": 1,
+    "y": 1,
+    "z": 3
+   },
+   "sizeMetres": {
+    "x": 0.5,
+    "y": 0.5,
+    "z": 1.5
+   },
+   "voxelCount": 3,
+   "authoring": "native 0.5 m, from the owner's MVP assets v3 package (2026-11-01, Design/Reference/MvpAssetsV3/)",
+   "files": {
+    "json": "Client/Models/earthrise-d4-debris-beam-05m.json"
+   },
+   "kind": "model"
+  },
+  {
+   "id": "D5",
+   "key": "debrisSplinters",
+   "name": "Debris: splinters",
+   "grid": "models",
+   "voxelSize": 0.5,
+   "role": "Collapse debris over timber rubble: three splinters on a diagonal, timber and timber rubble. Scattered as D1 is.",
+   "criticalPart": null,
+   "silhouetteCue": "3 voxels, diagonal",
+   "sizeVoxels": {
+    "x": 2,
+    "y": 2,
+    "z": 2
+   },
+   "sizeMetres": {
+    "x": 1,
+    "y": 1,
+    "z": 1
+   },
+   "voxelCount": 3,
+   "authoring": "native 0.5 m, from the owner's MVP assets v3 package (2026-11-01, Design/Reference/MvpAssetsV3/)",
+   "files": {
+    "json": "Client/Models/earthrise-d5-debris-splinters-05m.json"
+   },
+   "kind": "model"
+  },
+  {
+   "id": "D6",
+   "key": "debrisClod",
+   "name": "Debris: clod",
+   "grid": "models",
+   "voxelSize": 0.5,
+   "role": "Collapse debris over earth rubble: a clod of earth and earth rubble. Scattered as D1 is.",
+   "criticalPart": null,
+   "silhouetteCue": "2 voxels, earth",
+   "sizeVoxels": {
+    "x": 2,
+    "y": 1,
+    "z": 1
+   },
+   "sizeMetres": {
+    "x": 1,
+    "y": 0.5,
+    "z": 0.5
+   },
+   "voxelCount": 2,
+   "authoring": "native 0.5 m, from the owner's MVP assets v3 package (2026-11-01, Design/Reference/MvpAssetsV3/)",
+   "files": {
+    "json": "Client/Models/earthrise-d6-debris-clod-05m.json"
+   },
+   "kind": "model",
+   "knownIssues": [
+    "Drawn in earth (2), a world-only index until 2026-11-01, when the palette marked it both for this model."
+   ]
   }
  ]
 }

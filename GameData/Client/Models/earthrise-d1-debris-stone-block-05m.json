@@ -1,0 +1,25 @@
+{
+ "id": "D1",
+ "name": "Debris: stone block",
+ "voxelSize": 0.5,
+ "size": {
+  "x": 1,
+  "y": 1,
+  "z": 1
+ },
+ "axes": "y up, +z front, layers[y][z][x]",
+ "derivedFrom": "MVP runtime assets package (2026-11-01)",
+ "silhouetteCue": "1 voxel, dressed stone",
+ "legend": {
+  "f": {
+   "material": 6,
+   "name": "dressed stone",
+   "hex": "#c6bca7"
+  }
+ },
+ "layers": [
+  [
+   "f"
+  ]
+ ]
+}

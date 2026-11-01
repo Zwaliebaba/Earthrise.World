@@ -359,6 +359,17 @@ The owner dropped time from the plan on closing M2.
 2. **Why.** This is a hobby project with one developer, and Claude sessions write the code. What paces it is the owner's attention, which no number captures, and a figure nobody acts on is a chore rather than a measurement: M1's hours were never logged, and M2's were a round guess given on request.
 3. **What stays.** The pull requests, the commits, one per order, and what CI found are the record, and they are in the history whether or not a table repeats them. What M1 and M2 logged stays where it is as a record and is not continued.
 
+### 2026-11-01: the MVP assets v3 package
+
+The owner's third asset package fills what [MvpAssets.md](MvpAssets.md) lacked against MvpPlan.md's *In*, and is kept unchanged in [Reference/MvpAssetsV3/](Reference/MvpAssetsV3/). Its content, its check and bake, and the documents are in; the client code it asks for is not, and waits on the open items below (MvpAssets.md, *Poses, projectiles, gates and debris*).
+
+1. **The trebuchet's three poses are three models.** S3, the existing drawing, is the released pose, counterweight down and arm up, as just after a throw; S3c is cocked and S3p is packed, a four-wheeled wagon that cannot fire. Packed is the only pose that moves. The deploy and pack times are M4's.
+2. **The arrow is not voxels.** It is the one exception to *the 1 m world*, item 2: a line model, three coloured segments along its axis with their widths in screen pixels, turned freely along its velocity, pitch included; shorter than 6 px on screen, it is a 2 px dot. [ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md), Proposed, records the format and the pass that draws it, and binds nothing until the owner gives it the go-ahead. Every voxel model still turns in 90° steps, and the simulation is unchanged: an arrow is a physical shot (M4).
+3. **A gate opens as a flag on its template instance** (M4). Its voxels stay in the world, T5's and T7's critical part, so cost, damage and craters are unchanged; while open, the owner's units pass its cells, shots still stop at them, and the client draws G1 or G2 in place of the gate's voxels.
+4. **Collapse debris is six models by rubble:** D1–D3 over stone and rock rubble, D4 and D5 over timber rubble, D6 over earth rubble, scattered as ADR-006, decision 5 says, in place of the spike's single oriented voxels.
+5. **Earth (2) and building stone (4) are marked `both`** in the palette, because the clod and the shot draw in them, as opening (20) was marked for S1's wheels; the implementer's step, which the owner may reverse by redrawing the two models.
+6. **Open, for the owner:** the packed wagon is 3.5 m across its travel where the machines class is 3 cells wide ([ADR-015](ADR/ADR-015-navigation.md)), so either the wagon narrows or the class widens; and ADR-018's go-ahead, before any engine code draws a line.
+
 ## Pillars (Decided)
 
 A pillar is a test every feature has to pass. A feature that serves none of them is a candidate for cutting.

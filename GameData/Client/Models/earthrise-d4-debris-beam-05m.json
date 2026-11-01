@@ -1,0 +1,27 @@
+{
+ "id": "D4",
+ "name": "Debris: beam",
+ "voxelSize": 0.5,
+ "size": {
+  "x": 1,
+  "y": 1,
+  "z": 3
+ },
+ "axes": "y up, +z front, layers[y][z][x]",
+ "derivedFrom": "MVP runtime assets package (2026-11-01)",
+ "silhouetteCue": "1.5 m timber",
+ "legend": {
+  "g": {
+   "material": 7,
+   "name": "timber",
+   "hex": "#7a5534"
+  }
+ },
+ "layers": [
+  [
+   "g",
+   "g",
+   "g"
+  ]
+ ]
+}

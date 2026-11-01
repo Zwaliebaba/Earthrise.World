@@ -1,4 +1,5 @@
-"""Tests for the server half of Tools/BakeContent.py: the ServerData file of ADR-016.
+"""Tests for Tools/BakeContent.py: the server half's ServerData file of ADR-016, and the client half's rule for ids and
+its line models (ADR-018).
 
 Each test bakes the real sources into a temporary folder, or bakes a copy of them with one thing changed, and reads
 the file back by hand, with the layout BakeContent.py's docstring states. The reader in Simulation (M2-B6) is tested
@@ -24,6 +25,7 @@ ROOT = TOOLS.parent
 sys.path.insert(0, str(TOOLS))
 
 import BakeContent  # noqa: E402
+import CheckAssets  # noqa: E402
 
 RECORD_FIELDS = ("exists", "behavior", "support", "spanVoxels", "flags", "rubbleIndex")
 
@@ -215,6 +217,76 @@ class ServerBakeTests(unittest.TestCase):
       self.assertEqual(1, result.returncode)
       self.assertIn("timberSpanMeters: 5.5 comes to 5.5 voxels, not a whole number", result.stdout)
       self.assertFalse((root / "out" / "server" / BakeContent.SERVER_FILE).exists())
+
+
+class ClientIdTests(unittest.TestCase):
+  """An id names a generated array, so it is an identifier, upper case in the array's name: a pose's S3c is MODEL_S3C_INDICES,
+  and no two ids may differ only in case."""
+
+  @classmethod
+  def setUpClass(cls):
+    cls.palette, _ = CheckAssets.ReadPalette(CheckAssets.Report(ROOT), ROOT)
+
+  def Views(self, _ids):
+    """Reads copies of S3c's layer file carrying _ids, in a temporary folder, as models. Returns (views, problems)."""
+    source = json.loads((BakeContent.MODELS / "earthrise-s3c-trebuchet-cocked-05m.json").read_text(encoding="utf-8"))
+    with tempfile.TemporaryDirectory() as folder:
+      for number, assetId in enumerate(_ids):
+        (Path(folder) / f"copy-{number}-05m.json").write_text(json.dumps({**source, "id": assetId}), encoding="utf-8")
+      report = CheckAssets.Report(Path(folder))
+      return BakeContent.ReadViews(report, Path(folder), self.palette, False), report.problems
+
+  def test_a_poses_lower_case_suffix_is_an_identifier(self):
+    views, problems = self.Views(["S3c"])
+    self.assertEqual([], problems)
+    self.assertEqual(["S3c"], [view.id for view in views])
+    self.assertIn("MODEL_S3C_INDICES", BakeContent.ModelHeader(views))
+
+  def test_ids_differing_only_in_case_are_refused(self):
+    _, problems = self.Views(["S3c", "S3C"])
+    self.assertEqual(1, len(problems))
+    self.assertIn("has an id differing only in case from S3C, as copy-1-05m.json does", problems[0])
+    _, problems = self.Views(["S3c", "S3c"])
+    self.assertIn("has the id S3c, as copy-0-05m.json does", problems[0])
+
+  def test_an_id_that_is_no_identifier_is_refused(self):
+    _, problems = self.Views(["s3c"])
+    self.assertIn("its id 's3c' is not an identifier such as T1", problems[0])
+
+
+class LineModelBakeTests(unittest.TestCase):
+  """The client half's line models (ADR-018): the arrow's three segments, as Content reads them."""
+
+  def test_the_arrow_bakes_as_three_contiguous_segments(self):
+    with tempfile.TemporaryDirectory() as folder:
+      out = Path(folder)
+      result = Bake(ROOT, out, "client")
+      self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+      header = (out / "client" / "LineModelTable.h").read_text(encoding="utf-8")
+    self.assertIn("inline constexpr std::array<LineSegmentView, 3> LINE_MODEL_X2_SEGMENTS = {{", header)
+    self.assertIn(".fromMillimeters = 0, .toMillimeters = 180, .colorSrgb = 0x000000u, .factionColor = true, .widthPixels = 3, "
+                  ".tapers = false", header)
+    self.assertIn(".fromMillimeters = 180, .toMillimeters = 860, .colorSrgb = 0xc79a6bu, .factionColor = false, .widthPixels = 2, "
+                  ".tapers = false", header)
+    self.assertIn(".fromMillimeters = 860, .toMillimeters = 1000, .colorSrgb = 0x9aa0a6u, .factionColor = false, .widthPixels = 3, "
+                  ".tapers = true", header)
+    self.assertIn('{.id = "X2", .name = "Arrow", .drawnLengthMillimeters = 1000, .dotBelowPixels = 6, .dotWidthPixels = 2, '
+                  ".segments = {LINE_MODEL_X2_SEGMENTS}}", header)
+    self.assertIn("inline constexpr std::array<LineModelView, 1> LINE_MODELS = {{", header)
+
+  def test_a_broken_line_model_stops_the_bake(self):
+    with tempfile.TemporaryDirectory() as folder:
+      root = Path(folder)
+      shutil.copytree(TOOLS, root / "Tools", ignore=shutil.ignore_patterns("__pycache__"))
+      shutil.copytree(ROOT / "GameData", root / "GameData")
+      path = root / "GameData" / "Client" / "Lines" / "earthrise-x2-arrow.json"
+      data = json.loads(path.read_text(encoding="utf-8"))
+      data["segments"][1]["widthPixels"] = 0
+      path.write_text(json.dumps(data), encoding="utf-8")
+      result = Bake(root, root / "out", "client")
+      self.assertEqual(1, result.returncode)
+      self.assertIn("segment 2 (shaft) has a widthPixels of 0", result.stdout)
+      self.assertFalse((root / "out" / "client" / "LineModelTable.h").exists())
 
 
 class HandWrittenEncodingTests(unittest.TestCase):

@@ -35,6 +35,7 @@ E1 = "Illustrations/earthrise-e1-ditch-rampart-1m.json"
 M1_LAYER_FILE = "Illustrations/earthrise-m1-ground-strata-1m.json"
 SPEARMAN = "Client/Models/earthrise-u2-spearman-05m.json"
 ARCHER = "Client/Models/earthrise-u3-archer-05m.json"
+ARROW = "Client/Lines/earthrise-x2-arrow.json"
 MANIFEST = "Manifest.json"
 PALETTE = "Server/Palette.json"
 RULES = "Server/Rules.json"
@@ -61,13 +62,17 @@ def Entry(_manifest, _id):
   return next(entry for entry in _manifest["assets"] if entry["id"] == _id)
 
 
+def Segment(_lineModel, _number):
+  return _lineModel["segments"][_number]
+
+
 def SetCell(_layers, _x, _y, _z, _char):
   row = _layers[_y][_z]
   _layers[_y][_z] = row[:_x] + _char + row[_x + 1 :]
 
 
 def Problems(_root):
-  report, _, _ = CheckAssets.Check(_root)
+  report, _, _, _ = CheckAssets.Check(_root)
   return report.problems
 
 
@@ -236,6 +241,22 @@ BROKEN = {
   "client content reaches the server's data": (LeakClientIntoServer, "client content reaches the server's data"),
   "the server bake fails": (lambda r: Change(r, PALETTE, lambda p: next(m for m in p["materials"] if m["index"] == 4).pop("ground")),
                             "the server bake failed with exit code 1"),
+  # 12. Line models.
+  "a line model's segments leave a gap": (lambda r: Change(r, ARROW, lambda d: Segment(d, 1).update(fromMetres=0.2)),
+                                          "its segments are not contiguous from 0 to drawnLengthMetres: segment 2 (shaft) "
+                                          "starts at 200 mm, not at segment 1's end at 180 mm"),
+  "a line model's segments stop short": (lambda r: Change(r, ARROW, lambda d: Segment(d, 2).update(toMetres=0.9)),
+                                         "its segments end at 900 mm, not at its drawn length of 1000 mm"),
+  "a line model's colour is neither hex nor faction": (lambda r: Change(r, ARROW, lambda d: Segment(d, 1).update(color="red")),
+                                                       "segment 2 (shaft) has the colour 'red', which is neither #rrggbb nor faction"),
+  "a line model's width is under a pixel": (lambda r: Change(r, ARROW, lambda d: Segment(d, 1).update(widthPixels=0)),
+                                            "segment 2 (shaft) has a widthPixels of 0, which is not a whole number of pixels from 1"),
+  "a line model's dot rule is missing": (lambda r: Change(r, ARROW, lambda d: d.pop("dotBelowPixels")),
+                                         "its dotBelowPixels None is not a whole number of pixels from 1"),
+  "an unlisted line model": (lambda r: shutil.copy(r / "GameData" / ARROW, r / "GameData" / ARROW.replace("x2-arrow", "x3-bolt")),
+                             "is a line model that Manifest.json does not list"),
+  "a voxel model among the line models": (lambda r: shutil.copy(r / "GameData" / SPEARMAN, r / "GameData" / "Client" / "Lines" / "u2-05m.json"),
+                                          "is not a line model: Client/Lines/ holds line models"),
 }
 
 
@@ -248,13 +269,14 @@ class CheckAssetsTests(unittest.TestCase):
       cls.unbroken = set(Problems(root))
 
   def test_the_repository_passes(self):
-    report, assets, outputs = CheckAssets.Check(ROOT)
+    report, assets, outputs, lineModels = CheckAssets.Check(ROOT)
     self.assertEqual(report.problems, [])
     self.assertTrue(any(CheckAssets.IsTemplate(relative) for relative in assets))
     self.assertGreater(outputs, 0, "the client bake wrote nothing, so check 9 searched nothing")
+    self.assertIn(ARROW, lineModels)
 
   def test_an_unbroken_copy_reads_as_the_repository(self):
-    report, _, _ = CheckAssets.Check(ROOT)
+    report, _, _, _ = CheckAssets.Check(ROOT)
     self.assertEqual(self.unbroken, set(report.problems))
 
   def test_each_broken_copy_fails_for_its_reason(self):

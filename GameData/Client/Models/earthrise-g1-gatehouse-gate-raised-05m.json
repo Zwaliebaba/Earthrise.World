@@ -1,0 +1,39 @@
+{
+ "id": "G1",
+ "name": "Gatehouse gate, raised",
+ "voxelSize": 0.5,
+ "size": {
+  "x": 6,
+  "y": 1,
+  "z": 1
+ },
+ "axes": "y up, +z front, layers[y][z][x]",
+ "derivedFrom": "MVP runtime assets package (2026-11-01)",
+ "silhouetteCue": "Iron-tipped lip, 3 m wide",
+ "attach": {
+  "template": "T5",
+  "localOffsetMetres": {
+   "x": 3,
+   "y": 3.5,
+   "z": 6
+  },
+  "state": "open"
+ },
+ "legend": {
+  "g": {
+   "material": 7,
+   "name": "timber",
+   "hex": "#7a5534"
+  },
+  "k": {
+   "material": 18,
+   "name": "iron",
+   "hex": "#9aa0a6"
+  }
+ },
+ "layers": [
+  [
+   "gkgkgk"
+  ]
+ ]
+}

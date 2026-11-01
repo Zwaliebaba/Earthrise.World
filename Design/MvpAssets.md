@@ -1,6 +1,6 @@
 # Earthrise.World — MVP assets
 
-**Status:** Decided by the owner, 2026-10-31. This is the catalogue of the MVP's voxel assets, which live in [`GameData/`](../GameData/), in the format of [ADR-005](ADR/ADR-005-content-formats.md). Templates and the palette are under `GameData/Server/`, models under `GameData/Client/`, and illustrations under `GameData/Illustrations/` ([ADR-008](ADR/ADR-008-server-and-client-game-data.md)). They come from the owner's second package, kept unchanged in [Reference/SiegePrototypeV2/](Reference/SiegePrototypeV2/). It replaced the first, which is still kept in [Reference/SiegePrototype/](Reference/SiegePrototype/). [GameDesign.md](GameDesign.md) and [GameDescription.md](GameDescription.md) govern rules and behaviour; this document and [RendererLook.md](RendererLook.md) govern size, colour and shading.
+**Status:** Decided by the owner, 2026-10-31. This is the catalogue of the MVP's voxel assets, which live in [`GameData/`](../GameData/), in the format of [ADR-005](ADR/ADR-005-content-formats.md). Templates and the palette are under `GameData/Server/`, models under `GameData/Client/`, and illustrations under `GameData/Illustrations/` ([ADR-008](ADR/ADR-008-server-and-client-game-data.md)). They come from the owner's second package, kept unchanged in [Reference/SiegePrototypeV2/](Reference/SiegePrototypeV2/). It replaced the first, which is still kept in [Reference/SiegePrototype/](Reference/SiegePrototype/). The runtime states of 2026-11-01, the trebuchet's other two poses, the projectiles, the open gates and the collapse debris, come from the owner's third package, kept unchanged in [Reference/MvpAssetsV3/](Reference/MvpAssetsV3/). [GameDesign.md](GameDesign.md) and [GameDescription.md](GameDescription.md) govern rules and behaviour; this document and [RendererLook.md](RendererLook.md) govern size, colour and shading.
 
 Assets come in two voxel sizes ([ADR-006](ADR/ADR-006-voxel-sizes.md)):
 - **World assets** use 1 m voxels, so one voxel is 1 m³. These are the templates, the earthworks and the material samples. Their file names end in `-1m`.
@@ -28,7 +28,7 @@ Buildings, used by both the simulation and the client. The costs are counted und
 
 Drawn by the client only. Models set no costs and no rules (ADR-005, decision 8). Each unit type is one figure: a body of 1 × 1 × 4 voxels, 0.5 × 0.5 × 2 m, with one cue beside it that tells it apart. Far away, units are drawn as impostors (RendererLook.md).
 
-| Id | Model | Figure (voxels) | Size (m) | Cue |
+| Id | Model | Size (voxels) | Size (m) | Cue |
 |---|---|---|---|---|
 | U1 | Laborer | 2 × 5 × 1 | 1 × 2.5 × 0.5 | Tan body, bare head, pick on the shoulder |
 | U2 | Spearman | 2 × 7 × 1 | 1 × 3.5 × 0.5 | Spear tip 1.5 m above the helmet |
@@ -37,9 +37,30 @@ Drawn by the client only. Models set no costs and no rules (ADR-005, decision 8)
 | U5 | Man-at-arms | 2 × 4 × 2 | 1 × 2 × 1 | All iron, with a faction shield in front |
 | S2 | Sapper | 3 × 5 × 1 | 1.5 × 2.5 × 0.5 | Iron shoulders, raised pick |
 | S1 | Battering ram | 6 × 7 × 15 | 3 × 3.5 × 7.5 | Hide roof, iron-headed log |
-| S3 | Trebuchet | 23 × 26 × 7 | 11.5 × 13 × 3.5 | 12 m arm, counterweight. In the MVP it switches between three baked poses, packed, cocked and released. The package draws one; the other two are still to draw. |
+| S3 | Trebuchet, released | 23 × 26 × 7 | 11.5 × 13 × 3.5 | 12 m arm, counterweight down and arm up, as just after a throw. One of the three baked poses the MVP switches between (GameDesign.md, *Starting the MVP*, item 8); the other two are S3c and S3p. |
+| S3c | Trebuchet, cocked | 26 × 18 × 7 | 13 × 9 × 3.5 | Arm hauled down behind the frame, sling on the ground, counterweight raised. Its frame is drawn on S3's voxels. |
+| S3p | Trebuchet, packed | 16 × 7 × 7 | 8 × 3.5 × 3.5 | A four-wheeled wagon: 2 m spoked wheels, the counterweight box at the rear, the arm along the top, a hide hood in front, a draw pole facing +x, faction trim. Marching; it cannot fire. |
+| X1 | Trebuchet shot | 2 × 2 × 2 | 1 × 1 × 1 | A cube of raw building stone, drawn at twice the stone's real size so that it reads at about 13 px a metre. A cube needs no turn. |
+| X2 | Arrow | none: a line model | 1 long, drawn; 0.8 real | Three segments along its axis: faction fletching, a #c79a6b shaft, an iron head tapering to a point. See *Poses, projectiles, gates and debris*. |
+| G1 | Gatehouse gate, raised | 6 × 1 × 1 | 3 × 0.5 × 0.5 | The iron-tipped bottom edge of T5's lifted gate, all that shows while the gate is open. |
+| G2 | Palisade gate, open | 8 × 6 × 3 | 4 × 3 × 1.5 | T7's two leaves swung inward through 90°, beside the posts. |
+| D1–D3 | Debris: stone block, pair, corner | 1 × 1 × 1; 2 × 1 × 1; 2 × 2 × 1 | up to 1 × 1 × 0.5 | Masonry and stone rubble, over stone and rock rubble; tinted with rock rubble's colour over rock. |
+| D4–D5 | Debris: beam, splinters | 1 × 1 × 3; 2 × 2 × 2 | 0.5 × 0.5 × 1.5; 1 × 1 × 1 | Timber and timber rubble, over timber rubble. |
+| D6 | Debris: clod | 2 × 1 × 1 | 1 × 0.5 × 0.5 | Earth and earth rubble, over earth rubble. |
 
-The figures are the same as in the first package, which already drew them at 0.5 m.
+The figures are the same as in the first package, which already drew them at 0.5 m. The sizes in voxels are the occupied boxes, which the bake trims to.
+
+### Poses, projectiles, gates and debris
+
+These come from the third package (2026-11-01). Its content, check and bake are in; the client code that uses them is not, and each paragraph says what it waits on.
+
+**The trebuchet's poses** (GameDesign.md, *Starting the MVP*, item 8). The cycle is packed, marching and unable to fire; deploy; cocked; fire; released for about the second of the throw; and cocked again over the reload. The deploy and pack times are M4's. S3 and S3c draw their frame on the same layer-file voxels, so they swap with no offset there, and S3p has its own origin, placed by the package at (+4, 0, +0.5) m from S3's layer-file origin, which puts the wagon's centre on the frame's. The bake trims each grid to its voxels and mirrors x (ADR-005, decision 2; ADR-017). After both, with each model placed by the minimum corner of its footprint as the spike places models, S3p sits at S3's placement itself and S3c at S3's placement moved 5 m along -x; both figures are arithmetic on the files, recorded as `placement` in `Manifest.json`. Nothing switches the poses yet: the simulation's engine has no pose (M2's `SiegeEngine`), and the spike places S3 alone.
+
+**The projectiles.** X1 is drawn at a shot's position, interpolated between ticks on the client; nothing draws it yet. X2, the arrow, is not voxels: a 0.5 m voxel is wider than an arrow is long, so one voxel reads as a block and two as a plank at any zoom, and an arrow tilts as it flies where a voxel model turns in quarter turns. It is the one exception to ADR-006, decision 2: a **line model** in [`GameData/Client/Lines/`](../GameData/Client/Lines/), three segments along its axis, the fletching in the faction colour at 3 px, the shaft #c79a6b at 2 px and the iron head at 3 px tapering to a point, drawn 1 m long against a real 0.8 m, with its width fixed in screen pixels and a 2 px dot once it is shorter than 6 px on screen. It is unlit, casts no shadow, and is depth-tested against the voxel pass. [ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md), Proposed, records the format and the instanced line pass that draws it; the file, its check and its bake are in, and nothing draws it until the owner accepts the ADR. Arrows themselves are M4's ([MvpPlan.md](MvpPlan.md)).
+
+**The open gates.** A gate's voxels stay in the world grid: they are T5's and T7's critical part, so cost, damage and craters are unchanged. The gate's state, open or closed, is a flag on the template instance (M4). While open, navigation lets the owner's units through the gate cells and shots still stop at them; the client skips the instance's gate voxels and draws G1 or G2 instead, G1 at T5-local (3, 3.5, 6) m and G2 at T7-local (2, 0, 0) m, both in the layer files' frames, which `Manifest.json`'s `attach` entries carry over to the trimmed grids. A destroyed gate loses its voxels by the normal rules and draws no open model. T5's gate moves to the inner end of its passage when T5 is redrawn before M4 (GameDesign.md, *the paper tests' values*, item 14), and G1's offset follows it. Nothing of this exists yet: the simulation has no template instances and no gate state.
+
+**The collapse debris** replaces the spike's own pieces, which are single oriented voxels (RendererLook.md §1): over stone rubble (8) and rock rubble (28) D1–D3, tinted #7f7c77 over rock; over timber rubble (25) D4 and D5; over earth rubble (26) D6. The scatter is ADR-006, decision 5's: a PRNG seeded with the collapse's id, one piece per about 4 m² of rubble top on a rubble cell's top face, a quarter turn of yaw each, and an offset of 0, 0.25 or 0.5 m within the cell. Debris never blocks a path or a shot. `Manifest.json` carries the table as `debrisByRubble`; nothing bakes it, and the spike still scatters its own pieces.
 
 **Placeholders** for the renderer spike's test scene (MvpPlan.md, M1 task 9), which `GameData/` lacked. They are drawn to the v5 scene's shapes, and the owner may replace them:
 
@@ -68,6 +89,10 @@ The packages made choices the design documents had not fixed. The owner adopted 
 - **The standard ditch** is 5 m wide at the top and 2 m deep, with 1:1 sides. Those are 45°, the slope at which earth stands. On the 1 m grid the sides step: 4 m wide in the top metre and 2 m in the second, which is 6 m² of cross-section, the same as the 1:1 profile. The rampart is built from the spoil on the side towards the keep.
 - **Unit cues:** one cue per unit type, as listed under Models.
 - **Colours added for the look:** horse #5e4330 and leather (hides and hoods) #6e5a3e, which are render-only; timber rubble #5f4530, earth rubble #7d6044 and rock rubble #7f7c77, provisional, which the simulation now leaves when a collapse falls (GameDesign.md, *M2's values*, item 7).
+- **The trebuchet's three poses are three models** (the third package, 2026-11-01): S3 released, S3c cocked and S3p packed, and the existing drawing is the released pose, not the cocked one that ADR-015 had called it.
+- **The arrow is not voxels** (the third package): a line model, ADR-006's one exception, recorded in [ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md), Proposed.
+- **A gate opens as a flag on its instance,** with its voxels left in the world (the third package; GameDesign.md, *the MVP assets v3 package*).
+- **Earth (2) and building stone (4) are marked `both`,** because the clod and the shot draw in them, as opening (20) was marked for S1's wheels.
 
 ## Known issues
 
@@ -80,10 +105,14 @@ The packages made choices the design documents had not fixed. The owner adopted 
 - **T2's roof is stone on a pier** (2026-11-01, the owner's choice). The render-fix package made the keep's floors and roof stone again, but an 8 × 8 m stone roof cannot stand where stone spans 2 m: the support search finds 16 of its voxels unsupported. The floors stay timber, and a 2 × 2 m stone pier up the middle carries a stone roof, with every roof voxel within 2 m of support. The support search finds nothing unsupported in it. T2's preview shows a stone roof and no pier.
 - **The package's costs left decorations out.** `Manifest.json` keeps each original figure as `packageCostM3`, next to the recount. T1, T2, T4 and T7 cost slightly more than the package said. T2 has changed more since: at stone's 2 m span its floors became timber and its roof stone on a pier, so it is 1,650 m³ of stone and 120 m³ of timber against the package's 1,718 m³ of stone, and the render-fix package's 1,668 (GameDesign.md, *the paper tests' values*, item 1).
 - **The scene prompt builds its walls 1.5 m thick.** T3 is 2 m. Where they differ, the templates win ([MvpPlan.md](MvpPlan.md), M1).
+- **The packed trebuchet is wider than its navigation class.** S3p is 3.5 m across its travel, 7 voxels, where the machines class is 3 cells wide, from the ram ([ADR-015](ADR/ADR-015-navigation.md), decision 2; GameDesign.md, *M2's values*, item 10); rounded up to whole cells it needs a clearance of 4. The owner decides whether the wagon narrows to 3 m, the width of the ram and of T5's passage, or the class widens; neither is changed.
+- **The poses do not swap in place after the bake.** The third package says S3 and S3c swap with no offset, which holds in the layer files and not after the bake's trim and mirror: S3c's placement is S3's moved 5 m along -x, and S3p's is S3's own (*Poses, projectiles, gates and debris*).
+- **The third package's models have no previews.** Nothing reads [Previews/](Previews/); `Tools/ExportVox.py` writes a `.vox` of any of them for MagicaVoxel, and the package's asset sheet, section 06, draws them in a browser.
+- **The arrow's widths and dot rule are unseen in the engine.** 2 px, 3 px, 6 px and 2 px come from the package's own renderings; ADR-018 leaves them open until an arrow is on screen.
 
 ## Previews
 
-The previews are the package's own renderings, kept in [Previews/](Previews/) rather than beside their sources in `GameData/`; nothing reads them.
+The previews are the package's own renderings, kept in [Previews/](Previews/) rather than beside their sources in `GameData/`; nothing reads them. The third package's models, S3c, S3p, X1, G1, G2 and D1–D6, have none; its asset sheet in [Reference/MvpAssetsV3/](Reference/MvpAssetsV3/) renders them.
 
 ![T1 Hall](Previews/earthrise-t1-hall-1m.png)
 ![T2 Keep](Previews/earthrise-t2-keep-1m.png)
