@@ -48,8 +48,14 @@ struct Readback
   }
 };
 
+/// The light the scenes are lit by unless a test says otherwise: sky and ground alike and no sun,
+/// so that a face takes its albedo times its corner shade, whichever way it faces.
+constexpr DirectX::XMFLOAT4 FLAT_LIGHT = {1.0F, 1.0F, 1.0F, 0.0F};
+constexpr DirectX::XMFLOAT4 NO_LIGHT = {0.0F, 0.0F, 0.0F, 0.0F};
+constexpr std::array<DirectX::XMFLOAT4, 2> CORNER_SHADES = {{{0.52F, 0.68F, 0.84F, 1.0F}, {0.74F, 0.84F, 0.93F, 1.0F}}};
+
 /// An orthographic camera at _eye looking along _forward, with reversed Z between the near and far
-/// distances, and the light straight overhead.
+/// distances, the sun straight overhead, and the flat light.
 Engine::VoxelPass::FrameConstants MakeFrame(DirectX::FXMVECTOR _eye, DirectX::FXMVECTOR _forward, DirectX::FXMVECTOR _up, float _nearMeters,
                                             float _farMeters)
 {
@@ -64,6 +70,10 @@ Engine::VoxelPass::FrameConstants MakeFrame(DirectX::FXMVECTOR _eye, DirectX::FX
   constexpr float PIXELS = static_cast<float>(TARGET_PIXELS);
   frame.viewportPixels = {PIXELS, PIXELS, 1.0F / PIXELS, 1.0F / PIXELS};
   frame.lightDirection = {0.0F, 1.0F, 0.0F, 0.0F};
+  frame.sunRadiance = NO_LIGHT;
+  frame.skyRadiance = FLAT_LIGHT;
+  frame.groundRadiance = FLAT_LIGHT;
+  frame.cornerShades = CORNER_SHADES;
   return frame;
 }
 
@@ -254,6 +264,24 @@ Engine::VoxelPass::FrameConstants TopDownFrame(float _eyeHeightMeters, float _ne
                    DirectX::XMVectorSet(0.0F, 0.0F, 1.0F, 0.0F), _nearMeters, FAR_METERS);
 }
 
+// Looking north along +z from 10 m south of the origin, with +x to the right and +y up the screen:
+// the voxel [0, 1]^3's south face covers the same pixels as its top does from above.
+Engine::VoxelPass::FrameConstants SouthFrame()
+{
+  return MakeFrame(DirectX::XMVectorSet(0.0F, 0.0F, -EYE_HEIGHT_METERS, 1.0F), DirectX::XMVectorSet(0.0F, 0.0F, 1.0F, 0.0F),
+                   DirectX::XMVectorSet(0.0F, 1.0F, 0.0F, 0.0F), NEAR_METERS, FAR_METERS);
+}
+
+/// A record whose top face is fully occluded at corner 0, its south-west corner, and open at the
+/// other three, read through _shadeTable.
+Engine::VoxelRecord ShadedAtSouthWest(std::uint32_t _x, std::uint8_t _paletteIndex, std::uint8_t _shadeTable)
+{
+  Engine::VoxelShade shade = Engine::UNSHADED;
+  shade.cornerLevels[static_cast<std::size_t>(Engine::VoxelFace::PositiveY)] = {0, 3, 3, 3};
+  shade.shadeTable = _shadeTable;
+  return Engine::MakeVoxelRecord(_x, 0, 0, _paletteIndex, shade);
+}
+
 } // namespace
 
 TEST_CLASS(VoxelPassTests)
@@ -289,7 +317,7 @@ public:
     Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
     const std::array<Engine::VoxelRecord, 1> records = {Engine::MakeVoxelRecord(0, 0, 0, ORANGE)};
     const Readback frame = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), records);
-    // The light is overhead, so the top face takes its full albedo: (1, 0.5, 0.25).
+    // Under the flat light, with every corner open, the top face takes its full albedo: (1, 0.5, 0.25).
     Assert::IsTrue(Near(frame.ColorAt(40, 24), 255, 128, 64), Describe(frame.ColorAt(40, 24)).c_str());
     AssertNoDebugErrors(device);
   }
@@ -366,6 +394,74 @@ public:
     const Readback frame = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), records, swapped);
     Assert::IsTrue(Near(frame.ColorAt(40, 24), 0, 255, 0), Describe(frame.ColorAt(40, 24)).c_str());
     Assert::IsTrue(Near(frame.ColorAt(56, 24), 255, 128, 64), Describe(frame.ColorAt(56, 24)).c_str());
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(LightsByTheSunAndTheHemisphere)
+  {
+    // The sun overhead at 0.5, the sky at 0.25 and the ground dark (RendererLook.md §6). The top
+    // face takes all of the sun and all of the sky: 0.75 of its albedo. The south face takes none
+    // of the sun, and half sky, half ground: 0.125.
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const std::array<Engine::VoxelRecord, 1> records = {Engine::MakeVoxelRecord(0, 0, 0, ORANGE)};
+    const auto lit = [](Engine::VoxelPass::FrameConstants _frame)
+    {
+      _frame.sunRadiance = {0.5F, 0.5F, 0.5F, 0.0F};
+      _frame.skyRadiance = {0.25F, 0.25F, 0.25F, 0.0F};
+      _frame.groundRadiance = NO_LIGHT;
+      return _frame;
+    };
+    const Readback top = Render(device, lit(TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS)), records);
+    Assert::IsTrue(Near(top.ColorAt(40, 24), 191, 96, 48), (L"the top face: " + Describe(top.ColorAt(40, 24))).c_str());
+    const Readback south = Render(device, lit(SouthFrame()), records);
+    Assert::IsTrue(Near(south.ColorAt(40, 24), 32, 16, 8), (L"the south face: " + Describe(south.ColorAt(40, 24))).c_str());
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(BlendsCornerShadesAcrossAFace)
+  {
+    // Two voxels whose top faces are fully occluded at their south-west corners, the first through
+    // the structure table, where that is 0.52, the second through the terrain table, where it is
+    // 0.74 (RendererLook.md §5). The pixel nearest that corner sits 1/32 of the face in from it
+    // along both edges, so its shade is 1 - (1 - 0.52) x (31/32)^2 = 0.5495, or for terrain 0.7560.
+    // The opposite corner's pixel is all but open.
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const std::array<Engine::VoxelRecord, 2> records = {ShadedAtSouthWest(0, ORANGE, 0), ShadedAtSouthWest(1, ORANGE, 1)};
+    const Readback frame = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), records);
+    Assert::IsTrue(Near(frame.ColorAt(32, 31), 140, 70, 35), (L"structure's corner: " + Describe(frame.ColorAt(32, 31))).c_str());
+    Assert::IsTrue(Near(frame.ColorAt(47, 16), 255, 128, 64), (L"the open corner: " + Describe(frame.ColorAt(47, 16))).c_str());
+    Assert::IsTrue(Near(frame.ColorAt(48, 31), 193, 96, 48), (L"terrain's corner: " + Describe(frame.ColorAt(48, 31))).c_str());
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(TurnsCornerShadesWithTheBatch)
+  {
+    // A 2 x 1 footprint turned a quarter, as in TurnsABatchAQuarterAboutItsFootprint: orange comes
+    // to (0, 1). Its occluded corner, the batch's own south-west one, turns with it to the world's
+    // north-west corner of that cell, at pixel (32, 0); the cell's own south-west pixel, (32, 15),
+    // is all but open. Read unturned, the two would swap.
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const std::array<Engine::VoxelRecord, 2> records = {ShadedAtSouthWest(0, ORANGE, 0), Engine::MakeVoxelRecord(1, 0, 0, GREEN)};
+    Engine::VoxelPass::Batch turned = PLAIN_BATCH;
+    turned.quarterTurns = 1;
+    turned.widthCells = 2;
+    turned.depthCells = 1;
+    const Readback frame = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), records, turned);
+    Assert::IsTrue(Near(frame.ColorAt(32, 0), 140, 70, 35), (L"the turned corner: " + Describe(frame.ColorAt(32, 0))).c_str());
+    Assert::IsTrue(frame.ColorAt(32, 15)[0] >= 245, (L"the cell's own south-west: " + Describe(frame.ColorAt(32, 15))).c_str());
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(JittersOnlyTheLightness)
+  {
+    // Orange is (1, 0.5, 0.25), in HSL (1/18, 1, 0.625). Lightness 50/1024 lower, hue and saturation
+    // kept, is (1, 0.4349, 0.1523) (RendererLook.md §4, three.js's offsetHSL on linear RGB).
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    Engine::VoxelShade shade = Engine::UNSHADED;
+    shade.lightnessOffset = -50.0F / 1024.0F;
+    const std::array<Engine::VoxelRecord, 1> records = {Engine::MakeVoxelRecord(0, 0, 0, ORANGE, shade)};
+    const Readback frame = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), records);
+    Assert::IsTrue(Near(frame.ColorAt(40, 24), 255, 111, 39), Describe(frame.ColorAt(40, 24)).c_str());
     AssertNoDebugErrors(device);
   }
 

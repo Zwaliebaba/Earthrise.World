@@ -34,7 +34,7 @@ winrt::com_ptr<ID3D12RootSignature> MakeRootSignature(ID3D12Device* _device)
   parameters[RootFrame].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
   parameters[RootPalette].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
   parameters[RootPalette].Descriptor = {.ShaderRegister = 1, .RegisterSpace = 0};
-  parameters[RootPalette].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+  parameters[RootPalette].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX; // the colour is jittered once a voxel
   parameters[RootBatch].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
   parameters[RootBatch].Constants = {.ShaderRegister = 2, .RegisterSpace = 0, .Num32BitValues = BATCH_CONSTANT_COUNT};
   parameters[RootBatch].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
