@@ -124,6 +124,24 @@ std::map<std::uint64_t, std::uint64_t> ChunkHashes(const Simulation::Generator& 
   return hashes;
 }
 
+/// The seed pairs the golden hashes and the slope invariant are taken on, each with its map's hash:
+/// Core::Fnv1a64 over every chunk's voxels, in packed-key order, continued from chunk to chunk.
+struct Golden
+{
+  std::uint64_t worldSeed;
+  std::uint64_t resourceSeed;
+  std::uint64_t mapHash;
+};
+
+// Computed on 2026-11-01 by clang 18 and GCC 13 on Linux, which agreed; CI's MSVC build checks them
+// on Windows. A change to the generator's output fails here: an intended one comes with a new
+// GENERATOR_VERSION and new hashes (ADR-003, *Consequences*). Release must give the same.
+constexpr std::array<Golden, 3> GOLDEN = {{
+  {.worldSeed = 1, .resourceSeed = 2, .mapHash = 0xad636116dc91b363ULL},
+  {.worldSeed = 0x5eed2026ULL, .resourceSeed = 0x0e5ULL, .mapHash = 0x1178e40f31025b76ULL},
+  {.worldSeed = 0xdeadbeefULL, .resourceSeed = 7, .mapHash = 0x56212d74ab5a9df6ULL},
+}};
+
 } // namespace
 
 TEST_CLASS(GeneratorTests)
@@ -195,6 +213,77 @@ public:
     Assert::IsTrue(deepEarth);
     Assert::IsTrue(ford);
     Assert::IsTrue(deepWater);
+  }
+
+  TEST_METHOD(GoldenHashes)
+  {
+    for (const Golden& golden : GOLDEN)
+    {
+      const Simulation::Generator generator(MapDesc(golden.worldSeed, golden.resourceSeed));
+      std::set<std::uint64_t> keys;
+      for (std::int32_t cy = 0; cy < generator.HeightChunks(); ++cy)
+      {
+        for (std::int32_t cz = 0; cz < generator.DepthChunks(); ++cz)
+        {
+          for (std::int32_t cx = 0; cx < generator.WidthChunks(); ++cx)
+          {
+            keys.insert(Protocol::PackChunkKey({.xChunks = cx, .yChunks = cy, .zChunks = cz}));
+          }
+        }
+      }
+      std::uint64_t hash = Core::FNV_OFFSET_BASIS;
+      for (const std::uint64_t key : keys)
+      {
+        const auto chunk = std::make_unique<Protocol::Chunk>();
+        generator.GenerateChunk(Protocol::UnpackChunkKey(key), *chunk);
+        hash = Core::Fnv1a64(std::as_bytes(chunk->Voxels()), hash);
+      }
+      Assert::AreEqual(golden.mapHash, hash);
+    }
+  }
+
+  TEST_METHOD(SlopeInvariant)
+  {
+    // No column whose top voxel is earth or grass stands more than a voxel above a four-neighbour's
+    // top, which is when slump (M2-E6) would move it (ADR-003, *Consequences*).
+    for (const Golden& golden : GOLDEN)
+    {
+      const Map map(Simulation::Generator(MapDesc(golden.worldSeed, golden.resourceSeed)));
+      std::vector<std::int32_t> tops(static_cast<std::size_t>(map.width) * static_cast<std::size_t>(map.depth));
+      for (std::int32_t z = 0; z < map.depth; ++z)
+      {
+        for (std::int32_t x = 0; x < map.width; ++x)
+        {
+          tops[static_cast<std::size_t>(z) * static_cast<std::size_t>(map.width) + static_cast<std::size_t>(x)] = map.Top(x, z);
+        }
+      }
+      const auto top = [&](std::int32_t _x, std::int32_t _z)
+      { return tops[static_cast<std::size_t>(_z) * static_cast<std::size_t>(map.width) + static_cast<std::size_t>(_x)]; };
+      constexpr std::array<std::array<std::int32_t, 2>, 4> SIDES = {{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}};
+      std::size_t earthColumns = 0;
+      for (std::int32_t z = 0; z < map.depth; ++z)
+      {
+        for (std::int32_t x = 0; x < map.width; ++x)
+        {
+          const std::uint8_t material = map.At(x, top(x, z), z);
+          if (material != GRASS && material != EARTH)
+          {
+            continue;
+          }
+          ++earthColumns;
+          for (const auto& [dx, dz] : SIDES)
+          {
+            const std::int32_t nx = x + dx;
+            const std::int32_t nz = z + dz;
+            if (nx >= 0 && nx < map.width && nz >= 0 && nz < map.depth)
+            {
+              Assert::IsTrue(top(x, z) <= top(nx, nz) + 1);
+            }
+          }
+        }
+      }
+      Assert::IsTrue(earthColumns > 0);
+    }
   }
 
   TEST_METHOD(KeepsTheSurfaceWithinTheRelief)
