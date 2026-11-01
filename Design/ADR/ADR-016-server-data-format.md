@@ -1,10 +1,14 @@
 # ADR-016 — The `ServerData` file and where it is baked
 
-**Status:** Proposed, 2026-11-01. It settles two items left open by earlier ADRs: the `ServerData` format in detail ([ADR-008](ADR-008-server-and-client-game-data.md), *Left open*), and where its bake target lives ([ADR-010](ADR-010-solution-and-build-layout.md), *Left open*). It amends ADR-008, decision 4: the reader also recomputes the server-data hash and checks each section's version (decision 6).
+**Status:** Accepted, 2026-11-01, by order M2-B5 ([MvpPlan-M2.md](../MvpPlan-M2.md)), which implements decisions 1 to 4, the file and its sources, in `Tools/BakeContent.py --server`. Order M2-B6 implements decisions 5 to 7, the bake target, the reader and the shared-hash comparison. Proposed the same day. It settles two items left open by earlier ADRs: the `ServerData` format in detail ([ADR-008](ADR-008-server-and-client-game-data.md), *Left open*), and where its bake target lives ([ADR-010](ADR-010-solution-and-build-layout.md), *Left open*). It amends ADR-008, decision 4: the reader also recomputes the server-data hash and checks each section's version (decision 6).
 - **The owner gave the go-ahead** on 2026-11-01 ([MvpPlan.md](../MvpPlan.md), M2, input 1; GameDesign.md, *M2's values*).
-- **The commit that first implements it** marks it Accepted (AGENTS.md §6).
-
-Nothing implements it yet.
+- **What the code fixed that the decision left unsaid,** as amendments (2026-11-01, M2-B5):
+  - **A directory entry's offset counts from the start of the body,** so the body, which the hash covers, is self-contained.
+  - **A template's voxels and parts are in the client view's order,** x fastest, then z, then y, mirrored in x from the layer file ([ADR-017](ADR-017-the-prototypes-frame-and-the-worlds.md)), so `TemplateLookup` gives the shape the client draws.
+  - **How a source converts is named by its key's unit.** Meters convert to voxels and seconds to ticks, each of which must come out whole; meters a second and a second squared convert to `Core::Fixed` a tick and a tick squared, floored once; voxels, cells and factors are whole as they stand. `Tools/CheckAssets.py`, check 10, holds the table, and the bake converts with it.
+  - **The ground flag and the rubble index live on each palette entry,** as server-side fields `ground` and `rubble`. A decoration's host behaviour is a palette entry of its own, with a `decorates` field naming the decoration whose look it has: 29 an opening in timber, 30 an opening in stone, 31 iron in timber, at the indices after the last one used.
+  - **Spans are in both sections:** `RULE` holds each behaviour's, and `MATL` gives each index its behaviour's.
+- **Decisions 5 to 7 landed with M2-B6** (2026-11-01): the `BakeServerData` target in `Simulation.vcxproj`; `Simulation::ServerData`, which `SimulationTests`, `SimulationBench` and `RendererSpike` read; and the spike's refusal to start on a shared-hash mismatch. `StandInMaterialRules` went, and `ScaleSpans` takes its place for ADR-006's 0.5 m comparison. The reader also refuses a section it does not know, and one that appears twice.
 
 ## Context
 

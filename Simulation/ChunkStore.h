@@ -26,6 +26,15 @@ namespace Simulation
 class ChunkStore
 {
 public:
+  ChunkStore() = default;
+  ~ChunkStore() = default;
+  ChunkStore(const ChunkStore&) = default;
+  ChunkStore& operator=(const ChunkStore&) = default;
+  // A move may allocate under the debug library's checked containers, whose std::map allocates in
+  // its move constructor, so it is not noexcept (bugprone-exception-escape).
+  ChunkStore(ChunkStore&&) noexcept(false) = default;
+  ChunkStore& operator=(ChunkStore&&) noexcept(false) = default;
+
   /// The palette index at a voxel, as the simulation last set it, whether published or not.
   [[nodiscard]] std::uint8_t At(Protocol::VoxelPosition _position) const;
 
@@ -33,6 +42,11 @@ public:
   /// holds changes nothing. Throws std::out_of_range for a voxel in a chunk the packed key cannot
   /// hold (Protocol::FitsChunkKey).
   void Set(Protocol::VoxelPosition _position, std::uint8_t _paletteIndex);
+
+  /// Sets every voxel of a chunk at once, as a generator fills one: the same as setting each voxel
+  /// in turn, faster. A chunk with nothing in it that the store does not hold stays absent. Throws
+  /// std::out_of_range for a coordinate the packed key cannot hold.
+  void SetChunk(Protocol::ChunkCoordinate _coordinate, const Protocol::Chunk& _voxels);
 
   /// Publishes every chunk changed since the last call and returns their new snapshots, in key
   /// order. When nothing changed it returns none, and the version does not move.
@@ -44,6 +58,13 @@ public:
 
   /// The version of the latest publication that changed something, or 0 before the first.
   [[nodiscard]] std::uint64_t Version() const noexcept;
+
+  /// A chunk's current voxels, pending or published, by its packed key, or null for a chunk the
+  /// store does not hold.
+  [[nodiscard]] const Protocol::Chunk* Find(std::uint64_t _key) const;
+
+  /// The packed key of every chunk the store holds, in key order.
+  [[nodiscard]] std::vector<std::uint64_t> Keys() const;
 
 private:
   struct Entry

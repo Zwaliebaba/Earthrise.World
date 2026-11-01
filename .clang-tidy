@@ -141,7 +141,7 @@ CheckOptions:
   # ── Functions: PascalCase ──────────────────────────────────────────────────────────
   - { key: readability-identifier-naming.FunctionCase,             value: CamelCase  }
   # The entry point is named by the SDK, and keeps the SDK's spelling (R4).
-  - { key: readability-identifier-naming.FunctionIgnoredRegexp,    value: '^wWinMain$' }
+  - { key: readability-identifier-naming.FunctionIgnoredRegexp,    value: '^(wWinMain|wmain)$' }
   - { key: readability-identifier-naming.MethodCase,               value: CamelCase  }
 
   # ── Constants: UPPER_CASE (R3); enumerators stay PascalCase above ──────────────────

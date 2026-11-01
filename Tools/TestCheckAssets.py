@@ -37,6 +37,7 @@ SPEARMAN = "Client/Models/earthrise-u2-spearman-05m.json"
 ARCHER = "Client/Models/earthrise-u3-archer-05m.json"
 MANIFEST = "Manifest.json"
 PALETTE = "Server/Palette.json"
+RULES = "Server/Rules.json"
 BAKE = "Tools/BakeContent.py"
 BAKE_IMPORTS = ("Tools/CheckAssets.py", "Tools/VoxFile.py")  # the bake counts costs with the asset check's code
 
@@ -132,6 +133,17 @@ def LeakIntoBake(_root, _cpp):
   path.write_text(text.replace(closing, f"{_cpp!r} + {closing}"), encoding="utf-8")
 
 
+def LeakClientIntoServer(_root):
+  """Makes the copied server bake count the client's models into its RULE section, as a bake that read GameData/Client/
+  for the server would."""
+  path = _root / BAKE
+  text = path.read_text(encoding="utf-8")
+  rules = '"RULE": ServerRules(rules)'
+  assert rules in text, "the server bake's RULE line has moved; update this test"
+  path.write_text(text.replace(rules, '"RULE": ServerRules({**rules, "modelCount": len(list(MODELS.glob("*.json")))})'),
+                  encoding="utf-8")
+
+
 def DuplicateIndex(_palette):
   _palette["materials"].append(dict(next(m for m in _palette["materials"] if m["index"] == 7)))
 
@@ -213,6 +225,17 @@ BROKEN = {
     "the threshold word(s) threshold"),
   "the client bake fails": (lambda r: Change(r, PALETTE, BadColor), "the client bake failed with exit code 1"),
   "the client bake is missing": (lambda r: (r / BAKE).unlink(), "the client bake is missing"),
+  # 10. Rules.json.
+  "a span that is not a whole number of voxels": (lambda r: Change(r, RULES, lambda d: d["values"].update(timberSpanMeters="5.5")),
+                                                  "timberSpanMeters: 5.5 comes to 5.5 voxels, not a whole number"),
+  "a rule whose key names no unit": (lambda r: Change(r, RULES, lambda d: d["values"].update(slumpRate="3")),
+                                     "slumpRate: its key names no unit the bake converts"),
+  "a rule that is not a decimal": (lambda r: Change(r, RULES, lambda d: d["values"].update(warningBaseSeconds="1/2")),
+                                   "warningBaseSeconds: '1/2' is not a decimal string"),
+  # 11. The server's bake.
+  "client content reaches the server's data": (LeakClientIntoServer, "client content reaches the server's data"),
+  "the server bake fails": (lambda r: Change(r, PALETTE, lambda p: next(m for m in p["materials"] if m["index"] == 4).pop("ground")),
+                            "the server bake failed with exit code 1"),
 }
 
 

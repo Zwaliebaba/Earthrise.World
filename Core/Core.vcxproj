@@ -38,6 +38,15 @@
     <ClCompile Include="Hash.cpp" />
     <ClInclude Include="Percentile.h" />
     <ClCompile Include="Percentile.cpp" />
+    <ClInclude Include="Fixed.h" />
+    <ClCompile Include="Fixed.cpp" />
+    <ClInclude Include="IntegerMath.h" />
+    <ClCompile Include="IntegerMath.cpp" />
+    <ClInclude Include="SplitMix64.h" />
+    <ClInclude Include="ByteWriter.h" />
+    <ClCompile Include="ByteWriter.cpp" />
+    <ClInclude Include="ByteReader.h" />
+    <ClCompile Include="ByteReader.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

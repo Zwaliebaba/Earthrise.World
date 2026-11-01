@@ -2,6 +2,9 @@
 
 #include "TestWorld.h"
 
+#include "IntegerMath.h"
+#include "SplitMix64.h"
+
 namespace Simulation
 {
 
@@ -34,7 +37,7 @@ constexpr std::uint8_t ROOF = 12;
 constexpr std::uint8_t FIELD_A = 13;
 constexpr std::uint8_t FIELD_B = 14;
 constexpr std::uint8_t ROAD = 15;
-constexpr std::uint8_t OPENING = 20;
+constexpr std::uint8_t OPENING_IN_TIMBER = 29; // a door: an opening's look, timber's behaviour (M2's values, item 7)
 
 // The breach's middle along the west curtain, and the stretch in front of it the ditch leaves undug,
 // 9 m, so the attackers' approach reads (the render-fix package, item 6).
@@ -59,20 +62,11 @@ constexpr std::int32_t HEAP_HEIGHT_VOXELS = 4;
 
 constexpr std::int64_t ONE = std::int64_t{1} << 16;
 
-// SplitMix64's finalizer.
-constexpr std::uint64_t Mix(std::uint64_t _value) noexcept
-{
-  _value += 0x9e3779b97f4a7c15ULL;
-  _value = (_value ^ (_value >> 30)) * 0xbf58476d1ce4e5b9ULL;
-  _value = (_value ^ (_value >> 27)) * 0x94d049bb133111ebULL;
-  return _value ^ (_value >> 31);
-}
-
 /// A hash of two integers and a salt, from 0 up to ONE.
 std::int64_t Hash(std::int64_t _x, std::int64_t _z, std::uint64_t _salt, std::uint64_t _seed) noexcept
 {
   const std::uint64_t key = static_cast<std::uint64_t>(_x) ^ (static_cast<std::uint64_t>(_z) << 32);
-  return static_cast<std::int64_t>(Mix(_seed ^ Mix(_salt ^ Mix(key))) & static_cast<std::uint64_t>(ONE - 1));
+  return static_cast<std::int64_t>(Core::KeyedDraw(_seed, _salt, key) & static_cast<std::uint64_t>(ONE - 1));
 }
 
 std::int64_t Smooth(std::int64_t _t) noexcept
@@ -119,29 +113,10 @@ constexpr std::int32_t Round(std::int64_t _fixed) noexcept
   return static_cast<std::int32_t>((_fixed + ONE / 2) >> 16);
 }
 
-std::int64_t IntegerSqrt(std::int64_t _value) noexcept
-{
-  if (_value <= 0)
-  {
-    return 0;
-  }
-  // A float guess, corrected to the exact integer root, so the result does not depend on the FPU.
-  auto root = static_cast<std::int64_t>(std::sqrt(static_cast<double>(_value)));
-  while (root * root > _value)
-  {
-    --root;
-  }
-  while ((root + 1) * (root + 1) <= _value)
-  {
-    ++root;
-  }
-  return root;
-}
-
-/// The length of a fixed-point vector, in fixed point.
+/// The length of a fixed-point vector, in fixed point: the exact floor of its root (ADR-013).
 std::int64_t Length(std::int64_t _x, std::int64_t _z) noexcept
 {
-  return IntegerSqrt(_x * _x + _z * _z);
+  return Core::IntegerSquareRoot(static_cast<std::uint64_t>(_x * _x + _z * _z));
 }
 
 /// The river's middle at row _z of the v5 scene: its gentle curve, with a triangle wave of the
@@ -615,7 +590,7 @@ void BuildDitchAndRampart(const Site& _site)
 void BuildCottage(const Site& _site, std::int32_t _x, std::int32_t _z, std::int32_t _width, std::int32_t _depth)
 {
   _site.Box(_x, _x + _width - 1, G, G + 2, _z, _z + _depth - 1, TIMBER);
-  _site.Box(_x + _width / 2, _x + _width / 2, G, G + 1, _z, _z, OPENING);
+  _site.Box(_x + _width / 2, _x + _width / 2, G, G + 1, _z, _z, OPENING_IN_TIMBER);
   _site.Box(_x - 1, _x + _width, G + 3, G + 3, _z - 1, _z + _depth, ROOF);
   _site.Box(_x - 1, _x + _width, G + 4, G + 4, _z, _z + _depth - 1, ROOF);
   _site.Box(_x - 1, _x + _width, G + 5, G + 5, _z + 1, _z + _depth - 2, ROOF);
@@ -881,16 +856,6 @@ std::int32_t TestWorld::WorldZVoxels(std::int32_t _sceneZVoxels) const noexcept
   return sceneZVoxels + SCENE - 1 - _sceneZVoxels;
 }
 
-float TestWorld::WorldXMeters(float _sceneXMeters) const noexcept
-{
-  return static_cast<float>(sceneXVoxels) + _sceneXMeters;
-}
-
-float TestWorld::WorldZMeters(float _sceneZMeters) const noexcept
-{
-  return static_cast<float>(sceneZVoxels + SCENE) - _sceneZMeters;
-}
-
 std::int32_t TestWorld::SurfaceAt(std::int32_t _x, std::int32_t _z) const
 {
   const std::int32_t x = std::clamp(_x, 0, edgeVoxels - 1);
@@ -898,14 +863,14 @@ std::int32_t TestWorld::SurfaceAt(std::int32_t _x, std::int32_t _z) const
   return surfaceVoxels[static_cast<std::size_t>(z) * static_cast<std::size_t>(edgeVoxels) + static_cast<std::size_t>(x)];
 }
 
-float TestWorld::CastleXMeters() const noexcept
+std::int32_t TestWorld::CastleXVoxels() const noexcept
 {
-  return static_cast<float>(WorldXVoxels(CASTLE_X_VOXELS));
+  return WorldXVoxels(CASTLE_X_VOXELS);
 }
 
-float TestWorld::CastleZMeters() const noexcept
+std::int32_t TestWorld::CastleZVoxels() const noexcept
 {
-  return static_cast<float>(WorldZVoxels(CASTLE_Z_VOXELS));
+  return WorldZVoxels(CASTLE_Z_VOXELS);
 }
 
 TestWorld BuildTestWorld(ChunkStore& _store, std::int32_t _edgeVoxels, std::uint64_t _seed, const TemplateLookup& _templates)
@@ -920,7 +885,7 @@ TestWorld BuildTestWorld(ChunkStore& _store, std::int32_t _edgeVoxels, std::uint
                   .surfaceVoxels = {},
                   .editedVoxels = 0,
                   .breach = {},
-                  .breachId = Mix(_seed ^ Mix(BREACH_SALT))};
+                  .breachId = Core::SplitMix64Mix(_seed ^ Core::SplitMix64Mix(BREACH_SALT))};
   const std::array<SiteOrigin, 1> scene{{{.xVoxels = world.sceneXVoxels, .zVoxels = world.sceneZVoxels}}};
   BuildGround(_store, world, _seed, scene);
   std::uint64_t generated = 0;
@@ -959,7 +924,7 @@ TestWorld BuildSeasonWorld(ChunkStore& _store, std::int32_t _edgeVoxels, std::in
                   .surfaceVoxels = {},
                   .editedVoxels = 0,
                   .breach = {},
-                  .breachId = Mix(_seed ^ Mix(BREACH_SALT))};
+                  .breachId = Core::SplitMix64Mix(_seed ^ Core::SplitMix64Mix(BREACH_SALT))};
   // The lord builds twice over: a second castle a little way off, as a holding grows. Each stands on
   // a plateau the generator raised, as the scene's castle does, so its footprints are level already.
   std::vector<SiteOrigin> sites;
@@ -1052,7 +1017,7 @@ void SplitChanges(const ChunkStore& _oneMeter, std::span<const Protocol::VoxelPo
 TestWorldEdits::TestWorldEdits(const ChunkStore& _store, const TestWorld& _world, std::uint64_t _seed)
   : m_sceneXVoxels(_world.sceneXVoxels),
     m_sceneZVoxels(_world.sceneZVoxels),
-    m_collapseId(Mix(_seed ^ Mix(COLLAPSE_FRAME)))
+    m_collapseId(Core::SplitMix64Mix(_seed ^ Core::SplitMix64Mix(COLLAPSE_FRAME)))
 {
   // The quarry's columns: the stone body south of the castle, and the earth south of it between the
   // ditch's line and the quarry yard, clear of the yard and short of the castle's south towers.
@@ -1088,8 +1053,8 @@ TestWorldEdits::TestWorldEdits(const ChunkStore& _store, const TestWorld& _world
   };
   const auto tieBreak = [_seed](const Column& _column)
   {
-    return Mix(_seed ^ Mix((static_cast<std::uint64_t>(static_cast<std::uint32_t>(_column.sceneX)) << 32) |
-                           static_cast<std::uint32_t>(_column.sceneZ)));
+    return Core::SplitMix64Mix(_seed ^ Core::SplitMix64Mix((static_cast<std::uint64_t>(static_cast<std::uint32_t>(_column.sceneX)) << 32) |
+                                                           static_cast<std::uint32_t>(_column.sceneZ)));
   };
   std::ranges::sort(columns, [&fromPit, &tieBreak](const Column& _a, const Column& _b)
                     { return fromPit(_a) != fromPit(_b) ? fromPit(_a) < fromPit(_b) : tieBreak(_a) < tieBreak(_b); });
@@ -1211,7 +1176,9 @@ std::vector<Protocol::VoxelPosition> TestWorldEdits::Collapse(ChunkStore& _store
     {
       const std::int64_t dx = 10 * (sectionX - x) - 5;
       const std::int64_t dz = std::max<std::int64_t>(0, std::abs(10 * z + 5 - 10 * (sectionZ + 4)) - 40);
-      heap.push_back({.x = x, .z = z, .tenthsFromWall = static_cast<std::int32_t>(IntegerSqrt(dx * dx + dz * dz))});
+      heap.push_back({.x = x,
+                      .z = z,
+                      .tenthsFromWall = static_cast<std::int32_t>(Core::IntegerSquareRoot(static_cast<std::uint64_t>(dx * dx + dz * dz)))});
     }
   }
   std::ranges::sort(heap, {}, &HeapColumn::tenthsFromWall);

@@ -10,6 +10,15 @@
     <Filter Include="Statistics">
       <UniqueIdentifier>{C0E90103-4224-5980-AC66-744AE9928F32}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Numbers">
+      <UniqueIdentifier>{A8001BDE-8619-585F-9476-ACF8EC70A206}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Randomness">
+      <UniqueIdentifier>{57DE9752-1A50-5732-BB53-5B76381EDECE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Encoding">
+      <UniqueIdentifier>{2C50A158-D3AD-5AEF-B43B-8BA38EBD6BA9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -29,6 +38,33 @@
     </ClInclude>
     <ClCompile Include="Percentile.cpp">
       <Filter>Statistics</Filter>
+    </ClCompile>
+    <ClInclude Include="Fixed.h">
+      <Filter>Numbers</Filter>
+    </ClInclude>
+    <ClCompile Include="Fixed.cpp">
+      <Filter>Numbers</Filter>
+    </ClCompile>
+    <ClInclude Include="IntegerMath.h">
+      <Filter>Numbers</Filter>
+    </ClInclude>
+    <ClCompile Include="IntegerMath.cpp">
+      <Filter>Numbers</Filter>
+    </ClCompile>
+    <ClInclude Include="SplitMix64.h">
+      <Filter>Randomness</Filter>
+    </ClInclude>
+    <ClInclude Include="ByteWriter.h">
+      <Filter>Encoding</Filter>
+    </ClInclude>
+    <ClCompile Include="ByteWriter.cpp">
+      <Filter>Encoding</Filter>
+    </ClCompile>
+    <ClInclude Include="ByteReader.h">
+      <Filter>Encoding</Filter>
+    </ClInclude>
+    <ClCompile Include="ByteReader.cpp">
+      <Filter>Encoding</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

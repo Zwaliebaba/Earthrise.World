@@ -3,6 +3,7 @@
 #include "Debris.h"
 
 #include "Palette.h"
+#include "SplitMix64.h"
 
 namespace RendererSpike
 {
@@ -22,27 +23,18 @@ constexpr float LONGEST_DELAY_SECONDS = 0.25F;
 constexpr float SUNK_SHARE = 0.4F;
 constexpr std::uint8_t RUBBLE_OF_STONE = 8;
 
-/// SplitMix64: the pinned mixer every piece is drawn from (AGENTS.md R16).
-constexpr std::uint64_t Mix(std::uint64_t _value) noexcept
-{
-  _value += 0x9e3779b97f4a7c15ULL;
-  _value = (_value ^ (_value >> 30)) * 0xbf58476d1ce4e5b9ULL;
-  _value = (_value ^ (_value >> 27)) * 0x94d049bb133111ebULL;
-  return _value ^ (_value >> 31);
-}
-
 /// A stream of numbers in [0, 1) for one piece, from the collapse's id and the piece's number.
 class Draws
 {
 public:
   Draws(std::uint64_t _collapseId, std::uint64_t _piece) noexcept
-    : m_state(Mix(_collapseId ^ Mix(_piece)))
+    : m_state(Core::SplitMix64Mix(_collapseId ^ Core::SplitMix64Mix(_piece)))
   {
   }
 
   float Next() noexcept
   {
-    m_state = Mix(m_state);
+    m_state = Core::SplitMix64Mix(m_state);
     return static_cast<float>(m_state >> 40) / static_cast<float>(std::uint64_t{1} << 24);
   }
 
@@ -74,7 +66,7 @@ void Debris::Scatter(std::uint64_t _collapseId, std::span<const Simulation::Fall
   }
   // Each fallen voxel draws how many pieces it makes from a stream of its own, and each piece from
   // one of its own, numbered across the collapse.
-  const std::uint64_t countStream = Mix(~_collapseId);
+  const std::uint64_t countStream = Core::SplitMix64Mix(~_collapseId);
   std::uint64_t number = 0;
   for (std::size_t index = 0; index < _fallen.size(); ++index)
   {

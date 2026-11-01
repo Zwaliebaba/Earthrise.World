@@ -27,5 +27,74 @@
     <ClCompile Include="TestWorldTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClInclude Include="ServerDataFile.h">
+      <Filter>Suites</Filter>
+    </ClInclude>
+    <ClCompile Include="ServerDataTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="VoxelWorldTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClInclude Include="FlatWorld.h">
+      <Filter>Suites</Filter>
+    </ClInclude>
+    <ClCompile Include="WorldTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="ChunkEditsTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="SaveTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="ReplayTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratorTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="ShotTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="CraterTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="CollapseTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="FallTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="CascadeTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="SlumpTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="LooseMaterialTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="NavigationClassTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="ClearanceTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="SearchTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="ReachTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="MovementTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="DropTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="BreachRunTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

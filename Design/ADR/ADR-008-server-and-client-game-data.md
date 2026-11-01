@@ -73,6 +73,6 @@ These checks were run by script on the day, against the 27 `.vox` files then com
 
 ## Left open
 
-- The `ServerData` format in detail, written with the server half of the bake in M2. *([ADR-016](ADR-016-server-data-format.md), Proposed, answers it, and amends decision 4: the reader also recomputes the server-data hash and checks each section's version.)*
+- The `ServerData` format in detail, written with the server half of the bake in M2. *(Closed by [ADR-016](ADR-016-server-data-format.md), Accepted by M2-B5, which amends decision 4: the reader also recomputes the server-data hash and checks each section's version.)*
 - Where `<outputdir>` is, settled with the solution layout in M1. *(Settled by ADR-010, decision 3: `$(SolutionDir)$(Platform)\$(Configuration)\`.)*
 - Whether a running Worlds season may take new server data, and how its saves would follow.

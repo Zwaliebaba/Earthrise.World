@@ -31,7 +31,7 @@
   "water": "water",
   "stoneRubble": "rubble that yields stone",
   "wasteRubble": "rubble that yields nothing",
-  "inherit": "decoration: behaves as the most common non-decorative face neighbour of its own kind (ADR-005)",
+  "inherit": "decoration: behaves as the most common non-decorative face neighbour of its own kind (ADR-005); the bake writes each such voxel of a template as the entry that decorates it with its host's behaviour",
   "modelOnly": "appears only in models, never in the world grid"
  },
  "materials": [
@@ -44,6 +44,8 @@
    "aoSet": "terrain",
    "grid": "world",
    "behavior": "earth",
+   "ground": true,
+   "rubble": 26,
    "packageSimulationMaterial": "earth",
    "note": "Only the generator places it; edits never create it, so dug ground shows earth (RendererLook.md)."
   },
@@ -56,6 +58,8 @@
    "aoSet": "terrain",
    "grid": "world",
    "behavior": "earth",
+   "ground": true,
+   "rubble": 26,
    "packageSimulationMaterial": "earth"
   },
   {
@@ -67,6 +71,8 @@
    "aoSet": "terrain",
    "grid": "world",
    "behavior": "commonRock",
+   "ground": true,
+   "rubble": 28,
    "packageSimulationMaterial": "common rock"
   },
   {
@@ -78,6 +84,8 @@
    "aoSet": "terrain",
    "grid": "world",
    "behavior": "buildingStone",
+   "ground": true,
+   "rubble": 8,
    "packageSimulationMaterial": "building stone"
   },
   {
@@ -89,6 +97,8 @@
    "aoSet": "terrain",
    "grid": "world",
    "behavior": "bedrock",
+   "ground": true,
+   "rubble": 0,
    "packageSimulationMaterial": "bedrock"
   },
   {
@@ -100,6 +110,8 @@
    "aoSet": "structure",
    "grid": "both",
    "behavior": "buildingStone",
+   "ground": false,
+   "rubble": 8,
    "packageSimulationMaterial": "building stone (built)",
    "note": "Named \"dressed stone\" in the package. Stone laid by a template; the Masons' dressed-stone upgrade gets an index of its own."
   },
@@ -112,6 +124,8 @@
    "aoSet": "structure",
    "grid": "both",
    "behavior": "timber",
+   "ground": false,
+   "rubble": 25,
    "packageSimulationMaterial": "timber"
   },
   {
@@ -123,6 +137,8 @@
    "aoSet": "structure",
    "grid": "both",
    "behavior": "stoneRubble",
+   "ground": true,
+   "rubble": 8,
    "packageSimulationMaterial": "rubble(from: building stone)"
   },
   {
@@ -134,6 +150,8 @@
    "aoSet": "structure",
    "grid": "world",
    "behavior": "water",
+   "ground": false,
+   "rubble": 0,
    "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)",
    "note": "Shallow water draws lighter, so fords show."
   },
@@ -146,6 +164,8 @@
    "aoSet": "structure",
    "grid": "world",
    "behavior": "leaves",
+   "ground": false,
+   "rubble": 0,
    "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)"
   },
   {
@@ -157,6 +177,8 @@
    "aoSet": "structure",
    "grid": "world",
    "behavior": "leaves",
+   "ground": false,
+   "rubble": 0,
    "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)"
   },
   {
@@ -168,6 +190,8 @@
    "aoSet": "structure",
    "grid": "world",
    "behavior": "timber",
+   "ground": false,
+   "rubble": 25,
    "packageSimulationMaterial": "timber"
   },
   {
@@ -179,6 +203,8 @@
    "aoSet": "terrain",
    "grid": "world",
    "behavior": "earth",
+   "ground": true,
+   "rubble": 26,
    "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)"
   },
   {
@@ -190,6 +216,8 @@
    "aoSet": "terrain",
    "grid": "world",
    "behavior": "earth",
+   "ground": true,
+   "rubble": 26,
    "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)"
   },
   {
@@ -201,6 +229,8 @@
    "aoSet": "terrain",
    "grid": "world",
    "behavior": "earth",
+   "ground": true,
+   "rubble": 26,
    "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)"
   },
   {
@@ -223,6 +253,8 @@
    "aoSet": "structure",
    "grid": "both",
    "behavior": "inherit",
+   "ground": false,
+   "rubble": 0,
    "note": "In a template (gate fittings) it behaves as its host."
   },
   {
@@ -244,6 +276,8 @@
    "aoSet": "structure",
    "grid": "both",
    "behavior": "inherit",
+   "ground": false,
+   "rubble": 0,
    "packageSimulationMaterial": "building stone (built)",
    "note": "Painted on a solid voxel; behaves as its host."
   },
@@ -296,6 +330,8 @@
    "aoSet": "structure",
    "grid": "both",
    "behavior": "wasteRubble",
+   "ground": true,
+   "rubble": 25,
    "packageSimulationMaterial": "rubble(from: timber)"
   },
   {
@@ -307,6 +343,8 @@
    "aoSet": "structure",
    "grid": "both",
    "behavior": "wasteRubble",
+   "ground": true,
+   "rubble": 26,
    "packageSimulationMaterial": "rubble(from: earth)"
   },
   {
@@ -328,8 +366,57 @@
    "aoSet": "structure",
    "grid": "world",
    "behavior": "wasteRubble",
+   "ground": true,
+   "rubble": 28,
    "source": "Design/RendererLook.md (the package's look spec v2 lists it, its palette.json does not)",
    "note": "Provisional colour, not in the package: common rock at lower lightness, tuned in the spike."
+  },
+  {
+   "index": 29,
+   "name": "opening in timber",
+   "hex": "#2e2a27",
+   "jitter": 0.05,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "world",
+   "behavior": "timber",
+   "ground": false,
+   "rubble": 25,
+   "decorates": 20,
+   "note": "An opening as a template's timber holds it: the opening's look, timber's behaviour. Only the bake writes it (GameDesign.md, M2's values, item 7)."
+  },
+  {
+   "index": 30,
+   "name": "opening in stone",
+   "hex": "#2e2a27",
+   "jitter": 0.05,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "world",
+   "behavior": "buildingStone",
+   "ground": false,
+   "rubble": 8,
+   "decorates": 20,
+   "note": "An opening as a template's masonry holds it: the opening's look, building stone's behaviour. Only the bake writes it (GameDesign.md, M2's values, item 7)."
+  },
+  {
+   "index": 31,
+   "name": "iron in timber",
+   "hex": "#9aa0a6",
+   "jitter": 0.05,
+   "jitterCell": "voxel",
+   "aoSet": "structure",
+   "grid": "world",
+   "behavior": "timber",
+   "ground": false,
+   "rubble": 25,
+   "decorates": 18,
+   "note": "An iron fitting as a template's timber holds it: iron's look, timber's behaviour. Only the bake writes it (GameDesign.md, M2's values, item 7)."
   }
- ]
+ ],
+ "serverFields": {
+  "ground": "server only: a unit may stand on it. Terrain, fields, roads and rubble are ground; masonry, timber, roof, leaves, water and decorations are not (GameDesign.md, M2's values, item 14)",
+  "rubble": "server only: the index a voxel of it becomes when it falls or is crushed, 0 when it leaves none (M2's values, item 7)",
+  "decorates": "the decoration whose look this entry has; the bake writes a template's decoration voxels as the entry that decorates them with their host's behaviour (M2's values, item 7)"
+ }
 }

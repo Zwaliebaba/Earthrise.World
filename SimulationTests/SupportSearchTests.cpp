@@ -1,12 +1,14 @@
 #include "pch.h"
 
 #include "ChunkStore.h"
+#include "ServerDataFile.h"
 #include "SupportSearch.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 // The support search of ADR-004, decision 2, on small worlds built here: a bedrock floor at y 0,
-// and the spans the owner decided, stone 2 m and timber 5 m (GameDesign.md).
+// and the spans the owner decided, stone 2 m and timber 5 m (GameDesign.md), as the server bake
+// writes them.
 
 namespace SimulationTests
 {
@@ -22,8 +24,7 @@ constexpr std::int32_t HEIGHT_VOXELS = 16;
 
 const Simulation::MaterialRules& Rules()
 {
-  static const Simulation::MaterialRules RULES = Simulation::StandInMaterialRules(1);
-  return RULES;
+  return BakedServerData().Materials();
 }
 
 /// The world's surface stands at _surface everywhere, so with an anchor depth of 8 voxels nothing
@@ -171,12 +172,16 @@ public:
   TEST_METHOD(DoublesEverySpanForTheHalfMeterWorld)
   {
     // ADR-006's 0.5 m comparison counts spans in its own voxels, two to the meter.
-    const Simulation::MaterialRules half = Simulation::StandInMaterialRules(2);
+    const Simulation::MaterialRules half = Simulation::ScaleSpans(Rules(), 2);
+    for (std::size_t index = 0; index < half.size(); ++index)
+    {
+      Assert::AreEqual(static_cast<std::uint8_t>(2 * Rules().at(index).spanVoxels), half.at(index).spanVoxels);
+    }
     Assert::AreEqual(std::uint8_t{4}, half[MASONRY].spanVoxels);
     Assert::AreEqual(std::uint8_t{10}, half[TIMBER].spanVoxels);
     Assert::AreEqual(std::uint32_t{10}, Simulation::LongestSpanVoxels(half));
     Assert::AreEqual(std::uint32_t{5}, Simulation::LongestSpanVoxels(Rules()));
-    Assert::ExpectException<std::invalid_argument>([] { (void)Simulation::StandInMaterialRules(0); });
+    Assert::ExpectException<std::invalid_argument>([] { (void)Simulation::ScaleSpans(Rules(), 0); });
   }
 
   TEST_METHOD(IgnoresWhatLiesBelowTheEdit)

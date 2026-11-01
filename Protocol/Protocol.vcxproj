@@ -44,6 +44,9 @@
     <ClInclude Include="Chunk.h" />
     <ClCompile Include="Chunk.cpp" />
     <ClInclude Include="ChunkSnapshot.h" />
+    <ClInclude Include="EntityId.h" />
+    <ClInclude Include="Command.h" />
+    <ClCompile Include="Command.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

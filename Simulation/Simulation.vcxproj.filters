@@ -13,6 +13,21 @@
     <Filter Include="Navigation">
       <UniqueIdentifier>{D71EF418-0B81-5264-9984-C577885DFC7C}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Data">
+      <UniqueIdentifier>{279CC4D9-2169-5C1B-8AA1-7CE8C22B5334}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Tick">
+      <UniqueIdentifier>{1B9F7E11-C7C4-5656-BB89-58906EDA4840}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Saves">
+      <UniqueIdentifier>{C4FD1C1E-E98F-5E51-8884-36337F51FD6D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Generation">
+      <UniqueIdentifier>{D86FD0A1-3978-5A50-A1D5-83D0D239593C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Destruction">
+      <UniqueIdentifier>{C0D574BE-2CD3-535B-B9D6-497E3B257FFE}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -50,6 +65,84 @@
     </ClInclude>
     <ClCompile Include="TestWorld.cpp">
       <Filter>World</Filter>
+    </ClCompile>
+    <ClInclude Include="BreachRun.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="BreachRun.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
+    <ClInclude Include="ServerData.h">
+      <Filter>Data</Filter>
+    </ClInclude>
+    <ClCompile Include="ServerData.cpp">
+      <Filter>Data</Filter>
+    </ClCompile>
+    <ClInclude Include="Rules.h">
+      <Filter>Data</Filter>
+    </ClInclude>
+    <ClInclude Include="VoxelWorld.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="VoxelWorld.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
+    <ClInclude Include="World.h">
+      <Filter>Tick</Filter>
+    </ClInclude>
+    <ClCompile Include="World.cpp">
+      <Filter>Tick</Filter>
+    </ClCompile>
+    <ClInclude Include="Script.h">
+      <Filter>Tick</Filter>
+    </ClInclude>
+    <ClCompile Include="Script.cpp">
+      <Filter>Tick</Filter>
+    </ClCompile>
+    <ClInclude Include="ChunkEdits.h">
+      <Filter>Saves</Filter>
+    </ClInclude>
+    <ClCompile Include="ChunkEdits.cpp">
+      <Filter>Saves</Filter>
+    </ClCompile>
+    <ClInclude Include="Save.h">
+      <Filter>Saves</Filter>
+    </ClInclude>
+    <ClCompile Include="Save.cpp">
+      <Filter>Saves</Filter>
+    </ClCompile>
+    <ClInclude Include="Replay.h">
+      <Filter>Saves</Filter>
+    </ClInclude>
+    <ClCompile Include="Replay.cpp">
+      <Filter>Saves</Filter>
+    </ClCompile>
+    <ClInclude Include="Generator.h">
+      <Filter>Generation</Filter>
+    </ClInclude>
+    <ClCompile Include="Generator.cpp">
+      <Filter>Generation</Filter>
+    </ClCompile>
+    <ClInclude Include="FixedPosition.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClInclude Include="Shot.h">
+      <Filter>Destruction</Filter>
+    </ClInclude>
+    <ClCompile Include="Shot.cpp">
+      <Filter>Destruction</Filter>
+    </ClCompile>
+    <ClInclude Include="CollapsePlan.h">
+      <Filter>Destruction</Filter>
+    </ClInclude>
+    <ClCompile Include="CollapsePlan.cpp">
+      <Filter>Destruction</Filter>
+    </ClCompile>
+    <ClInclude Include="PathSearch.h">
+      <Filter>Navigation</Filter>
+    </ClInclude>
+    <ClCompile Include="PathSearch.cpp">
+      <Filter>Navigation</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

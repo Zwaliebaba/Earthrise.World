@@ -88,8 +88,8 @@ public:
     {
       Simulation::ChunkStore store;
       const Simulation::TestWorld world = Simulation::BuildTestWorld(store, edge, SEED, OneVoxel);
-      const auto castleX = static_cast<std::int32_t>(world.CastleXMeters());
-      const auto castleZ = static_cast<std::int32_t>(world.CastleZMeters());
+      const std::int32_t castleX = world.CastleXVoxels();
+      const std::int32_t castleZ = world.CastleZVoxels();
       Assert::AreEqual(Simulation::TestWorld::CASTLE_GROUND_VOXELS, world.SurfaceAt(castleX, castleZ));
       Assert::AreEqual(Simulation::TestWorld::CASTLE_GROUND_VOXELS - 1,
                        Simulation::TopSolidAtOrBelow(store, castleX, castleZ, Simulation::TestWorld::CASTLE_GROUND_VOXELS - 1));
@@ -104,9 +104,9 @@ public:
     Simulation::ChunkStore store;
     const Simulation::TestWorld world = Simulation::BuildTestWorld(store, SCENE, SEED, OneVoxel);
     Assert::AreEqual(SCENE - 1, world.WorldZVoxels(0));
-    Assert::AreEqual(static_cast<float>(SCENE) - 93.5F, world.WorldZMeters(93.5F));
+    Assert::AreEqual(SCENE - 94, world.WorldZVoxels(93));
     const std::int32_t pitZ = world.WorldZVoxels(93);
-    Assert::IsTrue(static_cast<float>(pitZ) < world.CastleZMeters());
+    Assert::IsTrue(pitZ < world.CastleZVoxels());
     Assert::IsTrue(Simulation::TopSolidAtOrBelow(store, 74, pitZ, TOP) < GROUND - 5);
     Assert::IsTrue(Simulation::TopSolidAtOrBelow(store, 74, world.WorldZVoxels(34), TOP) >= GROUND - 2);
     // A turn's sense reverses, and a front facing the scene's +z faces the world's -z.

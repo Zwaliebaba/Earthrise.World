@@ -7,6 +7,9 @@
     <Filter Include="World">
       <UniqueIdentifier>{2A464D0B-50DE-5AA5-91C5-CD1029C5CA82}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Commands">
+      <UniqueIdentifier>{050D32E8-5B56-551B-A333-16F19AA84A6A}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -30,5 +33,14 @@
     <ClInclude Include="ChunkSnapshot.h">
       <Filter>World</Filter>
     </ClInclude>
+    <ClInclude Include="EntityId.h">
+      <Filter>Commands</Filter>
+    </ClInclude>
+    <ClInclude Include="Command.h">
+      <Filter>Commands</Filter>
+    </ClInclude>
+    <ClCompile Include="Command.cpp">
+      <Filter>Commands</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

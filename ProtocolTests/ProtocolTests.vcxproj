@@ -44,6 +44,7 @@
     </ClCompile>
     <ClCompile Include="ChunkCoordinateTests.cpp" />
     <ClCompile Include="ChunkTests.cpp" />
+    <ClCompile Include="CommandTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

@@ -15,24 +15,40 @@ enum class Support : std::uint8_t
   Anchors  // bedrock: an anchor wherever it lies
 };
 
-/// What one palette index does for support and for walking.
+/// A palette index's behaviour (GameData/Server/Palette.json), numbered in this order in ServerData's
+/// MATL section (ADR-016). None is an index that never reaches the world: one that does not exist,
+/// one only models use, and a decoration, which the bake writes as its host (M2's values, item 7).
+enum class Behavior : std::uint8_t
+{
+  None,
+  Earth,
+  CommonRock,
+  BuildingStone,
+  Bedrock,
+  Timber,
+  Leaves,
+  Water,
+  StoneRubble,
+  WasteRubble
+};
+
+/// What one palette index does for support, for walking and when it falls: ServerData's MATL record.
 struct MaterialRule
 {
+  Behavior behavior;
   Support support;
-  std::uint8_t spanVoxels; // for Spans: the most horizontal steps it may be from an anchor
-  bool walkableGround;     // a unit may stand on it: terrain and rubble, never a structure (GameDesign.md)
-  bool liquid;             // water: a unit may stand in one voxel of it, a ford, but not in two
+  std::uint8_t spanVoxels;  // for Spans: the most horizontal steps it may be from an anchor
+  bool walkableGround;      // a unit may stand on it: terrain and rubble, never a structure (GameDesign.md)
+  bool liquid;              // water: a unit may stand in one voxel of it, a ford, but not in two
+  std::uint8_t rubbleIndex; // what a voxel of it becomes when it falls or is crushed; 0 when it leaves no rubble
 };
 
 using MaterialRules = std::array<MaterialRule, 256>;
 
-/// The M1 stand-in for the palette's behaviours (GameData/Server/Palette.json), until the server
-/// half of the bake writes them (M2). Spans are the owner's (GameDesign.md): stone 2 m, timber 5 m.
-/// Leaves span 3 m, a canopy's 2.2 m radius rounded up, and common rock spans as stone does. A
-/// decoration, iron or an opening, takes timber's span, the longer of its hosts', so that a fitting
-/// never falls before the timber or stone it is painted on. _voxelsPerMeter is 1 for the 1 m world
-/// and 2 for the 0.5 m world of ADR-006's comparison, and multiplies every span.
-[[nodiscard]] MaterialRules StandInMaterialRules(std::uint32_t _voxelsPerMeter);
+/// _rules with every span multiplied by _voxelsPerMeter: 2 for the 0.5 m world of ADR-006's
+/// comparison, whose spans count its own voxels. Throws std::invalid_argument for 0 or more than 4
+/// voxels a meter, or a span that no longer fits.
+[[nodiscard]] MaterialRules ScaleSpans(const MaterialRules& _rules, std::uint32_t _voxelsPerMeter);
 
 /// The longest span of any material in _rules, which bounds the region an edit can affect.
 [[nodiscard]] std::uint32_t LongestSpanVoxels(const MaterialRules& _rules) noexcept;

@@ -281,13 +281,13 @@ The owner settled how M2 is planned and when it starts ([MvpPlan.md](MvpPlan.md)
 The owner answered MvpPlan.md's thirteen M2 inputs, taking each proposal as written (work order M2-A1). Input 13 is the implementer's, measured in M2 and recorded here as Proposed when it is. The same day, after a check of the documents' consistency, the owner changed item 7 and settled items 14 to 16.
 
 1. **ADR-013 to ADR-016 have the go-ahead,** as written. Each is marked Accepted by the commit that first implements it. With ADR-014's go-ahead, a scenario is a baked source, not a save (decision 7), and the MVP's line on scenarios changed with it.
-2. **A tick takes at most 25 ms at the 95th percentile,** on one core of the benchmark machine (*Closing M0 and M1*, item 1), measured in `SimulationBench` over the M2 breach run. That is half of a 50 ms tick.
+2. **A tick takes at most 25 ms at the 95th percentile,** on one core of the benchmark machine (*Closing M0 and M1*, item 1), measured in `SimulationBench` over the M2 breach run. That is half of a 50 ms tick. **Changed the same day, after the [M2 report](Review/M2-2026-11-01.md):** the breach run is judged by its slowest tick of play, every tick but tick 0, which takes in the run's own set-up and is reported on its own, since 95% of the run's ticks are idle and its 95th percentile says almost nothing. The 95th percentile is still reported.
 3. **The generator makes the MVP map** at 512 m × 512 m and 64 m high:
    - the relief and soil depths of M1's test ground, carried over the map;
    - bedrock depth varying, so that thin soil over rock and deep earth both occur;
    - sparse outcrops of building stone;
    - forest;
-   - one river with fords.
+   - one river with fords, whose banks rise 1 m in 3 from the water, so every navigation class can cross there (Decided 2026-11-01, after the [M2 report](Review/M2-2026-11-01.md) found cavalry and machines could not reach the fords; GENERATOR_VERSION 2).
 
    The owner judges the first maps in the renderer spike.
 4. **A collapse warns for 1 s plus the time a foot soldier at 1.4 m/s takes to walk the piece's height,** rounded up to whole ticks: 135 ticks for an 8 m piece.
@@ -313,7 +313,7 @@ The owner answered MvpPlan.md's thirteen M2 inputs, taking each proposal as writ
     | Cavalry | 1 m in 2 m | 3 m | 1 |
     | Machines | 1 m in 3 m | 4 m | 3 |
 
-    Every class fords one voxel of water. Rubble and fords halve speed. Foot moves at 1.4 m/s until M4's statistics.
+    Every class fords one voxel of water. Rubble and fords halve speed. Foot moves at 1.4 m/s until M4's statistics. Cavalry moves at 2.8 m/s and machines at 0.7 m/s, twice and half foot's (Decided 2026-11-01, after the [M2 report](Review/M2-2026-11-01.md), which found that the design gave them none).
 11. **A rubble breach is open to foot alone.** Settled earth and rubble lie at 45°, steeper than cavalry and machines climb. Men-at-arms storm up the rubble; rams go for gates.
 12. **The trebuchet's craters follow the paper tests' ladder:**
     - **Timber:** the voxel struck and its six face neighbours, timber only.
@@ -329,6 +329,8 @@ The owner answered MvpPlan.md's thirteen M2 inputs, taking each proposal as writ
 
     For M2 the shot reloads in 20 s, the Siege route table's reload, and reaches 12–50 m and descends at 45° or steeper (the paper tests' items 12 and 13). It leaves from 10 m above the engine's cell, about where the cocked model's arm releases, and falls under gravity of 9.81 m/s². The ram's craters are M4's.
 13. **The work budgets a tick,** voxels slumped and path nodes expanded, are set by the implementer from M2's measurements to fit item 2 (Proposed until measured).
+
+    **Proposed (M2-G2):** 256 voxels slumped and 4,096 path nodes expanded a tick, unchanged from the values the orders started with. Measured on 2026-11-01 in the Linux container with clang 18 at -O2, not the benchmark machine: a search expands about 1,000 nodes a millisecond (33,077 nodes in 35 ms across the MVP map), so a full budget is about 4.4 ms, and the costliest tick of the breach run that is play rather than set-up, a fall with its slump and its rebuild, took 9.2 ms. The two together stay under item 2's 25 ms. The breach run's 95th percentile is 0.001 ms, since 95% of its 2,401 ticks have nothing to do, and its slowest tick is tick 0, which takes in the run's own levelling and enclosure, 19 to 28 ms over three runs. The owner's run of `SimulationBench --breach-run` on the benchmark machine replaces these figures.
 14. **Ground, and the spans not yet decided.**
     - Palette.json gives each index a server-side `ground` flag. Units stand only on ground, and building stone in an outcrop is ground while masonry, the same behaviour laid by a template, is not.
     - Ground: terrain, fields, roads and every rubble. Not ground: masonry, timber, roof, leaves and decorations.

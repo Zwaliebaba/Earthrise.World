@@ -1,8 +1,15 @@
-"""Bakes GameData/ into what the build compiles in or ships (ADR-005, ADR-008, ADR-010 decision 7).
+"""Bakes GameData/ into what the build compiles in or ships (ADR-005, ADR-008, ADR-010 decision 7, ADR-016).
 
 The client half writes C++ headers into the build's intermediate folder, where the Content library compiles them
 in: the palette's look (colours, jitter and shade sets), the client view of every template in
-GameData/Server/Templates/, every model in GameData/Client/Models/, and the shared hash. The server half, writing <outputdir>\\ServerData, follows in M2.
+GameData/Server/Templates/, every model in GameData/Client/Models/, and the shared hash. The server half writes
+<outputdir>\\ServerData\\ServerData.bin, which the simulation reads (see *The server's file* below).
+
+A template's decorations reach the world as their host (GameDesign.md, M2's values, item 7). Each decoration voxel,
+resolved to its host's behaviour by ADR-005 decision 6, is written as the palette entry that `decorates` that
+decoration with that behaviour: an opening in timber, an opening in stone, iron in timber. Both halves write these
+indices, so a template's world voxels and the client's preview agree, and the shared hash covers them. A decoration
+whose behaviour no entry decorates it with is a problem.
 
 The client view of a template (ADR-008, decision 2) is its id and display name, its size in voxels after trimming
 the empty padding, so that the occupied voxels' minimum corner is its origin (ADR-005, decision 2), its voxel edge in
@@ -29,8 +36,31 @@ encoding, and ContentTests recomputes the hash from the compiled tables, so the 
 Generated headers are build output: never committed, never edited, and not linted (they sit in a Generated/ folder,
 outside .clang-tidy's header filter). Each is rewritten only when its text changes.
 
+The server's file (ADR-016) is a header and a body, little-endian and unpadded throughout:
+  the header: the four bytes ERSD; u32 the format version, 1; u64 Core::Fnv1a64 over every byte of the body;
+  the body: u64 the shared hash, as above; u32 the number of sections; for each section a directory entry of its
+    four-character tag, u32 its version, u32 its offset from the start of the body and u32 its length; then the
+    sections, in the directory's order: MATL, TMPL and RULE, each at version 1.
+  MATL: for each palette index from 0 to 255, six u8: 1 if the palette has the index and 0 if not; its behaviour,
+    numbered as Simulation::Behavior declares them (BEHAVIORS below); its support, numbered as Simulation::Support
+    (SUPPORT below); its span in voxels, from RULE's value for its behaviour, 0 for a behaviour that is not judged by
+    span; flags, bit 0 for walkable ground (Palette.json's `ground`) and bit 1 for liquid (water); and the index its
+    rubble takes (Palette.json's `rubble`), 0 when it leaves none. A decoration, which never reaches the world, and
+    an index only models use have behaviour 0.
+  TMPL: u32 the number of templates; then each in ascending id: u32 the byte length of its id, then its UTF-8 bytes;
+    the same for its name and for its critical part's name, empty when it names none; u32 its width, height and
+    depth in voxels, its voxel edge in millimetres, its stone and its timber in m3; then its width x height x depth
+    u8 palette indices, and as many u8 parts (0 none, 1 critical, 2 foundation, 3 stock), both in the client view's
+    order: x fastest, then z, then y, mirrored in x from the layer file (ADR-017).
+  RULE: u32 the number of values; then each in ascending key order: u32 the byte length of its key, its UTF-8 bytes
+    and its value as an i64. The keys and values are GameData/Server/Rules.json's, converted by Tools/CheckAssets.py
+    (its check 10) into the simulation's units, so a key names the converted unit, as warningBaseTicks does.
+Nothing under GameData/Client/ reaches it, which check 11 of the asset check proves. It is rewritten only when its
+bytes change.
+
 Usage:
   python Tools/BakeContent.py --client OUT_DIR
+  python Tools/BakeContent.py --server OUT_DIR
 """
 
 import argparse
@@ -58,9 +88,10 @@ ID = re.compile(r"[A-Z][A-Z0-9]*")
 
 
 class View:
-  """The client view of one layer file: a template's when it has a cost, a model's when it has none."""
+  """The client view of one layer file: a template's when it has a cost, a model's when it has none. A template's also
+  carries what only the server's file holds: its parts and its critical part's name."""
 
-  def __init__(self, _source, _id, _name, _size, _edgeMillimeters, _indices, _cost):
+  def __init__(self, _source, _id, _name, _size, _edgeMillimeters, _indices, _cost, _parts=None, _criticalPart=""):
     self.source = _source  # the layer file's name, for the generated comment
     self.id = _id
     self.name = _name
@@ -68,6 +99,8 @@ class View:
     self.edgeMillimeters = _edgeMillimeters
     self.indices = _indices  # bytes, x fastest, then z, then y, mirrored in x from the layer file (ADR-017)
     self.cost = _cost  # (stone m3, timber m3), or None for a model
+    self.parts = _parts  # bytes in the same order, 0 none, 1 critical, 2 foundation, 3 stock; None for a model
+    self.criticalPart = _criticalPart  # the critical part's name, empty when it names none
 
 
 # ── Reading ─────────────────────────────────────────────────────────────────────────────────────
@@ -120,6 +153,19 @@ def WholeNumber(_value):
   return isinstance(_value, (int, float)) and float(_value).is_integer() and _value >= 0
 
 
+def DecorationHosts(_palette):
+  """{(decoration index, host behaviour): the entry that decorates it so}, from Palette.json's `decorates`."""
+  hosts = {}
+  for index, entry in sorted(_palette.items(), key=lambda item: item[0] if isinstance(item[0], int) else -1):
+    decorated = entry.get("decorates")
+    if decorated is not None:
+      hosts.setdefault((decorated, entry.get("behavior")), index)
+  return hosts
+
+
+PART_NUMBERS = {CheckAssets.NO_PART: 0, CheckAssets.CRITICAL: 1, CheckAssets.FOUNDATION: 2, CheckAssets.STOCK: 3}
+
+
 def ReadView(_report, _path, _palette, _isTemplate):
   """One layer file's client view, or None after reporting why it has none."""
   data = CheckAssets.ReadJson(_report, _path)
@@ -149,13 +195,8 @@ def ReadView(_report, _path, _palette, _isTemplate):
   low = [min(position[axis] for position in asset.voxels) for axis in range(3)]
   size = [max(position[axis] for position in asset.voxels) - low[axis] + 1 for axis in range(3)]
   width, height, depth = size
-  # Mirrored in x: a layer file is drawn in the prototype's right-handed frame and the world is left-handed, so
-  # the mirror keeps its front +z and makes it look as drawn (ADR-017).
-  indices = bytearray(width * height * depth)
-  for (x, y, z), index in asset.voxels.items():
-    indices[(width - 1 - (x - low[0])) + width * ((z - low[2]) + depth * (y - low[1]))] = index
 
-  cost = None
+  cost, parts, criticalPart, written = None, None, "", dict(asset.voxels)
   if _isTemplate:
     behaviors, unresolved = CheckAssets.ResolveBehaviors(asset, _palette)
     if unresolved:
@@ -168,7 +209,31 @@ def ReadView(_report, _path, _palette, _isTemplate):
                              "not a whole number of m3")
       return None
     cost = (int(counted["stone"]), int(counted["timber"]))
-  return View(_path.name, assetId, name, size, int(edge), bytes(indices), cost)
+    # Each decoration is written as the entry that decorates it with its host's behaviour (M2's values, item 7).
+    hosts = DecorationHosts(_palette)
+    for position, index in asset.voxels.items():
+      if _palette.get(index, {}).get("behavior") == CheckAssets.DECORATION:
+        host = hosts.get((index, behaviors[position]))
+        if host is None:
+          _report.Problem(_path, f"index {index} decorates {behaviors[position]} at {CheckAssets.At(position)}, and no "
+                                 "palette entry decorates it so (GameDesign.md, M2's values, item 7)")
+          return None
+        written[position] = host
+    named = data.get("criticalPart")
+    if isinstance(named, str) and named.strip() and named.split()[0] != "None":
+      criticalPart = named
+    parts = bytearray(width * height * depth)
+
+  # Mirrored in x: a layer file is drawn in the prototype's right-handed frame and the world is left-handed, so
+  # the mirror keeps its front +z and makes it look as drawn (ADR-017).
+  indices = bytearray(width * height * depth)
+  for (x, y, z), index in written.items():
+    at = (width - 1 - (x - low[0])) + width * ((z - low[2]) + depth * (y - low[1]))
+    indices[at] = index
+    if parts is not None:
+      parts[at] = PART_NUMBERS.get(asset.Part((x, y, z)), 0)
+  return View(_path.name, assetId, name, size, int(edge), bytes(indices), cost,
+              bytes(parts) if parts is not None else None, criticalPart)
 
 
 def ReadViews(_report, _folder, _palette, _isTemplate):
@@ -305,6 +370,110 @@ def SharedHashHeader(_hash):
                 f"inline constexpr std::uint64_t SHARED_HASH = 0x{_hash:016x}ULL;\n\n")
 
 
+# ── The server's file (ADR-016) ─────────────────────────────────────────────────────────────────
+
+SERVER_FILE = "ServerData.bin"
+SERVER_MAGIC = b"ERSD"
+SERVER_FORMAT_VERSION = 1
+SECTION_VERSIONS = {"MATL": 1, "TMPL": 1, "RULE": 1}  # in the file's order
+# Simulation::Behavior, in its declared order, by Palette.json's behaviour names; 0 is none.
+BEHAVIORS = ("none", "earth", "commonRock", "buildingStone", "bedrock", "timber", "leaves", "water", "stoneRubble",
+             "wasteRubble")
+# Simulation::Support: 0 none, 1 carries (and is never judged by span), 2 spans, 3 anchors (ADR-004, decision 2).
+SUPPORT = {"earth": 1, "commonRock": 2, "buildingStone": 2, "bedrock": 3, "timber": 2, "leaves": 2, "water": 0,
+           "stoneRubble": 1, "wasteRubble": 1}
+GROUND_FLAG = 1 << 0
+LIQUID_FLAG = 1 << 1
+MAX_SPAN_VOXELS = 254  # the support search counts distances in a u8, with 255 for unreached
+
+
+def Materials(_report, _palette, _rules):
+  """MATL: each palette index resolved to one rule, six u8 apiece."""
+  path = PALETTE
+  out = bytearray()
+  for index in range(PALETTE_ENTRIES):
+    entry = _palette.get(index)
+    if entry is None:
+      out += bytes(6)
+      continue
+    behavior = entry.get("behavior")
+    if behavior in (CheckAssets.DECORATION, CheckAssets.MODEL_ONLY):
+      out += bytes([1, 0, 0, 0, 0, 0])
+      continue
+    if behavior not in SUPPORT:
+      _report.Problem(path, f"index {index} has the behaviour {behavior!r}, which the server's file does not number")
+      continue
+    ground, rubble = entry.get("ground"), entry.get("rubble")
+    if not isinstance(ground, bool):
+      _report.Problem(path, f"index {index} gives no server-side ground flag (GameDesign.md, M2's values, item 14)")
+      continue
+    if not isinstance(rubble, int) or (rubble != 0 and rubble not in _palette):
+      _report.Problem(path, f"index {index} gives no rubble index that the palette has (M2's values, item 7)")
+      continue
+    span = 0
+    if SUPPORT[behavior] == 2:
+      key = f"{behavior}SpanVoxels"
+      span = _rules.get(key)
+      if not isinstance(span, int) or not 0 < span <= MAX_SPAN_VOXELS:
+        _report.Problem(path, f"index {index} spans, and Rules.json gives no {key} from 1 to {MAX_SPAN_VOXELS}")
+        continue
+    flags = (GROUND_FLAG if ground else 0) | (LIQUID_FLAG if behavior == "water" else 0)
+    out += bytes([1, BEHAVIORS.index(behavior), SUPPORT[behavior], span, flags, rubble])
+  return bytes(out)
+
+
+def LengthPrefixed(_text):
+  raw = _text.encode("utf-8")
+  return struct.pack("<I", len(raw)) + raw
+
+
+def ServerTemplates(_templates):
+  """TMPL: the client view of each template, with its parts and its critical part's name."""
+  out = bytearray(struct.pack("<I", len(_templates)))
+  for view in _templates:
+    out += LengthPrefixed(view.id) + LengthPrefixed(view.name) + LengthPrefixed(view.criticalPart)
+    out += struct.pack("<IIII", view.width, view.height, view.depth, view.edgeMillimeters)
+    out += struct.pack("<II", *view.cost)
+    out += view.indices + view.parts
+  return bytes(out)
+
+
+def ServerRules(_rules):
+  """RULE: each converted value, in ascending key order."""
+  out = bytearray(struct.pack("<I", len(_rules)))
+  for key in sorted(_rules):
+    out += LengthPrefixed(key) + struct.pack("<q", _rules[key])
+  return bytes(out)
+
+
+def ServerFile(_sharedHash, _sections):
+  """The whole file: the header, then the body of the shared hash, the directory and _sections ({tag: bytes})."""
+  directorySize = 8 + 4 + 16 * len(_sections)
+  directory, payload = bytearray(), bytearray()
+  for tag, section in _sections.items():
+    directory += tag.encode("ascii") + struct.pack("<III", SECTION_VERSIONS[tag], directorySize + len(payload), len(section))
+    payload += section
+  body = struct.pack("<QI", _sharedHash, len(_sections)) + bytes(directory) + bytes(payload)
+  return SERVER_MAGIC + struct.pack("<IQ", SERVER_FORMAT_VERSION, Fnv1a64(body)) + body
+
+
+def BakeServer(_report, _palette, _templates, _sharedHash):
+  """The server's file, or None when a problem stops it."""
+  rules = CheckAssets.ReadRules(_report, ROOT)
+  materials = Materials(_report, _palette, rules)
+  if _report.problems:
+    return None
+  return ServerFile(_sharedHash, {"MATL": materials, "TMPL": ServerTemplates(_templates), "RULE": ServerRules(rules)})
+
+
+def WriteBytesIfChanged(_path, _bytes):
+  """Leaves an unchanged file's timestamp alone, so the build's incremental check sees nothing to do."""
+  if _path.exists() and _path.read_bytes() == _bytes:
+    return False
+  _path.write_bytes(_bytes)
+  return True
+
+
 def WriteIfChanged(_path, _text):
   """Leaves an unchanged header's timestamp alone, so a rebuild does not recompile its users."""
   if _path.exists() and _path.read_text(encoding="utf-8") == _text:
@@ -315,8 +484,11 @@ def WriteIfChanged(_path, _text):
 
 def Main(_arguments):
   parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-  parser.add_argument("--client", type=Path, required=True, help="the folder the client's headers go to")
+  parser.add_argument("--client", type=Path, help="the folder the client's headers go to")
+  parser.add_argument("--server", type=Path, help="the folder the server's file goes to: <outputdir>\\ServerData")
   arguments = parser.parse_args(_arguments)
+  if arguments.client is None and arguments.server is None:
+    parser.error("give --client, --server or both")
   if sys.version_info < (3, 12):
     print("BakeContent: Python 3.12 or later is needed (ADR-010)")
     return 1
@@ -326,23 +498,31 @@ def Main(_arguments):
   report = CheckAssets.Report(ROOT)
   palette, _ = CheckAssets.ReadPalette(report, ROOT)
   templates = ReadViews(report, TEMPLATES, palette, True)
-  models = ReadViews(report, MODELS, palette, False)
+  # Only the client half reads GameData/Client/ (ADR-008, decision 2; the asset check's check 11).
+  models = ReadViews(report, MODELS, palette, False) if arguments.client is not None else []
+  sharedHash = Fnv1a64(SharedEncoding(colors, present, templates))
+  serverFile = BakeServer(report, palette, templates, sharedHash) if arguments.server is not None else None
   if report.problems:
     for problem in report.problems:
       print(f"BakeContent: {problem}")
     print(f"BakeContent: {len(report.problems)} problem(s), so nothing was written")
     return 1
 
-  headers = {
-    "PaletteTable.h": PaletteHeader(look),
-    "TemplateTable.h": TemplateHeader(templates),
-    "ModelTable.h": ModelHeader(models),
-    "SharedHashValue.h": SharedHashHeader(Fnv1a64(SharedEncoding(colors, present, templates))),
-  }
-  arguments.client.mkdir(parents=True, exist_ok=True)
-  for name, text in headers.items():
-    changed = WriteIfChanged(arguments.client / name, text)
-    print(f"BakeContent: {'wrote' if changed else 'kept'} {name}")
+  if arguments.client is not None:
+    headers = {
+      "PaletteTable.h": PaletteHeader(look),
+      "TemplateTable.h": TemplateHeader(templates),
+      "ModelTable.h": ModelHeader(models),
+      "SharedHashValue.h": SharedHashHeader(sharedHash),
+    }
+    arguments.client.mkdir(parents=True, exist_ok=True)
+    for name, text in headers.items():
+      changed = WriteIfChanged(arguments.client / name, text)
+      print(f"BakeContent: {'wrote' if changed else 'kept'} {name}")
+  if arguments.server is not None:
+    arguments.server.mkdir(parents=True, exist_ok=True)
+    changed = WriteBytesIfChanged(arguments.server / SERVER_FILE, serverFile)
+    print(f"BakeContent: {'wrote' if changed else 'kept'} {SERVER_FILE}")
   return 0
 
 

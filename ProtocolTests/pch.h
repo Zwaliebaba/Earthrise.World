@@ -2,6 +2,7 @@
 
 #include "CppUnitTest.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>

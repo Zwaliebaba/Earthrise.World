@@ -1,10 +1,9 @@
 # ADR-013 — The simulation's tick, its numbers and its randomness
 
-**Status:** Proposed, 2026-11-01. It settles what [ADR-002](ADR-002-authoritative-simulation.md) leaves open on the tick rate and the number representation, and it is the decision on a deterministic core that AGENTS.md R16 asks for.
+**Status:** Accepted, 2026-11-01, by order M2-B1 ([MvpPlan-M2.md](../MvpPlan-M2.md)), which implements decision 3's `Core::Fixed`, its rounding rule and the integer square root. Proposed the same day. It settles what [ADR-002](ADR-002-authoritative-simulation.md) leaves open on the tick rate and the number representation, and it is the decision on a deterministic core that AGENTS.md R16 asks for.
 - **The owner gave the go-ahead** on 2026-11-01 ([MvpPlan.md](../MvpPlan.md), M2, input 1; GameDesign.md, *M2's values*).
-- **The commit that first implements it** marks it Accepted (AGENTS.md §6).
-
-Nothing implements it yet.
+- **No amendment was forced** by the code. `Core::FloorDivide` also refuses the one quotient that does not fit, INT64_MIN by −1, with `std::overflow_error`, which decision 3's rule leaves unsaid. `Core::Fixed::FromWhole` takes whole numbers up to 32,767 either way of zero.
+- **It closes** ADR-002's *Left open* items on the tick rate and the number representation.
 
 ## Context
 
@@ -55,7 +54,7 @@ Nothing implements it yet.
 6. **Deferred work is counted in units of work. A wall-time target is measured against them, never enforced by them.**
    - **Each kind of deferred work** has a budget per tick in its own unit, for example voxels slumped or path nodes expanded. Work over the budget waits for the next tick, in a stated order.
    - **The budgets are server data** ([ADR-016](ADR-016-server-data-format.md)). They change outcomes, how fast a slope settles for example, so the server-data hash covers them (ADR-008, decision 5).
-   - **The wall-time target** is how long a tick may take at the 95th percentile on the reference machine. The owner sets it, and `SimulationBench` measures against it. It is never read inside a tick. The owner set it at 25 ms on 2026-11-01 (GameDesign.md, M2's values, item 2). Queries are budgeted the same way, in units of work ([ADR-009](ADR-009-queries-across-the-server-boundary.md), amended).
+   - **The wall-time target** is how long a tick may take at the 95th percentile on the reference machine. The owner sets it, and `SimulationBench` measures against it. It is never read inside a tick. The owner set it at 25 ms on 2026-11-01 (GameDesign.md, M2's values, item 2), and the same day, after M2's report, had the breach run judged by its slowest tick of play, every tick but its set-up tick 0, rather than at the 95th percentile, which its idle ticks made meaningless. Queries are budgeted the same way, in units of work ([ADR-009](ADR-009-queries-across-the-server-boundary.md), amended).
 7. **M2 runs the tick on one thread.** ADR-002 allows work spread over threads, merged in a fixed order. It is added when a measurement calls for it, not before.
 
 ## Consequences for the code

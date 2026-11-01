@@ -100,7 +100,7 @@ The MVP ends at the verdict on stages 1 and 2 (GameDesign.md, decided 2026-10-31
 | `Client` | static library | `Client` | Core, Engine, Protocol, Content | Camera, the command layer and the mouse-and-keyboard scheme that feeds it, squad selection and orders, interface and overlays, presentation of state updates, cosmetic debris |
 | `Earthrise` | executable | (none) | all libraries | `wWinMain`, which joins the client and the simulation through an in-process transport |
 | `RendererSpike` | executable | `RendererSpike` | Core, Engine, Content, Simulation, Protocol | The spike's scenes and measurements, kept afterwards as a rendering benchmark |
-| `SimulationBench` | console executable | `SimulationBench` | Core, Protocol, Simulation; Content until M2's server bake (ADR-010, amended) | Headless measurements: spike question 6, the synthetic 2 km world, regression timing |
+| `SimulationBench` | console executable | `SimulationBench` | Core, Protocol, Simulation; Content until M2's server bake, dropped by M2-B6 (ADR-010, amended) | Headless measurements: spike question 6, the synthetic 2 km world, regression timing |
 | `CoreTests`, `EngineTests`, `ProtocolTests`, `ContentTests`, `SimulationTests` | test projects | `<Project>Tests` | their library | Unit tests, run by vstest, each starting with `SuiteSmoke`. `EngineTests` holds the render tests on WARP (ADR-012) |
 
 The edges run one way:
@@ -120,11 +120,11 @@ The edges run one way:
 | The renderer's first choices | M1, first commit | [ADR-011](ADR/ADR-011-renderer-first-choices.md), Accepted: window, swap chain, render scale, reversed-Z depth, no MSAA, instanced quads, dxc at Shader Model 6.0, shadow-map sizes, built-in timing |
 | What the voxel sizes and the camera cost | After M3 | Decided by the owner as the baseline: a 1 m world and simulation, 0.5 m models, orthographic at 34°. [ADR-006](ADR/ADR-006-voxel-sizes.md) is accepted once the M1 spike has filled in its measurements and M3 has read breach predictions on the 1 m world. |
 | Lighting | End of M1, only if spike question 4 falls short | Traced shadows through an occupancy volume, or DXR |
-| Tick rate and number representation | Start of M2 | [ADR-013](ADR/ADR-013-ticks-numbers-and-randomness.md), Proposed: 20 ticks a second; no floating point in `Simulation` or `Protocol`; integer voxel coordinates; Q16.16 positions for units and shots; SplitMix64 in `Core`, with keyed draws |
+| Tick rate and number representation | Start of M2 | [ADR-013](ADR/ADR-013-ticks-numbers-and-randomness.md), Accepted by M2-B1: 20 ticks a second; no floating point in `Simulation` or `Protocol`; integer voxel coordinates; Q16.16 positions for units and shots; SplitMix64 in `Core`, with keyed draws |
 | Chunk dimensions | Start of M1 | 32³ voxels, as ADR-006 assumes; the spike needs a chunk store |
-| Edit encoding | M2 | [ADR-014](ADR/ADR-014-edits-saves-and-replays.md), Proposed: a chunk's edits saved as a list or a run-length copy, whichever is shorter; a save holds everything the next tick reads; a replay is a start and the commands, with a state hash every second; a scenario is a baked source, not a save |
-| Navigation model | M2 | [ADR-015](ADR/ADR-015-navigation.md), Proposed: one surface per column with its headroom; classes by climb over a run, headroom, width and fords; clearance per cell; every touched tile rebuilt on the tick of its edit; the search chosen by measurement in M2 |
-| `ServerData` format and bake target | M2 | [ADR-016](ADR/ADR-016-server-data-format.md), Proposed: one file, a hashed body of tagged sections; tuning values converted exactly from decimal sources; the bake target in `Simulation.vcxproj` |
+| Edit encoding | M2 | [ADR-014](ADR/ADR-014-edits-saves-and-replays.md), Accepted by M2-C2: a chunk's edits saved as a list or a run-length copy, whichever is shorter; a save holds everything the next tick reads; a replay is a start and the commands, with a state hash every second; a scenario is a baked source, not a save |
+| Navigation model | M2 | [ADR-015](ADR/ADR-015-navigation.md), Accepted by M2-F1: one surface per column with its headroom; classes by climb over a run, headroom, width and fords; clearance per cell; every touched tile rebuilt on the tick of its edit; the search chosen by measurement in M2 |
+| `ServerData` format and bake target | M2 | [ADR-016](ADR/ADR-016-server-data-format.md), Accepted by M2-B5: one file, a hashed body of tagged sections; tuning values converted exactly from decimal sources; the bake target in `Simulation.vcxproj` |
 | Queries across the boundary | Decided | [ADR-009](ADR/ADR-009-queries-across-the-server-boundary.md): read-only queries and answers, filtered like state updates |
 | Content formats | Decided | [ADR-005](ADR/ADR-005-content-formats.md): JSON layer files, baked. [ADR-008](ADR/ADR-008-server-and-client-game-data.md): client content compiled into `Content`, server data baked into files in `<outputdir>\ServerData`, `.vox` written on demand for MagicaVoxel |
 | Platforms and input | Decided | [ADR-007](ADR/ADR-007-platforms-and-input.md): Windows on x64 and ARM64; two input schemes over one command layer, touch after the verdict |
@@ -335,7 +335,7 @@ The plan credits what M1 already built: the chunk store, a first support search,
 | # | Input | For orders | Decided, 2026-11-01 |
 |---|---|---|---|
 | 1 | Give ADR-013 to ADR-016 the go-ahead, or change them. Each is marked Accepted by the commit that first implements it (AGENTS.md §6) | B1, B5, C2, F1 | Go-ahead for all four, as written |
-| 2 | **The tick's wall-time target.** It replaces "the budget the spike measured" in the done-when, which is circular: the spike measures costs, it does not set a budget | G2 | 25 ms, half a tick, at the 95th percentile, on one core of the benchmark machine, with `SimulationBench` recording its CPU |
+| 2 | **The tick's wall-time target.** It replaces "the budget the spike measured" in the done-when, which is circular: the spike measures costs, it does not set a budget | G2 | 25 ms, half a tick, at the 95th percentile, on one core of the benchmark machine, with `SimulationBench` recording its CPU. Changed after the M2 report: the breach run's slowest tick of play, all but tick 0, against 25 ms |
 | 3 | **What the generator makes on the MVP map** | D1, D3 | 512 m × 512 m and 64 m high, two chunks. The relief and soil depths of M1's test ground, carried over the map. Bedrock depth varying so that thin soil over rock and deep earth both occur. Sparse outcrops of building stone, forest, and one river with fords. The owner judges the first maps in the spike, by eye |
 | 4 | **A collapse's warning** | B5, E3 | 1 s, plus the time a foot soldier at 1.4 m/s takes to walk the piece's height, rounded up to whole ticks: 135 ticks, 6.75 s, for an 8 m piece |
 | 5 | **The fall** | B5, E3, E4 | It lasts the free-fall time from the piece's height, under gravity of 9.81 m/s², rounded up to whole ticks: 26 ticks for 8 m. The piece leaves the grid on the fall's first tick, and its rubble and damage land in equal parts over the fall, nearest the foot first |
@@ -355,7 +355,7 @@ The plan credits what M1 already built: the chunk store, a first support search,
   - At stone's 2 m span, a hole w metres wide through the base of a T3 section leaves everything above it supported until w reaches 5. Then only a slot w − 4 wide falls.
   - With input 12's medium craters, two shots one above the other open a route for foot, one voxel by two, long before anything falls.
 
-  So the done-when's "the wall collapses with its warning" depends on where the scripted shots land. Order E3 tests the hand calculation, G3 reports what the rules do to a T3 section, and the owner judges whether that reads as a breach before M3 asks players to predict one.
+  So the done-when's "the wall collapses with its warning" depends on where the scripted shots land. Order E3 tests the hand calculation, G3 reports what the rules do to a T3 section, and the owner judges whether that reads as a breach before M3 asks players to predict one. **The owner judged that it does** (2026-11-01, after the [M2 report](Review/M2-2026-11-01.md)): five shots open a hole a voxel above the wall's base, the slot above its middle falls, and its rubble makes the way in; the rules stay.
 - **Clearance treats the ram as a 3 m square,** so its 7.5 m length can clip corners (ADR-015). T5's passage fits it with no margin, and T5's redraw has to keep 3 m by 4 m.
 - **A scenario is not a save** (ADR-014, decision 7). The owner accepted the change on 2026-11-01, and GameDesign.md's line now says so.
 
@@ -367,7 +367,7 @@ The plan credits what M1 already built: the chunk store, a first support search,
   - a squad of six foot, ordered inside before the breach, goes as near as it can. Once the tiles rebuild, it searches again and paths through the breach, and no unit stands on a structure on any tick;
   - the whole run replays with every state hash equal, and a save taken at any tick continues identically;
   - the generator's golden hashes and slope invariant pass.
-- **On the benchmark machine:** every tick of the breach run fits input 2's target at the 95th percentile, measured in `SimulationBench`.
+- **On the benchmark machine:** every tick of play in the breach run, all but its set-up tick 0, fits input 2's target, measured in `SimulationBench` (the owner, after the [M2 report](Review/M2-2026-11-01.md), in place of the 95th percentile over every tick).
 - **Throughout:** the AGENTS.md checklist passes.
 
 **How the actual pace is recorded.** Each phase's last commit fills in its row below:
@@ -381,12 +381,12 @@ The plan credits what M1 already built: the chunk store, a first support search,
 |---|---|---|---|---|---|---|---|
 | Plan | 2026-11-01 | 2026-11-01 | #32 | 4 | 1 | | This plan, the work orders and ADR-013 to ADR-016, Proposed. Owner hours for the owner to log |
 | A | 2026-11-01 | 2026-11-01 | #32 | 1 | 1 | | The owner's 13 answers, in the plan's PR because they edit the files it adds. Owner hours for the owner to log |
-| B | | | | | | | |
-| C | | | | | | | |
-| D | | | | | | | |
-| E | | | | | | | |
-| F | | | | | | | |
-| G | | | | | | | |
+| B | 2026-11-01 | 2026-11-01 | #42 | 6 | 6 | | B1–B6. One draft PR for B to G by the owner's choice. Owner runs: the spike after B2, B4 and B6. Owner hours for the owner to log |
+| C | 2026-11-01 | 2026-11-01 | #42 | 6 | 6 | | C1–C5; C4 took two commits and two runs, its fix a commit of its own (clang-tidy 22, `bugprone-exception-escape`). Owner hours for the owner to log |
+| D | 2026-11-01 | 2026-11-01 | #42 | 4 | 4 | | D1–D3; D3 took two commits and two runs, its fix a commit of its own (clang-tidy 22, `bugprone-integer-division`). Owner runs: the spike with `--generated-map`. Owner hours for the owner to log |
+| E | 2026-11-01 | 2026-11-01 | #42 | 9 | E1: 1; then shared | | E1–E7; E2 and E4 took a second commit each, for clang-tidy 22 on `std::ranges::find` over positions. E2 onwards were pushed together at the owner's request, so CI ran on the newest commit only: five runs covered E2 to the end of G (the [M2 report](Review/M2-2026-11-01.md)). Owner hours for the owner to log |
+| F | 2026-11-01 | 2026-11-01 | #42 | 8 | Shared, row E | | F1–F6; F4 took a second commit for MSVC's C4244 in `std::ranges::fill`, and F5 one for C4702 after `Assert::Fail`. Cavalry's and machines' speeds and the graded fords followed the report (row G). Owner hours for the owner to log |
+| G | 2026-11-01 | 2026-11-01 | #42 | 9 | Shared, row E | | G1–G3, G1 with a second commit for clang-tidy 22; the report is [Review/M2-2026-11-01.md](Review/M2-2026-11-01.md). After G3, five commits carry the owner's answers to it and their record: cavalry's and machines' speeds, the fords graded for every class (GENERATOR_VERSION 2), the slowest tick of play as the timing rule, the breach judged a breach, and this log. Owner runs: `SimulationBench --breach-run` on the benchmark machine, and the spike with `--generated-map`. Owner hours for the owner to log |
 
 ### M3 — Breach lab
 
@@ -402,6 +402,11 @@ The plan credits what M1 already built: the chunk store, a first support search,
 Run it with six people (F-48).
 
 **Done when** the median prediction accuracy on items split evenly between open and shut reaches 0.65 or better. If it falls short, legibility is reworked before M4. That rework counts toward the one round the kill criterion allows (GameDesign.md, *Kill criteria*).
+
+**M3's forecast, from M2's pace** (written 2026-11-01, when M2's orders were done; a judgment, not a measurement):
+- **M2's pace.** Its 30 orders from B1 to G3 were implemented in one calendar day, in 32 commits and, by the time the report was written, as many CI runs; two orders needed a second run, both for a lint the container could not reach. The owner's hours are not yet logged, so the ratio of hours to forecast is still missing, as it was after M1.
+- **What does not carry over.** M2 was headless: every order could be built and tested in a container and confirmed by CI. M3 is a client, and AGENTS.md requires anything that draws or takes input to be run and looked at, which only the owner's Windows machine can do. Each order that draws needs an owner run, and the done-when needs six people (F-48).
+- **The forecast.** The code at M2's pace is days, not weeks. The calendar is set by the owner's runs, about one an order that draws, and by gathering six people for the test: **2 to 4 calendar weeks, and about 25 to 35 owner hours,** of which the six-person run and its preparation are about 10. The breach M2 found, one slot and a rubble ramp after five shots and 88 s (the [M2 report](Review/M2-2026-11-01.md)), is what M3's players will be asked to predict; if the owner judges it does not read as a breach, the rules change first, and that time is not in this forecast.
 
 ### M4 — Siege trial
 

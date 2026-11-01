@@ -49,6 +49,32 @@
     <ClCompile Include="NavigationGrid.cpp" />
     <ClInclude Include="TestWorld.h" />
     <ClCompile Include="TestWorld.cpp" />
+    <ClInclude Include="ServerData.h" />
+    <ClCompile Include="ServerData.cpp" />
+    <ClInclude Include="Rules.h" />
+    <ClInclude Include="VoxelWorld.h" />
+    <ClCompile Include="VoxelWorld.cpp" />
+    <ClInclude Include="World.h" />
+    <ClCompile Include="World.cpp" />
+    <ClInclude Include="Script.h" />
+    <ClCompile Include="Script.cpp" />
+    <ClInclude Include="ChunkEdits.h" />
+    <ClCompile Include="ChunkEdits.cpp" />
+    <ClInclude Include="Save.h" />
+    <ClCompile Include="Save.cpp" />
+    <ClInclude Include="Replay.h" />
+    <ClCompile Include="Replay.cpp" />
+    <ClInclude Include="Generator.h" />
+    <ClCompile Include="Generator.cpp" />
+    <ClInclude Include="FixedPosition.h" />
+    <ClInclude Include="Shot.h" />
+    <ClCompile Include="Shot.cpp" />
+    <ClInclude Include="CollapsePlan.h" />
+    <ClCompile Include="CollapsePlan.cpp" />
+    <ClInclude Include="PathSearch.h" />
+    <ClCompile Include="PathSearch.cpp" />
+    <ClInclude Include="BreachRun.h" />
+    <ClCompile Include="BreachRun.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
@@ -58,5 +84,20 @@
       <Project>{287CBEC4-BB6B-5814-8635-28ED704782A0}</Project>
     </ProjectReference>
   </ItemGroup>
+  <!-- The server half of the bake (ADR-016, decision 5): GameData's server sources to <outputdir>\ServerData\ServerData.bin,
+       beside every executable and test DLL, since every consumer of the server's data references this project. The
+       inputs are everything the server half reads: the palette, the templates, the rules, the script and the modules
+       it imports, and nothing under GameData\Client. It writes the file only when its bytes change. -->
+  <ItemGroup>
+    <BakeInput Include="$(SolutionDir)GameData\Server\Palette.json" />
+    <BakeInput Include="$(SolutionDir)GameData\Server\Rules.json" />
+    <BakeInput Include="$(SolutionDir)GameData\Server\Templates\*.json" />
+    <BakeInput Include="$(SolutionDir)Tools\BakeContent.py" />
+    <BakeInput Include="$(SolutionDir)Tools\CheckAssets.py" />
+    <BakeInput Include="$(SolutionDir)Tools\VoxFile.py" />
+  </ItemGroup>
+  <Target Name="BakeServerData" BeforeTargets="ClCompile" Inputs="@(BakeInput)" Outputs="$(OutDir)ServerData\ServerData.bin">
+    <Exec Command="python &quot;$(SolutionDir)Tools\BakeContent.py&quot; --server &quot;$(OutDir)ServerData&quot; || (echo error: the server bake failed, see its output above; it needs Python 3.12 or later on PATH, ADR-016 &amp;&amp; exit 1)" />
+  </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

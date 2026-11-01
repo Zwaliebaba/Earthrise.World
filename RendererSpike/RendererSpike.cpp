@@ -8,6 +8,7 @@
 #include "DepthTarget.h"
 #include "FrameRing.h"
 #include "FrameTimer.h"
+#include "Generator.h"
 #include "GpuDevice.h"
 #include "GpuTimer.h"
 #include "KeyboardInput.h"
@@ -18,7 +19,9 @@
 #include "PointerInput.h"
 #include "ResourceBarrier.h"
 #include "SceneScript.h"
+#include "ServerData.h"
 #include "ShadowMap.h"
+#include "SharedHash.h"
 #include "SunProjection.h"
 #include "SwapChain.h"
 #include "UploadRing.h"
@@ -50,6 +53,11 @@
 // each voxel split into eight, its edits split with it (GameDesign.md, M1's open values, item 8;
 // MvpPlan.md, M1 task 12). The units and the camera are the same, so the two runs differ only in
 // the world's voxel size.
+//
+// `--generated-map 1234` draws the MVP map the generator makes from that seed instead, with no units
+// and no edits, the camera at its middle (MvpPlan-M2.md, M2-D3), for the owner to judge it by eye
+// against GameDesign.md, M2's values, item 3. The seed is decimal, or hexadecimal after 0x. It draws
+// the 1 m world only.
 
 namespace
 {
@@ -144,6 +152,7 @@ struct Options
   bool measure;
   bool windowed;
   bool halfMeterWorld;
+  std::optional<std::uint64_t> generatedMapSeed; // draw the generated map instead of the test scene
 };
 
 /// The scene's size for a display _display pixels across: the render scale of the display, or for
@@ -317,6 +326,40 @@ float RenderScaleFrom(std::wstring_view _commandLine)
   return scale;
 }
 
+/// The seed after --generated-map, or none when it is not given.
+std::optional<std::uint64_t> GeneratedMapSeedFrom(std::wstring_view _commandLine)
+{
+  constexpr std::wstring_view OPTION = L"--generated-map";
+  const std::size_t at = _commandLine.find(OPTION);
+  if (at == std::wstring_view::npos)
+  {
+    return std::nullopt;
+  }
+  std::wstring_view rest = _commandLine.substr(at + OPTION.size());
+  if (rest.starts_with(L'='))
+  {
+    rest.remove_prefix(1);
+  }
+  while (rest.starts_with(L' '))
+  {
+    rest.remove_prefix(1);
+  }
+  std::string value;
+  for (const wchar_t character : rest.substr(0, rest.find(L' ')))
+  {
+    value.push_back(character < 128 ? static_cast<char>(character) : '?');
+  }
+  const bool hexadecimal = value.starts_with("0x") || value.starts_with("0X");
+  const char* first = value.data() + (hexadecimal ? 2 : 0);
+  std::uint64_t seed = 0;
+  const std::from_chars_result parsed = std::from_chars(first, value.data() + value.size(), seed, hexadecimal ? 16 : 10);
+  if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size() || first == value.data() + value.size())
+  {
+    throw std::invalid_argument(std::format("--generated-map takes a seed, decimal or 0x hexadecimal, and was given \"{}\".", value));
+  }
+  return seed;
+}
+
 /// Whether the command line holds _flag as a word of its own.
 bool HasFlag(std::wstring_view _commandLine, std::wstring_view _flag)
 {
@@ -340,8 +383,8 @@ std::int64_t PerformanceTicks() noexcept
   return ticks.QuadPart;
 }
 
-/// The folder the measured run writes into: Measurements\ beside the executable.
-std::filesystem::path MeasurementFolder()
+/// The folder the executable sits in: the build's output folder (ADR-010, decision 3).
+std::filesystem::path ExecutableFolder()
 {
   std::wstring path(32768, L'\0');
   const DWORD length = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
@@ -350,7 +393,29 @@ std::filesystem::path MeasurementFolder()
     throw std::runtime_error("the spike could not find where its executable is");
   }
   path.resize(length);
-  return std::filesystem::path(path).parent_path() / L"Measurements";
+  return std::filesystem::path(path).parent_path();
+}
+
+/// The folder the measured run writes into: Measurements\ beside the executable.
+std::filesystem::path MeasurementFolder()
+{
+  return ExecutableFolder() / L"Measurements";
+}
+
+/// The server's data, from ServerData\ beside the executable (ADR-016). The spike draws Content's
+/// templates over a world built from these, so it refuses to start when the two halves were baked
+/// from different sources, naming both hashes (ADR-016, decision 7): the likely cause is one half
+/// rebuilt without the other.
+Simulation::ServerData LoadServerData()
+{
+  Simulation::ServerData data = Simulation::ServerData::Load(ExecutableFolder() / L"ServerData" / L"ServerData.bin");
+  if (data.SharedHash() != Content::SharedHash())
+  {
+    throw std::runtime_error(std::format("the server's data and Content were baked from different sources: ServerData's shared hash is "
+                                         "{:016x}, Content's is {:016x}. Rebuild the solution.",
+                                         data.SharedHash(), Content::SharedHash()));
+  }
+  return data;
 }
 
 DirectX::XMVECTOR SunTowards() noexcept
@@ -521,7 +586,17 @@ int Run(const Options& _options)
   // the store publishes (ADR-002, decision 3). For the 0.5 m world the client draws from a second
   // store, the first split eight ways, which takes every edit the first makes.
   Simulation::ChunkStore store;
-  const RendererSpike::TestScene scene = RendererSpike::BuildTestScene(store, SCENE_SEED);
+  const Simulation::ServerData serverData = LoadServerData();
+  // The generated map has no units and no edits (M2-D3); the test scene has both.
+  const bool generated = _options.generatedMapSeed.has_value();
+  if (generated && _options.halfMeterWorld)
+  {
+    throw std::invalid_argument("--generated-map draws the 1 m world only; leave out --half-meter-world.");
+  }
+  const RendererSpike::TestScene scene = _options.generatedMapSeed.has_value()
+                                           ? RendererSpike::BuildGeneratedScene(store, *_options.generatedMapSeed)
+                                           : RendererSpike::BuildTestScene(store, SCENE_SEED, serverData.Templates());
+  const std::int32_t worldHeightVoxels = generated ? Simulation::Generator::MAP_HEIGHT_VOXELS : Simulation::TestWorld::HEIGHT_VOXELS;
   Simulation::ChunkStore halfMeterStore;
   if (_options.halfMeterWorld)
   {
@@ -529,13 +604,16 @@ int Run(const Options& _options)
   }
   Simulation::ChunkStore& shownStore = _options.halfMeterWorld ? halfMeterStore : store;
   std::vector<Protocol::ChunkSnapshot> published = shownStore.Publish();
-  Simulation::TestWorldEdits edits(store, scene.world, SCENE_SEED);
-  // Debris comes to rest on the world's top, as the 1 m simulation has it after a collapse.
-  const RendererSpike::Debris::RestingTop restingTop = [&store](float _xMeters, float _zMeters)
+  std::optional<Simulation::TestWorldEdits> edits;
+  if (!generated)
   {
-    const auto top =
-      Simulation::TopSolidAtOrBelow(store, static_cast<std::int32_t>(std::floor(_xMeters)), static_cast<std::int32_t>(std::floor(_zMeters)),
-                                    Simulation::TestWorld::HEIGHT_VOXELS - 1);
+    edits.emplace(store, scene.world, SCENE_SEED);
+  }
+  // Debris comes to rest on the world's top, as the 1 m simulation has it after a collapse.
+  const RendererSpike::Debris::RestingTop restingTop = [&store, worldHeightVoxels](float _xMeters, float _zMeters)
+  {
+    const auto top = Simulation::TopSolidAtOrBelow(store, static_cast<std::int32_t>(std::floor(_xMeters)),
+                                                   static_cast<std::int32_t>(std::floor(_zMeters)), worldHeightVoxels - 1);
     return static_cast<float>(top + 1);
   };
   // The breach's debris, at rest from the first frame, because the breach came down before the
@@ -548,11 +626,10 @@ int Run(const Options& _options)
   // The sun's view over the whole world, its height included, for both shadow maps.
   const auto worldEdgeMeters = static_cast<float>(scene.world.edgeVoxels);
   DirectX::XMFLOAT4X4 sunViewProjection{};
-  DirectX::XMStoreFloat4x4(
-    &sunViewProjection,
-    Engine::SunViewProjection(SunTowards(), DirectX::XMFLOAT3{0.0F, 0.0F, 0.0F},
-                              DirectX::XMFLOAT3{worldEdgeMeters, static_cast<float>(Simulation::TestWorld::HEIGHT_VOXELS), worldEdgeMeters},
-                              SHADOW_MARGIN_METERS));
+  DirectX::XMStoreFloat4x4(&sunViewProjection, Engine::SunViewProjection(
+                                                 SunTowards(), DirectX::XMFLOAT3{0.0F, 0.0F, 0.0F},
+                                                 DirectX::XMFLOAT3{worldEdgeMeters, static_cast<float>(worldHeightVoxels), worldEdgeMeters},
+                                                 SHADOW_MARGIN_METERS));
   std::vector<RendererSpike::ModelPlacement> placements;
   // The frame the scene's edits and walkers are at: the path's in a measured run, else counted from
   // the start.
@@ -642,11 +719,12 @@ int Run(const Options& _options)
     // The scene's scripted edits: the quarrying, and the collapse (task 9). The client sees them in
     // this frame, from what the store publishes (ADR-002, decision 3).
     const auto editStart = std::chrono::steady_clock::now();
-    const std::vector<Protocol::VoxelPosition> changedVoxels = edits.Apply(store, sceneFrame);
+    const std::vector<Protocol::VoxelPosition> changedVoxels =
+      edits ? edits->Apply(store, sceneFrame) : std::vector<Protocol::VoxelPosition>{};
     const float sceneSeconds = static_cast<float>(sceneFrame) / static_cast<float>(Simulation::TestWorldEdits::FRAMES_PER_SECOND);
-    if (sceneFrame == Simulation::TestWorldEdits::COLLAPSE_FRAME && !edits.Fallen().empty())
+    if (edits && sceneFrame == Simulation::TestWorldEdits::COLLAPSE_FRAME && !edits->Fallen().empty())
     {
-      debris.Scatter(edits.CollapseId(), edits.Fallen(), edits.Rubble(), restingTop, sceneSeconds);
+      debris.Scatter(edits->CollapseId(), edits->Fallen(), edits->Rubble(), restingTop, sceneSeconds);
     }
     debrisVoxels.clear();
     breachDebris.Pose(sceneSeconds, debrisVoxels);
@@ -890,7 +968,8 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
     return Run({.renderScale = RenderScaleFrom(commandLine),
                 .measure = HasFlag(commandLine, L"--measure"),
                 .windowed = HasFlag(commandLine, L"--windowed"),
-                .halfMeterWorld = HasFlag(commandLine, L"--half-meter-world")});
+                .halfMeterWorld = HasFlag(commandLine, L"--half-meter-world"),
+                .generatedMapSeed = GeneratedMapSeedFrom(commandLine)});
   }
   catch (const winrt::hresult_error& error)
   {

@@ -46,6 +46,29 @@
     <ClCompile Include="SupportSearchTests.cpp" />
     <ClCompile Include="NavigationGridTests.cpp" />
     <ClCompile Include="TestWorldTests.cpp" />
+    <ClInclude Include="ServerDataFile.h" />
+    <ClCompile Include="ServerDataTests.cpp" />
+    <ClCompile Include="VoxelWorldTests.cpp" />
+    <ClInclude Include="FlatWorld.h" />
+    <ClCompile Include="WorldTests.cpp" />
+    <ClCompile Include="ChunkEditsTests.cpp" />
+    <ClCompile Include="SaveTests.cpp" />
+    <ClCompile Include="ReplayTests.cpp" />
+    <ClCompile Include="GeneratorTests.cpp" />
+    <ClCompile Include="ShotTests.cpp" />
+    <ClCompile Include="CraterTests.cpp" />
+    <ClCompile Include="CollapseTests.cpp" />
+    <ClCompile Include="FallTests.cpp" />
+    <ClCompile Include="CascadeTests.cpp" />
+    <ClCompile Include="SlumpTests.cpp" />
+    <ClCompile Include="LooseMaterialTests.cpp" />
+    <ClCompile Include="NavigationClassTests.cpp" />
+    <ClCompile Include="ClearanceTests.cpp" />
+    <ClCompile Include="SearchTests.cpp" />
+    <ClCompile Include="ReachTests.cpp" />
+    <ClCompile Include="MovementTests.cpp" />
+    <ClCompile Include="DropTests.cpp" />
+    <ClCompile Include="BreachRunTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
