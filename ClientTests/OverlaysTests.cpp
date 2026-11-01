@@ -447,8 +447,8 @@ public:
       return Protocol::ChunkSnapshot{
         .coordinate = {_xChunks, 0, _zChunks}, .version = 2, .voxels = std::make_shared<const Protocol::Chunk>()};
     };
-    const std::array<Protocol::ChunkSnapshot, 1> far = {snapshot(2, 2)};
-    overlays.Ask(session, far, true);
+    const std::array<Protocol::ChunkSnapshot, 1> distant = {snapshot(2, 2)};
+    overlays.Ask(session, distant, true);
     Assert::AreEqual(std::size_t{0}, session.TakeQueries().size());
     const std::array<Protocol::ChunkSnapshot, 1> under = {snapshot(375 / 32, 180 / 32)};
     overlays.Ask(session, under, true);
@@ -542,21 +542,21 @@ public:
     // The default framing on W2's foot covers the tiles around (11, 5), and none far off.
     const std::vector<Client::Tile> visible = Client::Overlays::VisibleTiles(Framing({380.5F, 9.0F, 180.0F}), 1280, 720, 9.0F);
     Assert::IsTrue(std::ranges::find(visible, Client::Tile{11, 5}) != visible.end());
-    for (const Client::Tile& far : {Client::Tile{0, 0}, Client::Tile{20, 20}, Client::Tile{11, 12}})
+    for (const Client::Tile& offScreen : {Client::Tile{0, 0}, Client::Tile{20, 20}, Client::Tile{11, 12}})
     {
-      Assert::IsTrue(std::ranges::find(visible, far) == visible.end());
+      Assert::IsTrue(std::ranges::find(visible, offScreen) == visible.end());
     }
     Assert::AreEqual(std::size_t{35}, visible.size());
     // Zoomed out the farthest, at most 36, around the middle.
-    const Engine::OrthographicCamera far({.elevationRadians = DirectX::XMConvertToRadians(Client::ELEVATION_DEGREES),
-                                          .azimuthRadians = DirectX::XMConvertToRadians(Client::AZIMUTH_DEGREES),
-                                          .viewHeightMeters = Client::MAX_VIEW_HEIGHT_METERS,
-                                          .minViewHeightMeters = Client::MIN_VIEW_HEIGHT_METERS,
-                                          .maxViewHeightMeters = Client::MAX_VIEW_HEIGHT_METERS,
-                                          .rotationSeconds = 0.0F,
-                                          .targetMeters = {380.5F, 9.0F, 180.0F}});
+    const Engine::OrthographicCamera widest({.elevationRadians = DirectX::XMConvertToRadians(Client::ELEVATION_DEGREES),
+                                             .azimuthRadians = DirectX::XMConvertToRadians(Client::AZIMUTH_DEGREES),
+                                             .viewHeightMeters = Client::MAX_VIEW_HEIGHT_METERS,
+                                             .minViewHeightMeters = Client::MIN_VIEW_HEIGHT_METERS,
+                                             .maxViewHeightMeters = Client::MAX_VIEW_HEIGHT_METERS,
+                                             .rotationSeconds = 0.0F,
+                                             .targetMeters = {380.5F, 9.0F, 180.0F}});
     DirectX::XMFLOAT4X4 farProjection{};
-    DirectX::XMStoreFloat4x4(&farProjection, far.ViewProjection(1280.0F / 720.0F));
+    DirectX::XMStoreFloat4x4(&farProjection, widest.ViewProjection(1280.0F / 720.0F));
     const std::vector<Client::Tile> wide = Client::Overlays::VisibleTiles(farProjection, 1280, 720, 9.0F);
     Assert::AreEqual(std::size_t{36}, wide.size());
     Assert::IsTrue(std::ranges::find(wide, Client::Tile{11, 5}) != wide.end());
