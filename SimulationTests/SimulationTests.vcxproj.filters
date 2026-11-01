@@ -108,5 +108,8 @@
     <ClCompile Include="AimCheckTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="IntegrityTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

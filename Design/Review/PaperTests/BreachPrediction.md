@@ -207,6 +207,16 @@ A single person guessing reaches 11 of 16 with a chance of 0.105.
 9. **A section's readings depend on its neighbours.** ADR-004, decision 2, does not stop support at a section's end, so damage to the neighbour changes a section's readings. The view is per section (GameDescription.md:408). The test assumes intact neighbours.
 10. **Where the Proposed values are recorded.** GameDesign.md, decision 7 (:185), and MvpPlan.md, *M0*, ask for them to be recorded in GameDesign.md. This work created new files only, so they are recorded here, and GameDesign.md still has to list them.
 
+## Against the real resolver (M3-B5, 2026-11-01)
+
+`SimulationTests/IntegrityTests.cpp` builds the 16 states on a T3 section in a line of eight that spans a flat world, with the paper's damage applied as edits: column c is the template file's column c − 1, which the bake mirrors in x, and the outer face is the template's front. It reads each state through the simulation's integrity query, then runs the world until nothing is in flight.
+
+- **The readings agree in all 16 states:** the widest hole and whether it falls, the lowest opening with its floor and clearance and whether there is a route now, and the gap under the foundation and whether it falls. The fall width comes from the support search on a widened copy, not from 2 × span + 1, so ambiguity 3's case reads true: a 4 m slot with a bridging pillar cut away falls at less than 5 m.
+- **Fell and the key agree in 14.** Two states differ. Both differ because the decided fall crushes every structure voxel in its strip below the rubble's top into rubble of its own material (GameDesign.md, *M2's values*, item 8), where this stand-in's robustness check knocked out only the first stone under each falling column:
+  - **W08 opens.** Its top's 8 voxels fall as the table says, and the strip under them crushes the stone sill into rubble. Rubble is ground, so the window that drops its top becomes a route. Under the decided rules the key is open, not shut, and the set splits 9 open and 7 shut.
+  - **W12 drops 8 voxels, not 7.** The piece of 7 falls along the wall, east, and crushes the inner face in its strip; an outer merlon at column 1, left without support, follows it in a cascade. The key, open, is unchanged.
+- **What it changes here.** This instrument was never taken, and M0 closed without it (GameDesign.md, *Closing M0 and M1*). Its key is left as the stand-in computed it, as a record; the breach lab's items take their keys from the simulation itself (MvpPlan-M3.md, M3-B7), so nothing M3 asks rests on this table.
+
 ## Results
 
 None yet: no participant has taken the test. Record results in a new section here, with the instrument version, the participants' results files, both medians and the verdict.

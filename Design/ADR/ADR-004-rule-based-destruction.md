@@ -52,6 +52,7 @@ Destruction is the reason the world is made of voxels, and Teardown is the refer
   - **In what order:** nearest the foot first, which is the order the fall's ticks write it in equal parts.
   - **Where units are hit:** the strip, every column the fall covers, at the cell above its ground before the fall.
 - **The hand calculation of MvpPlan.md's risks holds** (M2-E3, `CollapseTests`): a hole 5 wide and 2 high through a T3 section's base drops the one-voxel slot above its middle, and a hole 4 wide drops nothing.
+- **The integrity reading asks the resolver on a scratch copy** (2026-11-01, M3-B5; `Simulation/Integrity.h`). It is a caller of decision 5 that decision 5 did not name: to give the width at which a hole or a gap under the foundation drops the stone above it, it widens the hole or the gap on a copy of the chunks and runs the support search there, at most eight times a reading, and the world is untouched. Nothing about whether stone falls is computed anywhere but in the support search.
 
 ## Left open
 

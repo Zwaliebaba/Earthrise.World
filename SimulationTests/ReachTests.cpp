@@ -207,12 +207,24 @@ public:
 
   TEST_METHOD(RefusesReachTheGridHasOutrun)
   {
+    // A grid rebuilt since its reach was brought up to date refuses to answer from stale reach. The
+    // world brings it up to date in step 8 (M3-B5), so a copy is rebuilt here by hand.
+    Simulation::World world(FlatWorld::Desc());
+    Simulation::NavigationGrid grid = world.Navigation();
+    Fill(world, Cell(20, 20), {.xVoxels = 20, .yVoxels = WALL_HIGH, .zVoxels = 20}, MASONRY);
+    grid.RebuildTile(world.Voxels().Store(), 0, 0);
+    Assert::ExpectException<std::logic_error>(
+      [&grid] { static_cast<void>(grid.NearestReachable(Index(1, 1), Index(2, 2), Simulation::NavigationClass::Foot)); });
+  }
+
+  TEST_METHOD(KeepsTheWorldsReachCurrentAfterEveryTick)
+  {
+    // Step 8 brings reach up to date after its rebuild (M3-B5), so the queries of step 12 and whoever
+    // reads navigation between ticks can ask it.
     Simulation::World world(FlatWorld::Desc());
     Fill(world, Cell(20, 20), {.xVoxels = 20, .yVoxels = WALL_HIGH, .zVoxels = 20}, MASONRY);
     world.Tick();
-    const Simulation::NavigationGrid& grid = world.Navigation();
-    Assert::ExpectException<std::logic_error>(
-      [&grid] { static_cast<void>(grid.NearestReachable(Index(1, 1), Index(2, 2), Simulation::NavigationClass::Foot)); });
+    Assert::AreEqual(Index(2, 2), world.Navigation().NearestReachable(Index(1, 1), Index(2, 2), Simulation::NavigationClass::Foot));
   }
 };
 

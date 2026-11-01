@@ -4,6 +4,7 @@
 
 #include "Generator.h"
 #include "IntegerMath.h"
+#include "Integrity.h"
 
 namespace Simulation
 {
@@ -1050,6 +1051,9 @@ void World::RebuildNavigation()
   {
     return;
   }
+  // Reach too, so the queries of step 12 and whoever reads navigation between ticks find it current
+  // (M3-B5). It labels only the tiles the rebuild changed, as the next search would have.
+  m_navigation.UpdateReach();
   // Then, in squad-id order, the squads to search again in the next tick's step 3 (ADR-015,
   // decision 5): each short of its goal, each whose path crosses a rebuilt tile, and each whose
   // search is not done, since the cells it has closed may have changed under it.
@@ -1268,6 +1272,11 @@ Protocol::Reading World::Answer([[maybe_unused]] std::uint8_t _player, const Pro
   // order's. Answers pass the state update's filter, which passes everything in M3.
   if (const auto* integrity = std::get_if<Protocol::SectionIntegrity>(&_query))
   {
+    if (m_structures.contains(integrity->structure))
+    {
+      return ReadIntegrity(*this, integrity->structure);
+    }
+    // A structure the world no longer holds reads empty: the client asks about what it last saw.
     return Protocol::IntegrityReading{.structure = integrity->structure,
                                       .ground = Protocol::GroundKind::Earth,
                                       .canBeUndermined = false,

@@ -141,5 +141,11 @@
     <ClCompile Include="PathSearch.cpp">
       <Filter>Navigation</Filter>
     </ClCompile>
+    <ClInclude Include="Integrity.h">
+      <Filter>Destruction</Filter>
+    </ClInclude>
+    <ClCompile Include="Integrity.cpp">
+      <Filter>Destruction</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

@@ -74,6 +74,8 @@
     <ClCompile Include="PathSearch.cpp" />
     <ClInclude Include="BreachRun.h" />
     <ClCompile Include="BreachRun.cpp" />
+    <ClInclude Include="Integrity.h" />
+    <ClCompile Include="Integrity.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
