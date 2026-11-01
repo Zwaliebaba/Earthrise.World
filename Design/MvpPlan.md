@@ -1,9 +1,9 @@
 # Earthrise.World — MVP implementation plan
 
-**Status:** Accepted by the owner for M0 to M2, 2026-10-31; M3 to M7 stay Proposed until after M1 (GameDesign.md, *Starting the MVP*). M2's revision of 2026-11-01 was accepted when the owner merged it (pull request #32). M3's revision of 2026-11-01 is Proposed, and is accepted when the owner merges it (GameDesign.md, *Closing M2*, item 6). It covers:
+**Status:** Accepted by the owner for M0 to M2, 2026-10-31; M3 to M7 stay Proposed until after M1 (GameDesign.md, *Starting the MVP*). M2's revision of 2026-11-01 was accepted when the owner merged it (pull request #32). M3's revision of 2026-11-01 is accepted when the owner merges it (pull request #45; GameDesign.md, *Closing M2*, item 6). It covers:
 - M3's work orders and phases, in [MvpPlan-M3.md](MvpPlan-M3.md);
-- the owner inputs, fifteen, each with the implementer's proposal;
-- ADR-018 to ADR-020, Proposed.
+- the owner inputs, fifteen, each answered as proposed on 2026-11-01 (GameDesign.md, *M3's values*);
+- ADR-018 to ADR-020, Proposed, with the owner's go-ahead.
 
 M0 to M2 were closed by the owner on 2026-11-01 (GameDesign.md, *Closing M0 and M1* and *Closing M2*); nothing from M3 on is implemented. [GameDesign.md](GameDesign.md) defines the MVP and governs where this plan differs from it. [AGENTS.md](../AGENTS.md) governs how the code is written.
 
@@ -380,7 +380,7 @@ The phases' calendar forecast and owner hours, written here, were dropped on clo
 
 ### M3 — Breach lab
 
-**When it starts.** No M3 code is written until the owner has answered inputs 1–15 below (phase A) and this revision is accepted by merging (GameDesign.md, *Closing M2*, item 6). M2 is closed, so nothing else holds it back. M3 is the first milestone that draws and takes input, so each order that does is run by the owner before its phase merges (AGENTS.md §3).
+**When it starts.** The owner answered inputs 1–15 below on 2026-11-01, taking every proposal (phase A, order M3-A1). No M3 code is written until this revision is accepted by merging pull request #45 (GameDesign.md, *Closing M2*, item 6). M2 is closed, so nothing else holds it back. M3 is the first milestone that draws and takes input, so each order that does is run by the owner before its phase merges (AGENTS.md §3).
 
 **Build** a thin client, which is the first game executable:
 - `Client` and `Earthrise` join the solution ([ADR-019](ADR/ADR-019-the-in-process-client.md); ADR-010 amended), and the world view the spike built moves into `Client`;
@@ -413,11 +413,11 @@ M3 is carried out as 24 work orders in seven phases, written out in [MvpPlan-M3.
 - **D needs only A,** so it can run beside B and C.
 - **The owner runs** fall after C2, C3, E2, E4, F3 and G1, and the six-person session after G1's dry run. That is what sets M3's pace (*What M3 inherits from M2*, below).
 
-**The owner's inputs.** Each is a design value no document gives, or a choice the documents leave open for M3, and AGENTS.md requires it written down before the code that rests on it. The implementer proposes each here; the owner takes or changes it, and order M3-A1 records the answers in GameDesign.md, *M3's values*.
+**The owner's inputs.** Each is a design value no document gives, or a choice the documents leave open for M3, and AGENTS.md requires it written down before the code that rests on it. The implementer proposed each, and the owner took every proposal on 2026-11-01. GameDesign.md, *M3's values*, records them, and input 10 stays the implementer's to measure.
 
-| # | Input | For orders | Proposed |
+| # | Input | For orders | Decided, 2026-11-01 |
 |---|---|---|---|
-| 1 | Give [ADR-018](ADR/ADR-018-text-and-the-interface-pass.md), [ADR-019](ADR/ADR-019-the-in-process-client.md) and [ADR-020](ADR/ADR-020-world-overlays.md) the go-ahead, or change them, with ADR-010's amendment: `Client` and `Earthrise` join in M3, and `RendererSpike` references `Client`. Each is marked Accepted by the commit that first implements it (AGENTS.md §6) | B2, B3, C1, D1, D2 | Go-ahead for all three, as written |
+| 1 | Give [ADR-018](ADR/ADR-018-text-and-the-interface-pass.md), [ADR-019](ADR/ADR-019-the-in-process-client.md) and [ADR-020](ADR/ADR-020-world-overlays.md) the go-ahead, or change them, with ADR-010's amendment: `Client` and `Earthrise` join in M3, and `RendererSpike` references `Client`. Each is marked Accepted by the commit that first implements it (AGENTS.md §6) | B2, B3, C1, D1, D2 | Go-ahead for all three, as written, and for ADR-010's amendment |
 | 2 | **The lab's items and its question** | B7, G1 | 16 items, L01 to L16, each a fresh world at the breach run's site, with prior damage by scripted shots, a marked aim voxel and N fixed per item from 1 to 5. The question: WILL W2 BE OPEN TO FOOT AFTER n SHOTS AT THE MARK?, answered OPEN or SHUT by O or S, or the banner's buttons, with no time limit. The lab fires the asked shots at the mark, so the key is the simulation's and the set splits 8 open and 8 shut. Before the items, two minutes of free fire on the intact site and one practice item. The integrity view is on by default, as GameDesign.md's *Hypotheses* says, and F1 and F2 are free |
 | 3 | **Participants and scoring** | G2, G3 | Six people who play RTS games, each taking all 16 items once, in an order shuffled by a per-participant seed. Reasons are spoken and written down by the facilitator against the item's id; the client takes no typed text. Pass at a median accuracy of 0.65 or better, 11 of 16, as GameDesign.md states. The thickness readout is not run beside it: the paper test compared readouts, and the lab has one view |
 | 4 | **Fast-forward and the pause** | B7, C3, G1 | An item's automatic parts run at ten times, at most eight ticks a frame, and the clock pauses while a question is up. The simulation reads no clock (ADR-013), so the live run reaches the ticks and the state hash of the headless key, which the log checks |
@@ -458,7 +458,8 @@ M3 is carried out as 24 work orders in seven phases, written out in [MvpPlan-M3.
 
 | Phase | PR | Commits | Notes |
 |---|---|---|---|
-| Plan | | | This revision, the work orders and ADR-018 to ADR-020, Proposed. |
+| Plan | #45 | 1 | This revision, the work orders and ADR-018 to ADR-020, Proposed. |
+| A | #45 | 1 | The owner's 15 answers, every proposal taken, in the plan's PR because they edit the files it adds. |
 
 **What M3 inherits from M2** (written 2026-11-01, when M2's orders were done; its calendar and owner-hours forecast was dropped on closing M2, GameDesign.md, *No time logging*):
 - **M2's shape.** Its 30 orders from B1 to G3 landed in 32 commits; two orders needed a second CI run, both for a lint the container could not reach.
