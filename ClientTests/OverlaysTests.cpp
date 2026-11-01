@@ -44,11 +44,11 @@ Protocol::StateUpdate Collapsing(std::uint32_t _warningTicksLeft, Protocol::Enti
   return state;
 }
 
-Client::Session SessionWith(const Protocol::StateUpdate& _state)
+/// Gives _session _state, as the executable does each tick. A session is built in place and never moved: with MSVC's
+/// library a map's move may allocate, so Session's move may throw (bugprone-exception-escape).
+void Tell(Client::Session& _session, const Protocol::StateUpdate& _state)
 {
-  Client::Session session;
-  session.Receive(_state, {}, {});
-  return session;
+  _session.Receive(_state, {}, {});
 }
 
 } // namespace
@@ -58,7 +58,8 @@ TEST_CLASS(OverlaysTests)
 public:
   TEST_METHOD(DrawsACollapsesPieceAndStripInBad)
   {
-    const Client::Session session = SessionWith(Collapsing(135));
+    Client::Session session;
+    Tell(session, Collapsing(135));
     const Client::Overlays overlays;
     const std::vector<Client::OverlayLayer> layers = overlays.Layers(session, 0.25, true);
     std::size_t records = 0;
@@ -100,7 +101,9 @@ public:
       Assert::IsTrue(layer.boxes.empty());
     }
     // A collapse that is falling has no preview.
-    for (const Client::OverlayLayer& layer : Client::Overlays{}.Layers(SessionWith(Collapsing(0)), 0.25, true))
+    Client::Session falling;
+    Tell(falling, Collapsing(0));
+    for (const Client::OverlayLayer& layer : Client::Overlays{}.Layers(falling, 0.25, true))
     {
       Assert::IsTrue(layer.boxes.empty());
     }
@@ -121,14 +124,18 @@ public:
     // Raised each frame in place, urgent and at the piece, and replaced by the fall's alert, which then expires.
     Client::Overlays overlays;
     Client::HudAlerts alerts;
-    overlays.Update(SessionWith(Collapsing(135)), 1.0, alerts);
-    overlays.Update(SessionWith(Collapsing(119)), 1.8, alerts);
+    Client::Session told;
+    Tell(told, Collapsing(135));
+    overlays.Update(told, 1.0, alerts);
+    Tell(told, Collapsing(119));
+    overlays.Update(told, 1.8, alerts);
     Assert::AreEqual(std::size_t{1}, alerts.Shown().size());
     const Client::HudAlert countdown = alerts.Shown().front();
     Assert::AreEqual(std::string("W2 WILL FALL IN 6 S"), countdown.text);
     Assert::IsTrue(countdown.urgent);
     Assert::IsTrue(countdown.location == std::optional<Protocol::VoxelPosition>(Protocol::VoxelPosition{380, 11, 180}));
-    overlays.Update(SessionWith(Collapsing(0)), 8.0, alerts);
+    Tell(told, Collapsing(0));
+    overlays.Update(told, 8.0, alerts);
     Assert::AreEqual(std::size_t{1}, alerts.Shown().size());
     Assert::AreEqual(std::string("W2 HAS FALLEN"), alerts.Shown().front().text);
     alerts.Expire(8.0 + Client::HudAlerts::LIFETIME_SECONDS);
