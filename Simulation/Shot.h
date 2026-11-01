@@ -3,11 +3,13 @@
 #include "ChunkCoordinate.h"
 #include "Fixed.h"
 #include "FixedPosition.h"
+#include "MaterialRules.h"
 #include "Rules.h"
 
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <vector>
 
 namespace Simulation
 {
@@ -43,6 +45,21 @@ struct ShotArc
 /// then y, then z, so every voxel it touches is visited.
 std::optional<Protocol::VoxelPosition> TraverseVoxels(const FixedPosition& _from, const FixedPosition& _to,
                                                       const std::function<bool(Protocol::VoxelPosition)>& _visit);
+
+/// The voxels a shot's crater takes when it strikes _hit, travelling along _behindX or _behindZ, its
+/// larger horizontal axis (M2-E2; GameDesign.md, M2's values, item 12). The struck voxel's behaviour
+/// sets the crater's size in RULE, on the ladder of 1, 2, 4 and 7 voxels:
+///   1, the voxel; 2, it and the one behind it; 4, it, the one behind it, and the one below each;
+///   7, it and its six face neighbours of its own behaviour only.
+/// Stone and common rock take 2, earth and every rubble 4, timber and leaves 7, and bedrock and water
+/// none. No crater takes bedrock or water. _at reads a voxel's palette index. In a fixed order: the
+/// struck voxel first.
+[[nodiscard]] std::vector<Protocol::VoxelPosition> CraterVoxels(Protocol::VoxelPosition _hit, std::int32_t _behindX, std::int32_t _behindZ,
+                                                                const std::function<std::uint8_t(Protocol::VoxelPosition)>& _at,
+                                                                const MaterialRules& _materials, const Rules& _rules);
+
+/// The crater a behaviour takes, in voxels, from RULE.
+[[nodiscard]] std::int32_t CraterSizeVoxels(Behavior _behavior, const Rules& _rules) noexcept;
 
 /// The voxel holding a point: each coordinate floored.
 [[nodiscard]] Protocol::VoxelPosition VoxelHolding(const FixedPosition& _point) noexcept;

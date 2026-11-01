@@ -2,6 +2,7 @@
 
 #include "Shot.h"
 
+#include "Chunk.h"
 #include "IntegerMath.h"
 
 namespace Simulation
@@ -73,6 +74,79 @@ FixedPosition ShotPositionAt(const ShotArc& _arc, std::uint32_t _ticks)
   const std::int64_t y = _arc.start.yMeters.Raw() + std::int64_t{_arc.riseMetersPerTick.Raw()} * ticks -
                          Core::FloorDivide(std::int64_t{_arc.gravityMetersPerTickSquared.Raw()} * ticks * ticks, 2);
   return {.xMeters = Narrow(x), .yMeters = Narrow(y), .zMeters = Narrow(z)};
+}
+
+std::int32_t CraterSizeVoxels(Behavior _behavior, const Rules& _rules) noexcept
+{
+  switch (_behavior)
+  {
+  case Behavior::Earth:
+    return _rules.earthCraterVoxels;
+  case Behavior::CommonRock:
+    return _rules.commonRockCraterVoxels;
+  case Behavior::BuildingStone:
+    return _rules.buildingStoneCraterVoxels;
+  case Behavior::Bedrock:
+    return _rules.bedrockCraterVoxels;
+  case Behavior::Timber:
+    return _rules.timberCraterVoxels;
+  case Behavior::Leaves:
+    return _rules.leavesCraterVoxels;
+  case Behavior::Water:
+    return _rules.waterCraterVoxels;
+  case Behavior::StoneRubble:
+    return _rules.stoneRubbleCraterVoxels;
+  case Behavior::WasteRubble:
+    return _rules.wasteRubbleCraterVoxels;
+  case Behavior::None:
+    break;
+  }
+  return 0;
+}
+
+std::vector<Protocol::VoxelPosition> CraterVoxels(Protocol::VoxelPosition _hit, std::int32_t _behindX, std::int32_t _behindZ,
+                                                  const std::function<std::uint8_t(Protocol::VoxelPosition)>& _at,
+                                                  const MaterialRules& _materials, const Rules& _rules)
+{
+  const MaterialRule& struck = _materials.at(_at(_hit));
+  const std::int32_t size = CraterSizeVoxels(struck.behavior, _rules);
+  const auto offset = [](Protocol::VoxelPosition _voxel, std::int32_t _dx, std::int32_t _dy, std::int32_t _dz)
+  { return Protocol::VoxelPosition{.xVoxels = _voxel.xVoxels + _dx, .yVoxels = _voxel.yVoxels + _dy, .zVoxels = _voxel.zVoxels + _dz}; };
+  std::vector<Protocol::VoxelPosition> shape;
+  if (size >= 1)
+  {
+    shape.push_back(_hit);
+  }
+  if (size == 2 || size == 4)
+  {
+    shape.push_back(offset(_hit, _behindX, 0, _behindZ));
+  }
+  if (size == 4)
+  {
+    shape.push_back(offset(_hit, 0, -1, 0));
+    shape.push_back(offset(_hit, _behindX, -1, _behindZ));
+  }
+  if (size >= 7)
+  {
+    constexpr std::array<std::array<std::int32_t, 3>, 6> FACES = {{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}}};
+    for (const auto& [dx, dy, dz] : FACES)
+    {
+      const Protocol::VoxelPosition neighbor = offset(_hit, dx, dy, dz);
+      if (_materials.at(_at(neighbor)).behavior == struck.behavior)
+      {
+        shape.push_back(neighbor);
+      }
+    }
+  }
+  // No crater takes bedrock or water, nor what is already empty.
+  std::erase_if(shape,
+                [&](Protocol::VoxelPosition _voxel)
+                {
+                  const std::uint8_t index = _at(_voxel);
+                  const MaterialRule& rule = _materials.at(index);
+                  return index == Protocol::Chunk::EMPTY || rule.support == Support::Anchors || rule.liquid;
+                });
+  return shape;
 }
 
 Protocol::VoxelPosition VoxelHolding(const FixedPosition& _point) noexcept

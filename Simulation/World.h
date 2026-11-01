@@ -174,6 +174,10 @@ public:
   /// Where the last tick's shots struck, in shot-id order.
   [[nodiscard]] std::span<const ShotHit> LastTickHits() const noexcept;
 
+  /// The voxels the last tick edited, edits made before it between ticks included: its TickEdits as
+  /// they stood at its end, each once, in first-edit order.
+  [[nodiscard]] std::span<const Protocol::VoxelPosition> LastTickEdits() const noexcept;
+
   /// Places a squad of _owner's, with one unit standing in each of _cellsVoxels, for scenarios and
   /// tests. The squad takes the first new id and its units the next, in the order given.
   Protocol::EntityId AddSquad(std::uint8_t _owner, NavigationClass _class, std::span<const Protocol::VoxelPosition> _cellsVoxels);
@@ -220,6 +224,7 @@ private:
   std::map<Protocol::EntityId, SiegeEngine> m_siegeEngines;
   std::map<Protocol::EntityId, Shot> m_shots;
   std::vector<ShotHit> m_tickHits;
+  std::vector<Protocol::VoxelPosition> m_lastTickEdits;
 };
 
 /// The point a unit stands at in a cell: the middle of the cell's floor.

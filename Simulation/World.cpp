@@ -56,6 +56,7 @@ void World::Tick()
   CheckRules();
   PublishState();
   AnswerQueries();
+  m_lastTickEdits.assign(m_voxels.TickEdits().begin(), m_voxels.TickEdits().end());
   m_voxels.EndTick();
   ++m_tick;
 }
@@ -123,6 +124,11 @@ const std::map<Protocol::EntityId, Shot>& World::Shots() const noexcept
 std::span<const ShotHit> World::LastTickHits() const noexcept
 {
   return m_tickHits;
+}
+
+std::span<const Protocol::VoxelPosition> World::LastTickEdits() const noexcept
+{
+  return m_lastTickEdits;
 }
 
 Protocol::EntityId World::AddSquad(std::uint8_t _owner, NavigationClass _class, std::span<const Protocol::VoxelPosition> _cellsVoxels)
@@ -262,10 +268,17 @@ void World::AdvanceShots()
     {
       const bool alongX = std::abs(shot.arc.acrossXMeters.Raw()) >= std::abs(shot.arc.acrossZMeters.Raw());
       const auto sign = [](Core::Fixed _value) { return _value.Raw() > 0 ? 1 : (_value.Raw() < 0 ? -1 : 0); };
-      m_tickHits.push_back({.shot = id,
-                            .voxel = *hit,
-                            .behindX = alongX ? sign(shot.arc.acrossXMeters) : 0,
-                            .behindZ = alongX ? 0 : sign(shot.arc.acrossZMeters)});
+      const ShotHit& struck = m_tickHits.emplace_back(ShotHit{.shot = id,
+                                                              .voxel = *hit,
+                                                              .behindX = alongX ? sign(shot.arc.acrossXMeters) : 0,
+                                                              .behindZ = alongX ? 0 : sign(shot.arc.acrossZMeters)});
+      // Its crater, as edits to empty (M2-E2).
+      for (const Protocol::VoxelPosition& voxel : CraterVoxels(
+             struck.voxel, struck.behindX, struck.behindZ, [this](Protocol::VoxelPosition _voxel) { return m_voxels.At(_voxel); },
+             Data().Materials(), Data().Tuning()))
+      {
+        m_voxels.Edit(voxel, Protocol::Chunk::EMPTY);
+      }
       landed.push_back(id);
     }
     else if (OutsideWorld(to))
