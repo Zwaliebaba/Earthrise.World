@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include "BreachRun.h"
 #include "ChunkStore.h"
 #include "Generator.h"
 #include "Hash.h"
@@ -383,6 +384,68 @@ void MeasureReach(Simulation::NavigationGrid& _grid, Simulation::ChunkStore& _st
   }
 }
 
+/// An environment variable's value, or "unknown". _dupenv_s, not std::getenv, which MSVC deprecates
+/// (C4996), and /WX would make that an error; both are the CRT's, so no Windows header is needed.
+std::string Environment(const char* _name)
+{
+  char* value = nullptr;
+  std::size_t length = 0;
+  if (_dupenv_s(&value, &length, _name) != 0 || value == nullptr)
+  {
+    return "unknown";
+  }
+  const std::unique_ptr<char, decltype(&std::free)> owned(value, &std::free);
+  return {owned.get()};
+}
+
+/// The breach run's every tick, timed (M2-G2): the per-tick times go to _csv, with their 95th
+/// percentile against MvpPlan.md's input 2, 25 ms, half a tick, the build id and the CPU. Building
+/// the world and the run is not a tick, and is not timed.
+int RunBreach(const std::filesystem::path& _executable, const std::filesystem::path& _csv)
+{
+  constexpr double TARGET_MILLISECONDS = 25.0;
+  constexpr double PERCENTILE = 0.95;
+  const std::uint64_t buildId = BuildIdOf(_executable);
+  const Simulation::ServerData data = Simulation::ServerData::Load(_executable.parent_path() / "ServerData" / "ServerData.bin");
+  Simulation::World world(Simulation::BreachRunDesc(data, buildId));
+  const Simulation::BreachRun run = Simulation::BuildBreachRun(world);
+  std::vector<double> times;
+  times.reserve(run.ticks);
+  for (std::uint32_t tick = 0; tick < run.ticks; ++tick)
+  {
+    const Clock::time_point start = Clock::now();
+    Simulation::RunScript(world, run.script, 1);
+    times.push_back(MillisecondsSince(start));
+  }
+  std::vector<double> sorted = times;
+  std::ranges::sort(sorted);
+  // The nearest-rank percentile: the smallest time at least 95% of the ticks do not exceed.
+  const auto rank = static_cast<std::size_t>(std::ceil(PERCENTILE * static_cast<double>(sorted.size())));
+  const double percentile = sorted[std::max<std::size_t>(rank, 1) - 1];
+  const std::string cpu = Environment("PROCESSOR_IDENTIFIER");
+  const std::string processors = Environment("NUMBER_OF_PROCESSORS");
+  const Simulation::Rules& rules = data.Tuning();
+
+  std::ofstream csv(_csv);
+  if (!csv)
+  {
+    throw std::runtime_error("cannot write " + _csv.string());
+  }
+  csv << std::format("build id,{:016x}\ncpu,\"{}\"\nprocessors,{}\n", buildId, cpu, processors);
+  csv << std::format("target milliseconds,{:.1f}\n95th percentile milliseconds,{:.3f}\nslowest milliseconds,{:.3f}\n", TARGET_MILLISECONDS,
+                     percentile, sorted.back());
+  csv << std::format("slumpVoxelsPerTick,{}\npathNodesPerTick,{}\ntick,milliseconds\n", rules.slumpVoxelsPerTick, rules.pathNodesPerTick);
+  for (std::size_t tick = 0; tick < times.size(); ++tick)
+  {
+    csv << std::format("{},{:.4f}\n", tick, times[tick]);
+  }
+  std::println("The M2 breach run: {} ticks; 95th percentile {:.3f} ms against {:.0f} ms, {}; slowest {:.3f} ms, tick {}", times.size(),
+               percentile, TARGET_MILLISECONDS, percentile <= TARGET_MILLISECONDS ? "within it" : "OVER IT", sorted.back(),
+               std::ranges::max_element(times) - times.begin());
+  std::println("build id {:016x}; CPU {}, {} logical processors; written to {}", buildId, cpu, processors, _csv.string());
+  return percentile <= TARGET_MILLISECONDS ? 0 : 2;
+}
+
 int Run(const std::filesystem::path& _executable)
 {
   std::println("SimulationBench: the renderer spike's question 6, at 1 m and at 0.5 m (ADR-006). Times are this machine's.");
@@ -433,7 +496,15 @@ int wmain(int _argumentCount, wchar_t** _arguments)
     {
       throw std::runtime_error("the bench was started without its own path, so it cannot find its ServerData folder");
     }
-    return Run(std::filesystem::absolute(_arguments[0]));
+    const std::filesystem::path executable = std::filesystem::absolute(_arguments[0]);
+    // SimulationBench --breach-run [file.csv] times the breach run (M2-G2); without it, the M1
+    // measurements and the navigation's run.
+    const std::span<wchar_t*> arguments(_arguments, static_cast<std::size_t>(_argumentCount));
+    if (arguments.size() >= 2 && std::wstring_view(arguments[1]) == L"--breach-run")
+    {
+      return RunBreach(executable, arguments.size() >= 3 ? std::filesystem::path(arguments[2]) : std::filesystem::path("BreachRun.csv"));
+    }
+    return Run(executable);
   }
   catch (const std::exception& error)
   {

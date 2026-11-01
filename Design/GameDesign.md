@@ -329,6 +329,8 @@ The owner answered MvpPlan.md's thirteen M2 inputs, taking each proposal as writ
 
     For M2 the shot reloads in 20 s, the Siege route table's reload, and reaches 12–50 m and descends at 45° or steeper (the paper tests' items 12 and 13). It leaves from 10 m above the engine's cell, about where the cocked model's arm releases, and falls under gravity of 9.81 m/s². The ram's craters are M4's.
 13. **The work budgets a tick,** voxels slumped and path nodes expanded, are set by the implementer from M2's measurements to fit item 2 (Proposed until measured).
+
+    **Proposed (M2-G2):** 256 voxels slumped and 4,096 path nodes expanded a tick, unchanged from the values the orders started with. Measured on 2026-11-01 in the Linux container with clang 18 at -O2, not the benchmark machine: a search expands about 1,000 nodes a millisecond (33,077 nodes in 35 ms across the MVP map), so a full budget is about 4.4 ms, and the costliest tick of the breach run that is play rather than set-up, a fall with its slump and its rebuild, took 9.2 ms. The two together stay under item 2's 25 ms. The breach run's 95th percentile is 0.001 ms, since 95% of its 2,401 ticks have nothing to do, and its slowest tick is tick 0, which takes in the run's own levelling and enclosure, 19 to 28 ms over three runs. The owner's run of `SimulationBench --breach-run` on the benchmark machine replaces these figures.
 14. **Ground, and the spans not yet decided.**
     - Palette.json gives each index a server-side `ground` flag. Units stand only on ground, and building stone in an outcrop is ground while masonry, the same behaviour laid by a template, is not.
     - Ground: terrain, fields, roads and every rubble. Not ground: masonry, timber, roof, leaves and decorations.
