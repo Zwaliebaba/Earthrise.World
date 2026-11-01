@@ -20,7 +20,7 @@ namespace
 constexpr std::uint8_t PLAYER = 1;
 constexpr std::int32_t GROUND = FlatWorld::GROUND_VOXELS;
 
-Protocol::VoxelPosition At(std::int32_t _x, std::int32_t _y, std::int32_t _z)
+constexpr Protocol::VoxelPosition At(std::int32_t _x, std::int32_t _y, std::int32_t _z) noexcept
 {
   return {.xVoxels = _x, .yVoxels = _y, .zVoxels = _z};
 }
@@ -39,8 +39,9 @@ std::vector<std::byte> Bytes(const Protocol::Command& _command)
   return writer.TakeBytes();
 }
 
-const Protocol::Query AIM = Protocol::AimCheck{.engine = 1, .targetVoxels = At(30, GROUND, 30)}; // costs 1
-const Protocol::Query INTEGRITY = Protocol::SectionIntegrity{.structure = 1};                    // costs 8
+// constexpr, so that building them at static initialization cannot throw.
+constexpr Protocol::Query AIM = Protocol::AimCheck{.engine = 1, .targetVoxels = At(30, GROUND, 30)}; // costs 1
+constexpr Protocol::Query INTEGRITY = Protocol::SectionIntegrity{.structure = 1};                    // costs 8
 
 std::vector<Protocol::Answer> Answers(Simulation::World& _world)
 {
