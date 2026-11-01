@@ -22,6 +22,9 @@
     <Filter Include="Saves">
       <UniqueIdentifier>{C4FD1C1E-E98F-5E51-8884-36337F51FD6D}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Generation">
+      <UniqueIdentifier>{D86FD0A1-3978-5A50-A1D5-83D0D239593C}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -104,6 +107,12 @@
     </ClInclude>
     <ClCompile Include="Replay.cpp">
       <Filter>Saves</Filter>
+    </ClCompile>
+    <ClInclude Include="Generator.h">
+      <Filter>Generation</Filter>
+    </ClInclude>
+    <ClCompile Include="Generator.cpp">
+      <Filter>Generation</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

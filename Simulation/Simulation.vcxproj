@@ -64,6 +64,8 @@
     <ClCompile Include="Save.cpp" />
     <ClInclude Include="Replay.h" />
     <ClCompile Include="Replay.cpp" />
+    <ClInclude Include="Generator.h" />
+    <ClCompile Include="Generator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
