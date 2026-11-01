@@ -83,6 +83,10 @@ constexpr float SHADOW_MARGIN_METERS = 2.0F;
 constexpr float SHADOW_NORMAL_OFFSET_METERS = 0.1F;
 constexpr float SHADOW_DEPTH_BIAS = 0.0F;
 
+// A model voxel's edge (RendererLook.md §1), for how large one is on screen: units are drawn as
+// impostors once it is smaller than about 3 px (§7).
+constexpr float MODEL_VOXEL_METERS = 0.5F;
+
 // The scene's target: 8 bits a channel through an sRGB view, as the back buffer, because the output
 // is sRGB with no tone mapping (RendererLook.md). The upscale reads it through the same view.
 constexpr DXGI_FORMAT SCENE_FORMAT = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
@@ -647,7 +651,8 @@ int Run(const Options& _options)
     // with their neighbours' (GameDesign.md, the renderer spike's question 5).
     const double rebuildMilliseconds =
       editTime.count() + std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - rebuildStart).count();
-    worldView.PlaceModels(ring, placements);
+    const float modelVoxelPixels = MODEL_VOXEL_METERS * static_cast<float>(sceneColor.HeightPixels()) / camera.ViewHeightMeters();
+    worldView.PlaceModels(ring, placements, modelVoxelPixels);
     const float displayAspect = static_cast<float>(swapChain.WidthPixels()) / static_cast<float>(swapChain.HeightPixels());
     const D3D12_GPU_VIRTUAL_ADDRESS frameConstants =
       UploadConstants(ring, MakeFrame(camera, displayAspect, sceneColor.WidthPixels(), sceneColor.HeightPixels(), sunViewProjection));

@@ -55,8 +55,11 @@ public:
   /// per instance on the CPU). A placement keeps its records while its model, place and turn are as
   /// they were and no chunk under it was rebuilt; the rest are worked out again. All of them are
   /// copied into _ring, which this frame's draws read. Called each frame, after TakeSnapshots.
-  /// Throws std::runtime_error for an unknown model, or when the ring has no room.
-  void PlaceModels(Engine::UploadRing& _ring, const std::vector<ModelPlacement>& _placements);
+  ///
+  /// Units are drawn as impostors once a model voxel is smaller than about 3 px on screen, which
+  /// _modelVoxelPixels says, and engines stay at full detail (RendererLook.md §7). Throws
+  /// std::runtime_error for an unknown model, or when the ring has no room.
+  void PlaceModels(Engine::UploadRing& _ring, const std::vector<ModelPlacement>& _placements, float _modelVoxelPixels);
 
   /// Draws every chunk batch and every model placement, through whichever of the pass's pipelines
   /// was last begun: the scene's, or a shadow map's.
@@ -90,16 +93,22 @@ private:
   struct Placed
   {
     ModelPlacement placement;
+    bool impostor; // drawn as its unit's impostor
     std::vector<Engine::VoxelRecord> records;
     D3D12_GPU_VIRTUAL_ADDRESS recordsAddress;
+    // What is drawn: the model as placed, or its impostor, which stands where the model's footprint
+    // is centred and is never turned.
+    DirectX::XMFLOAT3 drawnOriginMeters;
+    std::uint32_t drawnQuarterTurns;
     float voxelEdgeMeters;
-    std::uint32_t widthCells; // the model's extent along x and z, which turning it needs
+    std::uint32_t widthCells; // the drawn grid's extent along x and z, which turning it needs
     std::uint32_t depthCells;
   };
 
   void RebuildChunk(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, std::uint64_t _key);
-  /// Works out a placement's records against the world it stands in.
-  void BuildPlaced(Placed& _placed) const;
+  /// Works out a placement's records against the world it stands in: its model's, or its
+  /// impostor's when _asImpostor.
+  void BuildPlaced(Placed& _placed, bool _asImpostor) const;
   /// Whether a chunk rebuilt since the last PlaceModels lies under a placement, or beside it.
   [[nodiscard]] bool WorldChangedUnder(const Placed& _placed) const;
   /// The palette index at a world voxel, from the snapshots taken so far; 0 where none holds it.
@@ -115,6 +124,7 @@ private:
   std::map<std::uint64_t, Batch> m_chunks;
   std::vector<std::uint64_t> m_rebuiltChunks; // since the last PlaceModels
   std::vector<Placed> m_placed;
+  bool m_impostors = false;                                                               // units are drawn as impostors
   std::vector<std::unique_ptr<Engine::StaticBuffer>> m_replaced;                          // not yet stamped
   std::vector<std::pair<std::uint64_t, std::unique_ptr<Engine::StaticBuffer>>> m_retired; // fence, buffer
 };

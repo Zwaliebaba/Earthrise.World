@@ -25,6 +25,37 @@ constexpr std::uint8_t WATER = 9;
 constexpr float RUBBLE_SHOWING_MASONRY = 0.12F;
 constexpr std::uint8_t RUBBLE_PICK_SALT = 255;
 
+// Units' impostors (RendererLook.md §7): 1 x 1 x 2 world-scale voxels, in faction colour with a
+// helmet or a hood on top, as each figure's own head shows (Design/MvpAssets.md, the silhouette
+// cues). The laborer has no faction and a bare head, so its impostor keeps its cloth and its skin.
+// Units switch below about 3 px a model voxel and back above a tenth more, so that zooming about
+// the threshold does not flicker between the two.
+struct ImpostorLook
+{
+  std::string_view modelId;
+  std::uint8_t bodyIndex;
+  std::uint8_t headIndex;
+};
+
+constexpr std::uint8_t IRON = 18;
+constexpr std::uint8_t LABORER_CLOTH = 19;
+constexpr std::uint8_t SKIN = 22;
+constexpr std::uint8_t LEATHER = 27;
+constexpr std::array<ImpostorLook, 5> IMPOSTORS = {{{.modelId = "U1", .bodyIndex = LABORER_CLOTH, .headIndex = SKIN},
+                                                    {.modelId = "U2", .bodyIndex = FACTION_INDEX, .headIndex = IRON},
+                                                    {.modelId = "U3", .bodyIndex = FACTION_INDEX, .headIndex = LEATHER},
+                                                    {.modelId = "U4", .bodyIndex = FACTION_INDEX, .headIndex = IRON},
+                                                    {.modelId = "U5", .bodyIndex = FACTION_INDEX, .headIndex = IRON}}};
+constexpr float IMPOSTOR_VOXEL_METERS = 1.0F;
+constexpr float IMPOSTOR_BELOW_PIXELS = 3.0F;
+constexpr float IMPOSTOR_ABOVE_PIXELS = 3.3F;
+
+const ImpostorLook* FindImpostor(std::string_view _modelId) noexcept
+{
+  const auto found = std::ranges::find(IMPOSTORS, _modelId, &ImpostorLook::modelId);
+  return found == IMPOSTORS.end() ? nullptr : &*found;
+}
+
 std::span<const std::byte> BytesOf(std::span<const Engine::VoxelRecord> _records)
 {
   return std::as_bytes(_records);
@@ -261,8 +292,16 @@ void WorldView::RebuildChunk(ID3D12GraphicsCommandList* _commandList, Engine::Up
   m_rebuiltChunks.push_back(_key);
 }
 
-void WorldView::PlaceModels(Engine::UploadRing& _ring, const std::vector<ModelPlacement>& _placements)
+void WorldView::PlaceModels(Engine::UploadRing& _ring, const std::vector<ModelPlacement>& _placements, float _modelVoxelPixels)
 {
+  if (!m_impostors && _modelVoxelPixels < IMPOSTOR_BELOW_PIXELS)
+  {
+    m_impostors = true;
+  }
+  else if (m_impostors && _modelVoxelPixels > IMPOSTOR_ABOVE_PIXELS)
+  {
+    m_impostors = false;
+  }
   if (m_placed.size() != _placements.size())
   {
     m_placed.clear(); // a different set of placements: work every one out
@@ -276,11 +315,12 @@ void WorldView::PlaceModels(Engine::UploadRing& _ring, const std::vector<ModelPl
     const bool moved = placed.placement.modelId != placement.modelId || placed.placement.xMeters != placement.xMeters ||
                        placed.placement.yMeters != placement.yMeters || placed.placement.zMeters != placement.zMeters ||
                        placed.placement.quarterTurns != placement.quarterTurns || placed.voxelEdgeMeters == 0.0F;
-    const bool rebuild = moved || WorldChangedUnder(placed);
+    const bool asImpostor = m_impostors && FindImpostor(placement.modelId) != nullptr;
+    const bool rebuild = moved || placed.impostor != asImpostor || WorldChangedUnder(placed);
     placed.placement = placement;
     if (rebuild)
     {
-      BuildPlaced(placed);
+      BuildPlaced(placed, asImpostor);
     }
     totalRecords += placed.records.size();
   }
@@ -307,7 +347,7 @@ void WorldView::PlaceModels(Engine::UploadRing& _ring, const std::vector<ModelPl
   }
 }
 
-void WorldView::BuildPlaced(Placed& _placed) const
+void WorldView::BuildPlaced(Placed& _placed, bool _asImpostor) const
 {
   const ModelPlacement& placement = _placed.placement;
   const Content::ModelView* model = Content::FindModel(placement.modelId);
@@ -315,10 +355,32 @@ void WorldView::BuildPlaced(Placed& _placed) const
   {
     throw std::runtime_error("the scene places a model Content does not have");
   }
-  const Content::VoxelGrid& grid = model->grid;
-  const float edge = static_cast<float>(grid.voxelEdgeMillimeters) / 1000.0F;
-  const std::int32_t lastX = static_cast<std::int32_t>(grid.widthVoxels) - 1;
-  const std::int32_t lastZ = static_cast<std::int32_t>(grid.depthVoxels) - 1;
+  // What is drawn: the model as placed, or its impostor, centred where the model's footprint is.
+  const Content::VoxelGrid& modelGrid = model->grid;
+  const float modelEdge = static_cast<float>(modelGrid.voxelEdgeMillimeters) / 1000.0F;
+  const ImpostorLook* impostor = _asImpostor ? FindImpostor(placement.modelId) : nullptr;
+  const std::array<std::uint8_t, 2> impostorCells = {impostor != nullptr ? impostor->bodyIndex : std::uint8_t{0},
+                                                     impostor != nullptr ? impostor->headIndex : std::uint8_t{0}};
+  Engine::VoxelGridView grid{.paletteIndices = modelGrid.indices,
+                             .xVoxels = modelGrid.widthVoxels,
+                             .yVoxels = modelGrid.heightVoxels,
+                             .zVoxels = modelGrid.depthVoxels};
+  float edge = modelEdge;
+  DirectX::XMFLOAT3 origin = {placement.xMeters, placement.yMeters, placement.zMeters};
+  std::uint32_t quarterTurns = placement.quarterTurns;
+  if (impostor != nullptr)
+  {
+    const bool across = placement.quarterTurns % 2 != 0;
+    const float footprintX = static_cast<float>(across ? modelGrid.depthVoxels : modelGrid.widthVoxels) * modelEdge;
+    const float footprintZ = static_cast<float>(across ? modelGrid.widthVoxels : modelGrid.depthVoxels) * modelEdge;
+    grid = {.paletteIndices = impostorCells, .xVoxels = 1, .yVoxels = 2, .zVoxels = 1};
+    edge = IMPOSTOR_VOXEL_METERS;
+    origin = {placement.xMeters + 0.5F * (footprintX - IMPOSTOR_VOXEL_METERS), placement.yMeters,
+              placement.zMeters + 0.5F * (footprintZ - IMPOSTOR_VOXEL_METERS)};
+    quarterTurns = 0;
+  }
+  const std::int32_t lastX = static_cast<std::int32_t>(grid.xVoxels) - 1;
+  const std::int32_t lastZ = static_cast<std::int32_t>(grid.zVoxels) - 1;
 
   // The world voxel holding a model cell's centre, the cell turned as the vertex shader turns it
   // (VoxelPass.h, Batch). A model is small, so its lookups keep to a chunk or two, and the last
@@ -329,26 +391,25 @@ void WorldView::BuildPlaced(Placed& _placed) const
   {
     std::int32_t turnedX = _x;
     std::int32_t turnedZ = _z;
-    if (placement.quarterTurns == 1)
+    if (quarterTurns == 1)
     {
       turnedX = _z;
       turnedZ = lastX - _x;
     }
-    else if (placement.quarterTurns == 2)
+    else if (quarterTurns == 2)
     {
       turnedX = lastX - _x;
       turnedZ = lastZ - _z;
     }
-    else if (placement.quarterTurns == 3)
+    else if (quarterTurns == 3)
     {
       turnedX = lastZ - _z;
       turnedZ = _x;
     }
     const auto voxelOf = [this, edge](float _originMeters, std::int32_t _cell)
     { return static_cast<std::int32_t>(std::floor((_originMeters + (static_cast<float>(_cell) + 0.5F) * edge) / m_worldVoxelMeters)); };
-    const Protocol::VoxelPosition voxel{.xVoxels = voxelOf(placement.xMeters, turnedX),
-                                        .yVoxels = voxelOf(placement.yMeters, _y),
-                                        .zVoxels = voxelOf(placement.zMeters, turnedZ)};
+    const Protocol::VoxelPosition voxel{
+      .xVoxels = voxelOf(origin.x, turnedX), .yVoxels = voxelOf(origin.y, _y), .zVoxels = voxelOf(origin.z, turnedZ)};
     if (voxel.yVoxels < 0)
     {
       return true; // below the world's floor (RendererLook.md §5)
@@ -375,7 +436,7 @@ void WorldView::BuildPlaced(Placed& _placed) const
   // A corner's cells lie at most one cell beyond the model's grid, so the world is sampled once for
   // each cell of the grid grown by one on every side, and the corners read that.
   const std::int32_t width = lastX + 2 + 1;
-  const std::int32_t height = static_cast<std::int32_t>(grid.heightVoxels) + 2;
+  const std::int32_t height = static_cast<std::int32_t>(grid.yVoxels) + 2;
   const std::int32_t depth = lastZ + 2 + 1;
   std::vector<std::uint8_t> sampled(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * static_cast<std::size_t>(depth));
   const auto sampleIndex = [width, depth](std::int32_t _x, std::int32_t _y, std::int32_t _z)
@@ -399,13 +460,15 @@ void WorldView::BuildPlaced(Placed& _placed) const
     const bool inside = _x >= -1 && _y >= -1 && _z >= -1 && _x < width - 1 && _y < height - 1 && _z < depth - 1;
     return inside ? sampled[sampleIndex(_x, _y, _z)] != 0 : worldSolid(_x, _y, _z);
   };
-  _placed.records = Engine::BuildVisibleRecords(
-    {.paletteIndices = grid.indices, .xVoxels = grid.widthVoxels, .yVoxels = grid.heightVoxels, .zVoxels = grid.depthVoxels},
-    [](std::int32_t, std::int32_t, std::int32_t) { return false; },
-    {.palette = &m_shading, .originCells = {0, 0, 0}, .jitterCellShift = 0, .alsoSolid = &worldNear});
+  _placed.records =
+    Engine::BuildVisibleRecords(grid, [](std::int32_t, std::int32_t, std::int32_t) { return false; },
+                                {.palette = &m_shading, .originCells = {0, 0, 0}, .jitterCellShift = 0, .alsoSolid = &worldNear});
+  _placed.impostor = impostor != nullptr;
+  _placed.drawnOriginMeters = origin;
+  _placed.drawnQuarterTurns = quarterTurns;
   _placed.voxelEdgeMeters = edge;
-  _placed.widthCells = grid.widthVoxels;
-  _placed.depthCells = grid.depthVoxels;
+  _placed.widthCells = grid.xVoxels;
+  _placed.depthCells = grid.zVoxels;
 }
 
 bool WorldView::WorldChangedUnder(const Placed& _placed) const
@@ -416,23 +479,22 @@ bool WorldView::WorldChangedUnder(const Placed& _placed) const
   }
   // The world voxels the placement covers, turned or not, with one more on every side, which its
   // corner shades read.
-  const ModelPlacement& placement = _placed.placement;
-  const float extentX =
-    static_cast<float>(placement.quarterTurns % 2 == 0 ? _placed.widthCells : _placed.depthCells) * _placed.voxelEdgeMeters;
-  const float extentZ =
-    static_cast<float>(placement.quarterTurns % 2 == 0 ? _placed.depthCells : _placed.widthCells) * _placed.voxelEdgeMeters;
+  const DirectX::XMFLOAT3& origin = _placed.drawnOriginMeters;
+  const bool across = _placed.drawnQuarterTurns % 2 != 0;
+  const float extentX = static_cast<float>(across ? _placed.depthCells : _placed.widthCells) * _placed.voxelEdgeMeters;
+  const float extentZ = static_cast<float>(across ? _placed.widthCells : _placed.depthCells) * _placed.voxelEdgeMeters;
   const float heightMeters = 64.0F * _placed.voxelEdgeMeters; // no model is taller than a record holds
   const auto chunkOf = [this](float _meters, float _offsetVoxels)
   {
     const auto voxel = static_cast<std::int32_t>(std::floor(_meters / m_worldVoxelMeters + _offsetVoxels));
     return voxel >= 0 ? voxel / Protocol::CHUNK_EDGE_VOXELS : -((-voxel + Protocol::CHUNK_EDGE_VOXELS - 1) / Protocol::CHUNK_EDGE_VOXELS);
   };
-  const std::int32_t minX = chunkOf(placement.xMeters, -1.0F);
-  const std::int32_t maxX = chunkOf(placement.xMeters + extentX, 1.0F);
-  const std::int32_t minY = chunkOf(placement.yMeters, -1.0F);
-  const std::int32_t maxY = chunkOf(placement.yMeters + heightMeters, 1.0F);
-  const std::int32_t minZ = chunkOf(placement.zMeters, -1.0F);
-  const std::int32_t maxZ = chunkOf(placement.zMeters + extentZ, 1.0F);
+  const std::int32_t minX = chunkOf(origin.x, -1.0F);
+  const std::int32_t maxX = chunkOf(origin.x + extentX, 1.0F);
+  const std::int32_t minY = chunkOf(origin.y, -1.0F);
+  const std::int32_t maxY = chunkOf(origin.y + heightMeters, 1.0F);
+  const std::int32_t minZ = chunkOf(origin.z, -1.0F);
+  const std::int32_t maxZ = chunkOf(origin.z + extentZ, 1.0F);
   return std::ranges::any_of(m_rebuiltChunks,
                              [&](std::uint64_t _key)
                              {
@@ -491,9 +553,9 @@ void WorldView::DrawModels(ID3D12GraphicsCommandList* _commandList, const Engine
     {
       const ModelPlacement& placement = placed.placement;
       _pass.Draw(_commandList, placed.recordsAddress, static_cast<std::uint32_t>(placed.records.size()),
-                 {.originMeters = {placement.xMeters, placement.yMeters, placement.zMeters},
+                 {.originMeters = placed.drawnOriginMeters,
                   .voxelEdgeMeters = placed.voxelEdgeMeters,
-                  .quarterTurns = placement.quarterTurns,
+                  .quarterTurns = placed.drawnQuarterTurns,
                   .widthCells = placed.widthCells,
                   .depthCells = placed.depthCells,
                   // A model's faction colour is drawn as its side's (RendererLook.md).
