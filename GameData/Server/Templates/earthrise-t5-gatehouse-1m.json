@@ -20,6 +20,11 @@
    "material": 7,
    "name": "timber",
    "hex": "#7a5534"
+  },
+  "m": {
+   "material": 20,
+   "name": "opening",
+   "hex": "#2e2a27"
   }
  },
  "partsLegend": {
@@ -80,7 +85,16 @@
    "fffffffff",
    "fffffffff",
    "fffffffff",
-   "fffffffff"
+   "fmfmfmfmf"
+  ],
+  [
+   "fffffffff",
+   "fffffffff",
+   "fffffffff",
+   "fffffffff",
+   "fffffffff",
+   "fffffffff",
+   "fmfffffmf"
   ],
   [
    "fffffffff",
@@ -98,16 +112,7 @@
    "fffffffff",
    "fffffffff",
    "fffffffff",
-   "fffffffff"
-  ],
-  [
-   "fffffffff",
-   "fffffffff",
-   "fffffffff",
-   "fffffffff",
-   "fffffffff",
-   "fffffffff",
-   "fffffffff"
+   "fmfffffmf"
   ],
   [
    "fff.f.fff",
@@ -116,7 +121,7 @@
    "fff...fff",
    "fff...fff",
    "fff...fff",
-   "fff.f.fff"
+   "fmf.f.fmf"
   ],
   [
    "fff...fff",
