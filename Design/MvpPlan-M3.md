@@ -2,7 +2,7 @@
 
 **Status:** Proposed, 2026-11-01, with [MvpPlan.md](MvpPlan.md)'s M3 revision, which is accepted when the owner merges its pull request, #45 (GameDesign.md, *Closing M2*, item 6). The owner answered MvpPlan.md, M3, inputs 1–15 the same day, taking every proposal, and inputs 16 and 17 after main's v3 asset package merged (order M3-A1; GameDesign.md, *M3's values*). No order from phase B on starts before that pull request merges; phase A is paper. "Input N" means MvpPlan.md, M3, input N. These orders carry out M3 as MvpPlan.md, M3, defines it, under [ADR-019](ADR/ADR-019-text-and-the-interface-pass.md) to [ADR-021](ADR/ADR-021-world-overlays.md). Where an order and those differ, they win, and the order is corrected.
 
-**An order is one commit, and a phase is one pull request** (AGENTS.md §6), or one draft pull request for B to G if the owner chooses that again, as in M2. There are 24 orders in seven phases:
+**An order is one commit.** Phase A went in the plan's pull request, #45, and phases B to G go in one draft pull request, by the owner's choice of 2026-11-01, as in M2, in place of AGENTS.md §6's one pull request a phase. There are 24 orders in seven phases:
 
 | Phase | Orders | What lands | Waits on |
 |---|---|---|---|
@@ -14,7 +14,7 @@
 | F | F1–F3 | The collapse preview, the integrity view, the passability view | B4–B6, E |
 | G | G1–G3 | The lab, its scoring, the session and the report | B7, F |
 
-D needs only A, so it can run beside B and C in its own pull request; everything from E on is serial. **Owner runs** fall where an order draws: after C2, C3, E2, E4, F3 and G1, and the six-person session after G1's dry run. That is the pace M3 keeps (MvpPlan.md, M3, *What M3 inherits from M2*).
+D needs only A, so its two orders can land anywhere before E; everything from E on is serial. **Owner runs** fall where an order draws: after C2, C3, E2, E4, F3 and G1, and the six-person session after G1's dry run. That is the pace M3 keeps (MvpPlan.md, M3, *What M3 inherits from M2*).
 
 ## How a session works an order
 
@@ -23,14 +23,14 @@ D needs only A, so it can run beside B and C in its own pull request; everything
 3. **Keep the contracts.** The signatures under *Contracts* are what other orders build on. A session that cannot keep one stops and reports. The contract is then changed in this file, in a commit of its own, before any code departs from it. A session never deviates silently (AGENTS.md).
 4. **Verify through CI.** The cloud container has no MSVC, no vstest and no GPU, so CI is the build, and WARP is the GPU ([ADR-012](ADR/ADR-012-render-tests-on-warp.md)).
    - **Before pushing,** run what runs here: `Build/CheckProjectFiles.py`; `Build/CheckFormat.py` with clang-format 18 where it is installed; `Build/TestCheckers.py` when a checker changed; and `Tools/CheckAssets.py`, `Tools/TestCheckAssets.py` and `Tools/TestBakeContent.py` when `GameData/` or `Tools/` changed.
-   - **Then push the order's commit** to the phase's branch, whose PR is open as a draft. CI must be green before the next order starts.
+   - **Then push the order's commit** to the branch of the one draft pull request for B to G. CI must be green before the next order starts.
    - **Count the CI runs** the order took, failures included. The commit's last body line says `CI runs: N`, and a fix that CI forced is a commit of its own, as M2 did.
 5. **Name the commit for the order.** Its subject starts with the order's id, as in `M3-B3: Answer queries within the tick's budget`.
 6. **Register every file** in its project's `.vcxproj` and `.filters`, under the functional filter the order names. Folders stay flat (AGENTS.md §2). A new project goes into `Earthrise.slnx`, `.clang-tidy`'s `HeaderFilterRegex` and the checker's layering table in the commit that creates it.
 7. **Write the tests the order names.** They go in `<Project>Tests/<Type>Tests.cpp`, in `TEST_CLASS(<Type>Tests)`, with methods named for the behaviour they check. A render test creates its device with `GpuDevice::Desc::useWarp` and asserts coverage, colour and depth by number, never a golden image (ADR-012).
 8. **Save what you add.** An order that adds an entity kind adds it to the save and to the state update, and extends `SaveTests` and `StateUpdateTests`, in the same commit (ADR-014, decision 4; ADR-020, decision 3).
 9. **Accept the ADR you implement.** The commit that first implements an ADR marks it Accepted, with the date and any amendment the code forced (AGENTS.md §6). Each order says which ADR, if any.
-10. **Hand the screen to the owner.** An order that draws or takes input lists what the owner should see under *Owner runs*, and the owner launches it before the phase merges (AGENTS.md §3). A Claude session cannot see a frame; what the owner reports comes back as a fix commit, or as a new order in the same phase, as M2-D3 provided for.
+10. **Hand the screen to the owner.** An order that draws or takes input lists what the owner should see under *Owner runs*, and the owner launches it before the pull request merges, and as soon after the order as the owner can, so that the orders after it do not rest on a picture nobody has seen (AGENTS.md §3). A Claude session cannot see a frame; what the owner reports comes back as a fix commit, or as a new order in the same phase, as M2-D3 provided for.
 11. **Leave out-of-scope work out.** What a session notices beyond its order goes in the PR description, not the commit.
 12. **Log nothing about time** (GameDesign.md, *No time logging*). The pull request and its commits, one per order, are the record.
 

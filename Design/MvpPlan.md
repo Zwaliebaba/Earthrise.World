@@ -398,7 +398,7 @@ Run it with six people (F-48).
 
 ### M3's phases (written 2026-11-01, before M3 starts)
 
-M3 is carried out as 24 work orders in seven phases, written out in [MvpPlan-M3.md](MvpPlan-M3.md). Each order is one commit and each phase one pull request (GameDesign.md, *Planning M2*; AGENTS.md §6), or one draft pull request for B to G if the owner chooses that again. An order is a self-contained brief, as M2's were.
+M3 is carried out as 24 work orders in seven phases, written out in [MvpPlan-M3.md](MvpPlan-M3.md). Each order is one commit and each phase one pull request (GameDesign.md, *Planning M2*; AGENTS.md §6), with phases B to G in one draft pull request, by the owner's choice of 2026-11-01, as in M2. An order is a self-contained brief, as M2's were.
 
 | Phase | Orders | What lands | Needs first |
 |---|---|---|---|
@@ -411,7 +411,7 @@ M3 is carried out as 24 work orders in seven phases, written out in [MvpPlan-M3.
 | G | 3 | The lab's flow and log, the scoring tool and the facilitator's guide, the session and the report | B7, F |
 | | **24 orders, 7 pull requests** | | |
 
-- **D needs only A,** so it can run beside B and C.
+- **D needs only A,** so its two orders can land anywhere before E.
 - **The owner runs** fall after C2, C3, E2, E4, F3 and G1, and the six-person session after G1's dry run. That is what sets M3's pace (*What M3 inherits from M2*, below).
 
 **The owner's inputs.** Each is a design value no document gives, or a choice the documents leave open for M3, and AGENTS.md requires it written down before the code that rests on it. The implementer proposed each, and the owner took every proposal on 2026-11-01. GameDesign.md, *M3's values*, records them, and input 10 stays the implementer's to measure.
