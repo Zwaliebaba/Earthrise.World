@@ -79,6 +79,10 @@
     <ClCompile Include="ColorTarget.cpp" />
     <ClInclude Include="UpscalePass.h" />
     <ClCompile Include="UpscalePass.cpp" />
+    <ClInclude Include="GpuTimer.h" />
+    <ClCompile Include="GpuTimer.cpp" />
+    <ClInclude Include="CameraPath.h" />
+    <ClCompile Include="CameraPath.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FXCompile Include="Shader\VoxelVS.hlsl">

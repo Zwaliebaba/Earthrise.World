@@ -159,6 +159,18 @@
     <ClCompile Include="UpscalePass.cpp">
       <Filter>Rendering</Filter>
     </ClCompile>
+    <ClInclude Include="GpuTimer.h">
+      <Filter>Timing</Filter>
+    </ClInclude>
+    <ClCompile Include="GpuTimer.cpp">
+      <Filter>Timing</Filter>
+    </ClCompile>
+    <ClInclude Include="CameraPath.h">
+      <Filter>Camera</Filter>
+    </ClInclude>
+    <ClCompile Include="CameraPath.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
     <FXCompile Include="Shader\UpscaleVS.hlsl">
       <Filter>Shader</Filter>
     </FXCompile>

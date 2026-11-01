@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <cstring>
 #include <deque>
+#include <format>
 #include <functional>
 #include <memory>
 #include <optional>

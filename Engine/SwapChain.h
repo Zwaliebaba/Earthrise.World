@@ -13,6 +13,7 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 
 namespace Engine
 {
@@ -44,6 +45,15 @@ public:
 
   /// Shows the back buffer: on the next vertical blank with _vsync, at once otherwise.
   void Present(bool _vsync);
+
+  /// The number DXGI gave the last Present, which FrameStatistics' PresentCount reaches once that
+  /// frame, or a later one, is on screen.
+  [[nodiscard]] std::uint32_t LastPresentCount() const;
+
+  /// What DXGI last reported about the display: which present was shown, at which vertical blank.
+  /// Empty when DXGI has none to give, such as before the first frame is shown or after the display
+  /// mode changed.
+  [[nodiscard]] std::optional<DXGI_FRAME_STATISTICS> FrameStatistics() const;
 
 private:
   void AcquireBuffers();

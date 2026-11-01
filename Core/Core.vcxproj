@@ -36,6 +36,8 @@
     </ClCompile>
     <ClInclude Include="Hash.h" />
     <ClCompile Include="Hash.cpp" />
+    <ClInclude Include="Percentile.h" />
+    <ClCompile Include="Percentile.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

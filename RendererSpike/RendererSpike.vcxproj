@@ -48,6 +48,8 @@
     <ClCompile Include="SceneScript.cpp" />
     <ClInclude Include="WorldView.h" />
     <ClCompile Include="WorldView.cpp" />
+    <ClInclude Include="Measurement.h" />
+    <ClCompile Include="Measurement.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

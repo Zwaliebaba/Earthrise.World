@@ -93,6 +93,13 @@ GpuDevice::GpuDevice(const Desc& _desc)
   DXGI_ADAPTER_DESC1 adapterDesc{};
   winrt::check_hresult(m_adapter->GetDesc1(&adapterDesc));
   m_adapterName = adapterDesc.Description;
+  // DXGI answers the driver's version through this query, in four 16-bit parts.
+  LARGE_INTEGER version{};
+  if (SUCCEEDED(m_adapter->CheckInterfaceSupport(__uuidof(IDXGIDevice), &version)))
+  {
+    const auto part = [&version](int _shift) { return (static_cast<std::uint64_t>(version.QuadPart) >> _shift) & 0xffffU; };
+    m_driverVersion = std::format(L"{}.{}.{}.{}", part(48), part(32), part(16), part(0));
+  }
 
   BOOL tearing = FALSE;
   m_tearingSupported =
@@ -138,6 +145,11 @@ CommandQueue& GpuDevice::DirectQueue() noexcept
 const std::wstring& GpuDevice::AdapterName() const noexcept
 {
   return m_adapterName;
+}
+
+const std::wstring& GpuDevice::DriverVersion() const noexcept
+{
+  return m_driverVersion;
 }
 
 bool GpuDevice::TearingSupported() const noexcept

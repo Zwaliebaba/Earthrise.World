@@ -90,4 +90,9 @@ DirectX::XMFLOAT3 OrthographicCamera::TargetMeters() const noexcept
   return m_targetMeters;
 }
 
+void OrthographicCamera::SetTargetMeters(const DirectX::XMFLOAT3& _targetMeters) noexcept
+{
+  m_targetMeters = _targetMeters;
+}
+
 } // namespace Engine

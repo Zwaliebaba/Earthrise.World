@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include "CameraPath.h"
 #include "ChunkStore.h"
 #include "ColorTarget.h"
 #include "CommandQueue.h"
@@ -7,7 +8,9 @@
 #include "FrameRing.h"
 #include "FrameTimer.h"
 #include "GpuDevice.h"
+#include "GpuTimer.h"
 #include "KeyboardInput.h"
+#include "Measurement.h"
 #include "OrthographicCamera.h"
 #include "Palette.h"
 #include "PointerInput.h"
@@ -26,6 +29,11 @@
 //
 // `--render-scale 0.75` draws the scene at three quarters of the window's size in each direction;
 // the default is 1 (ADR-011, decision 3).
+//
+// `--measure` flies the scripted camera path once at 1920 x 1080 without waiting for the vertical
+// blank, with an edit published each second, and writes what it measured as CSV beside the
+// executable, in Measurements\, before it exits (MvpPlan.md, M1 task 10; GameDesign.md, *Starting
+// the MVP*).
 
 namespace
 {
@@ -60,6 +68,45 @@ constexpr float ROTATION_SECONDS = 0.3F;
 constexpr float PAN_VIEWS_PER_SECOND = 0.8F;
 
 constexpr double TITLE_REFRESH_SECONDS = 0.5;
+
+// The camera target's height above the ground's datum, as the spike has always stood it.
+constexpr float TARGET_HEIGHT_METERS = 6.0F;
+
+// The measured run's camera path (GameDesign.md, *Starting the MVP*, the owner's choice of
+// 2026-11-01): round a 48 m square about the scene at the default zoom, a quarter turn at each
+// corner, four legs of 15 s stepped at 60 frames a second, and the first second left out as warm-up.
+constexpr std::uint32_t PATH_FRAMES_PER_SECOND = 60;
+constexpr float PATH_STEP_SECONDS = 1.0F / static_cast<float>(PATH_FRAMES_PER_SECOND);
+constexpr std::uint32_t PATH_LEG_FRAMES = 15 * PATH_FRAMES_PER_SECOND;
+constexpr float PATH_SIDE_METERS = 48.0F;
+constexpr std::uint32_t WARM_UP_FRAMES = PATH_FRAMES_PER_SECOND;
+// The scripted edit: until task 9's quarrying, the run digs out and puts back one ground voxel each
+// second, half a second into it, so that edit-to-present latency has something to time. It is the
+// top voxel of the ground at this column, inside the walls.
+constexpr std::uint32_t EDIT_INTERVAL_FRAMES = PATH_FRAMES_PER_SECOND;
+constexpr std::uint32_t EDIT_OFFSET_FRAMES = PATH_FRAMES_PER_SECOND / 2;
+constexpr std::int32_t EDIT_X_VOXELS = 40;
+constexpr std::int32_t EDIT_Z_VOXELS = 44;
+constexpr std::int32_t EDIT_TOP_SEARCH_VOXELS = 64;
+
+// The GPU timer's spans.
+constexpr std::uint32_t VOXEL_PASS_SPAN = 0;
+constexpr std::uint32_t SPAN_COUNT = 1;
+
+struct Options
+{
+  float renderScale;
+  bool measure;
+};
+
+/// An edit published but not yet seen on screen.
+struct PendingEdit
+{
+  std::uint32_t frame;
+  std::optional<std::uint32_t> presentCount; // DXGI's number for the present that first carried it
+  std::int64_t refreshAtPublish;             // DXGI's last vertical blank when it was published; -1 if unknown
+  std::int64_t publishedTicks;               // QueryPerformanceCounter
+};
 
 /// Waits for the GPU before the resources it may still read are destroyed, also when the loop
 /// leaves by an exception.
@@ -133,6 +180,57 @@ float RenderScaleFrom(std::wstring_view _commandLine)
       std::format("--render-scale takes a number from {} to {}, and was given \"{}\".", MIN_RENDER_SCALE, MAX_RENDER_SCALE, value));
   }
   return scale;
+}
+
+/// Whether the command line holds _flag as a word of its own.
+bool HasFlag(std::wstring_view _commandLine, std::wstring_view _flag)
+{
+  std::wstring_view rest = _commandLine;
+  while (!rest.empty())
+  {
+    const std::size_t end = rest.find(L' ');
+    if (rest.substr(0, end) == _flag)
+    {
+      return true;
+    }
+    rest.remove_prefix(end == std::wstring_view::npos ? rest.size() : end + 1);
+  }
+  return false;
+}
+
+std::int64_t PerformanceTicks() noexcept
+{
+  LARGE_INTEGER ticks{};
+  QueryPerformanceCounter(&ticks);
+  return ticks.QuadPart;
+}
+
+/// The folder the measured run writes into: Measurements\ beside the executable.
+std::filesystem::path MeasurementFolder()
+{
+  std::wstring path(32768, L'\0');
+  const DWORD length = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
+  if (length == 0 || length >= path.size())
+  {
+    throw std::runtime_error("the spike could not find where its executable is");
+  }
+  path.resize(length);
+  return std::filesystem::path(path).parent_path() / L"Measurements";
+}
+
+/// The top voxel of the ground at the scripted edit's column, and what it holds.
+std::pair<Protocol::VoxelPosition, std::uint8_t> EditVoxel(const Simulation::ChunkStore& _store)
+{
+  for (std::int32_t y = EDIT_TOP_SEARCH_VOXELS; y >= 0; --y)
+  {
+    const Protocol::VoxelPosition position{.xVoxels = EDIT_X_VOXELS, .yVoxels = y, .zVoxels = EDIT_Z_VOXELS};
+    const std::uint8_t index = _store.At(position);
+    if (index != 0)
+    {
+      return {position, index};
+    }
+  }
+  throw std::runtime_error("the scripted edit's column holds no ground");
 }
 
 /// The frame's constants for a target _widthPixels by _heightPixels that the display shows at
@@ -212,21 +310,31 @@ template <typename T> D3D12_GPU_VIRTUAL_ADDRESS UploadConstants(Engine::UploadRi
   return allocation->gpuAddress;
 }
 
-int Run(float _renderScale)
+int Run(const Options& _options)
 {
-  Engine::Window window({.title = TITLE, .clientWidthPixels = 1280, .clientHeightPixels = 720});
+  const float renderScale = _options.renderScale;
+  const bool measure = _options.measure;
+  // The window's size is asked for at 96 DPI, so a measured run asks for the pass mark's pixels at
+  // the system's DPI.
+  const auto atSystemDpi = [](std::uint32_t _pixels)
+  { return static_cast<std::uint32_t>(MulDiv(static_cast<int>(_pixels), 96, static_cast<int>(GetDpiForSystem()))); };
+  Engine::Window window({.title = TITLE,
+                         .clientWidthPixels = measure ? atSystemDpi(Spike::Measurement::PASS_MARK_WIDTH_PIXELS) : 1280,
+                         .clientHeightPixels = measure ? atSystemDpi(Spike::Measurement::PASS_MARK_HEIGHT_PIXELS) : 720});
   Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = false});
   Engine::SwapChain swapChain(device, window.Handle());
   // The scene draws at the render scale, and its depth with it (ADR-011, decision 3).
   Engine::ColorTarget sceneColor(device.Device(), {.format = SCENE_FORMAT, .clearColor = CLEAR_COLOR},
-                                 Engine::ScaledPixels(swapChain.WidthPixels(), _renderScale),
-                                 Engine::ScaledPixels(swapChain.HeightPixels(), _renderScale));
+                                 Engine::ScaledPixels(swapChain.WidthPixels(), renderScale),
+                                 Engine::ScaledPixels(swapChain.HeightPixels(), renderScale));
   Engine::DepthTarget depth(device.Device(), sceneColor.WidthPixels(), sceneColor.HeightPixels());
   Engine::FrameRing frames(device.Device(), device.DirectQueue());
   Engine::UploadRing ring(device.Device(), UPLOAD_RING_BYTES);
   const Engine::VoxelPass pass(device.Device(), {.colorFormat = SCENE_FORMAT, .depthFormat = Engine::DepthTarget::FORMAT});
   Engine::UpscalePass upscale(device.Device(), {.targetFormat = Engine::SwapChain::VIEW_FORMAT});
   upscale.SetSource(sceneColor.Texture());
+  const Engine::GpuTimer gpuTimer(device.Device(), device.DirectQueue().Queue(),
+                                  {.slotCount = Engine::FrameRing::FRAMES_IN_FLIGHT, .spanCount = SPAN_COUNT});
   Spike::WorldView worldView(device.Device());
   const FlushOnExit flushOnExit{device.DirectQueue()};
 
@@ -235,6 +343,7 @@ int Run(float _renderScale)
   Simulation::ChunkStore store;
   const Spike::TestScene scene = Spike::BuildTestScene(store, SCENE_SEED);
   std::vector<Protocol::ChunkSnapshot> published = store.Publish();
+  bool modelsPlaced = false;
   const std::array<DirectX::XMFLOAT4, Engine::VoxelPass::PALETTE_ENTRIES> palette = LinearPalette();
 
   Engine::OrthographicCamera camera({.elevationRadians = DirectX::XMConvertToRadians(ELEVATION_DEGREES),
@@ -243,7 +352,20 @@ int Run(float _renderScale)
                                      .minViewHeightMeters = MIN_VIEW_HEIGHT_METERS,
                                      .maxViewHeightMeters = MAX_VIEW_HEIGHT_METERS,
                                      .rotationSeconds = ROTATION_SECONDS,
-                                     .targetMeters = {scene.centerXMeters, 6.0F, scene.centerZMeters}});
+                                     .targetMeters = {scene.centerXMeters, TARGET_HEIGHT_METERS, scene.centerZMeters}});
+  const Engine::CameraPath path({.centerMeters = {scene.centerXMeters, TARGET_HEIGHT_METERS, scene.centerZMeters},
+                                 .sideMeters = PATH_SIDE_METERS,
+                                 .legFrames = PATH_LEG_FRAMES});
+  const auto [editPosition, editGround] = EditVoxel(store);
+  Spike::Measurement measurement;
+  std::vector<PendingEdit> pendingEdits;
+  std::uint32_t pathFrame = 0;
+  bool resizedDuringRun = false;
+  // Each frame slot's row, waiting for its timestamps, which come back when the slot is next used.
+  std::array<std::optional<Spike::Measurement::FrameRow>, Engine::FrameRing::FRAMES_IN_FLIGHT> waitingRows{};
+  double voxelPassMilliseconds = 0.0;
+  LARGE_INTEGER ticksPerSecond{};
+  QueryPerformanceFrequency(&ticksPerSecond);
   Engine::PointerInput pointer;
   Engine::KeyboardInput keyboard;
   Engine::FrameTimer timer;
@@ -270,27 +392,69 @@ int Run(float _renderScale)
     {
       device.DirectQueue().Flush();
       swapChain.Resize(size.widthPixels, size.heightPixels);
-      sceneColor.Resize(Engine::ScaledPixels(size.widthPixels, _renderScale), Engine::ScaledPixels(size.heightPixels, _renderScale));
+      sceneColor.Resize(Engine::ScaledPixels(size.widthPixels, renderScale), Engine::ScaledPixels(size.heightPixels, renderScale));
       depth.Resize(sceneColor.WidthPixels(), sceneColor.HeightPixels());
       upscale.SetSource(sceneColor.Texture());
+      resizedDuringRun = resizedDuringRun || (measure && pathFrame > 0);
     }
 
     swapChain.WaitForFrame();
     const double lapSeconds = timer.LapSeconds();
-    Steer(camera, keyboard, pointer, pointer.XPixels() - lastXPixels, pointer.YPixels() - lastYPixels, swapChain.HeightPixels(),
-          static_cast<float>(lapSeconds));
+    if (measure)
+    {
+      // The path, stepped by frame, and no input: every run sees the same views.
+      const Engine::CameraPath::Pose pose = path.At(pathFrame);
+      if (pose.turnStarts)
+      {
+        camera.Rotate(1);
+      }
+      camera.SetTargetMeters(pose.targetMeters);
+      camera.Update(PATH_STEP_SECONDS);
+      if (pathFrame >= WARM_UP_FRAMES && pathFrame % EDIT_INTERVAL_FRAMES == EDIT_OFFSET_FRAMES)
+      {
+        // Dig the voxel out, or put it back, and publish: the client sees it in this frame.
+        store.Set(editPosition, store.At(editPosition) == 0 ? editGround : std::uint8_t{0});
+        published = store.Publish();
+        const std::optional<DXGI_FRAME_STATISTICS> statistics = swapChain.FrameStatistics();
+        pendingEdits.push_back({.frame = pathFrame,
+                                .presentCount = std::nullopt,
+                                .refreshAtPublish = statistics ? static_cast<std::int64_t>(statistics->SyncRefreshCount) : -1,
+                                .publishedTicks = PerformanceTicks()});
+      }
+    }
+    else
+    {
+      Steer(camera, keyboard, pointer, pointer.XPixels() - lastXPixels, pointer.YPixels() - lastYPixels, swapChain.HeightPixels(),
+            static_cast<float>(lapSeconds));
+    }
     lastXPixels = pointer.XPixels();
     lastYPixels = pointer.YPixels();
     const std::uint64_t completed = device.DirectQueue().CompletedValue();
     ring.Reclaim(completed);
     worldView.Release(completed);
 
+    const std::uint32_t slot = frames.Slot();
     ID3D12GraphicsCommandList* commandList = frames.Begin();
+    // Begin waited for this slot's last frame, so its timestamps are back.
+    if (waitingRows[slot])
+    {
+      waitingRows[slot]->voxelPassMilliseconds = gpuTimer.ReadMilliseconds(slot)[VOXEL_PASS_SPAN];
+      voxelPassMilliseconds = waitingRows[slot]->voxelPassMilliseconds;
+      if (measure)
+      {
+        measurement.AddFrame(*waitingRows[slot]);
+      }
+      waitingRows[slot].reset();
+    }
     if (!published.empty())
     {
       worldView.TakeSnapshots(commandList, ring, published);
-      worldView.PlaceModels(commandList, ring, scene.models);
       published.clear();
+    }
+    if (!modelsPlaced)
+    {
+      worldView.PlaceModels(commandList, ring, scene.models);
+      modelsPlaced = true;
     }
     const float displayAspect = static_cast<float>(swapChain.WidthPixels()) / static_cast<float>(swapChain.HeightPixels());
     const D3D12_GPU_VIRTUAL_ADDRESS frameConstants =
@@ -307,8 +471,10 @@ int Run(float _renderScale)
     sceneColor.Clear(commandList);
     depth.Clear(commandList);
     SetViewport(commandList, sceneColor.WidthPixels(), sceneColor.HeightPixels());
+    gpuTimer.Begin(commandList, slot, VOXEL_PASS_SPAN);
     pass.Begin(commandList, frameConstants, paletteConstants);
     worldView.Draw(commandList, pass);
+    gpuTimer.End(commandList, slot, VOXEL_PASS_SPAN);
 
     // Then scaled to the back buffer, which the triangle covers whole, so it needs no clear. The
     // interface will draw after it, at the display's resolution.
@@ -323,19 +489,100 @@ int Run(float _renderScale)
     const D3D12_RESOURCE_BARRIER toPresent =
       Engine::TransitionBarrier(swapChain.BackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
     commandList->ResourceBarrier(1, &toPresent);
+    gpuTimer.Resolve(commandList, slot);
+    waitingRows[slot] = Spike::Measurement::FrameRow{.frame = pathFrame,
+                                                     .azimuthDegrees = DirectX::XMConvertToDegrees(camera.AzimuthRadians()),
+                                                     .voxelsDrawn = worldView.RecordsDrawn(),
+                                                     .voxelPassMilliseconds = 0.0,
+                                                     .frameMilliseconds = 1000.0 * lapSeconds};
     const std::uint64_t fenceValue = frames.End();
     ring.Retire(fenceValue);
     worldView.Retire(fenceValue);
-    swapChain.Present(true);
+    // A measured run does not wait for the vertical blank (the owner's choice of 2026-11-01).
+    swapChain.Present(!measure);
+
+    if (measure)
+    {
+      // Edit to present (the owner's choice of 2026-11-01): an edit is on screen once DXGI says a
+      // present at or after the first one that carried it was shown.
+      for (PendingEdit& edit : pendingEdits)
+      {
+        if (!edit.presentCount)
+        {
+          edit.presentCount = swapChain.LastPresentCount();
+        }
+      }
+      const std::optional<DXGI_FRAME_STATISTICS> statistics = swapChain.FrameStatistics();
+      if (statistics)
+      {
+        const std::int64_t now = PerformanceTicks();
+        std::erase_if(
+          pendingEdits,
+          [&](const PendingEdit& _edit)
+          {
+            if (statistics->PresentCount < *_edit.presentCount)
+            {
+              return false;
+            }
+            measurement.AddEdit(
+              {.frame = _edit.frame,
+               .displayRefreshes =
+                 _edit.refreshAtPublish < 0 ? -1 : static_cast<std::int64_t>(statistics->PresentRefreshCount) - _edit.refreshAtPublish,
+               .milliseconds = 1000.0 * static_cast<double>(now - _edit.publishedTicks) / static_cast<double>(ticksPerSecond.QuadPart)});
+            return true;
+          });
+      }
+      ++pathFrame;
+      if (pathFrame == path.FrameCount())
+      {
+        // The last two frames' timestamps, then the files.
+        device.DirectQueue().Flush();
+        for (std::uint32_t waitingSlot = 0; waitingSlot < Engine::FrameRing::FRAMES_IN_FLIGHT; ++waitingSlot)
+        {
+          if (waitingRows[waitingSlot])
+          {
+            waitingRows[waitingSlot]->voxelPassMilliseconds = gpuTimer.ReadMilliseconds(waitingSlot)[VOXEL_PASS_SPAN];
+            measurement.AddFrame(*waitingRows[waitingSlot]);
+          }
+        }
+        for (const PendingEdit& edit : pendingEdits)
+        {
+          measurement.AddEdit({.frame = edit.frame, .displayRefreshes = -1, .milliseconds = -1.0});
+        }
+        const std::wstring stem =
+          std::format(L"RendererSpike-{:%Y%m%d-%H%M%S}", std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now()));
+        const std::wstring results = measurement.Write(
+          MeasurementFolder(), stem,
+          {.adapter = device.AdapterName(),
+           .driverVersion = device.DriverVersion(),
+           .displayWidthPixels = swapChain.WidthPixels(),
+           .displayHeightPixels = swapChain.HeightPixels(),
+           .renderWidthPixels = sceneColor.WidthPixels(),
+           .renderHeightPixels = sceneColor.HeightPixels(),
+           .renderScale = renderScale,
+           .tearing = device.TearingSupported(),
+           .resizedDuringRun = resizedDuringRun,
+           .path = std::format(L"round a {:.0f} m square at a view height of {:.0f} m, a quarter turn at each corner, {} legs of {} frames "
+                               L"stepped at {} a second",
+                               PATH_SIDE_METERS, DEFAULT_VIEW_HEIGHT_METERS, Engine::CameraPath::LEG_COUNT, PATH_LEG_FRAMES,
+                               PATH_FRAMES_PER_SECOND),
+           .firstMeasuredFrame = WARM_UP_FRAMES});
+        MessageBoxW(window.Handle(), results.c_str(), TITLE, MB_ICONINFORMATION | MB_OK);
+        return 0;
+      }
+    }
 
     titleSeconds += lapSeconds;
     ++titleFrames;
     if (titleSeconds >= TITLE_REFRESH_SECONDS)
     {
-      const std::wstring title = std::format(L"{} | {} | {:.2f} ms | {} voxels | render {} x {} at {:.2f} | view {:.0f} m, azimuth {:.0f}",
-                                             TITLE, device.AdapterName(), 1000.0 * titleSeconds / titleFrames, worldView.RecordsDrawn(),
-                                             sceneColor.WidthPixels(), sceneColor.HeightPixels(), _renderScale, camera.ViewHeightMeters(),
-                                             DirectX::XMConvertToDegrees(camera.AzimuthRadians()));
+      const std::wstring title =
+        std::format(L"{} | {} | {:.2f} ms a frame, voxel pass {:.2f} ms on the GPU | {} voxels | render {} x {} at {:.2f} | view {:.0f} m, "
+                    L"azimuth {:.0f}{}",
+                    TITLE, device.AdapterName(), 1000.0 * titleSeconds / titleFrames, voxelPassMilliseconds, worldView.RecordsDrawn(),
+                    sceneColor.WidthPixels(), sceneColor.HeightPixels(), renderScale, camera.ViewHeightMeters(),
+                    DirectX::XMConvertToDegrees(camera.AzimuthRadians()),
+                    measure ? std::format(L" | measuring, frame {} of {}", pathFrame, path.FrameCount()) : std::wstring{});
       SetWindowTextW(window.Handle(), title.c_str());
       titleSeconds = 0.0;
       titleFrames = 0;
@@ -352,7 +599,8 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
 {
   try
   {
-    return Run(RenderScaleFrom(_commandLine != nullptr ? _commandLine : L""));
+    const std::wstring_view commandLine = _commandLine != nullptr ? _commandLine : L"";
+    return Run({.renderScale = RenderScaleFrom(commandLine), .measure = HasFlag(commandLine, L"--measure")});
   }
   catch (const winrt::hresult_error& error)
   {

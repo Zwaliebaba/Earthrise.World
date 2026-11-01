@@ -179,6 +179,11 @@ The owner settled the open items of the readiness review ([Review/MvpReadiness-2
    - as the 95th percentile of the voxel pass's GPU time, shadow passes included;
    - over a scripted camera path at the default zoom through all four rotations;
    - with units moving and the scripted edits running.
+
+   The owner settled three details on 2026-11-01:
+   - **The path:** at the default 84 m view height, the camera's target goes round a closed square about the town at a steady ground speed, with a quarter turn eased over 0.3 s at each corner, as a player's would be. Four legs of 15 s make 60 s, or 3600 frames. The path is stepped by frame at a fixed 1/60 s, so every run sees the same views whatever the frame rate. The first second is left out as warm-up.
+   - **Presenting:** the measured run does not wait for the vertical blank, so the GPU stays busy at its usual clocks, and the CSV records the adapter and driver version so that runs can be compared.
+   - **Edit-to-screen latency** (ADR-006's table) runs from the frame in which the chunk store publishes an edit to the first present that shows it, as DXGI's frame statistics report it. It includes the swap chain's queue, so it is what a player sees.
 4. **Hardware:** the owner has the RTX 3060-class machine but no Surface Pro yet. The Surface's measurement waits until one is available, and its pass mark stays open ([ADR-007](ADR/ADR-007-platforms-and-input.md)).
 5. **The spike's scene takes its layout from the v5 scene,** which is already on the 1 m grid ([Reference/SiegePrototypeV2/](Reference/SiegePrototypeV2/)). A seeded scene script places it. The implementer draws placeholder models for what `GameData/` lacks (trees, cottages, mantlets, banners and stock stacks), and the owner may replace them with Claude Design versions.
 6. **Two exceptions to R14** (AGENTS.md): test projects use Visual Studio's native unit-test framework, which vstest runs and which never reaches the game, and build-time tools run on Python, which never ships.

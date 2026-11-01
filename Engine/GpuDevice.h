@@ -44,6 +44,8 @@ public:
   [[nodiscard]] IDXGIFactory6* Factory() const noexcept;
   [[nodiscard]] CommandQueue& DirectQueue() noexcept;
   [[nodiscard]] const std::wstring& AdapterName() const noexcept;
+  /// The adapter's user-mode driver version, as a.b.c.d, or empty when DXGI does not give one.
+  [[nodiscard]] const std::wstring& DriverVersion() const noexcept;
   [[nodiscard]] bool TearingSupported() const noexcept;
   [[nodiscard]] bool DebugLayerActive() const noexcept;
 
@@ -58,6 +60,7 @@ private:
   winrt::com_ptr<ID3D12InfoQueue> m_infoQueue;
   std::unique_ptr<CommandQueue> m_directQueue; // made once the device exists
   std::wstring m_adapterName;
+  std::wstring m_driverVersion;
   bool m_tearingSupported = false;
   bool m_debugLayerActive = false;
 };
