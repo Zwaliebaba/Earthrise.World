@@ -28,11 +28,11 @@
 
    | Project | Kind | Depends on | In M1 for |
    |---|---|---|---|
-   | `Core` | static library | (none) | Integer and fixed-point math, the pinned PRNG and hash, byte encoding, asserts |
+   | `Core` | static library | (none) | The pinned hash and the percentile in M1; integer and fixed-point math, the pinned PRNG and byte encoding follow in M2 ([ADR-013](ADR-013-ticks-numbers-and-randomness.md)) |
    | `Engine` | static library | Core | The window, pointer input, the Direct3D 12 device, the voxel renderer ([ADR-011](ADR-011-renderer-first-choices.md)) |
    | `Protocol` | static library | Core | Handles to chunk snapshots |
    | `Content` | static library | Core | The client's baked tables (ADR-008) |
-   | `Simulation` | static library | Core, Protocol | The minimal chunk store with copy-on-write snapshots; later, the rest |
+   | `Simulation` | static library | Core, Protocol | The minimal chunk store with copy-on-write snapshots; in M1 also the first support search, the navigation tiles and the test world; the rest in M2 |
    | `RendererSpike` | Windows executable | Core, Engine, Protocol, Content, Simulation | The spike's scene script, camera path and measurements |
    | `SimulationBench` | console executable | Core, Protocol, Content, Simulation | Spike question 6 |
    | `CoreTests`, `EngineTests`, `ProtocolTests`, `ContentTests`, `SimulationTests` | CppUnitTest DLLs | their library | Unit tests, each starting with `SuiteSmoke`. `EngineTests` holds the render tests on WARP ([ADR-012](ADR-012-render-tests-on-warp.md)) |
@@ -63,7 +63,7 @@
 6. **`Engine/framework.h` owns the Windows macros.**
    - It defines `NOMINMAX`, `WIN32_LEAN_AND_MEAN`, `NOMCX`, `NOSERVICE` and `NOHELP`, then includes `targetver.h` and `<windows.h>`. `framework.h` and `targetver.h` are the names R7 already allows.
    - Engine's `pch.h` and each Windows executable's `pch.h` include it before any Direct3D, DXGI or XAudio2 header, and nothing else defines those macros.
-   - **The minimum OS is Windows 11.** `targetver.h` states `_WIN32_WINNT` as `0x0A00`, which Windows 10 and 11 share, and the `NTDDI_VERSION` of Windows 11's first release, named as the SDK names it.
+   - **The minimum OS is Windows 11.** `targetver.h` states the `NTDDI_VERSION` of Windows 11's first release, named as the SDK names it, and `<sdkddkver.h>` derives `_WIN32_WINNT` from it as `0x0A00`, which Windows 10 and 11 share.
 7. **The bake is a build step of `Content`.**
    - A target runs `python Tools/BakeContent.py` before compiling. It takes `GameData/` as inputs and writes headers to `$(IntDir)Generated\`, so the build is incremental.
    - Python comes from `PATH`, version 3.12 or later as CI pins it. When Python is missing, the build fails with a message saying so.
@@ -81,13 +81,13 @@
    - every file is registered in the `.vcxproj` and its `.filters`;
    - R2, R7 and R11 hold, folders are flat, and shaders are named as §2 says.
 
-   `Build/Fixtures/` holds a small correct project and a set of broken ones, and the checker's own test is that it passes the first and fails each of the others for the right reason. Run on an empty tree, the checker would prove nothing.
+   `Build/Fixtures/` holds a small correct project, `Build/TestCheckers.py` makes each broken variant from it in code, and the checker's own test is that it passes the first and fails each of the others for the right reason. Run on an empty tree, the checker would prove nothing.
 
 ## Consequences
 
-- **The first commit of M1 is the scaffold:** the solution, `Build/Earthrise.props`, the ten projects with their `pch` and `SuiteSmoke`, and `framework.h`. It also corrects `.clang-tidy`. CI then builds both architectures and runs the three suites for real.
+- **The first commit of M1 is the scaffold:** the solution, `Build/Earthrise.props`, the ten projects with their `pch` and `SuiteSmoke`, and `framework.h`. It also corrects `.clang-tidy`. CI then builds both architectures and runs the three suites (since amended: CI builds x64 only, ADR-007, and runs every suite, five by the end of M1) for real.
 - **M0's checkers are written against this layout,** with their fixtures, before the scaffold, so the scaffold is the first thing they gate.
-- **Graphics Tools:** a developer machine needs the Windows optional feature "Graphics Tools" for the Direct3D 12 debug layer in Debug builds. CI's tests create no device and do not need it.
+- **Graphics Tools:** a developer machine needs the Windows optional feature "Graphics Tools" for the Direct3D 12 debug layer in Debug builds. CI's render tests create a WARP device ([ADR-012](ADR-012-render-tests-on-warp.md)); whether the runners have the debug layer is ADR-012's open question.
 - **On acceptance,** as done the same day:
   - AGENTS.md R16, §3 and §4 name the property sheet and `framework.h`;
   - MvpPlan.md's layout table points here;
