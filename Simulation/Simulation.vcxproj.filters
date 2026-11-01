@@ -7,6 +7,12 @@
     <Filter Include="World">
       <UniqueIdentifier>{3757FBCF-AC7B-5EA2-9150-3153EBE7A511}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Support">
+      <UniqueIdentifier>{CE0F904E-5515-5EE9-A854-E177709F3F45}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Navigation">
+      <UniqueIdentifier>{D71EF418-0B81-5264-9984-C577885DFC7C}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -20,6 +26,24 @@
     </ClInclude>
     <ClCompile Include="ChunkStore.cpp">
       <Filter>World</Filter>
+    </ClCompile>
+    <ClInclude Include="MaterialRules.h">
+      <Filter>Support</Filter>
+    </ClInclude>
+    <ClCompile Include="MaterialRules.cpp">
+      <Filter>Support</Filter>
+    </ClCompile>
+    <ClInclude Include="SupportSearch.h">
+      <Filter>Support</Filter>
+    </ClInclude>
+    <ClCompile Include="SupportSearch.cpp">
+      <Filter>Support</Filter>
+    </ClCompile>
+    <ClInclude Include="NavigationGrid.h">
+      <Filter>Navigation</Filter>
+    </ClInclude>
+    <ClCompile Include="NavigationGrid.cpp">
+      <Filter>Navigation</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
