@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>html,body{margin:0;padding:0;background:#1b1916}a{color:#e8b86a}a:hover{color:#f3ede2}</style>
+</helmet>
+<div style="min-height:100vh;background:#1b1916;color:#f3ede2;font-family:'IBM Plex Sans',sans-serif;padding:48px clamp(20px,4vw,56px) 72px;box-sizing:border-box;display:flex;flex-direction:column;gap:40px">
+  <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:24px">
+    <div style="display:flex;flex-direction:column;gap:10px;max-width:760px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.18em;color:#e8b86a">EARTHRISE.WORLD — MVP ASSET SHEET</div>
+      <div style="font-family:'EB Garamond',serif;font-size:clamp(34px,4.4vw,52px);line-height:1.02;font-weight:500">Every voxel item the MVP needs</div>
+      <div style="font-size:15px;line-height:1.55;color:#d8d0c2;text-wrap:pretty">The templates, units, siege units and materials listed under <span style="font-family:'IBM Plex Mono',monospace;font-size:13px">MvpPlan.md › In</span>, built to Renderer Look Spec v2: templates on the 1 m world grid, units and engines as separate 0.5 m models. Cost is the exact volume of each template, as the design requires. Each item exports as MagicaVoxel .vox, as template layers (.json) with material and critical-part tags, or as a .png.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-end">
+      <div style="display:flex;gap:6px;align-items:center;background:#24211c;padding:6px">
+        <button onClick="{{ rotL }}" style="width:44px;height:44px;border:0;background:#332e27;color:#f3ede2;font-size:20px;cursor:pointer" style-hover="background:#433b31">↺</button>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:#a69c8a;padding:0 8px">ROTATE ALL 90°</div>
+        <button onClick="{{ rotR }}" style="width:44px;height:44px;border:0;background:#332e27;color:#f3ede2;font-size:20px;cursor:pointer" style-hover="background:#433b31">↻</button>
+      </div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;color:#a69c8a">{{ status }}</div>
+    </div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.08em">
+    <div style="flex:none;max-width:100%;white-space:nowrap;background:#24211c;padding:8px 12px;color:#e8b86a">{{ chipSize }}</div>
+    <div style="flex:none;max-width:100%;white-space:nowrap;background:#24211c;padding:8px 12px;color:#d8d0c2">{{ chipVol }}</div>
+    <div style="flex:none;max-width:100%;white-space:nowrap;background:#24211c;padding:8px 12px;color:#d8d0c2">TERRAIN JITTER + AO IN 1 M CELLS</div>
+    <sc-if value="{{ is1m }}" hint-placeholder-val="{{ false }}"><div style="flex:none;max-width:100%;background:#e8b86a;padding:8px 12px;color:#15130f">{{ modeNote }}</div></sc-if>
+    <div style="flex:none;max-width:100%;white-space:nowrap;background:#24211c;padding:8px 12px;color:#d8d0c2">{{ chipUnit }}</div>
+    <div style="flex:none;max-width:100%;white-space:nowrap;background:#24211c;padding:8px 12px;color:#d8d0c2">2 M FIGURE FOR SCALE</div>
+  </div>
+  <sc-for list="{{ sections }}" as="sec" hint-placeholder-count="5">
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;border-bottom:1px solid #3a342c;padding-bottom:10px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.14em;color:#e8b86a">{{ sec.code }}</div>
+        <div style="font-family:'EB Garamond',serif;font-size:30px;line-height:1.1">{{ sec.title }}</div>
+        <div style="font-size:14px;color:#a69c8a">{{ sec.note }}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+        <sc-for list="{{ sec.items }}" as="it" hint-placeholder-count="4">
+          <div style="background:#24211c;display:flex;flex-direction:column;min-width:0">
+            <div style="position:relative;aspect-ratio:4/3;background:#d6ccba">
+              <img ref="{{ it.imgRef }}" alt="{{ it.name }}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain">
+              <div style="position:absolute;left:10px;top:10px;background:#15130f;color:#e8b86a;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;padding:4px 7px">{{ it.id }}</div>
+            </div>
+            <div style="padding:16px 16px 14px;display:flex;flex-direction:column;gap:10px;flex:1">
+              <div style="font-family:'EB Garamond',serif;font-size:25px;line-height:1.05">{{ it.name }}</div>
+              <div style="font-size:13.5px;line-height:1.5;color:#d8d0c2;text-wrap:pretty">{{ it.role }}</div>
+              <div style="display:flex;flex-direction:column;gap:4px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;margin-top:auto;padding-top:6px">
+                <sc-for list="{{ it.rows }}" as="r" hint-placeholder-count="3">
+                  <div style="display:flex;gap:12px;line-height:1.45">
+                    <div style="width:72px;flex:none;color:#a69c8a;letter-spacing:.08em">{{ r.k }}</div>
+                    <div style="flex:1;color:#f3ede2;min-width:0">{{ r.v }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:4px">
+                <button onClick="{{ it.onVox }}" style="flex:1;height:34px;border:0;background:#332e27;color:#f3ede2;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;cursor:pointer" style-hover="background:#433b31">.VOX</button>
+                <button onClick="{{ it.onJson }}" style="flex:1;height:34px;border:0;background:#332e27;color:#f3ede2;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;cursor:pointer" style-hover="background:#433b31">.JSON</button>
+                <button onClick="{{ it.onPng }}" style="flex:1;height:34px;border:0;background:#332e27;color:#f3ede2;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;cursor:pointer" style-hover="background:#433b31">.PNG</button>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-for>
+  <div style="display:flex;flex-direction:column;gap:8px;max-width:860px;font-size:13.5px;line-height:1.55;color:#a69c8a;border-top:1px solid #3a342c;padding-top:18px">
+    <div><span style="color:#d8d0c2">Not drawn (out of MVP scope):</span> the mangonel, mantlet, crossbowmen, knights, thick walls, fire, eras, provisions, iron, cart and market.</div>
+    <div><span style="color:#d8d0c2">.json format:</span> <span style="font-family:'IBM Plex Mono',monospace;font-size:12px">layers[y][z]</span> is a row string over x, one character per voxel, with <span style="font-family:'IBM Plex Mono',monospace;font-size:12px">legend</span> mapping characters to materials. <span style="font-family:'IBM Plex Mono',monospace;font-size:12px">parts[y][z]</span> uses the same layout: 1 = critical part, 2 = foundation, 3 = stock (not costed), . = none. y is up and +z is the front.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;voxelSize&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;1 m world + 0.5 m models&quot;,&quot;0.5 m everything&quot;,&quot;1 m everything&quot;],&quot;default&quot;:&quot;1 m world + 0.5 m models&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Render&quot;},&quot;faction&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;red&quot;,&quot;blue&quot;],&quot;default&quot;:&quot;red&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Render&quot;},&quot;highlightCritical&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Render&quot;},&quot;showScale&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Render&quot;}}">
+class Component extends DCLogic {
+  state = { imgs: {}, status: 'Building models…' };
+  view = 0;
+
+  componentDidMount() {
+    this.buildAll();
+    this.forceUpdate();
+    this.init().catch(e => { console.error(e); this.setState({ status: 'Render failed: ' + e.message }); });
+  }
+  componentWillUnmount() { this.dead = true; if (this.renderer) this.renderer.dispose(); }
+  componentDidUpdate(pp) {
+    if (pp.voxelSize !== this.props.voxelSize) { this.buildAll(); this.renderAll(); return; }
+    if (pp.faction !== this.props.faction || pp.highlightCritical !== this.props.highlightCritical || pp.showScale !== this.props.showScale) this.renderAll();
+  }
+
+  M() { return { GRASS: 1, EARTH: 2, ROCK: 3, STONE: 4, BED: 5, WALL: 6, TIMBER: 7, RUBBLE: 8, ROOF: 12, F: 16, STEEL: 18, TAN: 19, DARK: 20, WEIGHT: 21, SKIN: 22, CLOTH: 23, HORSE: 24, TRUBBLE: 25, ERUBBLE: 26, LEATHER: 27 }; }
+  palette() {
+    const f = (this.props.faction ?? 'red') === 'blue' ? '#2f5d93' : '#b23a2e';
+    return { 1: '#7d8b4f', 2: '#8a6a48', 3: '#8d8a84', 4: '#ddd2b9', 5: '#4a4744', 6: '#c6bca7', 7: '#7a5534', 8: '#a69c8a', 12: '#8c4a3a', 16: f, 18: '#9aa0a6', 19: '#c79a6b', 20: '#2e2a27', 21: '#5b5650', 22: '#d9a57f', 23: '#3d3530', 24: '#5e4330', 25: '#5f4530', 26: '#7d6044', 27: '#6e5a3e' };
+  }
+  matNames() { return { 1: 'grass', 2: 'earth', 3: 'common rock', 4: 'building stone', 5: 'bedrock', 6: 'dressed stone', 7: 'timber', 8: 'stone rubble', 12: 'roof', 16: 'faction', 18: 'iron', 19: 'laborer cloth', 20: 'opening', 21: 'counterweight', 22: 'skin', 23: 'cloth', 24: 'horse', 25: 'timber rubble', 26: 'earth rubble', 27: 'leather' }; }
+  hash(x, z, s = 0) { let h = (x * 374761393 + z * 668265263 + s * 982451653) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967295; }
+
+  mk(w, h, d) {
+    const m = new Uint8Array(w * h * d), p = new Uint8Array(w * h * d), I = (x, y, z) => x + w * (z + d * y);
+    const o = { w, h, d, m, p };
+    o.inb = (x, y, z) => x >= 0 && y >= 0 && z >= 0 && x < w && y < h && z < d;
+    o.set = (x, y, z, mat, part = 0) => { if (o.inb(x, y, z)) { m[I(x, y, z)] = mat; p[I(x, y, z)] = mat ? part : 0; } };
+    o.get = (x, y, z) => o.inb(x, y, z) ? m[I(x, y, z)] : 0;
+    o.box = (x0, x1, y0, y1, z0, z1, mat, part = 0) => { for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) o.set(x, y, z, mat, part); };
+    o.cren = (x0, x1, z0, z1, y0, y1, part = 0) => { const M = this.M(); for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) { const edge = x === x0 || x === x1 || z === z0 || z === z1; if (!edge) continue; const t = (x === x0 || x === x1) ? z - z0 : x - x0; if (t % 4 < 2) o.box(x, x, y0, y1, z, z, M.WALL, part); } };
+    return o;
+  }
+
+  fig(o, x, z, kind) {
+    const M = this.M();
+    o.set(x, 0, z, M.CLOTH);
+    if (kind === 'laborer') { o.set(x, 1, z, M.TAN); o.set(x, 2, z, M.TAN); o.set(x, 3, z, M.SKIN); o.set(x + 1, 1, z, M.TIMBER); o.set(x + 1, 2, z, M.TIMBER); o.set(x + 1, 3, z, M.TIMBER); o.set(x + 1, 4, z, M.STEEL); }
+    if (kind === 'spear') { o.set(x, 1, z, M.F); o.set(x, 2, z, M.F); o.set(x, 3, z, M.STEEL); o.box(x + 1, x + 1, 0, 5, z, z, M.TIMBER); o.set(x + 1, 6, z, M.STEEL); }
+    if (kind === 'archer') { o.set(x, 1, z, M.F); o.set(x, 2, z, M.F); o.set(x, 3, z, M.LEATHER); o.box(x + 1, x + 1, 2, 4, z, z, M.TIMBER); }
+    if (kind === 'maa') { o.set(x, 1, z, M.STEEL); o.set(x, 2, z, M.STEEL); o.set(x, 3, z, M.STEEL); o.box(x, x, 1, 2, z + 1, z + 1, M.F); o.box(x + 1, x + 1, 1, 3, z, z, M.STEEL); }
+    if (kind === 'sapper') { o.set(x, 1, z, M.F); o.set(x, 2, z, M.STEEL); o.set(x, 3, z, M.STEEL); o.box(x + 1, x + 1, 1, 3, z, z, M.TIMBER); o.set(x + 1, 4, z, M.STEEL); o.set(x + 2, 4, z, M.STEEL); }
+  }
+  squad(kind) { const o = this.mk(15, 8, 8); [[2, 1], [6, 1], [10, 1], [4, 5], [8, 5], [12, 5]].forEach(([x, z]) => this.fig(o, x, z, kind)); return o; }
+
+  fig1(o, x, z, kind) {
+    const M = this.M(), k = { laborer: [M.TAN, M.SKIN], spear: [M.F, M.STEEL], archer: [M.F, M.LEATHER], maa: [M.STEEL, M.F], sapper: [M.F, M.STEEL] }[kind];
+    o.set(x, 0, z, k[0]); o.set(x, 1, z, k[1]);
+  }
+  builders1() {
+    const M = this.M(), sq = kind => { const o = this.mk(7, 2, 3); [[0, 0], [2, 0], [4, 0], [1, 2], [3, 2], [5, 2]].forEach(([x, z]) => this.fig1(o, x, z, kind)); return o; };
+    return { laborer: () => sq('laborer'), spear: () => sq('spear'), archer: () => sq('archer'), maa: () => sq('maa'), sapper: () => sq('sapper'),
+      outrider: () => { const o = this.mk(5, 3, 3); [0, 2, 4].forEach(x => { o.box(x, x, 0, 0, 0, 2, M.HORSE); o.set(x, 1, 2, M.HORSE); o.set(x, 1, 1, M.F); o.set(x, 2, 1, M.STEEL); }); return o; } };
+  }
+  down(o, mode) {
+    const w = Math.ceil(o.w / 2), h = Math.ceil(o.h / 2), d = Math.ceil(o.d / 2), n = this.mk(w, h, d);
+    const PRI = { 20: 3, 16: 3, 18: 2 };
+    for (let y = 0; y < h; y++) for (let z = 0; z < d; z++) for (let x = 0; x < w; x++) {
+      const cnt = {}, pc = {}; let tot = 0, crit = false;
+      for (let dy = 0; dy < 2; dy++) for (let dz = 0; dz < 2; dz++) for (let dx = 0; dx < 2; dx++) {
+        const X = 2 * x + dx, Y = 2 * y + dy, Z = 2 * z + dz; if (!o.inb(X, Y, Z)) continue;
+        const i = X + o.w * (Z + o.d * Y), m = o.m[i]; if (!m) continue;
+        tot++; cnt[m] = (cnt[m] || 0) + 1; pc[o.p[i]] = (pc[o.p[i]] || 0) + 1; if (o.p[i] === 1) crit = true;
+      }
+      if (!tot || (mode === 'half' && tot < 4)) continue;
+      let best = 0, bs = -1; Object.keys(cnt).forEach(k => { const s = cnt[k] * 10 + (PRI[k] || 0); if (s > bs) { bs = s; best = +k; } });
+      if (cnt[20]) best = 20; // openings are thin at 0.5 m; any opening voxel claims the 1 m cell so slits survive as 1 × 2 m
+      let part = 0, ps = -1; Object.keys(pc).forEach(k => { if (pc[k] > ps) { ps = pc[k]; part = +k; } }); if (crit) part = 1;
+      n.set(x, y, z, best, part);
+    }
+    if (o.extra) n.extra = o.extra;
+    return n;
+  }
+  statsOf(o, vs) {
+    const M = this.M(), vv = vs * vs * vs; let n = 0, stone = 0, timber = 0, earth = 0, found = 0, mn = [1e9, 1e9, 1e9], mx = [-1, -1, -1];
+    for (let y = 0; y < o.h; y++) for (let z = 0; z < o.d; z++) for (let x = 0; x < o.w; x++) {
+      const i = x + o.w * (z + o.d * y), m = o.m[i]; if (!m) continue; n++;
+      mn = [Math.min(mn[0], x), Math.min(mn[1], y), Math.min(mn[2], z)]; mx = [Math.max(mx[0], x), Math.max(mx[1], y), Math.max(mx[2], z)];
+      const p = o.p[i]; if (p === 3) continue; if (p === 2) { found++; continue; }
+      if (m === M.WALL || m === M.STONE) stone++; else if (m === M.TIMBER || m === M.ROOF) timber++; else if (m === M.EARTH || m === M.GRASS) earth++;
+    }
+    return { n, stone: stone * vv, timber: timber * vv, earth: earth * vv, found: found * vv, ext: [mx[0] - mn[0] + 1, mx[1] - mn[1] + 1, mx[2] - mn[2] + 1] };
+  }
+
+  builders() {
+    const M = this.M(), hash = (a, b, s) => this.hash(a, b, s);
+    return {
+      hall: () => {
+        const o = this.mk(22, 14, 14);
+        o.box(1, 20, 0, 5, 1, 12, M.TIMBER, 1); o.box(2, 19, 0, 5, 2, 11, 0);
+        for (let z = 0; z < 14; z++) { const dz = Math.abs(z + .5 - 7), ry = 6 + Math.floor(6.5 - dz); for (let x = 0; x < 22; x++) for (let y = 6; y <= ry; y++) { if (y >= ry - 1) o.set(x, y, z, M.ROOF, 1); else if ((x === 1 || x === 20) && z >= 1 && z <= 12) o.set(x, y, z, M.TIMBER, 1); } }
+        o.box(10, 11, 0, 3, 12, 12, M.DARK, 1); [4, 16].forEach(x => o.box(x, x, 3, 3, 12, 12, M.DARK, 1)); o.box(10, 11, 12, 12, 6, 7, M.DARK, 1);
+        return o;
+      },
+      keep: () => {
+        const o = this.mk(24, 44, 30);
+        o.box(0, 23, 0, 31, 0, 23, M.WALL, 1); o.box(3, 20, 1, 29, 3, 20, 0); o.box(3, 20, 10, 10, 3, 20, M.WALL, 1); o.box(3, 20, 20, 20, 3, 20, M.WALL, 1);
+        o.cren(0, 23, 0, 23, 32, 33, 1);
+        [[0, 0], [19, 0], [0, 19], [19, 19]].forEach(([x, z]) => { o.box(x, x + 4, 32, 36, z, z + 4, M.WALL, 1); o.cren(x, x + 4, z, z + 4, 37, 38, 1); });
+        [8, 14, 20, 26].forEach(y => { [5, 11, 17].forEach(t => { o.box(t, t, y, y + 2, 23, 23, M.DARK, 1); o.box(0, 0, y, y + 2, t, t, M.DARK, 1); }); });
+        o.box(8, 15, 0, 13, 24, 29, M.WALL); o.cren(8, 15, 24, 29, 14, 15); o.box(10, 13, 0, 4, 29, 29, M.DARK);
+        o.box(12, 12, 32, 42, 12, 12, M.TIMBER); o.box(13, 16, 39, 41, 12, 12, M.F);
+        return o;
+      },
+      wall: () => { const o = this.mk(16, 13, 3); o.box(0, 15, 0, 10, 0, 2, M.WALL); for (let x = 0; x < 16; x++) if (x % 4 < 2) o.box(x, x, 11, 12, 0, 2, M.WALL); return o; },
+      tower: () => {
+        const o = this.mk(14, 24, 14);
+        o.box(0, 13, 0, 21, 0, 13, M.WALL); o.box(3, 10, 1, 17, 3, 10, 0); o.box(0, 13, 18, 21, 0, 13, M.WALL, 1); o.cren(0, 13, 0, 13, 22, 23, 1);
+        [6, 13].forEach(y => { o.box(6, 6, y, y + 2, 13, 13, M.DARK); o.box(0, 0, y, y + 2, 6, 6, M.DARK); }); o.box(6, 7, 0, 3, 13, 13, M.DARK);
+        return o;
+      },
+      gatehouse: () => {
+        const o = this.mk(18, 24, 14);
+        o.box(0, 5, 0, 21, 0, 13, M.WALL); o.box(12, 17, 0, 21, 0, 13, M.WALL); o.box(6, 11, 0, 17, 0, 13, M.WALL);
+        o.cren(0, 5, 0, 13, 22, 23); o.cren(12, 17, 0, 13, 22, 23); for (let x = 6; x <= 11; x++) if (x % 4 < 2) { o.box(x, x, 18, 19, 13, 13, M.WALL); o.box(x, x, 18, 19, 0, 0, M.WALL); }
+        o.box(6, 11, 0, 7, 0, 13, 0); o.box(6, 11, 0, 7, 12, 12, M.TIMBER, 1); [2, 5].forEach(y => o.box(6, 11, y, y, 13, 13, M.STEEL, 1));
+        [2, 15].forEach(x => [10, 16].forEach(y => o.box(x, x, y, y + 2, 13, 13, M.DARK))); [7, 10].forEach(x => o.box(x, x, 10, 11, 13, 13, M.DARK));
+        return o;
+      },
+      palisade: () => { const o = this.mk(16, 8, 4); for (let x = 0; x < 16; x++) o.box(x, x, 0, 5 + (x % 2) + (hash(x, 1, 5) > .6 ? 1 : 0), 3, 3, M.TIMBER); [2, 4].forEach(y => o.box(0, 15, y, y, 2, 2, M.TIMBER)); [2, 9, 14].forEach(x => { o.set(x, 0, 0, M.TIMBER); o.set(x, 1, 1, M.TIMBER); }); return o; },
+      palgate: () => {
+        const o = this.mk(16, 9, 4);
+        for (let x = 0; x < 16; x++) { if (x >= 4 && x <= 11) continue; o.box(x, x, 0, 5 + (x % 2) + (hash(x, 2, 5) > .6 ? 1 : 0), 3, 3, M.TIMBER); }
+        [2, 4].forEach(y => { o.box(0, 3, y, y, 2, 2, M.TIMBER); o.box(12, 15, y, y, 2, 2, M.TIMBER); });
+        o.box(4, 4, 0, 8, 3, 3, M.TIMBER); o.box(11, 11, 0, 8, 3, 3, M.TIMBER);
+        o.box(5, 10, 0, 5, 3, 3, M.TIMBER, 1); [1, 4].forEach(y => o.box(5, 10, y, y, 3, 3, M.STEEL, 1));
+        return o;
+      },
+      yard: () => {
+        const o = this.mk(16, 9, 12);
+        [[0, 0], [9, 0], [0, 11], [9, 11]].forEach(([x, z]) => o.box(x, x, 0, 4, z, z, M.TIMBER, 1)); o.box(0, 9, 5, 5, 0, 11, M.ROOF, 1); o.box(0, 9, 4, 4, 11, 11, M.TIMBER, 1);
+        [[2, 2, 0], [2, 2, 2], [5, 2, 0], [2, 6, 0], [5, 6, 0], [5, 6, 2]].forEach(([x, z, y]) => o.box(x, x + 1, y, y + 1, z, z + 1, M.WALL, 3));
+        o.box(12, 14, 0, 0, 7, 9, M.STONE, 3); o.box(12, 13, 1, 1, 7, 8, M.STONE, 3); o.set(12, 2, 7, M.STONE, 3);
+        [[11, 0], [11, 1], [12, 2], [12, 3], [13, 4], [13, 5], [15, 0], [15, 1], [14, 2], [14, 3]].forEach(([x, y]) => o.set(x, y, 2, M.TIMBER, 1)); o.set(13, 6, 2, M.TIMBER, 1);
+        o.box(13, 13, 3, 5, 3, 3, M.CLOTH, 1); o.box(13, 13, 1, 2, 3, 3, M.WALL, 3);
+        return o;
+      },
+      lumber: () => {
+        const o = this.mk(16, 8, 12);
+        [[0, 0], [9, 0], [0, 11], [9, 11]].forEach(([x, z]) => o.box(x, x, 0, 4, z, z, M.TIMBER, 1)); o.box(0, 9, 5, 5, 0, 11, M.ROOF, 1); o.box(0, 9, 4, 4, 11, 11, M.TIMBER, 1);
+        o.box(2, 7, 0, 1, 3, 4, M.TIMBER, 3); o.box(2, 7, 0, 0, 7, 8, M.TIMBER, 3);
+        o.box(11, 14, 0, 0, 1, 8, M.TIMBER, 3); o.box(12, 13, 1, 1, 1, 8, M.TIMBER, 3); o.box(12, 12, 2, 2, 1, 8, M.TIMBER, 3);
+        o.box(12, 13, 0, 0, 10, 11, M.TIMBER, 3); o.set(12, 1, 10, M.STEEL, 3); o.set(12, 2, 10, M.TIMBER, 3);
+        return o;
+      },
+      ditch: () => {
+        const o = this.mk(16, 10, 24);
+        for (let z = 0; z < 24; z++) for (let x = 0; x < 16; x++) { o.box(x, x, 0, 1, z, z, M.ROCK); o.box(x, x, 2, 4, z, z, M.EARTH); o.set(x, 5, z, M.GRASS); }
+        let removed = 0;
+        for (let z = 0; z < 24; z++) { const dd = Math.max(0, Math.min(4, Math.floor(5 - Math.abs(z + .5 - 7)))); if (!dd) continue; for (let x = 0; x < 16; x++) { o.box(x, x, 6 - dd, 5, z, z, 0); removed += dd; } }
+        const prof = Hm => { let s = 0; for (let z = 0; z < 24; z++) s += Math.max(0, Math.min(Hm, Math.round(Hm - Math.abs(z + .5 - 16) * .75))) * 16; return s; };
+        let best = 1; for (let Hm = 1; Hm < 6; Hm++) if (Math.abs(prof(Hm) - removed) < Math.abs(prof(best) - removed)) best = Hm;
+        let built = 0;
+        for (let z = 0; z < 24; z++) { const rh = Math.max(0, Math.min(best, Math.round(best - Math.abs(z + .5 - 16) * .75))); for (let x = 0; x < 16; x++) for (let k = 0; k < rh; k++) { o.set(x, 6 + k, z, k === rh - 1 ? M.GRASS : M.EARTH); built++; } }
+        o.extra = { dug: removed * .125, built: built * .125 };
+        return o;
+      },
+      foundation: () => {
+        const o = this.mk(20, 16, 10);
+        for (let z = 3; z < 10; z++) for (let x = 0; x < 20; x++) { o.box(x, x, 0, 1, z, z, M.BED); o.box(x, x, 2, 6, z, z, M.EARTH); o.set(x, 7, z, M.GRASS); }
+        o.box(2, 17, 2, 7, 3, 5, M.WALL, 2); o.box(2, 17, 8, 13, 3, 5, M.WALL); for (let x = 2; x <= 17; x++) if ((x - 2) % 4 < 2) o.box(x, x, 14, 15, 3, 5, M.WALL);
+        o.box(0, 19, 0, 1, 0, 2, M.BED);
+        return o;
+      },
+      laborer: () => this.squad('laborer'),
+      spear: () => this.squad('spear'),
+      archer: () => this.squad('archer'),
+      maa: () => this.squad('maa'),
+      outrider: () => {
+        const o = this.mk(11, 6, 7);
+        [1, 5, 9].forEach((x, i) => { const z0 = i === 1 ? 1 : 0; o.box(x, x, 0, 1, z0 + 1, z0 + 1, M.HORSE); o.box(x, x, 0, 1, z0 + 3, z0 + 3, M.HORSE); o.box(x, x, 2, 2, z0 + 1, z0 + 3, M.HORSE); o.set(x, 3, z0 + 4, M.HORSE); o.set(x, 2, z0 + 4, M.HORSE); o.set(x, 2, z0, M.CLOTH); o.set(x, 3, z0 + 2, M.F); o.set(x, 4, z0 + 2, M.STEEL); });
+        return o;
+      },
+      ram: () => {
+        const o = this.mk(6, 7, 15);
+        [[0, 1], [5, 1], [0, 8], [5, 8]].forEach(([x, z]) => o.box(x, x, 0, 1, z, z + 1, M.DARK));
+        o.box(1, 4, 1, 1, 0, 10, M.TIMBER); [1, 4].forEach(x => [0, 5, 10].forEach(z => o.box(x, x, 2, 3, z, z, M.TIMBER)));
+        for (let x = 0; x < 6; x++) { const ry = 6 - Math.floor(Math.abs(x + .5 - 3)); o.box(x, x, ry, ry, 0, 10, M.LEATHER); }
+        o.box(2, 3, 3, 3, 0, 13, M.TIMBER); o.box(2, 3, 3, 3, 14, 14, M.STEEL); [3, 8].forEach(z => o.box(2, 3, 4, 5, z, z, M.CLOTH));
+        return o;
+      },
+      sapper: () => this.squad('sapper'),
+      trebuchet: () => {
+        const S = 2, o = this.mk(26, 28, 9), v = m => Math.round(m * S);
+        const box = (x0, x1, y0, y1, z0, z1, m) => o.box(v(x0), v(x1) - 1, v(y0), v(y1) - 1, v(z0), v(z1) - 1, m);
+        const line = (ax, ay, az, bx, by, bz, m) => { const L = Math.hypot(bx - ax, by - ay, bz - az), n = Math.ceil(L * S * 2); for (let i = 0; i <= n; i++) { const k = i / n; const px = ax + (bx - ax) * k, py = ay + (by - ay) * k, pz = az + (bz - az) * k; o.set(Math.floor(px * S), Math.floor(py * S), Math.floor(pz * S), m); } };
+        const x0 = 4.5, z0 = 0.5, y0 = 0;
+        box(x0 - .5, x0 + 7.5, y0, y0 + .5, z0, z0 + .5, M.TIMBER); box(x0 - .5, x0 + 7.5, y0, y0 + .5, z0 + 3, z0 + 3.5, M.TIMBER);
+        [x0 - .5, x0 + 3.5, x0 + 7].forEach(x => box(x, x + .5, y0, y0 + .5, z0, z0 + 3.5, M.TIMBER));
+        [z0 + .25, z0 + 3.25].forEach(zz => { line(x0 + .5, y0 + .5, zz, x0 + 3.75, y0 + 6.5, zz, M.TIMBER); line(x0 + 7, y0 + .5, zz, x0 + 3.75, y0 + 6.5, zz, M.TIMBER); });
+        box(x0 + 3.5, x0 + 4, y0 + 6.5, y0 + 7, z0, z0 + 3.5, M.STEEL);
+        const tz = z0 + 1.75; line(x0 + 6.5, y0 + 4.5, tz, x0 - 3.5, y0 + 12.5, tz, M.TIMBER);
+        box(x0 + 5.5, x0 + 7.5, y0 + 2, y0 + 4, z0 + .75, z0 + 2.75, M.WEIGHT); line(x0 - 3.5, y0 + 12.5, tz, x0 - 3.8, y0 + 10, tz, M.CLOTH);
+        return o;
+      },
+      strata: () => {
+        const o = this.mk(12, 13, 12);
+        for (let z = 0; z < 12; z++) for (let x = 0; x < 12; x++) {
+          const top = 13 - 2 * Math.floor((11 - z) / 4), bed = 2 + (hash(x >> 1, z >> 1, 3) > .5 ? 1 : 0);
+          for (let y = 0; y < top; y++) { let m = y < bed ? M.BED : M.ROCK; if (y >= 4 && y <= 6 && x + z > 8 && x + z < 20) m = M.STONE; if (y >= top - 4) m = y === top - 1 ? M.GRASS : M.EARTH; o.set(x, y, z, m); }
+        }
+        o.box(0, 5, 3, 12, 6, 11, 0);
+        return o;
+      },
+      rubble: () => {
+        const o = this.mk(27, 6, 10);
+        [[4.5, M.RUBBLE, 3.4, .75], [13.5, M.TRUBBLE, 3.0, .8], [22.5, M.ERUBBLE, 2.4, .5]].forEach(([cx, mat, hm, sl], hi) => {
+          for (let z = 0; z < 10; z++) for (let x = 0; x < 27; x++) {
+            const d = Math.hypot(x + .5 - cx, z + .5 - 5), hh = Math.round(hm - d * sl + (hash(x, z, 40 + hi) - .5) * .9);
+            for (let y = 0; y < hh; y++) { let m = mat; if (mat === M.RUBBLE && hash(x, z * 7 + y, 41) < .12) m = M.WALL; if (mat === M.TRUBBLE && hash(x, z * 7 + y, 42) < .2) m = M.TIMBER; o.set(x, y, z, m); }
+          }
+        });
+        o.box(10, 16, 2, 2, 4, 4, M.TIMBER); o.box(12, 12, 1, 3, 2, 7, M.TIMBER);
+        return o;
+      }
+    };
+  }
+
+  catalog() {
+    return [
+      { code: '01', title: 'Templates', note: 'M4 Siege castle and M6 Hold economy', items: [
+        { id: 'T1', key: 'hall', name: 'Hall', role: 'Timber. Drop site for everything. Until the keep is complete, the hall is the keep.', crit: 'Hall frame' },
+        { id: 'T2', key: 'keep', name: 'Keep', role: 'Stone, raised around the hall. Break it and hold its foot for two minutes to win.', crit: 'Great tower' },
+        { id: 'T3', key: 'wall', name: 'Stone wall, standard', role: 'The everyday curtain section. 8 × 1.5 × 6 m at 0.5 m; 8 × 2 × 6 m on the 1 m grid. Costs exactly its volume.', crit: 'None (sections open by the breach rule)' },
+        { id: 'T4', key: 'tower', name: 'Tower', role: 'Garrisons ranged units, which fire from height. Hollow, so it costs less than its outline.', crit: 'Firing platform' },
+        { id: 'T5', key: 'gatehouse', name: 'Gatehouse', role: 'Opens for its owner. The timber gate is the weak point; the garrison fires down into the passage.', crit: 'Gate' },
+        { id: 'T6', key: 'palisade', name: 'Palisade', role: 'Cheap, fast timber line. Rams and engines shatter it.', crit: 'None' },
+        { id: 'T7', key: 'palgate', name: 'Palisade gate', role: 'Timber gate set into a palisade line.', crit: 'Gate' },
+        { id: 'T8', key: 'yard', name: 'Quarry yard', role: 'Stone drop site. Cuts siege shot from the stockpile.', crit: 'Shed' },
+        { id: 'T9', key: 'lumber', name: 'Lumber camp', role: 'Timber drop site for felling designations.', crit: 'Shed' }
+      ]},
+      { code: '02', title: 'Earthworks & foundations', note: 'Dug, not built: the spoil becomes the work', items: [
+        { id: 'E1', key: 'ditch', name: 'Ditch & rampart', role: 'Dug as a pair; the spoil piles into a rampart on the keep side. Foot soldiers cross, machines cannot.', crit: 'None' },
+        { id: 'E2', key: 'foundation', name: 'Deep foundation', role: 'Reaches bedrock and costs its volume in stone. A wall on it cannot be undermined. Cut away at the front.', crit: 'None' }
+      ]},
+      { code: '03', title: 'Units', note: 'Fixed trial armies · 1 × 1 × 4 voxels, read by silhouette cue', items: [
+        { id: 'U1', key: 'laborer', name: 'Laborers', role: 'Gather, build, repair and dig on designations.', cue: 'Tan body, bare head, pick on shoulder', cue1: 'Tan body, bare head (tool lost)' },
+        { id: 'U2', key: 'spear', name: 'Spearmen', role: 'Cheap line infantry that holds against horse.', cue: 'Spear tip 1.5 m above the helmet', cue1: 'Faction body, iron helmet (spear lost)' },
+        { id: 'U3', key: 'archer', name: 'Archers', role: 'Long-ranged foot. Arrows fly flat and gain from height.', cue: 'Leather hood, bow tip at the shoulder', cue1: 'Faction body, leather hood (bow lost)' },
+        { id: 'U4', key: 'outrider', name: 'Outriders', role: 'Fast light horse: scouting, raids, engine hunting.', cue: 'Horse, 2.5 m tall', cue1: 'Horse block + rider, 3 m' },
+        { id: 'U5', key: 'maa', name: 'Men-at-arms', role: 'Armored foot that holds and storms breaches.', cue: 'All iron, faction shield in front', cue1: 'Iron body, faction helmet (shield lost)' }
+      ]},
+      { code: '04', title: 'Siege units', note: 'The only things besides laborers that change the land', items: [
+        { id: 'S1', key: 'ram', name: 'Battering ram', role: 'Breaks gates and timber at contact; chips stone at the base. Its hide roof shrugs off arrows.', cue: 'Hide roof, iron-headed log' },
+        { id: 'S2', key: 'sapper', name: 'Sappers', role: 'Dig trenches at twice a laborer’s speed. Armored against arrows, weak in melee.', cue: 'Iron shoulders, raised pick', cue1: 'Identical to spearmen: no cue survives' },
+        { id: 'S3', key: 'trebuchet', name: 'Trebuchet', role: 'Long range, large craters. Must deploy, and every shot costs stone.', cue: '12 m arm, counterweight' }
+      ]},
+      { code: '05', title: 'Materials', note: 'MVP set: earth, common rock, building stone, bedrock, timber, rubble', items: [
+        { id: 'M1', key: 'strata', name: 'Ground strata', role: 'Grass over earth over common rock, a building-stone lens and bedrock. Terraced and jittered in 1 m cells.', cue: 'Cutaway corner' },
+        { id: 'M2', key: 'rubble', name: 'Rubble keeps its material', role: 'Stone rubble clears for stone at half its volume. Timber and earth rubble yield nothing.', cue: 'Stone · timber · earth' }
+      ]}
+    ];
+  }
+
+  buildAll() {
+    const b = this.builders(), b1 = this.builders1(), M = this.M();
+    const mode = this.props.voxelSize ?? '1 m world + 0.5 m models';
+    this.mode = mode === '0.5 m everything' || mode === '0.5 m' ? 'fine' : mode === '1 m everything' || mode === '1 m' ? 'coarse' : 'hybrid';
+    this.vs = this.mode === 'fine' ? 0.5 : 1;
+    const MODELS = { laborer: 1, spear: 1, archer: 1, outrider: 1, maa: 1, ram: 1, sapper: 1, trebuchet: 1 };
+    const ANY = { ram: 1, trebuchet: 1, palisade: 1, palgate: 1 };
+    this.native = {}; this.models = {}; this.nativeStats = {}; this.stats = {};
+    this.catalog().forEach(s => s.items.forEach(it => {
+      const nat = b[it.key](); this.native[it.key] = nat; this.nativeStats[it.key] = this.statsOf(nat, 0.5);
+      const vs = this.mode === 'fine' || (this.mode === 'hybrid' && MODELS[it.key]) ? 0.5 : 1;
+      const mdl = vs === 0.5 ? nat : (b1[it.key] ? b1[it.key]() : this.down(nat, ANY[it.key] ? 'any' : 'half'));
+      mdl.vs = vs; this.models[it.key] = mdl;
+      this.stats[it.key] = this.statsOf(mdl, vs);
+    }));
+    const rvs = this.mode === 'coarse' ? 1 : 0.5, hgt = rvs === 1 ? 2 : 4, ref = this.mk(1, hgt, 1); ref.vs = rvs;
+    if (rvs === 1) { ref.set(0, 0, 0, M.TAN); ref.set(0, 1, 0, M.SKIN); } else { ref.set(0, 0, 0, M.CLOTH); ref.set(0, 1, 0, M.TAN); ref.set(0, 2, 0, M.TAN); ref.set(0, 3, 0, M.SKIN); }
+    this.ref = ref;
+  }
+
+  async init() {
+    const THREE = await import('https://esm.sh/three@0.160.0');
+    if (this.dead) return;
+    this.THREE = THREE;
+    const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    r.setPixelRatio(1); r.setSize(880, 660, false); r.setClearColor(0x000000, 0);
+    r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer = r;
+    const scene = new THREE.Scene();
+    scene.add(new THREE.HemisphereLight('#d4dbe6', '#5a4a38', 1.0));
+    const sun = new THREE.DirectionalLight('#ffd8a6', 2.7); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
+    scene.add(sun); scene.add(sun.target);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.ShadowMaterial({ opacity: 0.22 }));
+    ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+    this.scene = scene; this.sun = sun;
+    this.cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);
+    this.renderAll();
+  }
+
+  meshOf(o, highlight) {
+    const THREE = this.THREE, pal = this.palette(), M = this.M();
+    const TER = { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1 }, AO = [0.52, 0.68, 0.84, 1], AOT = [0.74, 0.84, 0.93, 1];
+    const sol = (x, y, z) => y < 0 ? 1 : (o.get(x, y, z) ? 1 : 0);
+    const N = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, -1], [0, -1, 0]];
+    const C = [[[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]], [[0, 0, 1], [0, 1, 1], [0, 1, 0], [0, 0, 0]], [[0, 1, 0], [0, 1, 1], [1, 1, 1], [1, 1, 0]], [[1, 0, 1], [1, 1, 1], [0, 1, 1], [0, 0, 1]], [[0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 0]], [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]]];
+    const TU = [[1, 2], [1, 2], [0, 2], [0, 1], [0, 1], [0, 2]];
+    const pos = [], nor = [], col = [], idx = [], c = new THREE.Color(), hi = new THREE.Color('#e8b86a'), base = {};
+    Object.keys(pal).forEach(k => base[k] = new THREE.Color(pal[k]));
+    const q = [0, 0, 0], aos = [0, 0, 0, 0];
+    for (let y = 0; y < o.h; y++) for (let z = 0; z < o.d; z++) for (let x = 0; x < o.w; x++) {
+      const i = x + o.w * (z + o.d * y), m = o.m[i]; if (!m) continue;
+      const ter = TER[m];
+      c.copy(base[m] || base[6]);
+      const j = ter ? (m === 1 ? 0.05 : 0.04) : (m === M.WALL || m === M.RUBBLE || m === M.TRUBBLE) ? 0.07 : 0.05;
+      const sh1 = o.vs === 1 ? 0 : 1, hx = ter ? x >> sh1 : x, hy = ter ? y >> sh1 : y, hz = ter ? z >> sh1 : z;
+      c.offsetHSL(0, 0, (this.hash(hx * 7 + hy * 131, hz * 3, m) - .5) * j);
+      if (highlight && o.p[i] === 1) c.lerp(hi, 0.55);
+      for (let f = 0; f < 6; f++) {
+        const n = N[f]; if (f === 5 && y === 0) continue;
+        if (sol(x + n[0], y + n[1], z + n[2])) continue;
+        const u = TU[f][0], w = TU[f][1], b0 = pos.length / 3;
+        for (let k = 0; k < 4; k++) {
+          const cc = C[f][k];
+          pos.push(x + cc[0], y + cc[1], z + cc[2]); nor.push(n[0], n[1], n[2]);
+          q[0] = x + n[0]; q[1] = y + n[1]; q[2] = z + n[2];
+          const du = cc[u] ? 1 : -1, dw = cc[w] ? 1 : -1;
+          q[u] += du; const s1 = sol(q[0], q[1], q[2]); q[u] -= du; q[w] += dw; const s2 = sol(q[0], q[1], q[2]); q[u] += du; const s3 = sol(q[0], q[1], q[2]);
+          const ao = (s1 && s2) ? 0 : 3 - (s1 + s2 + s3); aos[k] = ao;
+          const sh = (ter ? AOT : AO)[ao]; col.push(c.r * sh, c.g * sh, c.b * sh);
+        }
+        if (aos[0] + aos[2] < aos[1] + aos[3]) idx.push(b0 + 1, b0 + 2, b0 + 3, b0 + 1, b0 + 3, b0); else idx.push(b0, b0 + 1, b0 + 2, b0, b0 + 2, b0 + 3);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx);
+    const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .95, metalness: 0 }));
+    mesh.castShadow = true; mesh.receiveShadow = true; mesh.scale.setScalar(o.vs || 0.5);
+    return mesh;
+  }
+
+  renderOne(key, withRef) {
+    const THREE = this.THREE, o = this.models[key];
+    const mesh = this.meshOf(o, this.props.highlightCritical ?? false);
+    const W = o.w * o.vs, D = o.d * o.vs, H = o.h * o.vs;
+    mesh.position.set(-W / 2, 0, -D / 2);
+    const group = [mesh];
+    let ref = null;
+    if (withRef) { ref = this.meshOf(this.ref, false); ref.position.set(W / 2 + 0.8, 0, D / 2 - 0.5); group.push(ref); }
+    group.forEach(g => this.scene.add(g));
+    const az = -Math.PI / 4 + this.view * Math.PI / 2, el = 0.6, R = 300, cam = this.cam;
+    cam.position.set(Math.sin(az) * Math.cos(el) * R, H / 2 + Math.sin(el) * R, Math.cos(az) * Math.cos(el) * R);
+    cam.lookAt(0, H / 2, 0); cam.updateMatrixWorld();
+    const box = new THREE.Box3(); group.forEach(g => box.expandByObject(g));
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; const p = new THREE.Vector3();
+    for (let i = 0; i < 8; i++) { p.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).applyMatrix4(cam.matrixWorldInverse); x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
+    const a = 4 / 3, pad = 1.16; let hw = (x1 - x0) / 2 * pad, hh = (y1 - y0) / 2 * pad; if (hw / hh > a) hh = hw / a; else hw = hh * a;
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    Object.assign(cam, { left: cx - hw, right: cx + hw, top: cy + hh, bottom: cy - hh }); cam.updateProjectionMatrix();
+    const S = Math.max(W, D, H) * 1.6;
+    this.sun.position.set(-90, 75, 55).normalize().multiplyScalar(S * 3); this.sun.target.position.set(0, 0, 0);
+    Object.assign(this.sun.shadow.camera, { left: -S, right: S, top: S, bottom: -S, near: 0.1, far: S * 8 }); this.sun.shadow.camera.updateProjectionMatrix();
+    this.renderer.render(this.scene, cam);
+    const url = this.renderer.domElement.toDataURL('image/png');
+    group.forEach(g => { this.scene.remove(g); g.geometry.dispose(); g.material.dispose(); });
+    return url;
+  }
+
+  renderAll() {
+    if (!this.renderer) return;
+    const keys = []; this.catalog().forEach(s => s.items.forEach(it => keys.push([it.key, s.code === '01' || s.code === '02' || it.key === 'ram' || it.key === 'trebuchet'])));
+    const token = (this.token = (this.token || 0) + 1);
+    const imgs = { ...this.state.imgs };
+    let i = 0;
+    const step = () => {
+      if (this.dead || token !== this.token) return;
+      const [k, ref] = keys[i];
+      imgs[k] = this.renderOne(k, ref && (this.props.showScale ?? true));
+      i++;
+      this.setState({ imgs: { ...imgs }, status: i < keys.length ? 'Rendering ' + i + ' / ' + keys.length : keys.length + ' items · ' + ({ hybrid: '1 m world + 0.5 m models', fine: '0.5 m everything', coarse: '1 m everything' })[this.mode] + ' · view ' + (((this.view % 4) + 4) % 4 + 1) + ' / 4' });
+      if (i < keys.length) setTimeout(step, 0);
+    };
+    step();
+  }
+
+  fmt(v) { return (Math.round(v * 10) / 10).toString().replace(/\.0$/, ''); }
+  rowsFor(it) {
+    const s = this.stats && this.stats[it.key]; if (!s) return [];
+    const e = s.ext, f = this.fmt.bind(this);
+    const vs = this.models[it.key].vs, ns = this.nativeStats[it.key];
+    const rows = [{ k: 'SIZE', v: f(e[0] * vs) + ' × ' + f(e[2] * vs) + ' × ' + f(e[1] * vs) + ' m' }, { k: 'VOXELS', v: e[0] + ' × ' + e[2] + ' × ' + e[1] + ' · ' + s.n.toLocaleString('en-US') }];
+    if (it.key === 'ditch') { const x = this.models.ditch.extra; rows.push({ k: 'SPOIL', v: f(x.dug) + ' m³ dug → ' + f(x.built) + ' m³ rampart' }); }
+    else if (it.key === 'foundation') rows.push({ k: 'COST', v: f(s.found) + ' m³ foundation + ' + f(s.stone) + ' m³ wall' });
+    else if (it.key === 'rubble') rows.push({ k: 'YIELD', v: 'Stone heap → half its volume as stone' });
+    else if (it.cue === undefined || it.key === 'ram' || it.key === 'trebuchet') {
+      if (it.key === 'ram' || it.key === 'trebuchet') rows.push({ k: 'GRID', v: vs === 1 ? 'World grid, 1 m' : 'Separate model, 0.5 m' });
+      const parts = []; if (s.stone) parts.push(f(s.stone) + ' m³ stone'); if (s.timber) parts.push(f(s.timber) + ' m³ timber');
+      if (parts.length) rows.push({ k: 'COST', v: parts.join(' + ') });
+      if (vs === 1) { const a = ns.stone + ns.timber, b2 = s.stone + s.timber; if (a && Math.abs(a - b2) > .01) rows.push({ k: 'VS 0.5 M', v: f(a) + ' → ' + f(b2) + ' m³ (' + (b2 > a ? '+' : '') + Math.round((b2 / a - 1) * 100) + '%)' }); }
+    }
+    if (it.crit) rows.push({ k: 'CRITICAL', v: it.crit }); if (it.cue) rows.push({ k: 'CUE', v: vs === 1 && it.cue1 ? it.cue1 : it.cue });
+    return rows;
+  }
+
+  download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+  slug(it) { return 'earthrise-' + it.id.toLowerCase() + '-' + it.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '') + (this.models && this.models[it.key] && this.models[it.key].vs === 1 ? '-1m' : '-05m'); }
+  exportVox(it) {
+    const o = this.models[it.key], pal = this.palette(), list = [];
+    for (let y = 0; y < o.h; y++) for (let z = 0; z < o.d; z++) for (let x = 0; x < o.w; x++) { const m = o.m[x + o.w * (z + o.d * y)]; if (m) list.push(x, o.d - 1 - z, y, m); }
+    const n = list.length / 4, children = 24 + (12 + 4 + 4 * n) + (12 + 1024), buf = new ArrayBuffer(8 + 12 + children), dv = new DataView(buf), u8 = new Uint8Array(buf);
+    let p = 0; const tag = s => { for (let i = 0; i < 4; i++) u8[p++] = s.charCodeAt(i); }, i32 = v => { dv.setInt32(p, v, true); p += 4; };
+    tag('VOX '); i32(150); tag('MAIN'); i32(0); i32(children);
+    tag('SIZE'); i32(12); i32(0); i32(o.w); i32(o.d); i32(o.h);
+    tag('XYZI'); i32(4 + 4 * n); i32(0); i32(n); for (let i = 0; i < list.length; i++) u8[p++] = list[i];
+    tag('RGBA'); i32(1024); i32(0);
+    for (let i = 1; i <= 256; i++) { const hex = pal[i]; const c = hex ? [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16), 255] : [0, 0, 0, 255]; for (let k = 0; k < 4; k++) u8[p++] = c[k]; }
+    this.download(this.slug(it) + '.vox', new Blob([buf], { type: 'application/octet-stream' }));
+  }
+  exportJson(it) {
+    const o = this.models[it.key], pal = this.palette(), names = this.matNames(), chars = 'abcdefghijklmnopqrstuvwxyz', used = {};
+    const ch = m => { if (!m) return '.'; const c = chars[Object.keys(pal).indexOf(String(m))] || '?'; used[c] = { material: m, name: names[m], hex: pal[m] }; return c; };
+    const layers = [], parts = [];
+    for (let y = 0; y < o.h; y++) { const L = [], P = []; for (let z = 0; z < o.d; z++) { let s = '', t = ''; for (let x = 0; x < o.w; x++) { const i = x + o.w * (z + o.d * y); s += ch(o.m[i]); t += o.p[i] ? String(o.p[i]) : '.'; } L.push(s); P.push(t); } layers.push(L); parts.push(P); }
+    const st = this.stats[it.key];
+    const out = { id: it.id, name: it.name, voxelSize: this.models[it.key].vs, kind: this.models[it.key].vs === 1 ? 'world template (1 m grid)' : (this.mode === 'hybrid' ? 'separate model (0.5 m, drawn over the world)' : 'world template (0.5 m grid)'), size: { x: o.w, y: o.h, z: o.d }, axes: 'y up, +z front, layers[y][z][x]', criticalPart: it.crit || null, costM3: { stone: st.stone, timber: st.timber, foundation: st.found }, legend: used, partsLegend: { '1': it.crit || 'critical part', '2': 'foundation', '3': 'stock (not costed)' }, layers, parts };
+    this.download(this.slug(it) + '.json', new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }));
+  }
+  exportPng(it) { const u = this.state.imgs[it.key]; if (!u) return; fetch(u).then(r => r.blob()).then(b => this.download(this.slug(it) + '.png', b)); }
+
+  renderVals() {
+    const imgs = this.state.imgs;
+    return {
+      status: this.state.status,
+      is1m: this.mode !== 'fine',
+      modeNote: this.mode === 'hybrid' ? 'PROPOSED · LOOK SPEC V2' : '1 M EVERYTHING · UNITS RE-AUTHORED AT 1 × 1 × 2',
+      chipSize: this.mode === 'hybrid' ? 'WORLD 1 M · MODELS 0.5 M' : this.mode === 'coarse' ? '1 VOXEL = 1 M' : '1 VOXEL = 0.5 M',
+      chipVol: this.mode === 'fine' ? '1 VOXEL = 0.125 M³ OF MATERIAL' : '1 WORLD VOXEL = 1 M³ OF MATERIAL',
+      chipUnit: this.mode === 'coarse' ? 'UNIT = 1 × 1 × 2 VOXELS (2 M)' : 'UNIT MODEL 1 × 1 × 4 (2 M)',
+      rotL: () => { this.view -= 1; this.renderAll(); },
+      rotR: () => { this.view += 1; this.renderAll(); },
+      sections: this.catalog().map(s => ({ ...s, items: s.items.map(it => ({ ...it, imgRef: el => { const u = imgs[it.key]; if (!el) return; if (u) { if (el.getAttribute('src') !== u) el.setAttribute('src', u); el.style.visibility = 'visible'; } else { el.style.visibility = 'hidden'; } }, rows: this.rowsFor(it), onVox: () => this.exportVox(it), onJson: () => this.exportJson(it), onPng: () => this.exportPng(it) })) }))
+    };
+  }
+}
+</script>
+</body>
+</html>

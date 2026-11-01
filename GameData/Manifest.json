@@ -43,7 +43,7 @@
     "timber": 188,
     "foundation": 0
    },
-   "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
+   "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2; openings win any block they touch) — redraw natively at 1 m before final",
    "files": {
     "json": "Server/Templates/earthrise-t1-hall-1m.json"
    },
@@ -54,6 +54,7 @@
     "foundation": 0
    },
    "knownIssues": [
+    "Openings from the render-fix package (2026-11-01), whose conversion lets an opening win any 2 x 2 x 2 block it touches, so 0.5 m slits survive at 1 m. An opening costs as the material it sits in (ADR-005), so the package's lower figure is not used.",
     "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before the M4 Siege castle is final."
    ]
   },
@@ -76,24 +77,26 @@
     "y": 19,
     "z": 15
    },
-   "voxelCount": 1722,
+   "voxelCount": 1770,
    "costM3": {
-    "stone": 1530,
-    "timber": 192,
+    "stone": 1650,
+    "timber": 120,
     "foundation": 0
    },
-   "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
+   "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2; openings win any block they touch) — redraw natively at 1 m before final",
    "files": {
     "json": "Server/Templates/earthrise-t2-keep-1m.json"
    },
    "kind": "template",
    "packageCostM3": {
-    "stone": 1718,
+    "stone": 1668,
     "timber": 0,
     "foundation": 0
    },
    "knownIssues": [
-    "The two floors and the roof are timber, 192 voxels, since 2026-10-31: stone spans 2 m (the owner's decision on the M0 paper tests). Its preview in Design/Previews/ still shows a stone roof.",
+    "The two floors are timber, 120 voxels, and the roof is stone, carried by a 2 x 2 m stone pier up the middle, so no roof voxel is more than 2 m from support: stone spans 2 m (the owner's decision on the M0 paper tests), and the owner chose the pier over a timber roof on 2026-11-01. Its preview in Design/Previews/ shows a stone roof and no pier.",
+    "Openings from the render-fix package (2026-11-01), whose conversion lets an opening win any 2 x 2 x 2 block it touches, so 0.5 m slits survive at 1 m. An opening costs as the material it sits in (ADR-005), so the package's lower figure is not used.",
+    "Slits on all four faces: the two its asset sheet leaves bare carry the same pattern as the other two (the owner's choice of 2026-11-01).",
     "Two banner voxels removed: the conversion to 1 m dropped the pole and left them floating. Banners are 0.5 m models (ADR-006). Its preview in Design/Previews/ still shows them.",
     "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before the M4 Siege castle is final."
    ]
@@ -157,17 +160,19 @@
     "timber": 0,
     "foundation": 0
    },
-   "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
+   "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2; openings win any block they touch) — redraw natively at 1 m before final",
    "files": {
     "json": "Server/Templates/earthrise-t4-tower-1m.json"
    },
    "kind": "template",
    "packageCostM3": {
-    "stone": 477,
+    "stone": 469,
     "timber": 0,
     "foundation": 0
    },
    "knownIssues": [
+    "Openings from the render-fix package (2026-11-01), whose conversion lets an opening win any 2 x 2 x 2 block it touches, so 0.5 m slits survive at 1 m. An opening costs as the material it sits in (ADR-005), so the package's lower figure is not used.",
+    "Slits on all four faces: the two its asset sheet leaves bare carry the same pattern as the other two (the owner's choice of 2026-11-01).",
     "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before the M4 Siege castle is final."
    ]
   },
@@ -196,12 +201,18 @@
     "timber": 12,
     "foundation": 0
    },
-   "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
+   "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2; openings win any block they touch) — redraw natively at 1 m before final",
    "files": {
     "json": "Server/Templates/earthrise-t5-gatehouse-1m.json"
    },
    "kind": "template",
+   "packageCostM3": {
+    "stone": 575,
+    "timber": 12,
+    "foundation": 0
+   },
    "knownIssues": [
+    "Openings from the render-fix package (2026-11-01), whose conversion lets an opening win any 2 x 2 x 2 block it touches, so 0.5 m slits survive at 1 m. An opening costs as the material it sits in (ADR-005), so the package's lower figure is not used.",
     "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before the M4 Siege castle is final."
    ]
   },

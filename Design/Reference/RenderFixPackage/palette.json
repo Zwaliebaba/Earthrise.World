@@ -1,0 +1,201 @@
+{
+  "colorSpace": "sRGB → linear before lighting",
+  "jitter": "HSL lightness ± jitter/2 from hash(cell, material); world cell = 1 m voxel, model cell = 0.5 m voxel",
+  "ao": {
+    "structure": [
+      0.52,
+      0.68,
+      0.84,
+      1
+    ],
+    "terrain": [
+      0.74,
+      0.84,
+      0.93,
+      1
+    ],
+    "modelsSampleWorld": true
+  },
+  "materials": [
+    {
+      "index": 1,
+      "name": "grass",
+      "hex": "#7d8b4f",
+      "jitter": 0.05,
+      "aoSet": "terrain",
+      "grid": "world",
+      "simulationMaterial": "earth"
+    },
+    {
+      "index": 2,
+      "name": "earth",
+      "hex": "#8a6a48",
+      "jitter": 0.04,
+      "aoSet": "terrain",
+      "grid": "world",
+      "simulationMaterial": "earth"
+    },
+    {
+      "index": 3,
+      "name": "common rock",
+      "hex": "#8d8a84",
+      "jitter": 0.04,
+      "aoSet": "terrain",
+      "grid": "world",
+      "simulationMaterial": "common rock"
+    },
+    {
+      "index": 4,
+      "name": "building stone",
+      "hex": "#ddd2b9",
+      "jitter": 0.04,
+      "aoSet": "terrain",
+      "grid": "world",
+      "simulationMaterial": "building stone"
+    },
+    {
+      "index": 5,
+      "name": "bedrock",
+      "hex": "#4a4744",
+      "jitter": 0.04,
+      "aoSet": "terrain",
+      "grid": "world",
+      "simulationMaterial": "bedrock"
+    },
+    {
+      "index": 6,
+      "name": "dressed stone",
+      "hex": "#c6bca7",
+      "jitter": 0.07,
+      "aoSet": "structure",
+      "grid": "world",
+      "simulationMaterial": "building stone (built)"
+    },
+    {
+      "index": 7,
+      "name": "timber",
+      "hex": "#7a5534",
+      "jitter": 0.05,
+      "aoSet": "structure",
+      "grid": "world",
+      "simulationMaterial": "timber"
+    },
+    {
+      "index": 8,
+      "name": "stone rubble",
+      "hex": "#a69c8a",
+      "jitter": 0.07,
+      "aoSet": "structure",
+      "grid": "world",
+      "simulationMaterial": "rubble(from: building stone)"
+    },
+    {
+      "index": 12,
+      "name": "roof",
+      "hex": "#8c4a3a",
+      "jitter": 0.05,
+      "aoSet": "structure",
+      "grid": "world",
+      "simulationMaterial": "timber"
+    },
+    {
+      "index": 16,
+      "name": "faction",
+      "hex": "#b23a2e",
+      "jitter": 0.05,
+      "aoSet": "structure",
+      "grid": "models",
+      "simulationMaterial": null
+    },
+    {
+      "index": 18,
+      "name": "iron",
+      "hex": "#9aa0a6",
+      "jitter": 0.05,
+      "aoSet": "structure",
+      "grid": "models",
+      "simulationMaterial": null
+    },
+    {
+      "index": 19,
+      "name": "laborer cloth",
+      "hex": "#c79a6b",
+      "jitter": 0.05,
+      "aoSet": "structure",
+      "grid": "models",
+      "simulationMaterial": null
+    },
+    {
+      "index": 20,
+      "name": "opening",
+      "hex": "#2e2a27",
+      "jitter": 0.05,
+      "aoSet": "structure",
+      "grid": "world",
+      "simulationMaterial": "building stone (built)"
+    },
+    {
+      "index": 21,
+      "name": "counterweight",
+      "hex": "#5b5650",
+      "jitter": 0.05,
+      "aoSet": "structure",
+      "grid": "models",
+      "simulationMaterial": null
+    },
+    {
+      "index": 22,
+      "name": "skin",
+      "hex": "#d9a57f",
+      "jitter": 0.05,
+      "aoSet": "structure",
+      "grid": "models",
+      "simulationMaterial": null
+    },
+    {
+      "index": 23,
+      "name": "cloth",
+      "hex": "#3d3530",
+      "jitter": 0.05,
+      "aoSet": "structure",
+      "grid": "models",
+      "simulationMaterial": null
+    },
+    {
+      "index": 24,
+      "name": "horse",
+      "hex": "#5e4330",
+      "jitter": 0.05,
+      "aoSet": "structure",
+      "grid": "models",
+      "simulationMaterial": null
+    },
+    {
+      "index": 25,
+      "name": "timber rubble",
+      "hex": "#5f4530",
+      "jitter": 0.07,
+      "aoSet": "structure",
+      "grid": "world",
+      "simulationMaterial": "rubble(from: timber)"
+    },
+    {
+      "index": 26,
+      "name": "earth rubble",
+      "hex": "#7d6044",
+      "jitter": 0.05,
+      "aoSet": "structure",
+      "grid": "world",
+      "simulationMaterial": "rubble(from: earth)"
+    },
+    {
+      "index": 27,
+      "name": "leather",
+      "hex": "#6e5a3e",
+      "jitter": 0.05,
+      "aoSet": "structure",
+      "grid": "models",
+      "simulationMaterial": null
+    }
+  ]
+}
