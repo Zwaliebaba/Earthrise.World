@@ -62,7 +62,8 @@
 
     **Amended 2026-11-01** with the owner's three details (GameDesign.md, *Starting the MVP*, item 3), as the spike's `--measure` run builds them:
     - **The path** is `Engine::CameraPath`: a 48 m square about the scene, walked clockwise seen from above with a quarter turn clockwise at each corner, four legs of 900 frames, stepped at 1/60 s. The first 60 frames are left out.
-    - **The run presents without waiting for the vertical blank,** with tearing where DXGI offers it, at 1920 × 1080. A run at any other size says so and is not a pass-mark run.
+    - **The run presents without waiting for the vertical blank,** with tearing where DXGI offers it. Its scene draws at 1920 × 1080 on any display, and the upscale scales it to the display. A run whose scene draws at any other size, such as with `--render-scale`, says so and is not a pass-mark run.
+    - **The spike starts borderless over the whole monitor,** as decision 1 provides, and Alt+Enter switches between that and a window. `--windowed` starts it in a window.
     - **Timestamps** come from `Engine::GpuTimer`: a pair of queries per span and per frame slot, read back once the slot's fence has passed. The 95th percentile is the nearest rank (`Core::NearestRankPercentile`), so it is always a measured frame.
     - **Edit-to-present latency:** an edit counts as shown once DXGI's `PresentCount` reaches the present that first carried it. It is reported two ways: in display refreshes, from the vertical blank before the publication (`SyncRefreshCount`) to the one that showed it (`PresentRefreshCount`), and in milliseconds to when the spike saw it, which is within one frame. Until task 9's quarrying, the run digs out and puts back one ground voxel each second, so that there is an edit to time.
 

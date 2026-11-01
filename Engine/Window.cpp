@@ -13,6 +13,8 @@ namespace
 
 constexpr const wchar_t* CLASS_NAME = L"EarthriseWindow";
 constexpr UINT DEFAULT_DPI = 96;
+constexpr DWORD WINDOWED_STYLE = WS_OVERLAPPEDWINDOW;
+constexpr DWORD FULL_SCREEN_STYLE = WS_POPUP;
 
 [[noreturn]] void ThrowLastError(const char* _what)
 {
@@ -37,23 +39,27 @@ Window::Window(const Desc& _desc)
 
   // The requested client size is at 96 DPI; scale it, then grow it by the frame for that DPI.
   const UINT dpi = GetDpiForSystem();
-  constexpr DWORD STYLE = WS_OVERLAPPEDWINDOW;
   RECT frame{.left = 0,
              .top = 0,
              .right = MulDiv(static_cast<int>(_desc.clientWidthPixels), static_cast<int>(dpi), DEFAULT_DPI),
              .bottom = MulDiv(static_cast<int>(_desc.clientHeightPixels), static_cast<int>(dpi), DEFAULT_DPI)};
-  if (!AdjustWindowRectExForDpi(&frame, STYLE, FALSE, 0, dpi))
+  if (!AdjustWindowRectExForDpi(&frame, WINDOWED_STYLE, FALSE, 0, dpi))
   {
     ThrowLastError("AdjustWindowRectExForDpi");
   }
 
-  m_handle = CreateWindowExW(0, CLASS_NAME, _desc.title, STYLE, CW_USEDEFAULT, CW_USEDEFAULT, frame.right - frame.left,
+  m_handle = CreateWindowExW(0, CLASS_NAME, _desc.title, WINDOWED_STYLE, CW_USEDEFAULT, CW_USEDEFAULT, frame.right - frame.left,
                              frame.bottom - frame.top, nullptr, nullptr, instance, nullptr);
   if (m_handle == nullptr)
   {
     ThrowLastError("CreateWindowExW");
   }
   ShowWindow(m_handle, SW_SHOWDEFAULT);
+  // Made windowed first, so that leaving full screen has a frame and a place to go back to.
+  if (_desc.fullScreen)
+  {
+    SetFullScreen(true);
+  }
 }
 
 Window::~Window()
@@ -73,6 +79,42 @@ Window::Size Window::ClientSize() const noexcept
   }
   return {.widthPixels = static_cast<std::uint32_t>(client.right - client.left),
           .heightPixels = static_cast<std::uint32_t>(client.bottom - client.top)};
+}
+
+void Window::SetFullScreen(bool _fullScreen)
+{
+  if (_fullScreen == m_fullScreen)
+  {
+    return;
+  }
+  if (_fullScreen)
+  {
+    MONITORINFO monitor{.cbSize = sizeof(MONITORINFO)};
+    if (!GetWindowPlacement(m_handle, &m_windowedPlacement))
+    {
+      ThrowLastError("GetWindowPlacement");
+    }
+    if (!GetMonitorInfoW(MonitorFromWindow(m_handle, MONITOR_DEFAULTTONEAREST), &monitor))
+    {
+      ThrowLastError("GetMonitorInfoW");
+    }
+    SetWindowLongPtrW(m_handle, GWL_STYLE, static_cast<LONG_PTR>(FULL_SCREEN_STYLE | WS_VISIBLE));
+    const RECT& area = monitor.rcMonitor;
+    SetWindowPos(m_handle, HWND_TOP, area.left, area.top, area.right - area.left, area.bottom - area.top,
+                 SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+  }
+  else
+  {
+    SetWindowLongPtrW(m_handle, GWL_STYLE, static_cast<LONG_PTR>(WINDOWED_STYLE | WS_VISIBLE));
+    SetWindowPlacement(m_handle, &m_windowedPlacement);
+    SetWindowPos(m_handle, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+  }
+  m_fullScreen = _fullScreen;
+}
+
+bool Window::IsFullScreen() const noexcept
+{
+  return m_fullScreen;
 }
 
 bool Window::PumpMessages() noexcept
@@ -128,6 +170,14 @@ LRESULT CALLBACK Window::Procedure(HWND _window, UINT _message, WPARAM _wParam, 
                  SWP_NOZORDER | SWP_NOACTIVATE);
     return 0;
   }
+  case WM_SYSCHAR:
+    // Alt+Enter is the game's to handle (the swap chain tells DXGI to leave it alone), and without
+    // this Windows would beep for a menu the window does not have.
+    if (_wParam == VK_RETURN)
+    {
+      return 0;
+    }
+    return DefWindowProcW(_window, _message, _wParam, _lParam);
   case WM_DESTROY:
     PostQuitMessage(0);
     return 0;

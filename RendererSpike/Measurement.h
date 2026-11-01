@@ -17,6 +17,8 @@ class Measurement
 {
 public:
   /// The pass mark: the voxel pass inside 8 ms at the default zoom, at 1920 x 1080 (GameDesign.md).
+  /// The scene is drawn at that size on any display, and scaled to it (the owner's choice of
+  /// 2026-11-01).
   static constexpr double PASS_MARK_MILLISECONDS = 8.0;
   static constexpr std::uint32_t PASS_MARK_WIDTH_PIXELS = 1920;
   static constexpr std::uint32_t PASS_MARK_HEIGHT_PIXELS = 1080;
@@ -47,7 +49,7 @@ public:
     std::uint32_t renderHeightPixels;
     float renderScale;
     bool tearing;                     // DXGI let the run present without waiting for the vertical blank
-    bool resizedDuringRun;            // the window's size changed while the path ran, so the frames differ
+    bool resizedDuringRun;            // the window's size changed while the path ran, which stalls a frame
     std::wstring path;                // the camera path, in words
     std::uint32_t firstMeasuredFrame; // the frames before it warm up and are left out
   };
