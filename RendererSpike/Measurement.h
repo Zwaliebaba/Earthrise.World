@@ -49,6 +49,7 @@ public:
     std::uint32_t renderWidthPixels;
     std::uint32_t renderHeightPixels;
     float renderScale;
+    float worldVoxelMeters;           // 1, or 0.5 for ADR-006's comparison
     bool tearing;                     // DXGI let the run present without waiting for the vertical blank
     bool resizedDuringRun;            // the window's size changed while the path ran, which stalls a frame
     std::wstring path;                // the camera path, in words

@@ -92,7 +92,7 @@ The MVP ends at the verdict on stages 1 and 2 (GameDesign.md, decided 2026-10-31
 | `Client` | static library | `Client` | Core, Engine, Protocol, Content | Camera, the command layer and the mouse-and-keyboard scheme that feeds it, squad selection and orders, interface and overlays, presentation of state updates, cosmetic debris |
 | `Earthrise` | executable | (none) | all libraries | `wWinMain`, which joins the client and the simulation through an in-process transport |
 | `RendererSpike` | executable | `RendererSpike` | Core, Engine, Content, Simulation, Protocol | The spike's scenes and measurements, kept afterwards as a rendering benchmark |
-| `SimulationBench` | console executable | `SimulationBench` | Core, Protocol, Simulation | Headless measurements: spike question 6, the synthetic 2 km world, regression timing |
+| `SimulationBench` | console executable | `SimulationBench` | Core, Protocol, Simulation; Content until M2's server bake (ADR-010, amended) | Headless measurements: spike question 6, the synthetic 2 km world, regression timing |
 | `CoreTests`, `EngineTests`, `ProtocolTests`, `ContentTests`, `SimulationTests` | test projects | `<Project>Tests` | their library | Unit tests, run by vstest, each starting with `SuiteSmoke`. `EngineTests` holds the render tests on WARP (ADR-012) |
 
 The edges run one way:
@@ -271,6 +271,8 @@ At the end of M1:
 | 8 | 2026-10-31 | | #17 | | The render scale and its bilinear upscale |
 | 9 | 2026-11-01 | | #21, #22 | | The v5 test scene: the batch turn and palette swap, then the scene, its edits and its moving units |
 | 10 | 2026-11-01 | | #19 | | Measurement: the GPU timer, the scripted path, the CSV and its 95th percentile, edit-to-present latency |
+| 11 | 2026-11-01 | | #24, #25 | | The support search and navigation tiles, then the test world in Simulation and `SimulationBench` on the MVP map and the season world |
+| 12 | 2026-11-01 | | #25 | | The 0.5 m column: the test world split eight ways, its memory, search and tiles |
 
 ### M2 — Headless simulation
 

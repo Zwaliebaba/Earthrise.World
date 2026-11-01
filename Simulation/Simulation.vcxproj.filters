@@ -45,5 +45,11 @@
     <ClCompile Include="NavigationGrid.cpp">
       <Filter>Navigation</Filter>
     </ClCompile>
+    <ClInclude Include="TestWorld.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="TestWorld.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

@@ -78,6 +78,10 @@ std::wstring Measurement::Write(const std::filesystem::path& _folder, std::wstri
     _setup.renderWidthPixels == PASS_MARK_WIDTH_PIXELS && _setup.renderHeightPixels == PASS_MARK_HEIGHT_PIXELS && !_setup.resizedDuringRun;
   std::wstring results = std::format(L"Voxel pass, 95th percentile: {:.3f} ms over {} frames, against a pass mark of {:.0f} ms.\n", p95,
                                      measured.size(), PASS_MARK_MILLISECONDS);
+  if (_setup.worldVoxelMeters != 1.0F)
+  {
+    results += std::format(L"World voxels of {} m, for ADR-006's comparison: the pass mark is the 1 m world's.\n", _setup.worldVoxelMeters);
+  }
   if (!atPassMarkSize)
   {
     results += std::format(L"Not a pass-mark run: the scene drew at {} x {}, not {} x {}{}.\n", _setup.renderWidthPixels,
@@ -104,6 +108,7 @@ std::wstring Measurement::Write(const std::filesystem::path& _folder, std::wstri
   framesOut << "# adapter: " << Utf8(_setup.adapter) << ", driver " << Utf8(_setup.driverVersion) << "\n";
   framesOut << std::format("# display {} x {}, render {} x {} at a scale of {:.2f}\n", _setup.displayWidthPixels,
                            _setup.displayHeightPixels, _setup.renderWidthPixels, _setup.renderHeightPixels, _setup.renderScale);
+  framesOut << std::format("# world voxels: {} m\n", _setup.worldVoxelMeters);
   framesOut << "# present: without waiting for the vertical blank, " << (_setup.tearing ? "tearing allowed" : "tearing not offered")
             << "\n";
   framesOut << "# path: " << Utf8(_setup.path) << "\n";

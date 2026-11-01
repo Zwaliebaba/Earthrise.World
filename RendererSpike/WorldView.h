@@ -32,7 +32,8 @@ namespace Spike
 class WorldView
 {
 public:
-  explicit WorldView(ID3D12Device* _device);
+  /// Draws world chunks with voxels _worldVoxelMeters on an edge: 1, or 0.5 for ADR-006's comparison.
+  WorldView(ID3D12Device* _device, float _worldVoxelMeters);
 
   /// Takes newly published snapshots and rebuilds their chunks' batches, and their neighbours',
   /// whose exposed faces can change with them. Records the uploads on _commandList.
@@ -70,6 +71,7 @@ private:
                              std::span<const Engine::VoxelRecord> _records) const;
 
   ID3D12Device* m_device;
+  float m_worldVoxelMeters;
   std::map<std::uint64_t, Protocol::ChunkSnapshot> m_snapshots;
   std::map<std::uint64_t, Batch> m_chunks;
   std::map<std::string_view, Batch> m_models;
