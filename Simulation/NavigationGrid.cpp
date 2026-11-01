@@ -107,7 +107,7 @@ void NavigationGrid::RebuildAll(const ChunkStore& _store)
   }
   RebuildClearance(0, 0, m_desc.widthCells - 1, m_desc.depthCells - 1);
   RebuildLinks(0, 0, m_desc.widthCells - 1, m_desc.depthCells - 1);
-  std::ranges::fill(m_tileChanged, 1);
+  std::ranges::fill(m_tileChanged, std::uint8_t{1});
   m_reachCurrent = false;
 }
 
