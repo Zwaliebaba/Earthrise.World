@@ -108,6 +108,9 @@
     <ClCompile Include="VoxelPass.cpp">
       <Filter>Rendering</Filter>
     </ClCompile>
+    <ClInclude Include="OrientedVoxel.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
     <ClInclude Include="ShadowMap.h">
       <Filter>Rendering</Filter>
     </ClInclude>
@@ -127,6 +130,15 @@
       <Filter>Shader</Filter>
     </FXCompile>
     <FXCompile Include="Shader\VoxelShadowPS.hlsl">
+      <Filter>Shader</Filter>
+    </FXCompile>
+    <FXCompile Include="Shader\OrientedVoxelVS.hlsl">
+      <Filter>Shader</Filter>
+    </FXCompile>
+    <FXCompile Include="Shader\OrientedVoxelPS.hlsl">
+      <Filter>Shader</Filter>
+    </FXCompile>
+    <FXCompile Include="Shader\OrientedShadowPS.hlsl">
       <Filter>Shader</Filter>
     </FXCompile>
     <None Include="Shader\VoxelCommon.hlsli">

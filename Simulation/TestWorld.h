@@ -94,6 +94,14 @@ void SplitToHalfMeters(const ChunkStore& _oneMeter, std::int32_t _minXVoxels, st
 /// it now holds.
 void SplitChanges(const ChunkStore& _oneMeter, std::span<const Protocol::VoxelPosition> _changed, ChunkStore& _halfMeter);
 
+/// A voxel a collapse brought down, and what it was: what the client scatters the collapse's debris
+/// from (RendererLook.md §1).
+struct FallenVoxel
+{
+  Protocol::VoxelPosition position;
+  std::uint8_t paletteIndex;
+};
+
 /// The test world's scripted edits, stepped by frame at 60 a second for the measured path's 60 s,
 /// then stopped (GameDesign.md, *Starting the MVP*, item 3): quarrying at the four-faction peak the
 /// Skirmish tempo implies, and the section of the west curtain just north of the breach collapsing
@@ -113,9 +121,26 @@ public:
   /// Makes frame _frame's edits in _store, and returns the voxels it changed.
   std::vector<Protocol::VoxelPosition> Apply(ChunkStore& _store, std::uint32_t _frame);
 
+  /// What a collapse did: the voxels that fell, with what they were, and the rubble they became.
+  struct CollapseRecord
+  {
+    std::vector<FallenVoxel> fallen;
+    std::vector<Protocol::VoxelPosition> rubble;
+  };
+
   /// The collapse alone, as the bench's breach: the section's voxels that fall and the rubble they
-  /// become, all as changed voxels.
-  [[nodiscard]] std::vector<Protocol::VoxelPosition> Collapse(ChunkStore& _store) const;
+  /// become, all as changed voxels. What it did goes into _record when it is given.
+  [[nodiscard]] std::vector<Protocol::VoxelPosition> Collapse(ChunkStore& _store, CollapseRecord* _record = nullptr) const;
+
+  /// What the collapse brought down, once Apply has made it, and empty before: the stand-in for the
+  /// collapse event the simulation will send (ADR-004), which the client's debris is scattered from.
+  [[nodiscard]] const std::vector<FallenVoxel>& Fallen() const noexcept;
+  /// The rubble the collapse heaped, once Apply has made it: where its debris comes to rest.
+  [[nodiscard]] const std::vector<Protocol::VoxelPosition>& Rubble() const noexcept;
+
+  /// The collapse's id, from the edits' seed: what its debris is seeded by, so that every client
+  /// shows the same (RendererLook.md §1).
+  [[nodiscard]] std::uint64_t CollapseId() const noexcept;
 
 private:
   struct Column
@@ -130,6 +155,8 @@ private:
   std::int32_t m_sceneXVoxels;
   std::int32_t m_sceneZVoxels;
   std::vector<Column> m_quarry; // in the seeded order that breaks ties between equal heights
+  CollapseRecord m_collapse;
+  std::uint64_t m_collapseId;
 };
 
 } // namespace Simulation

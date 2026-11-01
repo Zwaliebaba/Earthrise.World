@@ -39,6 +39,8 @@ constexpr std::int32_t COLLAPSE_X_VOXELS = 58;
 constexpr std::int32_t COLLAPSE_Z_VOXELS = 66;
 // Quarrying digs no lower than this, so a quarry keeps a floor above the bedrock.
 constexpr std::int32_t QUARRY_FLOOR_VOXELS = 4;
+// The collapse's rubble heap is at most this high above the castle's ground.
+constexpr std::int32_t HEAP_HEIGHT_VOXELS = 4;
 
 // ── A seeded integer height field ─────────────────────────────────────────────────────────────
 // Fixed point with 16 fraction bits, from one hash, so the world is the same on every machine
@@ -857,7 +859,8 @@ void SplitChanges(const ChunkStore& _oneMeter, std::span<const Protocol::VoxelPo
 
 TestWorldEdits::TestWorldEdits(const ChunkStore& _store, const TestWorld& _world, std::uint64_t _seed)
   : m_sceneXVoxels(_world.sceneXVoxels),
-    m_sceneZVoxels(_world.sceneZVoxels)
+    m_sceneZVoxels(_world.sceneZVoxels),
+    m_collapseId(Mix(_seed ^ Mix(COLLAPSE_FRAME)))
 {
   // The quarry's columns: the stone body north of the castle, clear of the castle's north towers
   // and of the quarry yard, in world coordinates.
@@ -899,7 +902,7 @@ std::vector<Protocol::VoxelPosition> TestWorldEdits::Apply(ChunkStore& _store, s
   Quarry(_store, voxels, changed);
   if (_frame == COLLAPSE_FRAME)
   {
-    const std::vector<Protocol::VoxelPosition> collapse = Collapse(_store);
+    const std::vector<Protocol::VoxelPosition> collapse = Collapse(_store, &m_collapse);
     changed.insert(changed.end(), collapse.begin(), collapse.end());
   }
   return changed;
@@ -923,7 +926,22 @@ void TestWorldEdits::Quarry(ChunkStore& _store, std::uint32_t _voxels, std::vect
   }
 }
 
-std::vector<Protocol::VoxelPosition> TestWorldEdits::Collapse(ChunkStore& _store) const
+const std::vector<FallenVoxel>& TestWorldEdits::Fallen() const noexcept
+{
+  return m_collapse.fallen;
+}
+
+const std::vector<Protocol::VoxelPosition>& TestWorldEdits::Rubble() const noexcept
+{
+  return m_collapse.rubble;
+}
+
+std::uint64_t TestWorldEdits::CollapseId() const noexcept
+{
+  return m_collapseId;
+}
+
+std::vector<Protocol::VoxelPosition> TestWorldEdits::Collapse(ChunkStore& _store, CollapseRecord* _record) const
 {
   // The section falls: every voxel it still has goes, and as much stone rubble is heaped at its
   // foot outside, highest by the wall.
@@ -938,8 +956,13 @@ std::vector<Protocol::VoxelPosition> TestWorldEdits::Collapse(ChunkStore& _store
       for (std::int32_t x = sectionX; x < sectionX + 2; ++x)
       {
         const Protocol::VoxelPosition voxel{.xVoxels = x, .yVoxels = y, .zVoxels = z};
-        if (_store.At(voxel) != 0)
+        const std::uint8_t index = _store.At(voxel);
+        if (index != 0)
         {
+          if (_record != nullptr)
+          {
+            _record->fallen.push_back({.position = voxel, .paletteIndex = index});
+          }
           _store.Set(voxel, 0);
           changed.push_back(voxel);
           ++fallen;
@@ -969,16 +992,21 @@ std::vector<Protocol::VoxelPosition> TestWorldEdits::Collapse(ChunkStore& _store
   {
     for (const HeapColumn& column : heap)
     {
-      // 4 m high by the wall, a meter lower each 2 m out, and at least one layer everywhere.
+      // 4 m high by the wall, a meter lower each 2 m out, and at least one layer everywhere; never on
+      // what stands taller than the heap, such as the corner tower, which the heap's box overlaps.
       const std::int32_t height = std::max(1, 4 - column.tenthsFromWall / 20);
-      if (placed == fallen || layer >= height)
+      const std::int32_t top = TopSolidAtOrBelow(_store, column.x, column.z, HEIGHT - 1);
+      if (placed == fallen || layer >= height || top >= G + HEAP_HEIGHT_VOXELS)
       {
         continue;
       }
-      const Protocol::VoxelPosition voxel{
-        .xVoxels = column.x, .yVoxels = TopSolidAtOrBelow(_store, column.x, column.z, HEIGHT - 1) + 1, .zVoxels = column.z};
+      const Protocol::VoxelPosition voxel{.xVoxels = column.x, .yVoxels = top + 1, .zVoxels = column.z};
       _store.Set(voxel, STONE_RUBBLE);
       changed.push_back(voxel);
+      if (_record != nullptr)
+      {
+        _record->rubble.push_back(voxel);
+      }
       ++placed;
     }
   }

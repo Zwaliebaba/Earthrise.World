@@ -91,6 +91,19 @@ public:
   void BeginShadow(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _sunFrameConstants,
                    D3D12_GPU_VIRTUAL_ADDRESS _palette) const;
 
+  /// Binds the pipeline for oriented voxels (OrientedVoxel.h), lit and shadowed as Begin's are,
+  /// with no corner shade; DrawOriented then draws them.
+  void BeginOriented(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _frameConstants,
+                     D3D12_GPU_VIRTUAL_ADDRESS _palette) const;
+
+  /// Binds the shadow pipeline for oriented voxels, as BeginShadow does for axis-aligned ones.
+  void BeginOrientedShadow(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _sunFrameConstants,
+                           D3D12_GPU_VIRTUAL_ADDRESS _palette) const;
+
+  /// Draws _voxelCount OrientedVoxels at _voxels, in world space, through whichever oriented
+  /// pipeline was last begun.
+  void DrawOriented(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _voxels, std::uint32_t _voxelCount) const;
+
   /// The two shadow maps the pass reads from now on: the world's, drawn when it changes, and the
   /// models', drawn each frame (ADR-011, decision 9). Null views read nothing. The caller first
   /// makes sure the GPU no longer reads the previous maps, because the views are rewritten in place.
@@ -109,6 +122,8 @@ private:
   winrt::com_ptr<ID3D12RootSignature> m_rootSignature;
   winrt::com_ptr<ID3D12PipelineState> m_pipelineState;
   winrt::com_ptr<ID3D12PipelineState> m_shadowPipelineState;
+  winrt::com_ptr<ID3D12PipelineState> m_orientedPipelineState;
+  winrt::com_ptr<ID3D12PipelineState> m_orientedShadowPipelineState;
   DescriptorHeap m_shadowViews;
   DescriptorHeap::Handle m_shadowTable{};
 };
