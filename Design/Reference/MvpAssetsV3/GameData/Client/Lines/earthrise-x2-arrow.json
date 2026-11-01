@@ -1,0 +1,45 @@
+{
+ "id": "X2",
+ "name": "Arrow",
+ "kind": "line model (exception to the 0.5 m voxel rule)",
+ "lengthMetres": 0.8,
+ "drawnLengthMetres": 1,
+ "parts": [
+  {
+   "name": "fletching",
+   "fromMetres": 0,
+   "toMetres": 0.18,
+   "colour": "faction (palette 16)",
+   "widthPx": 3
+  },
+  {
+   "name": "shaft",
+   "fromMetres": 0.18,
+   "toMetres": 0.86,
+   "colour": "#c79a6b",
+   "widthPx": 2
+  },
+  {
+   "name": "head",
+   "fromMetres": 0.86,
+   "toMetres": 1,
+   "colour": "#9aa0a6",
+   "widthPx": 3,
+   "taper": true
+  }
+ ],
+ "orientation": "free: along the velocity vector, pitch and yaw",
+ "widthIsScreenSpace": true,
+ "depthTested": true,
+ "castsShadow": false,
+ "lit": false,
+ "tracer": {
+  "optional": true,
+  "seconds": 0.2,
+  "widthPx": 1,
+  "colour": "#f3ede2",
+  "alphaFrom": 0.5,
+  "alphaTo": 0
+ },
+ "derivedFrom": "MVP runtime assets package (2026-11-01); the one non-voxel model, see Design/MvpAssets.md"
+}

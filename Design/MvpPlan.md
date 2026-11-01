@@ -130,7 +130,7 @@ The edges run one way:
 | Platforms and input | Decided | [ADR-007](ADR/ADR-007-platforms-and-input.md): Windows on x64 and ARM64; two input schemes over one command layer, touch after the verdict |
 | Render tests | M1 | [ADR-012](ADR/ADR-012-render-tests-on-warp.md), Accepted: each pass draws a known scene on WARP in CI and checks its coverage, colour and depth |
 | Text rendering | M3 | Earthrise Mason ([Hud.md](Hud.md) §9): its glyph rows in `GameData/Client/Fonts/`, baked into `Content` by a tool, drawn only at whole multiples of a font pixel |
-| How units are drawn | M1 | Units are 0.5 m models ([MvpAssets.md](MvpAssets.md)), axis-aligned and rotated in 90° steps. Engine poses are baked; debris is oriented voxels. |
+| How units are drawn | M1 | Units are 0.5 m models ([MvpAssets.md](MvpAssets.md)), axis-aligned and rotated in 90° steps. Engine poses are baked; debris is oriented voxels. Arrows are line models, turned freely along their velocity ([ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md), Proposed). |
 
 ### One simulation tick, in order
 
@@ -400,7 +400,7 @@ Run it with six people (F-48).
 
 **Build:**
 - **formations and separation** (ADR-015, decision 6): how a squad's figures arrange about its path and keep apart, in fixed point inside the deterministic tick, so that no two figures stand in the same place and a breach passes figures at a limited rate. Until M4, figures may pass through each other. How they keep apart is recorded in an ADR when it is built;
-- units, stats and combat, physical shots for arrows and bolts (the trebuchet's shot and craters come from M2), the ram's blows and craters, hits on units, elevation, garrisons and the gatehouse's passage attack;
+- units, stats and combat, physical shots for arrows and bolts (the trebuchet's shot and craters come from M2; arrows draw as line models, [ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md)), the ram's blows and craters, hits on units, elevation, garrisons and the gatehouse's passage attack;
 - drawing units and buildings;
 - fog with the visibility filter and last-seen land;
 - the shared hash between the client's tables and `ServerData` checked in `Earthrise` (ADR-008, decision 5; the spike checks it from M2); the world templates T1–T7 redrawn natively at 1 m, and the Siege castle built from them;

@@ -1,6 +1,6 @@
 # ADR-015 — Navigation: one surface per column, classes by climb and clearance, rebuilt every tick
 
-**Status:** Accepted, 2026-11-01, by order M2-F1 ([MvpPlan-M2.md](../MvpPlan-M2.md)), which implements decisions 1 and 2's climb, headroom and fords in `Simulation::NavigationGrid`. Proposed the same day. It records the navigation model MvpPlan.md schedules for M2, on top of the tiles M1 built.
+**Status:** Accepted, 2026-11-01, by order M2-F1 ([MvpPlan-M2.md](../MvpPlan-M2.md)), which implements decisions 1 and 2's climb, headroom and fords in `Simulation::NavigationGrid`. Proposed the same day. It records the navigation model MvpPlan.md schedules for M2, on top of the tiles M1 built. **Amended 2026-11-01** with the owner's MVP assets v3 package: the trebuchet's rows below, where the row called cocked gave the released pose's size, and its packed width, which the machines class does not fit.
 - **The owner gave the go-ahead** on 2026-11-01 ([MvpPlan.md](../MvpPlan.md), M2, input 1; GameDesign.md, *M2's values*).
 - **What the code fixed that the decision left unsaid** (M2-F1):
   - **A run of R cells is R steps:** a link is open for a class when every window of R + 1 consecutive cells along the link's line that holds both of its ends rises or falls by at most 1 m over its walkable ground. For R = 1 that is M1's rule. Cells off the grid or with no surface are left out of a window.
@@ -61,7 +61,11 @@ It fixes the model and leaves the search algorithm to the navigation orders, whi
   | Foot figures, the sapper included | 1–1.5 m | 2–3.5 m | 0.5–1 m |
   | The outrider, horse and rider | 0.5 m | 2.5 m | 2.5 m |
   | The battering ram | 3 m | 3.5 m | 7.5 m |
-  | The trebuchet, cocked | 11.5 m | 13 m | 3.5 m |
+  | The trebuchet, released (S3) | 11.5 m | 13 m | 3.5 m |
+  | The trebuchet, cocked (S3c) | 13 m | 9 m | 3.5 m |
+  | The trebuchet, packed (S3p), the only pose that moves | 3.5 m | 3.5 m | 8 m |
+
+  The trebuchet's three rows are measured from the occupied boxes of the layer files in `GameData/Client/Models/` (2026-11-01). Only the packed pose moves; a deployed trebuchet does not path, so the released and cocked rows size nothing in navigation. The packed wagon faces +x, so its 8 m lies along its travel and its width across it is 3.5 m, 7 voxels: decision 2's machines class is 3 cells wide, from the ram, so the wagon needs a clearance of 4 where the class has 3. Which gives way, the wagon's width or the class's, is the owner's ([MvpAssets.md](../MvpAssets.md), *Known issues*).
 
   For foot the design overrides the models: "a foot soldier stands 2 m tall on a 0.5 m square" (GameDescription.md, *Combat model*), so arms, tools and spears do not count. The design gives no such size for cavalry or engines. T5's passage is exactly 3 m wide and 4 m high, the ram's width and its height rounded up to whole voxels.
 - **Two needs come from outside navigation:**
@@ -131,4 +135,4 @@ It fixes the model and leaves the search algorithm to the navigation orders, whi
 - ~~**Cavalry's and machines' speeds**~~: 2.8 m/s and 0.7 m/s, the owner's, after M2's report.
 - **Flow fields for many units** with one goal.
 - **Formations and separation,** scheduled in M4 with its own done-when ([MvpPlan.md](../MvpPlan.md), M4). An ADR records how figures keep apart when it is built. Like the rest of movement, it stays inside navigation: nothing pushes a unit (ADR-004, decision 6).
-- **The trebuchet's packed width,** once its packed model is drawn.
+- ~~**The trebuchet's packed width,** once its packed model is drawn.~~ Drawn 2026-11-01: 3.5 m across its travel, which the machines class's width of 3 does not fit (the table above). The owner decides which changes.
