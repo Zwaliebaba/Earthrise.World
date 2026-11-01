@@ -83,8 +83,9 @@ FNV_OFFSET_BASIS = 0xCBF29CE484222325
 FNV_PRIME = 0x100000001B3
 MASK_64 = (1 << 64) - 1
 
-# An id names a C++ array in the generated header, so it is an identifier: T1, U5, S3.
-ID = re.compile(r"[A-Z][A-Z0-9]*")
+# An id names a C++ array in the generated header, so it is an identifier: T1, U5, S3. A pose's id ends in a lower-case
+# letter, S3c, which the array's name spells in upper case, so no two ids may differ only in case.
+ID = re.compile(r"[A-Z][A-Za-z0-9]*")
 
 
 class View:
@@ -240,9 +241,12 @@ def ReadViews(_report, _folder, _palette, _isTemplate):
   """Every layer file's view in _folder, in ascending id."""
   views = [ReadView(_report, path, _palette, _isTemplate) for path in sorted(_folder.glob("*.json"))]
   views = sorted((view for view in views if view is not None), key=lambda view: view.id)
-  for first, second in zip(views, views[1:]):
-    if first.id == second.id:
-      _report.Problem(_folder / second.source, f"has the id {second.id}, as {first.source} does")
+  seen = {}
+  for view in views:
+    first = seen.setdefault(view.id.upper(), view)
+    if first is not view:
+      alike = "the id" if first.id == view.id else "an id differing only in case from"
+      _report.Problem(_folder / view.source, f"has {alike} {first.id}, as {first.source} does")
   return views
 
 
@@ -356,7 +360,7 @@ def ModelHeader(_models):
           "// which declares ModelView.\n\n")
   entries = []
   for view in _models:
-    name = f"MODEL_{view.id}_INDICES"
+    name = f"MODEL_{view.id.upper()}_INDICES"
     body += IndicesArray(name, view)
     entries.append(f"  {{.id = {CppString(view.id)}, .name = {CppString(view.name)}, {Grid(name, view)}}},")
   body += f"inline constexpr std::array<ModelView, {len(_models)}> MODELS = {{{{\n" + "\n".join(entries) + "\n}};\n\n"

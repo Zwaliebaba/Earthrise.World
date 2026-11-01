@@ -1,0 +1,35 @@
+{
+ "id": "D5",
+ "name": "Debris: splinters",
+ "voxelSize": 0.5,
+ "size": {
+  "x": 2,
+  "y": 2,
+  "z": 2
+ },
+ "axes": "y up, +z front, layers[y][z][x]",
+ "derivedFrom": "MVP runtime assets package (2026-11-01)",
+ "silhouetteCue": "3 voxels, diagonal",
+ "legend": {
+  "g": {
+   "material": 7,
+   "name": "timber",
+   "hex": "#7a5534"
+  },
+  "r": {
+   "material": 25,
+   "name": "timber rubble",
+   "hex": "#5f4530"
+  }
+ },
+ "layers": [
+  [
+   "g.",
+   ".r"
+  ],
+  [
+   "..",
+   ".g"
+  ]
+ ]
+}

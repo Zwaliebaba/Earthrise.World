@@ -1,4 +1,4 @@
-"""Tests for the server half of Tools/BakeContent.py: the ServerData file of ADR-016.
+"""Tests for Tools/BakeContent.py: the server half's ServerData file of ADR-016, and the client half's rule for ids.
 
 Each test bakes the real sources into a temporary folder, or bakes a copy of them with one thing changed, and reads
 the file back by hand, with the layout BakeContent.py's docstring states. The reader in Simulation (M2-B6) is tested
@@ -24,6 +24,7 @@ ROOT = TOOLS.parent
 sys.path.insert(0, str(TOOLS))
 
 import BakeContent  # noqa: E402
+import CheckAssets  # noqa: E402
 
 RECORD_FIELDS = ("exists", "behavior", "support", "spanVoxels", "flags", "rubbleIndex")
 
@@ -215,6 +216,41 @@ class ServerBakeTests(unittest.TestCase):
       self.assertEqual(1, result.returncode)
       self.assertIn("timberSpanMeters: 5.5 comes to 5.5 voxels, not a whole number", result.stdout)
       self.assertFalse((root / "out" / "server" / BakeContent.SERVER_FILE).exists())
+
+
+class ClientIdTests(unittest.TestCase):
+  """An id names a generated array, so it is an identifier, upper case in the array's name: a pose's S3c is MODEL_S3C_INDICES,
+  and no two ids may differ only in case."""
+
+  @classmethod
+  def setUpClass(cls):
+    cls.palette, _ = CheckAssets.ReadPalette(CheckAssets.Report(ROOT), ROOT)
+
+  def Views(self, _ids):
+    """Reads copies of S3c's layer file carrying _ids, in a temporary folder, as models. Returns (views, problems)."""
+    source = json.loads((BakeContent.MODELS / "earthrise-s3c-trebuchet-cocked-05m.json").read_text(encoding="utf-8"))
+    with tempfile.TemporaryDirectory() as folder:
+      for number, assetId in enumerate(_ids):
+        (Path(folder) / f"copy-{number}-05m.json").write_text(json.dumps({**source, "id": assetId}), encoding="utf-8")
+      report = CheckAssets.Report(Path(folder))
+      return BakeContent.ReadViews(report, Path(folder), self.palette, False), report.problems
+
+  def test_a_poses_lower_case_suffix_is_an_identifier(self):
+    views, problems = self.Views(["S3c"])
+    self.assertEqual([], problems)
+    self.assertEqual(["S3c"], [view.id for view in views])
+    self.assertIn("MODEL_S3C_INDICES", BakeContent.ModelHeader(views))
+
+  def test_ids_differing_only_in_case_are_refused(self):
+    _, problems = self.Views(["S3c", "S3C"])
+    self.assertEqual(1, len(problems))
+    self.assertIn("has an id differing only in case from S3C, as copy-1-05m.json does", problems[0])
+    _, problems = self.Views(["S3c", "S3c"])
+    self.assertIn("has the id S3c, as copy-0-05m.json does", problems[0])
+
+  def test_an_id_that_is_no_identifier_is_refused(self):
+    _, problems = self.Views(["s3c"])
+    self.assertIn("its id 's3c' is not an identifier such as T1", problems[0])
 
 
 class HandWrittenEncodingTests(unittest.TestCase):

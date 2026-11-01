@@ -1,0 +1,66 @@
+{
+ "id": "G2",
+ "name": "Palisade gate, open",
+ "voxelSize": 0.5,
+ "size": {
+  "x": 8,
+  "y": 6,
+  "z": 3
+ },
+ "axes": "y up, +z front, layers[y][z][x]",
+ "derivedFrom": "MVP runtime assets package (2026-11-01)",
+ "silhouetteCue": "Two leaves square to the line",
+ "attach": {
+  "template": "T7",
+  "localOffsetMetres": {
+   "x": 2,
+   "y": 0,
+   "z": 0
+  },
+  "state": "open"
+ },
+ "legend": {
+  "g": {
+   "material": 7,
+   "name": "timber",
+   "hex": "#7a5534"
+  },
+  "k": {
+   "material": 18,
+   "name": "iron",
+   "hex": "#9aa0a6"
+  }
+ },
+ "layers": [
+  [
+   "g......g",
+   "g......g",
+   "g......g"
+  ],
+  [
+   "k......k",
+   "k......k",
+   "k......k"
+  ],
+  [
+   "g......g",
+   "g......g",
+   "g......g"
+  ],
+  [
+   "g......g",
+   "g......g",
+   "g......g"
+  ],
+  [
+   "k......k",
+   "k......k",
+   "k......k"
+  ],
+  [
+   "g......g",
+   "g......g",
+   "g......g"
+  ]
+ ]
+}
