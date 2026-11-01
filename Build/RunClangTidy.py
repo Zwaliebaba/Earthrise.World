@@ -1,9 +1,14 @@
 """Runs clang-tidy over every translation unit of the solution (AGENTS.md §1, ADR-010).
 
 Each command is built from the project files and Build/Earthrise.props: the project's include
-directories and defines, the sheet's defines for the configuration, Unicode, and the architecture's
-/arch. Nothing is typed by hand, so the lint sees what the compiler sees. The Windows macros are
-never passed: Engine/framework.h owns them.
+directories and defines, the sheet's defines for the configuration, Unicode, the architecture's
+/arch, and the switches for the sheet's language standard, conformance mode and exception handling.
+Nothing is typed by hand, so the lint sees what the compiler sees (ADR-010, decision 8). The
+Windows macros are never passed: Engine/framework.h owns them.
+
+The precompiled header needs no switch. Every translation unit includes its project's pch.h
+(ADR-010, decision 5), and clang reads it as the ordinary header it is; MSVC's /Yu would ask clang
+for a .pch it never built.
 
 It needs a Developer PowerShell, whose INCLUDE variable makes the Windows SDK and the MSVC headers
 visible to clang, and it runs after a build, because Content's generated headers live in the
@@ -24,6 +29,29 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import ProjectModel as Model
+
+# How MSBuild turns the sheet's language settings into cl.exe switches. Only the settings that
+# change how a translation unit parses are passed: warnings are clang-tidy's own checks, and
+# optimisation does not change what the lint reads.
+LANGUAGE_SWITCHES = {
+  "LanguageStandard": {"stdcpp14": "/std:c++14", "stdcpp17": "/std:c++17", "stdcpp20": "/std:c++20", "stdcpplatest": "/std:c++latest"},
+  "ConformanceMode": {"true": "/permissive-", "false": "/permissive"},
+  "ExceptionHandling": {"Sync": "/EHsc", "SyncCThrow": "/EHs", "Async": "/EHa", "false": None},
+}
+
+
+def LanguageSwitches(_settings):
+  """The switches the ClCompile language settings stand for, in a fixed order. A setting that is
+  missing, or has a value this table does not know, is refused: a guess would lint a different
+  language from the one the compiler builds."""
+  switches = []
+  for name, table in LANGUAGE_SWITCHES.items():
+    value = _settings.get(("ClCompile", name))
+    if value not in table:
+      raise ValueError(f"ClCompile {name} is {value!r}, which RunClangTidy cannot map; it knows {sorted(table)}")
+    if table[value] is not None:
+      switches.append(table[value])
+  return switches
 
 
 def Commands(_root, _clangTidy, _configuration, _platform):
@@ -47,6 +75,7 @@ def Commands(_root, _clangTidy, _configuration, _platform):
       "Configuration": _configuration,
     }
     settings = Model.ProjectSettings(project)
+    language = LanguageSwitches({**sheet, **settings})
     includes = [str(project.folder)]
     for directory in settings.get(("ClCompile", "AdditionalIncludeDirectories"), []):
       if not directory.startswith("%("):
@@ -54,7 +83,7 @@ def Commands(_root, _clangTidy, _configuration, _platform):
     defines = sheetDefines + [define for define in settings.get(("ClCompile", "PreprocessorDefinitions"), []) if not define.startswith("%(")]
     for item in project.ItemPaths({"ClCompile"}):
       source = project.folder / item.include.replace("\\", "/")
-      command = [_clangTidy, "--quiet", str(source), "--", "--driver-mode=cl", "/std:c++latest", "/EHsc", "/permissive-"]
+      command = [_clangTidy, "--quiet", str(source), "--", "--driver-mode=cl", *language]
       command += sheetOptions
       command += [f"/D{define}" for define in defines]
       command += [f"/I{include}" for include in includes]
@@ -65,7 +94,8 @@ def Commands(_root, _clangTidy, _configuration, _platform):
 def Main(_arguments):
   # A redirected stdout on Windows is cp1252, which cannot print clang-tidy's UTF-8 diagnostics or
   # this script's own separators. CI reads it as UTF-8, as a console does since PEP 528.
-  sys.stdout.reconfigure(encoding="utf-8")
+  if hasattr(sys.stdout, "reconfigure"):  # not when a test captures the output
+    sys.stdout.reconfigure(encoding="utf-8")
   parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
   parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
   parser.add_argument("--clang-tidy", default="clang-tidy")
@@ -76,7 +106,11 @@ def Main(_arguments):
   arguments = parser.parse_args(_arguments)
   root = arguments.root.resolve()
 
-  commands = Commands(root, arguments.clang_tidy, arguments.configuration, arguments.platform)
+  try:
+    commands = Commands(root, arguments.clang_tidy, arguments.configuration, arguments.platform)
+  except ValueError as error:
+    print(f"RunClangTidy: {error}")
+    return 2
   if commands is None:
     print("RunClangTidy: no solution yet, so there is nothing to lint")
     return 0
