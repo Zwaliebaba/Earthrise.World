@@ -8,11 +8,13 @@
 #include <cstdio>
 #include <exception>
 #include <filesystem>
+#include <fstream>
 #include <functional>
 #include <iterator>
 #include <optional>
 #include <print>
 #include <ranges>
+#include <span>
 #include <stdexcept>
 #include <string_view>
 #include <utility>

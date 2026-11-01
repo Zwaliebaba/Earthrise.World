@@ -42,5 +42,11 @@
     <ClCompile Include="WorldTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="ChunkEditsTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="SaveTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

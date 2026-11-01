@@ -48,8 +48,9 @@ public:
   /// 3). A load rebuilds it from the chunks the save holds.
   [[nodiscard]] const std::set<std::uint64_t>& EditedChunks() const noexcept;
 
-  /// Marks a chunk edited without an edit: what a load does for each chunk its save holds.
-  void MarkEdited(std::uint64_t _key);
+  /// Sets a whole chunk as a save holds it, and marks it edited, without listing its voxels among
+  /// the tick's edits: what a load does for each chunk its save holds (ADR-014, decision 4).
+  void RestoreChunk(Protocol::ChunkCoordinate _coordinate, const Protocol::Chunk& _voxels);
 
   /// Core::Fnv1a64 over its voxels, x fastest, then z, then y, as Protocol::Chunk lays them out; 0
   /// for a chunk the store does not hold. Cached, and recomputed only after an edit.

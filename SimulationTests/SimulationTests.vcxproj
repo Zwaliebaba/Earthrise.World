@@ -51,6 +51,8 @@
     <ClCompile Include="VoxelWorldTests.cpp" />
     <ClInclude Include="FlatWorld.h" />
     <ClCompile Include="WorldTests.cpp" />
+    <ClCompile Include="ChunkEditsTests.cpp" />
+    <ClCompile Include="SaveTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

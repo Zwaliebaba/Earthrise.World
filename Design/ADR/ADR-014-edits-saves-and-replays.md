@@ -3,6 +3,7 @@
 **Status:** Accepted, 2026-11-01, by order M2-C2 ([MvpPlan-M2.md](../MvpPlan-M2.md)), which implements decisions 1 and 2 in `Simulation::VoxelWorld`. Orders M2-C4 and M2-C5 implement decisions 3 to 6, the save and the replay. Proposed the same day. It closes [ADR-003](ADR-003-world-as-seed-plus-edits.md)'s open item on the edit encoding, and fixes the layout of the save that ADR-003 and [ADR-005](ADR-005-content-formats.md), decision 10, describe.
 - **The owner gave the go-ahead** on 2026-11-01 ([MvpPlan.md](../MvpPlan.md), M2, input 1; GameDesign.md, *M2's values*).
 - **What the code fixed that the decision left unsaid** (M2-C2): a chunk that holds no voxel counts as absent in the state hash, so a chunk dug empty hashes as one never made, as a save that leaves it out would load it; and each chunk's hash is `Core::Fnv1a64` over its voxels, folded into the world's hash with its key as little-endian u64s.
+- **And for the save** (M2-C4, `Simulation/Save.h` states the layout): the header begins with the four bytes `ERSV`; the edited chunks and the entities are each preceded by a u32 count; and the state hash folds in the tick and the next entity id, as the header writes them, before the entities and the pending work.
 
 ## Context
 
@@ -22,7 +23,7 @@
    - The chunk joins the world's set of edited chunks. The save writes the chunks of the set that still differ from their base, and a load rebuilds the set from them.
    - The voxel joins the tick's edit list. That list feeds the support search, slump and the navigation rebuild, and the chunk store publishes the tick's changes as snapshots (ADR-002, decision 3).
 2. **In memory the world is whole chunks.** The generator fills them on load, and edits change them in place, copied on write as M1 does. The edit encoding below is only for saves and, later, the network.
-3. **A chunk's edits are written as whichever of two forms is shorter.** On save, each edited chunk is compared with its base, regenerated, and written in one of these forms, with ties going to the list. The rule needs no tuned threshold, so there is nothing to retune when voxel content changes.
+3. **A chunk's edits are written as whichever of two forms is shorter.** On save, each edited chunk is compared with its base, regenerated, and written in one of these forms, with ties going to the list. *(The tie rule is moot (M2-C4): after its form byte a list is 2 + 3n bytes and a run-length copy 3r, so one is never a multiple of 3 and the other always is.)* The rule needs no tuned threshold, so there is nothing to retune when voxel content changes.
    - **A list of changed voxels:** a `u16` count, then for each voxel its `u16` index in the chunk (x fastest, then z, then y, as `Protocol::Chunk` lays them out) and its `u8` palette index, in rising index order.
    - **The whole chunk, run-length encoded:** runs of a `u16` length and a `u8` palette index, covering the chunk in the same order.
 

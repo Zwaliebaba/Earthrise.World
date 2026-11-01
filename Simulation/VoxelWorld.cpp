@@ -75,9 +75,13 @@ const std::set<std::uint64_t>& VoxelWorld::EditedChunks() const noexcept
   return m_editedChunks;
 }
 
-void VoxelWorld::MarkEdited(std::uint64_t _key)
+void VoxelWorld::RestoreChunk(Protocol::ChunkCoordinate _coordinate, const Protocol::Chunk& _voxels)
 {
-  m_editedChunks.insert(_key);
+  m_store.SetChunk(_coordinate, _voxels);
+  m_edited = true;
+  const std::uint64_t key = Protocol::PackChunkKey(_coordinate);
+  m_editedChunks.insert(key);
+  m_chunkHashes.erase(key);
 }
 
 std::uint64_t VoxelWorld::ChunkHash(std::uint64_t _key) const

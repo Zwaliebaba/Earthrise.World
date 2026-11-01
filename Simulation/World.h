@@ -161,6 +161,11 @@ public:
   void RemoveSquad(Protocol::EntityId _squad);
 
 private:
+  // A save reads and writes everything the next tick reads (Save.h).
+  friend std::vector<std::byte> WriteSave(const World& _world);
+  friend World LoadSave(std::span<const std::byte> _save, const Desc& _desc);
+  friend std::uint64_t StateHash(const World& _world);
+
   // The tick's steps, in MvpPlan.md's order (*One simulation tick*).
   void ApplyCommands();
   void AdvanceJobs();

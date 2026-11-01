@@ -19,6 +19,9 @@
     <Filter Include="Tick">
       <UniqueIdentifier>{1B9F7E11-C7C4-5656-BB89-58906EDA4840}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Saves">
+      <UniqueIdentifier>{C4FD1C1E-E98F-5E51-8884-36337F51FD6D}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -83,6 +86,18 @@
     </ClInclude>
     <ClCompile Include="Script.cpp">
       <Filter>Tick</Filter>
+    </ClCompile>
+    <ClInclude Include="ChunkEdits.h">
+      <Filter>Saves</Filter>
+    </ClInclude>
+    <ClCompile Include="ChunkEdits.cpp">
+      <Filter>Saves</Filter>
+    </ClCompile>
+    <ClInclude Include="Save.h">
+      <Filter>Saves</Filter>
+    </ClInclude>
+    <ClCompile Include="Save.cpp">
+      <Filter>Saves</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

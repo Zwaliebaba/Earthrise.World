@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "ChunkStore.h"
+#include "Hash.h"
 #include "NavigationGrid.h"
 #include "ServerData.h"
 #include "SupportSearch.h"
@@ -34,6 +35,19 @@ constexpr double BYTES_PER_MEGABYTE = 1024.0 * 1024.0;
 constexpr std::int32_t HALF_METER_CHUNK_SPAN = Protocol::CHUNK_EDGE_VOXELS / 2; // 1 m voxels a 0.5 m chunk covers
 
 using Clock = std::chrono::steady_clock;
+
+/// The build id (ADR-014, decision 6): Core::Fnv1a64 over the executable's own file, which saves and
+/// replays record and refuse to run against any other build.
+std::uint64_t BuildIdOf(const std::filesystem::path& _executable)
+{
+  std::ifstream stream(_executable, std::ios::binary);
+  if (!stream)
+  {
+    throw std::runtime_error("the bench could not read its own executable to compute its build id");
+  }
+  const std::vector<char> raw{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+  return Core::Fnv1a64(std::as_bytes(std::span(raw)));
+}
 
 double MillisecondsSince(Clock::time_point _start)
 {
@@ -194,6 +208,7 @@ void Measure(std::string_view _name, Simulation::ChunkStore& _store, const Simul
 int Run(const std::filesystem::path& _executable)
 {
   std::println("SimulationBench: the renderer spike's question 6, at 1 m and at 0.5 m (ADR-006). Times are this machine's.");
+  std::println("build id {:016x}", BuildIdOf(_executable));
   // The server's data sits beside the executable, in the build's output folder (ADR-010, decision 3).
   const Simulation::ServerData data = Simulation::ServerData::Load(_executable.parent_path() / "ServerData" / "ServerData.bin");
   {

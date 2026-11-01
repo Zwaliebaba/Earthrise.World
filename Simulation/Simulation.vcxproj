@@ -58,6 +58,10 @@
     <ClCompile Include="World.cpp" />
     <ClInclude Include="Script.h" />
     <ClCompile Include="Script.cpp" />
+    <ClInclude Include="ChunkEdits.h" />
+    <ClCompile Include="ChunkEdits.cpp" />
+    <ClInclude Include="Save.h" />
+    <ClCompile Include="Save.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
