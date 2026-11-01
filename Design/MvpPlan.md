@@ -93,7 +93,7 @@ The MVP ends at the verdict on stages 1 and 2 (GameDesign.md, decided 2026-10-31
 | `Earthrise` | executable | (none) | all libraries | `wWinMain`, which joins the client and the simulation through an in-process transport |
 | `RendererSpike` | executable | `RendererSpike` | Core, Engine, Content, Simulation, Protocol | The spike's scenes and measurements, kept afterwards as a rendering benchmark |
 | `SimulationBench` | console executable | `SimulationBench` | Core, Protocol, Simulation | Headless measurements: spike question 6, the synthetic 2 km world, regression timing |
-| `CoreTests`, `ProtocolTests`, `SimulationTests` | test projects | `<Project>Tests` | their library | Unit tests, run by vstest, each starting with `SuiteSmoke` |
+| `CoreTests`, `EngineTests`, `ProtocolTests`, `ContentTests`, `SimulationTests` | test projects | `<Project>Tests` | their library | Unit tests, run by vstest, each starting with `SuiteSmoke`. `EngineTests` holds the render tests on WARP (ADR-012) |
 
 The edges run one way:
 - `Simulation` includes nothing from `Engine` or Direct3D, so it builds headless.

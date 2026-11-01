@@ -35,9 +35,9 @@
    | `Simulation` | static library | Core, Protocol | The minimal chunk store with copy-on-write snapshots; later, the rest |
    | `RendererSpike` | Windows executable | Core, Engine, Protocol, Content, Simulation | The spike's scene script, camera path and measurements |
    | `SimulationBench` | console executable | Core, Protocol, Simulation | Spike question 6 |
-   | `CoreTests`, `ProtocolTests`, `SimulationTests` | CppUnitTest DLLs | their library | Unit tests, each starting with `SuiteSmoke` |
+   | `CoreTests`, `EngineTests`, `ProtocolTests`, `ContentTests`, `SimulationTests` | CppUnitTest DLLs | their library | Unit tests, each starting with `SuiteSmoke`. `EngineTests` holds the render tests on WARP ([ADR-012](ADR-012-render-tests-on-warp.md)) |
 
-   `Client` and `Earthrise` join when M3 and M4 need them. A project joins the solution when the milestone that first uses it starts, never earlier.
+   `EngineTests` and `ContentTests` joined during M1, with the engine base and the client bake (MvpPlan.md, M1 tasks 2 and 4), once their libraries held code to test. `Client` and `Earthrise` join when M3 and M4 need them. A project joins the solution when the milestone that first uses it starts, never earlier.
 3. **Output goes to `$(SolutionDir)$(Platform)\$(Configuration)\`** for every project: libraries, executables and test DLLs.
    - This is CI's test path, and it is the `<outputdir>` of [ADR-008](ADR-008-server-and-client-game-data.md). `ServerData\` and `GameData\` sit inside it.
    - Intermediate files go to `$(SolutionDir)$(Platform)\$(Configuration)\Intermediate\$(ProjectName)\`.
