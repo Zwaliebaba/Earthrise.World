@@ -69,9 +69,11 @@ struct Block
   }
 };
 
-bool Holds(const std::vector<Protocol::VoxelPosition>& _voxels, Protocol::VoxelPosition _voxel)
+// By a comparison rather than std::ranges::find, whose vectorized path in MSVC's library clang
+// cannot compile for a 12-byte position, which fails clang-tidy.
+bool Holds(std::span<const Protocol::VoxelPosition> _voxels, Protocol::VoxelPosition _voxel)
 {
-  return std::ranges::find(_voxels, _voxel) != _voxels.end();
+  return std::ranges::any_of(_voxels, [&_voxel](const Protocol::VoxelPosition& _held) { return _held == _voxel; });
 }
 
 } // namespace
@@ -155,7 +157,7 @@ public:
     for (const Protocol::VoxelPosition voxel : {At(45, top, 32), At(46, top, 32), At(45, top - 1, 32), At(46, top - 1, 32)})
     {
       Assert::AreEqual(std::uint8_t{0}, world.Voxels().At(voxel));
-      Assert::IsTrue(std::ranges::find(world.LastTickEdits(), voxel) != world.LastTickEdits().end());
+      Assert::IsTrue(Holds(world.LastTickEdits(), voxel));
     }
     Assert::AreEqual(std::size_t{4}, world.LastTickEdits().size());
   }
