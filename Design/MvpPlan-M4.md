@@ -1,15 +1,15 @@
 # Earthrise.World — M4 work orders
 
-**Status:** Proposed, 2026-11-01, with [MvpPlan.md](MvpPlan.md)'s M4 revision, which is accepted when the owner merges its pull request. The owner has not yet answered MvpPlan.md, M4, inputs 1–27; phase A writes the answers down. No order from phase B on starts before that pull request merges **and M3 closes** (input 2). "Input N" means MvpPlan.md, M4, input N. These orders carry out M4 as MvpPlan.md, M4, defines it, under [ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md) and [ADR-022](ADR/ADR-022-formations-and-separation.md) to [ADR-028](ADR/ADR-028-the-control.md). Where an order and those differ, they win, and the order is corrected.
+**Status:** Proposed, 2026-11-01, with [MvpPlan.md](MvpPlan.md)'s M4 revision, which is accepted when the owner merges its pull request. The owner has not yet answered MvpPlan.md, M4, inputs 1–28; phase A writes the answers down. No order from phase B on starts before that pull request merges **and M3 closes** (input 2). "Input N" means MvpPlan.md, M4, input N. These orders carry out M4 as MvpPlan.md, M4, defines it, under [ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md) and [ADR-022](ADR/ADR-022-formations-and-separation.md) to [ADR-028](ADR/ADR-028-the-control.md). Where an order and those differ, they win, and the order is corrected.
 
 **This plan is written against M3's contracts as [MvpPlan-M3.md](MvpPlan-M3.md) fixes them,** before any M3 code exists. M3-G3 writes what M4 inherits; where M3's code changed a contract M4 builds on, this file is corrected in a commit of its own before phase B starts.
 
-**An order is one commit.** Phase A goes in the plan's pull request. Phases B to J go in two draft pull requests (input 26): B to F, the simulation, headless, which CI confirms; and G to J, the client, which the owner runs. There are 42 orders in ten phases:
+**An order is one commit.** Phase A goes in the plan's pull request. Phases B to J go in two draft pull requests (input 26): B to F, the simulation, headless, which CI confirms; and G to J, the client, which the owner runs. There are 43 orders in ten phases:
 
 | Phase | Orders | What lands | Waits on |
 |---|---|---|---|
-| A | A1 | The owner's decisions, written down | The owner's answers to inputs 1–27 |
-| B | B1–B5 | T1–T7 at 1 m; units', structures' and the trial's server data; the castle as a scenario; the font's four icons | A, and M3 closed |
+| A | A1 | The owner's decisions, written down | The owner's answers to inputs 1–28 |
+| B | B1–B6 | T1–T7 at 1 m; units', structures' and the trial's server data; the castle as a scenario, and its mirror; the font's four icons | A, and M3 closed |
 | C | C1–C6 | Commands, players, hit points and damage; formations; melee and orders; arrows; the trebuchet against units and engines; the ram | B3 |
 | D | D1–D6 | Working and ruin; gates; garrisons; the passage attack; repair and its lock; sappers' trenches | C1, B1, B3 |
 | E | E1 | Fog: visibility, the filtered state, chunks sent when seen | C1, D |
@@ -19,7 +19,7 @@
 | I | I1–I7 | Layout A: the deck, selection, the command card, control groups, the minimap, alerts, and the hover and source rules | H1 |
 | J | J1–J5 | `Earthrise --siege`, its log and replay, the control's client, the measured run, the report | F, I |
 
-B1, B2 and B5 are content and can land beside B3. G needs only A, so its three orders can land anywhere before H. C, D, E and F are serial within the headless pull request, and H, I and J within the client's. **Owner runs** fall where an order draws: after B2, B4, H1, H2, H3, I2, I3, I5, I6, J1, J3 and J4, and the playthroughs in J5. That is the pace M4 keeps.
+B1, B2 and B5 are content and can land beside B3. G needs only A, so its three orders can land anywhere before H. C, D, E and F are serial within the headless pull request, and H, I and J within the client's. **Owner runs** fall where an order draws: after B2, B4, B6, H1, H2, H3, I2, I3, I5, I6, J1, J3 and J4, and the playthroughs in J5. That is the pace M4 keeps.
 
 ## How a session works an order
 
@@ -322,7 +322,7 @@ struct HudMinimap { bool baseDirty; std::vector<HudDot> dots; std::array<DirectX
 
 ### The trial's log (J2)
 
-One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` beside the executable, LF-terminated, UTF-8, and its replay beside it as `.errp` with the same name (ADR-026, decision 6). Comment lines first, each `# key: value`: participant, version, build id, server-data hash, scenario, display size, UI scale, start time. Then a header row and rows of these kinds, in tick order, each led by its kind and its tick:
+One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<Siege|SiegeMirror>-<yyyymmdd-hhmmss>.csv` beside the executable, LF-terminated, UTF-8, and its replay beside it as `.errp` with the same name (ADR-026, decision 6). Comment lines first, each `# key: value`: participant, version, build id, server-data hash, scenario, the nearest and the weak sections' names, display size, UI scale, start time. Then a header row and rows of these kinds, in tick order, each led by its kind and its tick:
 - `shot,<tick>,<player>,<engine>,<target x y z>,<strike x y z>,<structure name or ->`;
 - `opened,<tick>,<structure name>`: a section's first foot route from the camp (ADR-026, decision 5);
 - `passed,<minute>,<structure name>,<attacker|defender>,<figures>`: figures through an opened section in that game minute, written when the minute ends;
@@ -330,12 +330,14 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 - `stopped,<tick>,<structure name>` and `works,<tick>,<structure name>`;
 - `died,<tick>,<player>,<kind>`;
 - `command,<tick>,<seconds>,<command>,<source>`: every command the player issued, `key` or `click` (Hud.md §11);
+- `onscreen,<tick>,<structure name>,<opened|warning>,<uncovered|deck|topbar|off>,<deck share %>`: where the structure's centre was on screen, and how much of its footprint's projected box the deck covered, on the frame that drew the tick a section opened or a collapse began its warning (input 25);
+- `framed,<tick>,<structure name>,<opened|warning>,<seconds>`: the first frame after it in which the structure's centre lay in the uncovered area, with the game seconds since, or `never` at the run's end;
 - `outcome,<tick>,<won|clock|army>,<seconds>`.
 
 ## Phase A — Decisions
 
 ### M4-A1 — Write down the owner's decisions
-- **Waits on:** the owner's answers to MvpPlan.md, M4, inputs 1–27. Paper only.
+- **Waits on:** the owner's answers to MvpPlan.md, M4, inputs 1–28. Paper only.
 - **Read first:** MvpPlan.md, M4, *The owner's inputs*; GameDesign.md, *M3's values*, *the MVP assets v3 package* and *Open questions*.
 - **Changes:**
   - **GameDesign.md** gains `### <date>: M4's values`, with each input as Decided in the owner's words, or as the owner changed it. Input 27 stays Proposed, because F5 measures it. The Open question *The HUD's sizes* is rewritten as the owner decides it (input 21), and the v3 package's open item on the packed wagon's width as input 17 decides it. The paper tests' Proposed values the inputs take up (items 11, 14, 15, 16 and 17) are marked Decided or changed.
@@ -386,6 +388,13 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 - **Read first:** Hud.md §7 and §9; ADR-019, *Left open*; `GameData/Client/Fonts/EarthriseMason-glyphs.json`; `Tools/CheckAssets.py`'s check 13.
 - **Changes:** SPLIT, MERGE, DEPLOY and WALL as 9 × 9 icons at U+E019–U+E01C, drawn in the font's style; check 13's counts move to 131 glyphs and 29 icons; the atlases in `Design/Previews/` regenerated; `FONT_GLYPH_COUNT` 131; `Client::FontAtlas` grows to 16 × 9 cells, 160 × 90, since 131 glyphs overflow M3's 128 cells; ADR-019, decision 2, amended.
 - **Tests:** `Tools/TestCheckAssets.py`; **`FontTests`**: 131 glyphs; the four icons present and 9 wide; **`FontAtlasTests`** (`ClientTests`): glyph 131 lands in the ninth row's third cell.
+
+### M4-B6 — The mirrored castle
+- **Waits on:** B4, and input 28.
+- **Read first:** ADR-026, decisions 1 and 2; GameDesign.md, *Hypotheses*, H2; MvpPlan.md, M4, input 28.
+- **Changes:** `GameData/Server/Scenarios/SiegeMirror.json`, `mirrorOf: "Siege"` with its `rename` table, the nearest section and W3 as its trial's roles; the bake resolves it into a whole `SCEN` record; check 16 gains the mirror's rules: every structure renamed once, names unique, each name's side letter matching the side it stands on, and the site symmetric about its centre line. `Siege.json`'s site is made symmetric about the castle's centre line here if B4 left it otherwise. `Earthrise --siege --mirror` loads it.
+- **Tests:** **`ScenarioTests`** gain: every structure of `SiegeMirror` stands on the mirror of its original's footprint; W3 stands on earth with no ditch and E3 on rock behind the ditch; the nearest section is the mirror of S3, at the same distance from the camp; the two scenarios hold the same armies, stockpiles and trial rules; the mirror loads twice to one state hash.
+- **Owner runs:** `Earthrise --siege --mirror --windowed`, which can be taken with B4's run: the same castle, mirrored, with its weak section on the west.
 
 ## Phase C — Units and combat
 
@@ -507,10 +516,10 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 - **ADR:** marks ADR-028 Accepted.
 
 ### M4-F5 — The scripted attacker, and the trial in CI
-- **Waits on:** F3 and F4, and inputs 19 and 27.
+- **Waits on:** F3, F4 and B6, and inputs 19, 27 and 28.
 - **Read first:** MvpPlan.md, M4, *Done when*; ADR-027, decision 1; the M2 report's shape for the bench.
 - **Changes:** `SiegeAttacker`, a commander that deploys the trebuchet at a stand outside the towers' reach, stops the towers covering the keep's foot from the south and east, opens a section, storms through it, and holds the foot; `SimulationBench --siege [--control]` runs it against the defender and reports the slowest tick of play, tick 0, the 95th percentile, the outcome, the shots, each side's stone and every opened section's figures a minute; input 27's budgets set from it. **The control's calibration** (ADR-028, decision 5): `SimulationBench --calibrate-control` fires at every template in the castle from a stand, by a fixed pattern a template, unrepaired, on the voxel version, and writes each template's hit points into `Structures.json` with the measurement in its note; the control's tests then run on the calibrated values.
-- **Tests:** **`SiegeTrialTests`:** in both versions the attacker wins by storming inside the limit; with no commands the attacker loses to the clock; with every unit sent into the towers' reach until dead, engines included, it loses by the army; each run replays with every state hash equal; saves at ticks 1,000, 10,000 and 20,000 each continue equal for 1,000 ticks, which bounds CI's time, the 48,000-tick clock loss being cheap idle ticks; outcomes, ticks and shots are committed as a table and printed when they change, as M3's lab keys are, since a retune changes them.
+- **Tests:** **`SiegeTrialTests`:** in both versions the attacker wins by storming inside the limit, and in the voxel version on `SiegeMirror`, `SiegeAttacker` mirroring its plan when the scenario is a mirror; with no commands the attacker loses to the clock; with every unit sent into the towers' reach until dead, engines included, it loses by the army; each run replays with every state hash equal; saves at ticks 1,000, 10,000 and 20,000 each continue equal for 1,000 ticks, which bounds CI's time, the 48,000-tick clock loss being cheap idle ticks; outcomes, ticks and shots are committed as a table and printed when they change, as M3's lab keys are, since a retune changes them.
 - **Report in the commit:** the trial's times against the balance targets (one trebuchet opens a section in about three minutes, repair at most doubles it, a gate falls to a ram in about four) and the slowest tick in the container.
 
 ## Phase G — `Engine`
@@ -612,15 +621,15 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<yyyymmdd-hhmmss>.csv` 
 ### M4-J1 — `Earthrise --siege`
 - **Waits on:** F5 and I7, and inputs 16 and 25.
 - **Read first:** ADR-026; MvpPlan-M3.md, M3-C3 and M3-G1, for `Earthrise`'s loop; Hud.md §10's objective.
-- **Changes:** `Earthrise --siege <participant> [--control]`, in `Earthrise/Siege.h` and `.cpp`, in the filter `Siege`: the scenario loaded, the defender's commander on, the camera on the camp; the objective `TAKE THE KEEP`, then `HOLD THE KEEP'S FOOT · 0:42 / 2:00` with its progress; the resources `STONE m³`, `ARMY n`, `TIME m:ss` of the limit left; pause on input 25's key; the end banner `THE KEEP HAS FALLEN`, `TIME HAS RUN OUT` or `YOUR ARMY IS GONE`, with the time; `--watch` runs `SiegeAttacker` for the player, for the owner's checks and J4, and needs no participant. Without a participant and without `--watch` it refuses with a message.
+- **Changes:** `Earthrise --siege <participant> [--control] [--mirror]`, in `Earthrise/Siege.h` and `.cpp`, in the filter `Siege`: the scenario loaded, `SiegeMirror` with `--mirror`, the defender's commander on, the camera on the camp, from the south-west, or the south-east with the sun's azimuth mirrored in the mirror (input 28); the objective `TAKE THE KEEP`, then `HOLD THE KEEP'S FOOT · 0:42 / 2:00` with its progress; the resources `STONE m³`, `ARMY n`, `TIME m:ss` of the limit left; pause on input 25's key; the end banner `THE KEEP HAS FALLEN`, `TIME HAS RUN OUT` or `YOUR ARMY IS GONE`, with the time; `--watch` runs `SiegeAttacker` for the player, for the owner's checks and J4, and needs no participant. Without a participant and without `--watch` it refuses with a message.
 - **Tests:** **`SiegeFlowTests`** (`ClientTests`, over the model the loop drives): the objective and resources read as above; the end banner follows the outcome; pause stops the clock and nothing else.
 - **Owner runs:** `Earthrise --siege P00 --windowed`, played to a win and to a loss: the whole trial, the HUD, the defender sallying and repairing, the storming clock.
 
 ### M4-J2 — The trial's log, its replay, and the reader
-- **Waits on:** J1, and input 25.
+- **Waits on:** J1, and inputs 25 and 28.
 - **Read first:** ADR-026, decisions 5 and 6; *The trial's log*; MvpPlan-M3.md, M3-G2's scoring tool.
-- **Changes:** `Earthrise` writes the log from `LastTickEvents` and the client's command records, and the replay beside it; `Earthrise --replay <file>` plays one back on screen and reports whether every state hash matched; `Tools/SiegeTrial/ReadSiegeLog.py <folder>` prints each run's outcome, time, breach points, shots, each side's stone and the figures a minute through each breach, `--json` the same; `Tools/TestReadSiegeLog.py` with a step in the workflow's Linux job.
-- **Tests:** `Tools/TestReadSiegeLog.py` over hand-written logs; **`SiegeLogTests`** (`ClientTests`): a run's rows have every column; the replay of a short scripted run matches.
+- **Changes:** `Earthrise` writes the log from `LastTickEvents`, the client's command records and, for the `onscreen` and `framed` rows, the camera and the HUD's layout on the frame that draws each event, and the replay beside it; `Earthrise --replay <file>` plays one back on screen and reports whether every state hash matched; `Tools/SiegeTrial/ReadSiegeLog.py <folder>` prints each run's outcome, time, breach points by role (nearest, weak, gate or another, from the log's comment lines), shots, each side's stone, the figures a minute through each breach, and how many breaches and warnings began under the deck or off screen with the median seconds to frame them, `--json` the same; `Tools/TestReadSiegeLog.py` with a step in the workflow's Linux job.
+- **Tests:** `Tools/TestReadSiegeLog.py` over hand-written logs, one per layout, which name a breach at W3 in the mirror as the weak section; **`DeckCoverageTests`** (`ClientTests`): a section's centre projected below the deck's top reads `deck`, one above the top bar's bottom `topbar`, one outside the screen `off`, and the deck's share of a footprint half under it is 50 %; **`SiegeLogTests`** (`ClientTests`): a run's rows have every column; the replay of a short scripted run matches.
 - **Owner runs:** `Earthrise --replay` on the log of the owner's own J1 run: the same trial on screen, every state hash matched.
 
 ### M4-J3 — The control's client
