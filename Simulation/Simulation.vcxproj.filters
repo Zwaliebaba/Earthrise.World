@@ -25,6 +25,9 @@
     <Filter Include="Generation">
       <UniqueIdentifier>{D86FD0A1-3978-5A50-A1D5-83D0D239593C}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Destruction">
+      <UniqueIdentifier>{C0D574BE-2CD3-535B-B9D6-497E3B257FFE}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -113,6 +116,15 @@
     </ClInclude>
     <ClCompile Include="Generator.cpp">
       <Filter>Generation</Filter>
+    </ClCompile>
+    <ClInclude Include="FixedPosition.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClInclude Include="Shot.h">
+      <Filter>Destruction</Filter>
+    </ClInclude>
+    <ClCompile Include="Shot.cpp">
+      <Filter>Destruction</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

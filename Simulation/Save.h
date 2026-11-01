@@ -18,7 +18,8 @@ namespace Simulation
 //   2. the edited chunks: u32 their count, then in rising key order each chunk that differs from its
 //      generated base, as its u64 packed key and its edits in ChunkEdits.h's shorter form;
 //   3. the entities: u32 their count, then every entity in id order, each as a u16 type tag, a u16
-//      record version, a u32 length and the record (SaveEntityTag);
+//      record version, a u32 length and the record (SaveEntityTag). Each record is at version 1 as
+//      M2 leaves it: a save is tied to its build anyway (ADR-014, decision 6);
 //   4. the pending work, each queue in its own stated order: u32 the commands that arrived for the
 //      next tick, then each as its u8 player, u32 length and bytes, in arrival order.
 // Navigation tiles, chunk hashes and anything else computed from the voxels are not saved: a load
@@ -31,7 +32,8 @@ enum class SaveEntityTag : std::uint16_t
 {
   Squad = 1,
   Unit = 2,
-  SiegeEngine = 3
+  SiegeEngine = 3,
+  Shot = 4
 };
 
 /// Writes _world, between ticks.

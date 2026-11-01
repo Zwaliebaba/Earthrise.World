@@ -54,5 +54,8 @@
     <ClCompile Include="GeneratorTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="ShotTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

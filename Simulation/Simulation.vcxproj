@@ -66,6 +66,9 @@
     <ClCompile Include="Replay.cpp" />
     <ClInclude Include="Generator.h" />
     <ClCompile Include="Generator.cpp" />
+    <ClInclude Include="FixedPosition.h" />
+    <ClInclude Include="Shot.h" />
+    <ClCompile Include="Shot.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

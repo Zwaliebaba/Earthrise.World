@@ -138,6 +138,7 @@ void WriteRecord(Core::ByteWriter& _writer, const SiegeEngine& _engine)
   _writer.WriteU8(static_cast<std::uint8_t>(_engine.kind));
   WriteFixedPosition(_writer, _engine.position);
   WritePosition(_writer, _engine.cellVoxels);
+  _writer.WriteU32(_engine.reloadTicks);
 }
 
 SiegeEngine ReadSiegeEngine(Core::ByteReader& _reader)
@@ -146,7 +147,46 @@ SiegeEngine ReadSiegeEngine(Core::ByteReader& _reader)
           .owner = _reader.ReadU8(),
           .kind = ReadEnum(_reader, EngineKind::Trebuchet, "kind of engine"),
           .position = ReadFixedPosition(_reader),
-          .cellVoxels = ReadPosition(_reader)};
+          .cellVoxels = ReadPosition(_reader),
+          .reloadTicks = _reader.ReadU32()};
+}
+
+void WriteFixed(Core::ByteWriter& _writer, Core::Fixed _value)
+{
+  _writer.WriteI32(_value.Raw());
+}
+
+Core::Fixed ReadFixed(Core::ByteReader& _reader)
+{
+  return Core::Fixed::FromRaw(_reader.ReadI32());
+}
+
+void WriteRecord(Core::ByteWriter& _writer, const Shot& _shot)
+{
+  _writer.WriteU64(_shot.id);
+  _writer.WriteU64(_shot.engine);
+  _writer.WriteU8(_shot.owner);
+  WriteFixedPosition(_writer, _shot.arc.start);
+  WriteFixed(_writer, _shot.arc.acrossXMeters);
+  WriteFixed(_writer, _shot.arc.acrossZMeters);
+  WriteFixed(_writer, _shot.arc.flightTicks);
+  WriteFixed(_writer, _shot.arc.riseMetersPerTick);
+  WriteFixed(_writer, _shot.arc.gravityMetersPerTickSquared);
+  _writer.WriteU32(_shot.ticksFlown);
+}
+
+Shot ReadShot(Core::ByteReader& _reader)
+{
+  return {.id = _reader.ReadU64(),
+          .engine = _reader.ReadU64(),
+          .owner = _reader.ReadU8(),
+          .arc = {.start = ReadFixedPosition(_reader),
+                  .acrossXMeters = ReadFixed(_reader),
+                  .acrossZMeters = ReadFixed(_reader),
+                  .flightTicks = ReadFixed(_reader),
+                  .riseMetersPerTick = ReadFixed(_reader),
+                  .gravityMetersPerTickSquared = ReadFixed(_reader)},
+          .ticksFlown = _reader.ReadU32()};
 }
 
 /// One entity: its tag, its record's version and length, and the record.
@@ -162,23 +202,30 @@ template <typename Kind> void WriteEntity(Core::ByteWriter& _writer, SaveEntityT
 
 // The sections a save and the state hash share.
 
-void WriteEntities(Core::ByteWriter& _writer, const std::map<Protocol::EntityId, Squad>& _squads,
-                   const std::map<Protocol::EntityId, Unit>& _units, const std::map<Protocol::EntityId, SiegeEngine>& _engines)
+void WriteEntities(Core::ByteWriter& _writer, const World& _world)
 {
+  const std::map<Protocol::EntityId, Squad>& squads = _world.Squads();
+  const std::map<Protocol::EntityId, Unit>& units = _world.Units();
+  const std::map<Protocol::EntityId, SiegeEngine>& engines = _world.SiegeEngines();
+  const std::map<Protocol::EntityId, Shot>& shots = _world.Shots();
   // Every entity in id order, across the kinds (ADR-014, decision 4).
   std::vector<std::pair<Protocol::EntityId, SaveEntityTag>> order;
-  order.reserve(_squads.size() + _units.size() + _engines.size());
-  for (const auto& [id, squad] : _squads)
+  order.reserve(squads.size() + units.size() + engines.size() + shots.size());
+  for (const auto& [id, squad] : squads)
   {
     order.emplace_back(id, SaveEntityTag::Squad);
   }
-  for (const auto& [id, unit] : _units)
+  for (const auto& [id, unit] : units)
   {
     order.emplace_back(id, SaveEntityTag::Unit);
   }
-  for (const auto& [id, engine] : _engines)
+  for (const auto& [id, engine] : engines)
   {
     order.emplace_back(id, SaveEntityTag::SiegeEngine);
+  }
+  for (const auto& [id, shot] : shots)
+  {
+    order.emplace_back(id, SaveEntityTag::Shot);
   }
   std::ranges::sort(order);
   _writer.WriteU32(static_cast<std::uint32_t>(order.size()));
@@ -187,13 +234,16 @@ void WriteEntities(Core::ByteWriter& _writer, const std::map<Protocol::EntityId,
     switch (tag)
     {
     case SaveEntityTag::Squad:
-      WriteEntity(_writer, tag, _squads.at(id));
+      WriteEntity(_writer, tag, squads.at(id));
       break;
     case SaveEntityTag::Unit:
-      WriteEntity(_writer, tag, _units.at(id));
+      WriteEntity(_writer, tag, units.at(id));
       break;
     case SaveEntityTag::SiegeEngine:
-      WriteEntity(_writer, tag, _engines.at(id));
+      WriteEntity(_writer, tag, engines.at(id));
+      break;
+    case SaveEntityTag::Shot:
+      WriteEntity(_writer, tag, shots.at(id));
       break;
     }
   }
@@ -246,7 +296,7 @@ std::vector<std::byte> WriteSave(const World& _world)
     writer.WriteBytes(edits);
   }
 
-  WriteEntities(writer, _world.m_squads, _world.m_units, _world.m_siegeEngines);
+  WriteEntities(writer, _world);
   WritePendingCommands(writer, _world.m_pendingCommands);
   return writer.TakeBytes();
 }
@@ -332,6 +382,12 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
         world.m_siegeEngines.emplace(engine.id, engine);
         break;
       }
+      case SaveEntityTag::Shot:
+      {
+        const Shot shot = ReadShot(record);
+        world.m_shots.emplace(shot.id, shot);
+        break;
+      }
       default:
         Refuse("it holds an entity of type " + std::to_string(tag) + ", which this build does not know");
       }
@@ -369,7 +425,7 @@ std::uint64_t StateHash(const World& _world)
   Core::ByteWriter writer;
   writer.WriteU32(_world.m_tick);
   writer.WriteU64(_world.m_nextEntityId);
-  WriteEntities(writer, _world.m_squads, _world.m_units, _world.m_siegeEngines);
+  WriteEntities(writer, _world);
   WritePendingCommands(writer, _world.m_pendingCommands);
   return Core::Fnv1a64(writer.Bytes(), _world.m_voxels.VoxelHash());
 }

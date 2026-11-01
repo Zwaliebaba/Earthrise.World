@@ -115,6 +115,16 @@ const std::map<Protocol::EntityId, SiegeEngine>& World::SiegeEngines() const noe
   return m_siegeEngines;
 }
 
+const std::map<Protocol::EntityId, Shot>& World::Shots() const noexcept
+{
+  return m_shots;
+}
+
+std::span<const ShotHit> World::LastTickHits() const noexcept
+{
+  return m_tickHits;
+}
+
 Protocol::EntityId World::AddSquad(std::uint8_t _owner, NavigationClass _class, std::span<const Protocol::VoxelPosition> _cellsVoxels)
 {
   const Protocol::EntityId squadId = NewEntityId();
@@ -136,7 +146,8 @@ Protocol::EntityId World::AddSiegeEngine(std::uint8_t _owner, EngineKind _kind, 
 {
   const Protocol::EntityId id = NewEntityId();
   m_siegeEngines.emplace(
-    id, SiegeEngine{.id = id, .owner = _owner, .kind = _kind, .position = CellFloorMiddle(_cellVoxels), .cellVoxels = _cellVoxels});
+    id, SiegeEngine{
+          .id = id, .owner = _owner, .kind = _kind, .position = CellFloorMiddle(_cellVoxels), .cellVoxels = _cellVoxels, .reloadTicks = 0});
   return id;
 }
 
@@ -184,7 +195,37 @@ void World::Apply(std::uint8_t _player, const Protocol::Command& _command)
       squad->second.goalVoxels = move->goalVoxels;
     }
   }
-  // FireEngine is decoded, and its shot is M2-E1's.
+  else if (const auto* fire = std::get_if<Protocol::FireEngine>(&_command))
+  {
+    Fire(_player, *fire);
+  }
+}
+
+void World::Fire(std::uint8_t _player, const Protocol::FireEngine& _fire)
+{
+  // Refused, and doing nothing, for an engine that is not the player's or is reloading, and for a
+  // target out of range (GameDesign.md, M2's values, item 12).
+  const auto engine = m_siegeEngines.find(_fire.engine);
+  if (engine == m_siegeEngines.end() || engine->second.owner != _player || engine->second.reloadTicks > 0)
+  {
+    return;
+  }
+  const std::optional<ShotArc> arc = AimShot(engine->second.cellVoxels, _fire.targetVoxels, Data().Tuning());
+  if (!arc.has_value())
+  {
+    return;
+  }
+  const Protocol::EntityId id = NewEntityId();
+  m_shots.emplace(id, Shot{.id = id, .engine = engine->first, .owner = _player, .arc = *arc, .ticksFlown = 0});
+  engine->second.reloadTicks = static_cast<std::uint32_t>(Data().Tuning().shotReloadTicks);
+}
+
+bool World::OutsideWorld(const FixedPosition& _point) const noexcept
+{
+  const std::int32_t x = _point.xMeters.FloorWhole();
+  const std::int32_t z = _point.zMeters.FloorWhole();
+  return _point.yMeters.Raw() < 0 || x < 0 || z < 0 || x >= m_desc.widthChunks * Protocol::CHUNK_EDGE_VOXELS ||
+         z >= m_desc.depthChunks * Protocol::CHUNK_EDGE_VOXELS;
 }
 
 void World::AdvanceJobs()
@@ -199,7 +240,43 @@ void World::MoveUnits()
 
 void World::AdvanceShots()
 {
-  // Step 4: shots through the voxel grid, and their craters (M2-E1, E2).
+  // Step 4: engines reload, then each shot, in id order, moves along its arc through every voxel its
+  // step crosses, and stops at the first solid one: its hit (M2-E1).
+  m_tickHits.clear();
+  for (auto& [id, engine] : m_siegeEngines)
+  {
+    if (engine.reloadTicks > 0)
+    {
+      --engine.reloadTicks;
+    }
+  }
+  std::vector<Protocol::EntityId> landed;
+  for (auto& [id, shot] : m_shots)
+  {
+    const FixedPosition from = ShotPositionAt(shot.arc, shot.ticksFlown);
+    ++shot.ticksFlown;
+    const FixedPosition to = ShotPositionAt(shot.arc, shot.ticksFlown);
+    const std::optional<Protocol::VoxelPosition> hit = TraverseVoxels(
+      from, to, [this](Protocol::VoxelPosition _voxel) { return _voxel.yVoxels >= 0 && m_voxels.At(_voxel) != Protocol::Chunk::EMPTY; });
+    if (hit.has_value())
+    {
+      const bool alongX = std::abs(shot.arc.acrossXMeters.Raw()) >= std::abs(shot.arc.acrossZMeters.Raw());
+      const auto sign = [](Core::Fixed _value) { return _value.Raw() > 0 ? 1 : (_value.Raw() < 0 ? -1 : 0); };
+      m_tickHits.push_back({.shot = id,
+                            .voxel = *hit,
+                            .behindX = alongX ? sign(shot.arc.acrossXMeters) : 0,
+                            .behindZ = alongX ? 0 : sign(shot.arc.acrossZMeters)});
+      landed.push_back(id);
+    }
+    else if (OutsideWorld(to))
+    {
+      landed.push_back(id);
+    }
+  }
+  for (const Protocol::EntityId id : landed)
+  {
+    m_shots.erase(id);
+  }
 }
 
 void World::SearchSupport()

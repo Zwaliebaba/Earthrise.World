@@ -5,7 +5,9 @@
 #include "Command.h"
 #include "EntityId.h"
 #include "Fixed.h"
+#include "FixedPosition.h"
 #include "ServerData.h"
+#include "Shot.h"
 #include "VoxelWorld.h"
 
 #include <cstddef>
@@ -39,16 +41,6 @@ enum class NavigationClass : std::uint8_t
   Foot,
   Cavalry,
   Machines
-};
-
-/// A point in meters, held as Core::Fixed (ADR-013, decision 3). y is the height of the feet.
-struct FixedPosition
-{
-  Core::Fixed xMeters;
-  Core::Fixed yMeters;
-  Core::Fixed zMeters;
-
-  friend constexpr bool operator==(const FixedPosition&, const FixedPosition&) = default;
 };
 
 /// A squad: units that take orders together.
@@ -86,6 +78,27 @@ struct SiegeEngine
   EngineKind kind;
   FixedPosition position;
   Protocol::VoxelPosition cellVoxels;
+  std::uint32_t reloadTicks; // until it can fire again; 0 when loaded
+};
+
+/// A trebuchet's shot in flight (M2-E1), on its arc.
+struct Shot
+{
+  Protocol::EntityId id;
+  Protocol::EntityId engine;
+  std::uint8_t owner;
+  ShotArc arc;
+  std::uint32_t ticksFlown;
+};
+
+/// Where a shot struck: the first solid voxel on its way, and the way it was going along its larger
+/// horizontal axis, ties to x, which is what "behind" means for its crater (M2-E2).
+struct ShotHit
+{
+  Protocol::EntityId shot;
+  Protocol::VoxelPosition voxel;
+  std::int32_t behindX; // -1, 0 or 1; one of behindX and behindZ is 0
+  std::int32_t behindZ;
 };
 
 /// The simulation: a generated world, its entities, and the tick that advances them (ADR-002,
@@ -156,6 +169,10 @@ public:
   [[nodiscard]] const std::map<Protocol::EntityId, Squad>& Squads() const noexcept;
   [[nodiscard]] const std::map<Protocol::EntityId, Unit>& Units() const noexcept;
   [[nodiscard]] const std::map<Protocol::EntityId, SiegeEngine>& SiegeEngines() const noexcept;
+  [[nodiscard]] const std::map<Protocol::EntityId, Shot>& Shots() const noexcept;
+
+  /// Where the last tick's shots struck, in shot-id order.
+  [[nodiscard]] std::span<const ShotHit> LastTickHits() const noexcept;
 
   /// Places a squad of _owner's, with one unit standing in each of _cellsVoxels, for scenarios and
   /// tests. The squad takes the first new id and its units the next, in the order given.
@@ -188,6 +205,9 @@ private:
   void AnswerQueries();
 
   void Apply(std::uint8_t _player, const Protocol::Command& _command);
+  void Fire(std::uint8_t _player, const Protocol::FireEngine& _fire);
+  /// Whether a shot that reached _point has left the world.
+  [[nodiscard]] bool OutsideWorld(const FixedPosition& _point) const noexcept;
 
   Desc m_desc;
   VoxelWorld m_voxels;
@@ -198,6 +218,8 @@ private:
   std::map<Protocol::EntityId, Squad> m_squads;
   std::map<Protocol::EntityId, Unit> m_units;
   std::map<Protocol::EntityId, SiegeEngine> m_siegeEngines;
+  std::map<Protocol::EntityId, Shot> m_shots;
+  std::vector<ShotHit> m_tickHits;
 };
 
 /// The point a unit stands at in a cell: the middle of the cell's floor.
