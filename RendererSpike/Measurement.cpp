@@ -107,6 +107,7 @@ std::wstring Measurement::Write(const std::filesystem::path& _folder, std::wstri
   framesOut << "# present: without waiting for the vertical blank, " << (_setup.tearing ? "tearing allowed" : "tearing not offered")
             << "\n";
   framesOut << "# path: " << Utf8(_setup.path) << "\n";
+  framesOut << "# edits: " << Utf8(_setup.edits) << "\n";
   framesOut << std::format("# frames before {} warm up and are left out of the percentile\n", _setup.firstMeasuredFrame);
   std::wstring_view remaining = results;
   while (!remaining.empty())
@@ -115,11 +116,11 @@ std::wstring Measurement::Write(const std::filesystem::path& _folder, std::wstri
     framesOut << "# " << Utf8(remaining.substr(0, end)) << "\n";
     remaining.remove_prefix(end == std::wstring_view::npos ? remaining.size() : end + 1);
   }
-  framesOut << "frame,azimuth_degrees,voxels_drawn,voxel_pass_ms,frame_ms\n";
+  framesOut << "frame,azimuth_degrees,voxels_drawn,voxel_pass_ms,frame_ms,rebuild_ms\n";
   for (const FrameRow& row : frames)
   {
-    framesOut << std::format("{},{:.1f},{},{:.4f},{:.4f}\n", row.frame, row.azimuthDegrees, row.voxelsDrawn, row.voxelPassMilliseconds,
-                             row.frameMilliseconds);
+    framesOut << std::format("{},{:.1f},{},{:.4f},{:.4f},{:.4f}\n", row.frame, row.azimuthDegrees, row.voxelsDrawn,
+                             row.voxelPassMilliseconds, row.frameMilliseconds, row.rebuildMilliseconds);
   }
 
   std::ofstream editsOut = OpenForWriting(editsFile);

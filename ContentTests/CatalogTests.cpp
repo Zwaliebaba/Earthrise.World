@@ -13,7 +13,7 @@ namespace
 
 // What GameData/Manifest.json lists: nine templates, and eight models, one figure for each unit type and two engines.
 constexpr std::array<std::string_view, 9> TEMPLATE_IDS = {"T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9"};
-constexpr std::array<std::string_view, 8> MODEL_IDS = {"S1", "S2", "S3", "U1", "U2", "U3", "U4", "U5"};
+constexpr std::array<std::string_view, 10> MODEL_IDS = {"P1", "P2", "S1", "S2", "S3", "U1", "U2", "U3", "U4", "U5"};
 
 constexpr std::uint32_t WORLD_VOXEL_EDGE_MILLIMETERS = 1000; // ADR-006
 constexpr std::uint32_t MODEL_VOXEL_EDGE_MILLIMETERS = 500;

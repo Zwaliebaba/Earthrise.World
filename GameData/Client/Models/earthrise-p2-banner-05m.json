@@ -1,0 +1,69 @@
+{
+ "id": "P2",
+ "name": "Banner",
+ "voxelSize": 0.5,
+ "size": {
+  "x": 7,
+  "y": 14,
+  "z": 1
+ },
+ "axes": "y up, +z front, layers[y][z][x]",
+ "derivedFrom": "placeholder for the renderer spike (MvpPlan.md, M1 task 9), after the v5 scene's banner on the keep; the owner may replace it",
+ "silhouetteCue": "A 7 m pole with a 3 m faction flag",
+ "legend": {
+  "g": {
+   "material": 7,
+   "name": "timber",
+   "hex": "#7a5534"
+  },
+  "j": {
+   "material": 16,
+   "name": "faction",
+   "hex": "#b23a2e"
+  }
+ },
+ "layers": [
+  [
+   "g......"
+  ],
+  [
+   "g......"
+  ],
+  [
+   "g......"
+  ],
+  [
+   "g......"
+  ],
+  [
+   "g......"
+  ],
+  [
+   "g......"
+  ],
+  [
+   "g......"
+  ],
+  [
+   "g......"
+  ],
+  [
+   "gjjjjjj"
+  ],
+  [
+   "gjjjjjj"
+  ],
+  [
+   "gjjjjjj"
+  ],
+  [
+   "gjjjjjj"
+  ],
+  [
+   "gjjjjjj"
+  ],
+  [
+   "gjjjjjj"
+  ]
+ ]
+}

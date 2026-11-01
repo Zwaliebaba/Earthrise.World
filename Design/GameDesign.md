@@ -187,6 +187,11 @@ The owner settled the open items of the readiness review ([Review/MvpReadiness-2
 
    And on the same day, when the spike's default became borderless full screen:
    - **The measured run's scene draws at 1920 × 1080 on any display,** and is scaled to the display, so the voxel pass does the pass mark's work whatever the monitor. On a 1440p monitor that is a render scale of 0.75. The CSV states the display's size and the render size.
+
+   And for the test scene's edits and units (MvpPlan.md, M1 task 9):
+   - **Quarrying runs at 94 voxels a second,** the four-faction peak. The design review back-solved 28,000–94,000 edits a second at 10 cm for two to four factions (F-51), which is 28–94 at 1 m. If the pass mark holds at the peak, it holds for every smaller match.
+   - **The wall collapse** is the 8 m T3 section of the west curtain just north of the breach, at 10 s into the 60 s path, while the camera is on the west side. Its stone falls as a heap of rubble at its foot.
+   - **Units move:** each walks a circle 2 m across about its place in the v5 scene, at 1.4 m/s, seeded and stepped by frame like the path.
 4. **Hardware:** the owner has the RTX 3060-class machine but no Surface Pro yet. The Surface's measurement waits until one is available, and its pass mark stays open ([ADR-007](ADR/ADR-007-platforms-and-input.md)).
 5. **The spike's scene takes its layout from the v5 scene,** which is already on the 1 m grid ([Reference/SiegePrototypeV2/](Reference/SiegePrototypeV2/)). A seeded scene script places it. The implementer draws placeholder models for what `GameData/` lacks (trees, cottages, mantlets, banners and stock stacks), and the owner may replace them with Claude Design versions.
 6. **Two exceptions to R14** (AGENTS.md): test projects use Visual Studio's native unit-test framework, which vstest runs and which never reaches the game, and build-time tools run on Python, which never ships.

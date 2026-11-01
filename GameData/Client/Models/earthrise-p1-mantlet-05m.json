@@ -1,0 +1,42 @@
+{
+ "id": "P1",
+ "name": "Mantlet",
+ "voxelSize": 0.5,
+ "size": {
+  "x": 5,
+  "y": 4,
+  "z": 3
+ },
+ "axes": "y up, +z front, layers[y][z][x]",
+ "derivedFrom": "placeholder for the renderer spike (MvpPlan.md, M1 task 9), after the v5 scene's mantlets; the owner may replace it",
+ "silhouetteCue": "A timber screen 2.5 m wide, braced from behind",
+ "legend": {
+  "g": {
+   "material": 7,
+   "name": "timber",
+   "hex": "#7a5534"
+  }
+ },
+ "layers": [
+  [
+   "..g..",
+   "..g..",
+   "ggggg"
+  ],
+  [
+   ".....",
+   "..g..",
+   "ggggg"
+  ],
+  [
+   ".....",
+   ".....",
+   "ggggg"
+  ],
+  [
+   ".....",
+   ".....",
+   "ggggg"
+  ]
+ ]
+}
