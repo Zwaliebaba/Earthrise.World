@@ -33,7 +33,7 @@ The world is generated procedurally. Every voxel in it can be removed or added, 
 ## Left open
 
 - Chunk dimensions, which depend on the simulation voxel size the renderer spike settles. *(Settled: 32³ voxels of 1 m, planned for M1 in MvpPlan.md and built there; a navigation tile is one chunk column, GameDesign.md, M1's open values, item 3.)*
-- The edit encoding: a list of changed voxels, or a full copy of a chunk once it has been edited past some threshold. Also compression. *([ADR-014](ADR-014-edits-saves-and-replays.md), Proposed, answers it.)*
+- The edit encoding: a list of changed voxels, or a full copy of a chunk once it has been edited past some threshold. Also compression. *(Closed by [ADR-014](ADR-014-edits-saves-and-replays.md), Accepted by M2-C2.)*
 - The format of the entity state in a save. *(Closed by [ADR-005](ADR-005-content-formats.md), decision 10.)*
 - Whether the generator supports unbounded worlds. The design bounds every world it uses: the MVP map is 512 m square, and a shared world is sized to its seats, up to about 2 km × 2 km ([GameDesign.md](../GameDesign.md)).
 - Streaming chunks in and out of memory, which [ADR-001](ADR-001-direct-voxel-ray-casting.md) also leaves open.

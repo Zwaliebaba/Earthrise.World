@@ -52,6 +52,8 @@
     <ClInclude Include="ServerData.h" />
     <ClCompile Include="ServerData.cpp" />
     <ClInclude Include="Rules.h" />
+    <ClInclude Include="VoxelWorld.h" />
+    <ClCompile Include="VoxelWorld.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

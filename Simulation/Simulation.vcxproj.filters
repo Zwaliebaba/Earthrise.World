@@ -63,5 +63,11 @@
     <ClInclude Include="Rules.h">
       <Filter>Data</Filter>
     </ClInclude>
+    <ClInclude Include="VoxelWorld.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="VoxelWorld.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

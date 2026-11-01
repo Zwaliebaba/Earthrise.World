@@ -97,4 +97,25 @@ std::uint64_t ChunkStore::Version() const noexcept
   return m_version;
 }
 
+const Protocol::Chunk* ChunkStore::Find(std::uint64_t _key) const
+{
+  const auto found = m_chunks.find(_key);
+  if (found == m_chunks.end())
+  {
+    return nullptr;
+  }
+  return found->second.pending ? found->second.pending.get() : found->second.published.get();
+}
+
+std::vector<std::uint64_t> ChunkStore::Keys() const
+{
+  std::vector<std::uint64_t> keys;
+  keys.reserve(m_chunks.size());
+  for (const auto& [key, entry] : m_chunks)
+  {
+    keys.push_back(key);
+  }
+  return keys;
+}
+
 } // namespace Simulation

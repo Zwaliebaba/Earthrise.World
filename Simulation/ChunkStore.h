@@ -45,6 +45,13 @@ public:
   /// The version of the latest publication that changed something, or 0 before the first.
   [[nodiscard]] std::uint64_t Version() const noexcept;
 
+  /// A chunk's current voxels, pending or published, by its packed key, or null for a chunk the
+  /// store does not hold.
+  [[nodiscard]] const Protocol::Chunk* Find(std::uint64_t _key) const;
+
+  /// The packed key of every chunk the store holds, in key order.
+  [[nodiscard]] std::vector<std::uint64_t> Keys() const;
+
 private:
   struct Entry
   {

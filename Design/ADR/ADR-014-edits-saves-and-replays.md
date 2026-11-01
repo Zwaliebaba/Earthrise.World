@@ -1,10 +1,8 @@
 # ADR-014 — Edits, saves and replays
 
-**Status:** Proposed, 2026-11-01. It closes [ADR-003](ADR-003-world-as-seed-plus-edits.md)'s open item on the edit encoding, and fixes the layout of the save that ADR-003 and [ADR-005](ADR-005-content-formats.md), decision 10, describe.
+**Status:** Accepted, 2026-11-01, by order M2-C2 ([MvpPlan-M2.md](../MvpPlan-M2.md)), which implements decisions 1 and 2 in `Simulation::VoxelWorld`. Orders M2-C4 and M2-C5 implement decisions 3 to 6, the save and the replay. Proposed the same day. It closes [ADR-003](ADR-003-world-as-seed-plus-edits.md)'s open item on the edit encoding, and fixes the layout of the save that ADR-003 and [ADR-005](ADR-005-content-formats.md), decision 10, describe.
 - **The owner gave the go-ahead** on 2026-11-01 ([MvpPlan.md](../MvpPlan.md), M2, input 1; GameDesign.md, *M2's values*).
-- **The commit that first implements it** marks it Accepted (AGENTS.md §6).
-
-Nothing implements it yet.
+- **What the code fixed that the decision left unsaid** (M2-C2): a chunk that holds no voxel counts as absent in the state hash, so a chunk dug empty hashes as one never made, as a save that leaves it out would load it; and each chunk's hash is `Core::Fnv1a64` over its voxels, folded into the world's hash with its key as little-endian u64s.
 
 ## Context
 
