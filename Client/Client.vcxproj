@@ -45,6 +45,14 @@
     <ClInclude Include="Debris.h" />
     <ClCompile Include="Debris.cpp" />
     <ClInclude Include="Look.h" />
+    <ClInclude Include="TickClock.h" />
+    <ClCompile Include="TickClock.cpp" />
+    <ClInclude Include="Session.h" />
+    <ClCompile Include="Session.cpp" />
+    <ClInclude Include="Camera.h" />
+    <ClCompile Include="Camera.cpp" />
+    <ClInclude Include="WorldRenderer.h" />
+    <ClCompile Include="WorldRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

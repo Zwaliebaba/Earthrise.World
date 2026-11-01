@@ -52,4 +52,23 @@ inline constexpr float SHADOW_DEPTH_BIAS = 0.0F;
 /// smaller than about 3 px (§7).
 inline constexpr float MODEL_VOXEL_METERS = 0.5F;
 
+// The camera of RendererLook.md §7: orthographic at 34 degrees, standing to the south-west, turning in quarter turns
+// eased over 0.3 s, from 12 m to 260 m of view height, 84 m by default. Azimuth is measured from +z (north) towards +x
+// (east), so the south-west is -135 degrees. Keys pan the view by PAN_VIEWS_PER_SECOND view heights a second.
+inline constexpr float ELEVATION_DEGREES = 34.0F;
+inline constexpr float AZIMUTH_DEGREES = -135.0F;
+inline constexpr float DEFAULT_VIEW_HEIGHT_METERS = 84.0F;
+inline constexpr float MIN_VIEW_HEIGHT_METERS = 12.0F;
+inline constexpr float MAX_VIEW_HEIGHT_METERS = 260.0F;
+inline constexpr float ROTATION_SECONDS = 0.3F;
+inline constexpr float PAN_VIEWS_PER_SECOND = 0.8F;
+/// The top bar's height in logical pixels (Hud.md §3): the camera frames the area below it.
+inline constexpr float TOP_BAR_LOGICAL_PIXELS = 44.0F;
+
+// The trebuchet's poses (GameDesign.md, M3's values, item 16; MvpAssets.md, *Poses, projectiles, gates and debris*):
+// S3c, cocked, at S3's placement moved 5 m along the model's own -x before its turn, as arithmetic on the files after
+// the bake's trim and mirror; and S3, released, for RELEASED_POSE_TICKS after it fires.
+inline constexpr float COCKED_POSE_OFFSET_X_METERS = -5.0F;
+inline constexpr std::uint32_t RELEASED_POSE_TICKS = 20;
+
 } // namespace Client

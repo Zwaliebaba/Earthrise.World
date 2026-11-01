@@ -18,5 +18,11 @@
     <ClCompile Include="DebrisTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="TickClockTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="SessionTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

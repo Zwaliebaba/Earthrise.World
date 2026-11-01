@@ -43,6 +43,8 @@
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="DebrisTests.cpp" />
+    <ClCompile Include="TickClockTests.cpp" />
+    <ClCompile Include="SessionTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
