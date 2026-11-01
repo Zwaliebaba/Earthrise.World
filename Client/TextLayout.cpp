@@ -75,6 +75,16 @@ std::uint32_t TextLayout::Measure(std::string_view _utf8, std::uint32_t _scale)
   return (fontPixels - lastGap) * _scale;
 }
 
+std::uint32_t TextLayout::Advance(std::string_view _utf8, std::uint32_t _scale)
+{
+  std::uint32_t fontPixels = 0;
+  for (const char32_t codePoint : CodePoints(_utf8))
+  {
+    fontPixels += GlyphOf(codePoint).first->advancePixels;
+  }
+  return fontPixels * _scale;
+}
+
 std::uint32_t TextLayout::CellPixels(std::uint32_t _scale) noexcept
 {
   return Content::FONT_CELL_ROWS * _scale;

@@ -48,6 +48,31 @@ inline constexpr std::string_view WILL_FALL_ALERT = "{} WILL FALL IN {} S";
 inline constexpr std::string_view HAS_FALLEN_ALERT = "{} HAS FALLEN";
 inline constexpr std::string_view UNNAMED_WALL = "A WALL";
 
+// The integrity view's rows (ADR-021, decision 4; M3-F2), in the paper test's words
+// (Design/Review/PaperTests/BreachPrediction.md, *The readouts*), each a KEY and its value.
+inline constexpr std::string_view HOLE_NONE = "HOLE none";
+inline constexpr std::string_view HOLE_FALLS_AT = "HOLE {} m · falls at {} m";
+inline constexpr std::string_view HOLE_HOLDS = "HOLE {} m · holds";
+inline constexpr std::string_view OPENING_NONE = "OPENING none";
+inline constexpr std::string_view OPENING = "OPENING {} {} m · {}"; // the floor, the clear height and the verdict
+inline constexpr std::string_view FLOOR_GROUND = "ground";
+inline constexpr std::string_view FLOOR_RUBBLE = "rubble";
+inline constexpr std::string_view FLOOR_STONE = "stone";
+inline constexpr std::string_view FLOOR_UP = "{} {} m up";
+inline constexpr std::string_view ROUTE_NOW = "a route now";
+inline constexpr std::string_view NO_FOOTING = "no footing";
+inline constexpr std::string_view TOO_LOW = "too low";
+inline constexpr std::string_view NO_ROUTE = "no route";
+inline constexpr std::string_view GAP_NONE = "GAP none";
+inline constexpr std::string_view GAP_FALLS_AT = "GAP {} m · falls at {} m";
+inline constexpr std::string_view GAP_HOLDS = "GAP {} m · holds";
+inline constexpr std::string_view GROUND_UNDERMINED = "GROUND {} · can be undermined";
+inline constexpr std::string_view GROUND_SAFE = "GROUND {} · cannot be undermined";
+inline constexpr std::string_view GROUND_EARTH = "earth";
+inline constexpr std::string_view GROUND_ROCK = "rock";
+inline constexpr std::string_view GROUND_BEDROCK = "bedrock";
+inline constexpr std::string_view FALLS = "FALLS";
+
 /// Every string above, for the glyph coverage test.
 inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      TIME_KEY,
@@ -73,6 +98,28 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      AIM_WAITING,
                                                                      WILL_FALL_ALERT,
                                                                      HAS_FALLEN_ALERT,
-                                                                     UNNAMED_WALL});
+                                                                     UNNAMED_WALL,
+                                                                     HOLE_NONE,
+                                                                     HOLE_FALLS_AT,
+                                                                     HOLE_HOLDS,
+                                                                     OPENING_NONE,
+                                                                     OPENING,
+                                                                     FLOOR_GROUND,
+                                                                     FLOOR_RUBBLE,
+                                                                     FLOOR_STONE,
+                                                                     FLOOR_UP,
+                                                                     ROUTE_NOW,
+                                                                     NO_FOOTING,
+                                                                     TOO_LOW,
+                                                                     NO_ROUTE,
+                                                                     GAP_NONE,
+                                                                     GAP_FALLS_AT,
+                                                                     GAP_HOLDS,
+                                                                     GROUND_UNDERMINED,
+                                                                     GROUND_SAFE,
+                                                                     GROUND_EARTH,
+                                                                     GROUND_ROCK,
+                                                                     GROUND_BEDROCK,
+                                                                     FALLS});
 
 } // namespace Client

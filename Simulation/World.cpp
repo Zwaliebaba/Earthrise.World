@@ -1158,6 +1158,20 @@ Protocol::StateUpdate World::StateFor([[maybe_unused]] std::uint8_t _player) con
 {
   Protocol::StateUpdate state{
     .tick = m_tick, .structures = {}, .engines = {}, .squads = {}, .units = {}, .shots = {}, .collapses = {}, .hits = {}};
+  // A structure's box after its turn: its template's shape, with width and depth swapped by an odd turn.
+  const auto extentOf = [this](const Structure& _structure)
+  {
+    const ServerTemplate* found = Data().FindTemplate(_structure.templateId);
+    if (found == nullptr)
+    {
+      return Protocol::VoxelPosition{};
+    }
+    const TemplateShape shape = found->Shape();
+    const auto width = static_cast<std::int32_t>(shape.widthVoxels);
+    const auto depth = static_cast<std::int32_t>(shape.depthVoxels);
+    const bool across = _structure.quarterTurns % 2 == 1;
+    return Protocol::VoxelPosition{across ? depth : width, static_cast<std::int32_t>(shape.heightVoxels), across ? width : depth};
+  };
   for (const auto& [id, structure] : m_structures)
   {
     state.structures.push_back({.id = id,
@@ -1165,6 +1179,7 @@ Protocol::StateUpdate World::StateFor([[maybe_unused]] std::uint8_t _player) con
                                 .templateId = structure.templateId,
                                 .originVoxels = structure.originVoxels,
                                 .quarterTurns = structure.quarterTurns,
+                                .extentVoxels = extentOf(structure),
                                 .name = structure.name});
   }
   for (const auto& [id, engine] : m_siegeEngines)

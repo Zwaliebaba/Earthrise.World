@@ -37,6 +37,8 @@ inline constexpr float PIECE_MIN_ALPHA = 0.25F;
 inline constexpr float PIECE_MAX_ALPHA = 0.7F;
 inline constexpr double PIECE_PULSE_SECONDS = 1.0;
 inline constexpr float STRIP_ALPHA = 0.5F;
+/// The integrity view's weak point (ADR-021, decision 4; M3-F2), to be judged on screen.
+inline constexpr float WEAK_POINT_ALPHA = 0.4F;
 
 // The Golden preset (RendererLook.md §6): its clear colour #d6ccba in linear values, because the view that is cleared
 // is sRGB and encodes on write, its sun direction, towards the light, and its lights. The direction is the

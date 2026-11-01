@@ -609,7 +609,15 @@ int Run(const Options& _options)
     // The UI scale: --ui-scale, or the display's band (Hud.md §2).
     const float uiScale = _options.uiScale.value_or(Client::UiScaleForDpi(window.Dpi()));
     const float topBarPixels = Client::TOP_BAR_LOGICAL_PIXELS * uiScale;
-    // The HUD, built from the session (M3-E2), and the frame's figures under it in the bottom-left corner.
+    DirectX::XMFLOAT4X4 viewProjection{};
+    DirectX::XMStoreFloat4x4(&viewProjection, camera.ViewProjection(aspect, swapChain.HeightPixels(), topBarPixels));
+    // The chunks the frame takes: the world view's, the picker's, and the integrity view's asks (M3-F2).
+    const std::vector<Protocol::ChunkSnapshot> snapshots = session.TakeSnapshots();
+    picker.TakeSnapshots(snapshots);
+    worldChanged = !snapshots.empty();
+    views.Ask(session, snapshots, integrityView);
+    // The HUD, built from the session (M3-E2), and the frame's figures under it in the bottom-left corner, over the
+    // integrity view's labels (M3-F2).
     views.Update(session, seconds, alerts);
     alerts.Expire(seconds);
     // The objective line names the selection while there is one, with FIRE's key, or RELOADING in off text.
@@ -636,6 +644,8 @@ int Run(const Options& _options)
                             static_cast<std::int32_t>(swapChain.HeightPixels()) - margin -
                               static_cast<std::int32_t>(Client::TextLayout::CellPixels(figuresScale)),
                             figuresScale, figuresColor, interfaceQuads);
+    views.LayLabels(session, viewProjection, swapChain.WidthPixels(), swapChain.HeightPixels(),
+                    static_cast<std::int32_t>(std::lround(topBarPixels)), uiScale, integrityView, interfaceQuads);
     hud.Build(hudModel, swapChain.WidthPixels(), uiScale, interfaceQuads);
     const std::optional<Client::AttackCursor> cursor = fire.Cursor(session);
     if (cursor.has_value() && !pointerOnHud)
@@ -648,11 +658,11 @@ int Run(const Options& _options)
     Client::WorldRenderer::Frame frame{.commandList = commandList,
                                        .slot = slot,
                                        .ring = &ring,
-                                       .snapshots = {},
+                                       .snapshots = snapshots,
                                        .placements = placements,
                                        .debris = debris,
                                        .overlays = overlays,
-                                       .viewProjection = {},
+                                       .viewProjection = viewProjection,
                                        .forward = {},
                                        .viewHeightMeters = camera.ViewHeightMeters(),
                                        .backBuffer = swapChain.BackBuffer(),
@@ -660,12 +670,7 @@ int Run(const Options& _options)
                                        .backWidthPixels = swapChain.WidthPixels(),
                                        .backHeightPixels = swapChain.HeightPixels(),
                                        .interfaceQuads = interfaceQuads};
-    const std::vector<Protocol::ChunkSnapshot> snapshots = session.TakeSnapshots();
-    frame.snapshots = snapshots;
-    picker.TakeSnapshots(snapshots);
-    worldChanged = !snapshots.empty();
-    DirectX::XMStoreFloat4x4(&frame.viewProjection, camera.ViewProjection(aspect, swapChain.HeightPixels(), topBarPixels));
-    drawnViewProjection = frame.viewProjection;
+    drawnViewProjection = viewProjection;
     DirectX::XMStoreFloat3(&frame.forward, camera.Forward());
     renderer.Draw(frame);
     const std::uint64_t fenceValue = frames.End();

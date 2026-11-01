@@ -33,6 +33,10 @@ public:
   /// std::invalid_argument for a code point the font lacks.
   [[nodiscard]] static std::uint32_t Measure(std::string_view _utf8, std::uint32_t _scale);
 
+  /// How far the pen moves over _utf8 at _scale, in screen pixels: where text laid after it starts. Throws
+  /// std::invalid_argument for a code point the font lacks.
+  [[nodiscard]] static std::uint32_t Advance(std::string_view _utf8, std::uint32_t _scale);
+
   /// The height of a line's cell at _scale, in screen pixels: the font's cell of ten rows.
   [[nodiscard]] static std::uint32_t CellPixels(std::uint32_t _scale) noexcept;
 
