@@ -33,7 +33,7 @@ The prototype has one tab for each situation it covers:
 ## 2. Units, scale and type
 
 - **Logical pixels.** The HUD is laid out in logical pixels, multiplied by a UI scale of 1, 1.5 or 2. No other factor is used.
-- **The scale follows the display's DPI (Decided).** Windows' display scaling picks the step: 100–124% gives 1, 125–174% gives 1.5, and 175% and above gives 2 (the bands are Proposed). A setting overrides it.
+- **The scale follows the display's DPI (Decided).** Windows' display scaling picks the step: 100–124% gives 1, 125–174% gives 1.5, and 175% and above gives 2 (the bands Decided 2026-11-01, GameDesign.md, *M3's values*, item 9). A setting, `--ui-scale`, overrides it.
 - **Type.** There is one face, Earthrise Mason (§9), in two sizes:
   - **labels and values** at 20 logical px, 2 screen px per font pixel at 1×, with a line height of 24;
   - **names, icons and big numbers** at 30 logical px, 3 screen px per font pixel at 1×, with a line height of 30.
@@ -75,9 +75,9 @@ All sizes are logical px. The deck is fixed to the bottom of the screen.
 | · Selection | Deck, centre | Takes the rest, at least 340 | §5; scrolls if its content overflows |
 | · Command card | Deck, right | 4 × 3 cells, each 100–112 × 60, gap 4 | §7 |
 
-**The HUD covers about a third of the screen's height** with the deck and top bar together. The game's central bet is reading breaches, so two rules follow (Proposed):
-- **The camera frames the uncovered area.** Its default look-at point, and where JUMP and control-group centring put things, is the centre of the area above the deck and below the top bar, not the centre of the screen.
-- **M4 measures it.** The M5 playtest logs whether players lose breaches under the deck. If they do, the deck gets slimmer before the verdict.
+**The HUD covers about a third of the screen's height** with the deck and top bar together. The game's central bet is reading breaches, so two rules follow:
+- **The camera frames the uncovered area** (Decided 2026-11-01, GameDesign.md, *M3's values*, item 14). Its default look-at point, and where JUMP and control-group centring put things, is the centre of the area above the deck and below the top bar, not the centre of the screen. M3 has the top bar alone, and M4 adds the deck.
+- **M4 measures it** (Proposed). The M5 playtest logs whether players lose breaches under the deck. If they do, the deck gets slimmer before the verdict.
 
 ## 4. Layout B: corners, for touch (after the verdict)
 
@@ -228,7 +228,7 @@ Hovering a cell shows the tooltip: hotkey, label and a one-line rule.
   - 15 symbols: · × ² ³ ° ← → ↑ ↓ ↺ ↻ … – — ’;
   - 25 command icons of 9 × 9 at U+E000–U+E018.
   
-  A test checks that every string the HUD can draw has its glyphs (Proposed).
+  A test checks that every string the HUD can draw has its glyphs (Decided 2026-11-01, with [ADR-019](ADR/ADR-019-text-and-the-interface-pass.md), decision 4).
 - **The source is `GameData/Client/Fonts/EarthriseMason-glyphs.json`.** Each glyph's `rows` are its bitmap as text, and its atlases, in [Previews/](Previews/), are previews. The package's `earthrise-font.js` and `.otf` stay in Reference/HudPrototype/ as its own editing tools. Its JavaScript and its JSON agree glyph for glyph, and its three atlases match the rows pixel for pixel; both were checked on import.
 - **It reaches the game the way voxel content does:** a tool under `Tools/` bakes the rows into the `Content` library, and nothing is loaded at runtime ([ADR-005](ADR/ADR-005-content-formats.md)). The text ADR in M3 settles the baked form.
 - **Drawing:** the renderer draws glyphs only at whole multiples, 2 to 6 screen px per font pixel, with no filtering.
@@ -306,7 +306,7 @@ minimap             { baseDirty, squadDots[], viewQuad, pings[] }
   - **sizes:** cells 100–112 wide, so labels fit;
   - **readings:** BLOCKED for every ranged attack, the trebuchet included, as GameDescription.md requires; the archer's row, which the package gave as "+15% per 3 m" of range when height gives one band of range and +15% damage; GROUND from the resolver in place of the package's 1.2 m soil rule;
   - **where things live:** section names in the scenario rather than the template; F1 and F2 for the integrity and passability views.
-- **Still Proposed:** the DPI bands; selecting by a squad's footprint; the deck's coverage and camera framing; the minimap built at its drawn size; the glyph coverage test; the Hold control's GATHER.
+- **Still Proposed:** selecting by a squad's footprint; the deck's coverage; the minimap built at its drawn size; the Hold control's GATHER. The DPI bands, the camera's framing and the glyph coverage test were decided on 2026-11-01 (GameDesign.md, *M3's values*, items 1, 9 and 14).
 - **The font's source** is the JSON in `GameData/Client/Fonts/`, not the package's JavaScript (§9).
 
 ## Open

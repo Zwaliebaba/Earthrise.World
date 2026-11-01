@@ -1,6 +1,6 @@
 # Earthrise.World — Game Design
 
-**Status:** Draft, 2026-10-30; revised 2026-10-31, when the owner accepted the game description, and again the same day after the [design review](Review/GameDescription-2026-10-31.md), and on 2026-11-01 for M1's values and M2's, and for M2's close. M1's renderer spike implements part of the MVP; the rest is not implemented. Each section says what kind of statement it holds: **Decided** records the owner's answers, **Proposed** is a recommendation awaiting the owner, **Open** is what nobody has decided yet. A proposal becomes a decision only when the owner accepts it, and this document is updated when that happens.
+**Status:** Draft, 2026-10-30; revised 2026-10-31, when the owner accepted the game description, and again the same day after the [design review](Review/GameDescription-2026-10-31.md), and on 2026-11-01 for M1's values and M2's, for M2's close, and for M3's values. M1's renderer spike implements part of the MVP; the rest is not implemented. Each section says what kind of statement it holds: **Decided** records the owner's answers, **Proposed** is a recommendation awaiting the owner, **Open** is what nobody has decided yet. A proposal becomes a decision only when the owner accepts it, and this document is updated when that happens.
 
 This document says what the game is. [GameDescription.md](GameDescription.md) describes the whole game at length, for designers reviewing it. The owner accepted it in full on 2026-10-31, so everything it states is Decided; this document records that and holds what is still Proposed or Open. The design review that followed the same day is recorded below, and its decisions are written into both documents. Where the two differ, this document governs. [AGENTS.md](../AGENTS.md) says how the code is written, and [`Design/ADR/`](ADR/) records the engineering decisions that follow from it.
 
@@ -361,7 +361,7 @@ The owner dropped time from the plan on closing M2.
 
 ### 2026-11-01: the MVP assets v3 package
 
-The owner's third asset package fills what [MvpAssets.md](MvpAssets.md) lacked against MvpPlan.md's *In*, and is kept unchanged in [Reference/MvpAssetsV3/](Reference/MvpAssetsV3/). Its content, its check and bake, and the documents are in; the client code it asks for is not, and waits on the open items below (MvpAssets.md, *Poses, projectiles, gates and debris*).
+The owner's third asset package fills what [MvpAssets.md](MvpAssets.md) lacked against MvpPlan.md's *In*, and is kept unchanged in [Reference/MvpAssetsV3/](Reference/MvpAssetsV3/). Its content, its check and bake, and the documents are in; the client code it asks for is not, and waits on the open items below (MvpAssets.md, *Poses, projectiles, gates and debris*). M3 draws the trebuchet's cocked and released poses, its shot and the collapse debris, which wait on neither (*M3's values*, items 16 and 17).
 
 1. **The trebuchet's three poses are three models.** S3, the existing drawing, is the released pose, counterweight down and arm up, as just after a throw; S3c is cocked and S3p is packed, a four-wheeled wagon that cannot fire. Packed is the only pose that moves. The deploy and pack times are M4's.
 2. **The arrow is not voxels.** It is the one exception to *the 1 m world*, item 2: a line model, three coloured segments along its axis with their widths in screen pixels, turned freely along its velocity, pitch included; shorter than 6 px on screen, it is a 2 px dot. [ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md), Proposed, records the format and the pass that draws it, and binds nothing until the owner gives it the go-ahead. Every voxel model still turns in 90° steps, and the simulation is unchanged: an arrow is a physical shot (M4).
@@ -369,6 +369,38 @@ The owner's third asset package fills what [MvpAssets.md](MvpAssets.md) lacked a
 4. **Collapse debris is six models by rubble:** D1–D3 over stone and rock rubble, D4 and D5 over timber rubble, D6 over earth rubble, scattered as ADR-006, decision 5 says, in place of the spike's single oriented voxels.
 5. **Earth (2) and building stone (4) are marked `both`** in the palette, because the clod and the shot draw in them, as opening (20) was marked for S1's wheels; the implementer's step, which the owner may reverse by redrawing the two models.
 6. **Open, for the owner:** the packed wagon is 3.5 m across its travel where the machines class is 3 cells wide ([ADR-015](ADR/ADR-015-navigation.md)), so either the wagon narrows or the class widens; and ADR-018's go-ahead, before any engine code draws a line.
+
+### 2026-11-01: M3's values
+
+The owner answered MvpPlan.md's fifteen M3 inputs, taking each proposal as written, and the same day, after the v3 asset package merged (pull request #44), two more, items 16 and 17, each as proposed (work order M3-A1). MvpPlan.md's M3 revision is accepted when the owner merges its pull request, #45, and no M3 code is written before then (*Closing M2*, item 6). Item 10 is the implementer's, measured in M3 and recorded here as Proposed until it is.
+
+1. **ADR-019 to ADR-021 have the go-ahead,** as written, with ADR-010's amendment: `Client` and `Earthrise` join the solution in M3, and `RendererSpike` references `Client` for the world view. Each ADR is marked Accepted by the commit that first implements it.
+2. **The breach lab's items.**
+   - **Sixteen,** L01 to L16. Each is a fresh world at the M2 breach run's site, with prior damage from scripted shots, a marked aim voxel, and N fixed for the item, from 1 to 5.
+   - **The question:** WILL W2 BE OPEN TO FOOT AFTER n SHOTS AT THE MARK?, answered OPEN or SHUT, with no time limit.
+   - **The key:** the lab fires the asked shots at the mark, so the answer key is the simulation's own, and the set splits 8 open and 8 shut.
+   - **Before the items:** two minutes of free fire on the intact site, and one practice item.
+   - **The views:** the integrity view is on by default (*Hypotheses*), and both views can be toggled.
+3. **Participants and scoring.** Six people who play RTS games each take all 16 items once, in an order shuffled by their own seed. Reasons are spoken, and the facilitator writes them down against the item; the client takes no typed text. The pass is a median accuracy of 0.65 or better, 11 of 16 (*Hypotheses*). No thickness readout is run beside it.
+4. **Fast-forward and the pause.** An item's automatic parts run at ten times, at most eight ticks a frame, and the clock pauses while a question is up. The live run must reach the state hash of the headless key, which the log checks.
+5. **The integrity view's readings are the paper test's:** HOLE, OPENING and GAP, each with its verdict, with GROUND and the weak point, as a label in the world above each section. The width at which the stone above a hole falls comes from the resolver, on a scratch copy of the world, not from 2 × span + 1. Hud.md §5's OPEN percentage is not drawn in M3; it needs a formula before M4.
+6. **The collapse preview draws with the integrity view,** on F1: the piece pulsing, and its strip on the ground. Its alerts show whichever views are on.
+7. **The passability view shows foot alone in M3,** reach from the player's squad: the cells foot can reach, and apart from them the cells it could stand in but cannot reach. BREACH OPEN AT W2 fires when the courtyard is first reachable.
+8. **The camera buttons draw 36 × 36** inside the 44 px top bar, with hit targets of 44 × 44, so both of Hud.md's numbers hold. The deck's width at 1280 px and 1.5× is M4's, when the deck is built.
+9. **The UI scale follows Hud.md §2's bands:** 100–124 % gives 1, 125–174 % gives 1.5, and 175 % and above gives 2, with `--ui-scale` to override.
+10. **Queries are budgeted at 16 units of work a tick,** in `RULE`. An aim check costs 1, a tile's reach 1, and a section's integrity 8. At most 64 wait, and the oldest is dropped. **Proposed** until order M3-G3 measures it on the benchmark machine.
+11. **Whether players can tell weapons apart by their 1 m craters** is tested in M5's playtest, once M4 adds the ram's craters. M3 has the trebuchet alone (*Open questions*).
+12. **No interpolation between ticks in M3,** but for the trebuchet's shot (item 17). An entity is drawn where its last state update put it, judged on screen; M4 decides if units stutter.
+13. **The lab's log** is one CSV a run, in `Logs\` beside the executable, with each item's live and headless state hash. After the session, the logs and the facilitator's reasons are committed under `Design/Review/BreachLab/`.
+14. **The lab's camera** starts at the default azimuth, the south-west, at 84 m of view height on W2, framed below the top bar (Hud.md §3), and the player moves it freely.
+15. **Mouse messages stay until the touch scheme.** M1's `Engine::PointerInput` reads them, not `WM_POINTER`, and the switch comes with touch after the verdict ([ADR-007](ADR/ADR-007-platforms-and-input.md), amended).
+16. **M3's client draws the v3 package's poses, shot and debris** (*the MVP assets v3 package*). None waits on that package's open items.
+    - **The trebuchet** is S3c, cocked, and S3, released, for the 20 ticks after it fires, placed as MvpAssets.md says.
+    - **Its shot** is X1.
+    - **A collapse's debris** is D1–D6, chosen by the rubble it lies on from `Manifest.json`'s `debrisByRubble`, which the client bake bakes, and scattered as MvpAssets.md says. Each piece falls with the collapse for about 1.5 s, turning, and rests on the rubble at a quarter turn of yaw, in place of M1's single voxels resting at their tumbled angles (*M1's open values*, item 7).
+    - **The state update** carries each collapse's landing from its first warning tick, so that the client knows where the debris rests before the rubble lands.
+    - **S3p and the open gates** wait for M4, which moves engines and opens gates.
+17. **The trebuchet's shot is drawn between ticks.** X1 is drawn between its last two positions at the clock's fraction of a tick, a tick behind. It moves 10 px or more a tick at the default zoom, which is arithmetic on its arc, not a measurement. Nothing else is interpolated (item 12).
 
 ## Pillars (Decided)
 
@@ -493,9 +525,9 @@ Its output is ADR-006's table of measurements, for the 1 m baseline and for a 0.
 ## Open questions
 
 - The skirmish AI's capabilities, in detail.
-- **Craters at 1 m:** can players tell a ram, a mangonel and a trebuchet apart by the size and depth of their craters? The M3 breach lab has only the trebuchet, the ram's craters come in M4, and the mangonel is out of the Trials, so where and how this is tested is open. Settle before M3.
+- **Craters at 1 m (M5):** can players tell a ram and a trebuchet apart by the size and depth of their craters? The mangonel is out of the Trials. It is tested in M5's playtest, once M4 adds the ram's craters (*M3's values*, item 11).
 - **The Hold control's designations (M6):** Hud.md has laborers GATHER from nodes in place of all six designations, ditch, trench and pit included, while the control swaps only "the gathering rule" and keeps ditches in the build window (*MVP*). Which designations count as gathering?
-- **The HUD's sizes (M3, M4):** Hud.md asks for hit targets of at least 44 logical px, but gives the camera buttons 36 × 36 and control groups 40 px high. Its deck is at least 972 logical px wide, too wide for 1280 px at 1.5× and for 1920 px at 2×, though its done-when asks for both. The font has no icons for SPLIT, MERGE, WALL, PAL.GATE, DEEP or DEPLOY.
+- **The HUD's sizes (M4):** the camera buttons are settled (*M3's values*, item 8). Hud.md still asks for hit targets of at least 44 logical px, but gives control groups 40 px high. Its deck is at least 972 logical px wide, too wide for 1280 px at 1.5× and for 1920 px at 2×, though its done-when asks for both. The font has no icons for SPLIT, MERGE, WALL, PAL.GATE, DEEP or DEPLOY.
 - **Asset ids M1 and M2** for the material samples ([MvpAssets.md](MvpAssets.md)) share their names with milestones M1 and M2. Renaming them means editing ids and files.
 - **"Masonry"** names palette index 6, ordinary laid stone (*the paper tests' values*, item 2), and an upgrade line in GameDescription.md, *Technology* ("Masonry: dressed stone"). One of them is renamed before the Masons' upgrade is built.
 - **The Surface's pass mark,** set from the renderer spike's figures ([ADR-007](ADR/ADR-007-platforms-and-input.md)).

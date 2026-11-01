@@ -1,6 +1,6 @@
 # ADR-007 — Windows on x64 and ARM64, with two input schemes over one command layer
 
-**Status:** Accepted, 2026-10-31, by the owner. Like ADR-002 to ADR-006, it is written ahead of the code it governs. The first project implements decisions 1 to 3, the renderer spike implements decision 6, and the interface built in M3 and M4 implements decision 4.
+**Status:** Accepted, 2026-10-31, by the owner. Like ADR-002 to ADR-006, it is written ahead of the code it governs. The first project implements decisions 1 to 3, the renderer spike implements decision 6, and the interface built in M3 and M4 implements decision 4. Amended 2026-11-01 by the owner (GameDesign.md, *M3's values*, item 15): the MVP's mouse-and-keyboard scheme reads mouse messages, as M1's `Engine::PointerInput` does, and decision 4's pointer messages come with the touch scheme, after the verdict.
 
 ## Context
 
@@ -33,7 +33,7 @@ These facts bear on that:
    - No abstract graphics interface is written while Direct3D 12 is the only backend (AGENTS.md R2). The layering is what makes a second backend the replacement of one library rather than a rewrite.
 4. **Two input schemes feed one command layer.**
    - **Both schemes are first-class:** mouse and keyboard, and touch. Both produce the same commands, and the simulation never knows which device issued one (ADR-002). Orders address squads (GameDesign.md, 2026-10-31).
-   - **Input comes through Windows pointer messages** (`WM_POINTER`, with `EnableMouseInPointer`), which deliver mouse, touch and pen in one stream from the SDK. The active scheme follows the device used last, not a setting, so a Surface with its keyboard cover attached can switch mid-game.
+   - **Input comes through Windows pointer messages** (`WM_POINTER`, with `EnableMouseInPointer`), which deliver mouse, touch and pen in one stream from the SDK. The active scheme follows the device used last, not a setting, so a Surface with its keyboard cover attached can switch mid-game. *(Amended 2026-11-01: from the touch scheme on. Until then the MVP reads mouse messages, and only the mouse-and-keyboard scheme exists.)*
    - **Hover may speed things up, but never be the only way to see something.** Every readout shown on hover, such as the attack cursor's reading or the placement readout, can also be reached without hover. This binds from the first interface (M3), although the touch scheme itself comes later.
    - **Sizes follow the display.** Hit targets and interface sizes are set in logical pixels and scaled in steps by the display's DPI, so they keep roughly the same physical size ([Hud.md](../Hud.md) §2).
 5. **The order of delivery:**
