@@ -1,12 +1,11 @@
 # Earthrise.World — MVP implementation plan
 
-**Status:** Accepted by the owner for M0 to M2, 2026-10-31; M3 to M7 stay Proposed until after M1 (GameDesign.md, *Starting the MVP*). M2's revision of 2026-11-01 is accepted when the owner merges it (pull request #32). It covers:
-- M2's work orders and phases, in [MvpPlan-M2.md](MvpPlan-M2.md);
-- the owner inputs;
-- the trebuchet's shot, moved in from M4;
-- ADR-013 to ADR-016.
+**Status:** Accepted by the owner for M0 to M2, 2026-10-31; M3 to M7 stay Proposed until after M1 (GameDesign.md, *Starting the MVP*). M2's revision of 2026-11-01 was accepted when the owner merged it (pull request #32). M3's revision of 2026-11-01 is Proposed, and is accepted when the owner merges it (GameDesign.md, *Closing M2*, item 6). It covers:
+- M3's work orders and phases, in [MvpPlan-M3.md](MvpPlan-M3.md);
+- the owner inputs, fifteen, each with the implementer's proposal;
+- ADR-018 to ADR-020, Proposed.
 
-M0 and M1 were closed by the owner on 2026-11-01 (GameDesign.md, *Closing M0 and M1*); nothing from M2 on is implemented. [GameDesign.md](GameDesign.md) defines the MVP and governs where this plan differs from it. [AGENTS.md](../AGENTS.md) governs how the code is written.
+M0 to M2 were closed by the owner on 2026-11-01 (GameDesign.md, *Closing M0 and M1* and *Closing M2*); nothing from M3 on is implemented. [GameDesign.md](GameDesign.md) defines the MVP and governs where this plan differs from it. [AGENTS.md](../AGENTS.md) governs how the code is written.
 
 **How the work is done.** Claude sessions write the code, tools and checkers and push them to branches. CI builds Debug|x64 and runs its tests; Debug|ARM64 is built by hand (ADR-007). The owner runs the builds on Windows, judges the look and the measurements, and approves each milestone.
 
@@ -97,11 +96,11 @@ The MVP ends at the verdict on stages 1 and 2 (GameDesign.md, decided 2026-10-31
 | `Protocol` | static library | `Protocol` | Core | Command types and their byte encoding, state-update value types, handles to chunk snapshots |
 | `Content` | static library | `Content` | Core | The client's content, compiled in: palette colours, the client view of the templates, the models and the font, baked from `GameData/` (ADR-005, ADR-008). Data and accessors, no rules |
 | `Simulation` | static library | `Simulation` | Core, Protocol | Reading `<outputdir>\ServerData` at startup (ADR-008); the world, generator, edits, support search and resolver, slump, navigation, units, combat, designations and jobs, templates, repair, AI, the fog filter, saves, replays and the tick loop |
-| `Client` | static library | `Client` | Core, Engine, Protocol, Content | Camera, the command layer and the mouse-and-keyboard scheme that feeds it, squad selection and orders, interface and overlays, presentation of state updates, cosmetic debris |
-| `Earthrise` | executable | (none) | all libraries | `wWinMain`, which joins the client and the simulation through an in-process transport |
-| `RendererSpike` | executable | `RendererSpike` | Core, Engine, Content, Simulation, Protocol | The spike's scenes and measurements, kept afterwards as a rendering benchmark |
+| `Client` | static library | `Client` | Core, Engine, Protocol, Content | Camera, the command layer and the mouse-and-keyboard scheme that feeds it, squad selection and orders, interface and overlays, presentation of state updates, cosmetic debris. Joins in M3 ([ADR-019](ADR/ADR-019-the-in-process-client.md)), with the world view the spike built |
+| `Earthrise` | executable | (none) | all libraries | `wWinMain`, which joins the client and the simulation through an in-process transport: two queues of bytes and one state copy a tick (ADR-019). Joins in M3 with the breach lab; M4 adds the Siege trial |
+| `RendererSpike` | executable | `RendererSpike` | Core, Engine, Content, Simulation, Protocol; Client from M3-C2, for the world view | The spike's scenes and measurements, kept afterwards as a rendering benchmark |
 | `SimulationBench` | console executable | `SimulationBench` | Core, Protocol, Simulation; Content until M2's server bake, dropped by M2-B6 (ADR-010, amended) | Headless measurements: spike question 6, the synthetic 2 km world, regression timing |
-| `CoreTests`, `EngineTests`, `ProtocolTests`, `ContentTests`, `SimulationTests` | test projects | `<Project>Tests` | their library | Unit tests, run by vstest, each starting with `SuiteSmoke`. `EngineTests` holds the render tests on WARP (ADR-012) |
+| `CoreTests`, `EngineTests`, `ProtocolTests`, `ContentTests`, `SimulationTests`, `ClientTests` from M3 | test projects | `<Project>Tests` | their library | Unit tests, run by vstest, each starting with `SuiteSmoke`. `EngineTests` holds the render tests on WARP (ADR-012) |
 
 The edges run one way:
 - `Simulation` includes nothing from `Engine` or Direct3D, so it builds headless.
@@ -111,6 +110,7 @@ The edges run one way:
 - Windows and Direct3D stay inside `Engine` and the executables. `Core`, `Protocol`, `Content` and `Simulation` include no Windows or Direct3D header (ADR-007).
 - Every project has x64 and ARM64 platforms (ADR-007).
 - Each project gets its own folder, flat, and is added to `.clang-tidy`'s `HeaderFilterRegex` in the commit that creates it.
+- From M3 the edges are a table in `Build/CheckProjectFiles.py`, which fails a project that references or includes one it may not (ADR-019, decision 1).
 
 ### Decisions to record as ADRs, and when
 
@@ -125,11 +125,13 @@ The edges run one way:
 | Edit encoding | M2 | [ADR-014](ADR/ADR-014-edits-saves-and-replays.md), Accepted by M2-C2: a chunk's edits saved as a list or a run-length copy, whichever is shorter; a save holds everything the next tick reads; a replay is a start and the commands, with a state hash every second; a scenario is a baked source, not a save |
 | Navigation model | M2 | [ADR-015](ADR/ADR-015-navigation.md), Accepted by M2-F1: one surface per column with its headroom; classes by climb over a run, headroom, width and fords; clearance per cell; every touched tile rebuilt on the tick of its edit; the search chosen by measurement in M2 |
 | `ServerData` format and bake target | M2 | [ADR-016](ADR/ADR-016-server-data-format.md), Accepted by M2-B5: one file, a hashed body of tagged sections; tuning values converted exactly from decimal sources; the bake target in `Simulation.vcxproj` |
-| Queries across the boundary | Decided | [ADR-009](ADR/ADR-009-queries-across-the-server-boundary.md): read-only queries and answers, filtered like state updates |
+| Queries across the boundary | Decided | [ADR-009](ADR/ADR-009-queries-across-the-server-boundary.md): read-only queries and answers, filtered like state updates. M3's three queries and their budget: [ADR-019](ADR/ADR-019-the-in-process-client.md), Proposed |
 | Content formats | Decided | [ADR-005](ADR/ADR-005-content-formats.md): JSON layer files, baked. [ADR-008](ADR/ADR-008-server-and-client-game-data.md): client content compiled into `Content`, server data baked into files in `<outputdir>\ServerData`, `.vox` written on demand for MagicaVoxel |
 | Platforms and input | Decided | [ADR-007](ADR/ADR-007-platforms-and-input.md): Windows on x64 and ARM64; two input schemes over one command layer, touch after the verdict |
 | Render tests | M1 | [ADR-012](ADR/ADR-012-render-tests-on-warp.md), Accepted: each pass draws a known scene on WARP in CI and checks its coverage, colour and depth |
-| Text rendering | M3 | Earthrise Mason ([Hud.md](Hud.md) §9): its glyph rows in `GameData/Client/Fonts/`, baked into `Content` by a tool, drawn only at whole multiples of a font pixel |
+| Text rendering | M3 | [ADR-018](ADR/ADR-018-text-and-the-interface-pass.md), Proposed: Earthrise Mason's bitmaps baked into `Content`, an atlas built at startup, one interface pass drawing quads into the back buffer at display resolution, text only at whole multiples of a font pixel |
+| The in-process client | M3 | [ADR-019](ADR/ADR-019-the-in-process-client.md), Proposed: `Client` and `Earthrise` join; two queues of bytes and one copy of the whole visible state a tick; a fixed-step clock with the lab's fast-forward and no interpolation; three queries budgeted in units of work in `RULE` |
+| The readability views | M3 | [ADR-020](ADR/ADR-020-world-overlays.md), Proposed: translucent voxel boxes through the voxel pass's overlay pipeline, depth-tested against the scene, with labels through the interface pass; every reading from the simulation |
 | How units are drawn | M1 | Units are 0.5 m models ([MvpAssets.md](MvpAssets.md)), axis-aligned and rotated in 90° steps. Engine poses are baked; debris is oriented voxels. |
 
 ### One simulation tick, in order
@@ -378,18 +380,85 @@ The phases' calendar forecast and owner hours, written here, were dropped on clo
 
 ### M3 — Breach lab
 
-**Build** a thin client:
-- the camera;
-- click-to-fire a trebuchet at a wall;
+**When it starts.** No M3 code is written until the owner has answered inputs 1–15 below (phase A) and this revision is accepted by merging (GameDesign.md, *Closing M2*, item 6). M2 is closed, so nothing else holds it back. M3 is the first milestone that draws and takes input, so each order that does is run by the owner before its phase merges (AGENTS.md §3).
+
+**Build** a thin client, which is the first game executable:
+- `Client` and `Earthrise` join the solution ([ADR-019](ADR/ADR-019-the-in-process-client.md); ADR-010 amended), and the world view the spike built moves into `Client`;
+- the simulation's side of the boundary: structures as entities, the state update as a value, queries as bytes with their budget, the three readings the lab needs, an aim check, a section's integrity and reach in a tile, and `Quiet`, for the lab's fast-forward to stop on;
+- the camera, with Hud.md's keys and its framing below the top bar;
+- click-to-fire a trebuchet at a wall, with the attack cursor's four readings and a mark where the shot will strike;
 - the integrity view read from the resolver;
-- the collapse preview and the passability view, with F1 toggling the integrity view and F2 the passability view;
-- the text renderer and the font tool, which M4 used to hold;
+- the collapse preview and the passability view, with F1 toggling the integrity view and F2 the passability view ([ADR-020](ADR/ADR-020-world-overlays.md));
+- the text renderer and the font tool, which M4 used to hold ([ADR-018](ADR/ADR-018-text-and-the-interface-pass.md));
 - the first of the HUD: the top bar, the mode banner, the camera buttons, the collapse alert and the attack cursor for FIRE ([Hud.md](Hud.md) §11);
-- prediction prompts, logged.
+- the lab: prediction items built in `Simulation`, whose keys the simulation gives, prompts in the client, logged, and a scoring tool.
 
 Run it with six people (F-48).
 
-**Done when** the median prediction accuracy on items split evenly between open and shut reaches 0.65 or better. If it falls short, legibility is reworked before M4. That rework counts toward the one round the kill criterion allows (GameDesign.md, *Kill criteria*).
+### M3's phases (written 2026-11-01, before M3 starts)
+
+M3 is carried out as 24 work orders in seven phases, written out in [MvpPlan-M3.md](MvpPlan-M3.md). Each order is one commit and each phase one pull request (GameDesign.md, *Planning M2*; AGENTS.md §6), or one draft pull request for B to G if the owner chooses that again. An order is a self-contained brief, as M2's were.
+
+| Phase | Orders | What lands | Needs first |
+|---|---|---|---|
+| A | 1 | The owner's decisions, written down | Inputs 1–15 below |
+| B | 8 | The simulation's side: structures, the state update, queries and their budget, the aim, integrity and reach readings, the lab's items, the font's bake | A |
+| C | 3 | `Client`, `ClientTests` and `Earthrise`; the world view moves; the breach run on screen | B1–B3 |
+| D | 2 | `Engine`'s interface pass and overlay pipeline, with render tests on WARP | A |
+| E | 4 | Text, the top bar, the banner, the buttons and the alerts; picking, selection and FIRE | B8, C, D |
+| F | 3 | The collapse preview, the integrity view, the passability view | B4–B6, E |
+| G | 3 | The lab's flow and log, the scoring tool and the facilitator's guide, the session and the report | B7, F |
+| | **24 orders, 7 pull requests** | | |
+
+- **D needs only A,** so it can run beside B and C.
+- **The owner runs** fall after C2, C3, E2, E4, F3 and G1, and the six-person session after G1's dry run. That is what sets M3's pace (*What M3 inherits from M2*, below).
+
+**The owner's inputs.** Each is a design value no document gives, or a choice the documents leave open for M3, and AGENTS.md requires it written down before the code that rests on it. The implementer proposes each here; the owner takes or changes it, and order M3-A1 records the answers in GameDesign.md, *M3's values*.
+
+| # | Input | For orders | Proposed |
+|---|---|---|---|
+| 1 | Give [ADR-018](ADR/ADR-018-text-and-the-interface-pass.md), [ADR-019](ADR/ADR-019-the-in-process-client.md) and [ADR-020](ADR/ADR-020-world-overlays.md) the go-ahead, or change them, with ADR-010's amendment: `Client` and `Earthrise` join in M3, and `RendererSpike` references `Client`. Each is marked Accepted by the commit that first implements it (AGENTS.md §6) | B2, B3, C1, D1, D2 | Go-ahead for all three, as written |
+| 2 | **The lab's items and its question** | B7, G1 | 16 items, L01 to L16, each a fresh world at the breach run's site, with prior damage by scripted shots, a marked aim voxel and N fixed per item from 1 to 5. The question: WILL W2 BE OPEN TO FOOT AFTER n SHOTS AT THE MARK?, answered OPEN or SHUT by O or S, or the banner's buttons, with no time limit. The lab fires the asked shots at the mark, so the key is the simulation's and the set splits 8 open and 8 shut. Before the items, two minutes of free fire on the intact site and one practice item. The integrity view is on by default, as GameDesign.md's *Hypotheses* says, and F1 and F2 are free |
+| 3 | **Participants and scoring** | G2, G3 | Six people who play RTS games, each taking all 16 items once, in an order shuffled by a per-participant seed. Reasons are spoken and written down by the facilitator against the item's id; the client takes no typed text. Pass at a median accuracy of 0.65 or better, 11 of 16, as GameDesign.md states. The thickness readout is not run beside it: the paper test compared readouts, and the lab has one view |
+| 4 | **Fast-forward and the pause** | B7, C3, G1 | An item's automatic parts run at ten times, at most eight ticks a frame, and the clock pauses while a question is up. The simulation reads no clock (ADR-013), so the live run reaches the ticks and the state hash of the headless key, which the log checks |
+| 5 | **The integrity view's readings on the 1 m grid** | B5, F2 | The paper test's three readings per section, HOLE, OPENING and GAP, each with its verdict, plus GROUND and the weak point, as a label in the world above the section. The fall width comes from the resolver, by widening the hole on a scratch copy until a piece falls, not from 2 × span + 1: the paper test's ambiguity 3 shows the formula misreports when a pillar goes. No OPEN percentage in M3; Hud.md §5's row waits for a formula in M4 |
+| 6 | **The collapse preview** | F1 | Drawn with the integrity view, F1: the piece pulsing in bad, its strip in bad on the ground. The alerts WILL FALL IN n S and HAS FALLEN show whatever is toggled |
+| 7 | **The passability view** | B6, F3 | Foot only in M3, from the player's squad's start cell; reached cells in good and usable but unreached cells in dim, as boxes in the cell a unit stands in; BREACH OPEN AT W2 when the courtyard's goal cell is first reached |
+| 8 | **The HUD's sizes** (GameDesign.md, *Open questions*) | E2 | The camera buttons draw 36 × 36 inside the 44 bar with 44 × 44 hit targets, so Hud.md's two numbers both hold. The deck's width at 1280 px at 1.5× is M4's question, when the deck is built |
+| 9 | **The UI scale and the text sizes** | E1 | Hud.md §2's bands: 100–124 % gives 1, 125–174 % gives 1.5, 175 % and above 2, with `--ui-scale` to override; labels at 2, 3 and 4 screen px a font pixel at the three steps, names at 3, 4 and 6 |
+| 10 | **The query budget** (ADR-009, *Left open*) | B3, G3 | `queryWorkPerTick` 16 units in `RULE`: an aim check 1, a tile's reach 1, a section's integrity 8; at most 64 pending, the oldest dropped. Proposed until G3 measures it on the benchmark machine |
+| 11 | **Craters at 1 m: can players tell the weapons apart?** (GameDesign.md, *Open questions*, "settle before M3") | A1 | Not testable in M3, which has the trebuchet alone. It is tested in M5's playtest, once M4 adds the ram's craters, and the Open question moves there |
+| 12 | **Interpolation between ticks** (ADR-002 and ADR-013, *Left open*) | C3 | None in M3: an entity is drawn where its last update put it, about a pixel a tick for a walking figure at the default zoom. Judged on screen; M4 decides if units stutter |
+| 13 | **The lab's log** | G1, G3 | One CSV a run in `Logs\` beside the executable, with the columns MvpPlan-M3.md fixes and each item's live and headless state hash. After the session the logs and the facilitator's reasons are committed under `Design/Review/BreachLab/` |
+| 14 | **The camera in the lab** | C3, E2 | It starts at the default azimuth, the south-west, at 84 m of view height on W2, with Hud.md §3's framing offset for the top bar, and the player moves it freely; the log counts turns and zoom notches during a question |
+| 15 | **Mouse messages** (ADR-007, decision 4) | E3 | M1's `PointerInput` reads mouse messages, not `WM_POINTER`. M3 keeps that, and the switch comes with the touch scheme after the verdict. ADR-007 is amended to say so |
+
+**Risks this plan sees** (judgments, beside the plan's risk table):
+- **The items may not split 8 and 8 with trebuchet shots alone.** On the 1 m grid a shot takes two voxels and a hole opens the slot above it at 5 wide, so most shot patterns either open the wall at the fifth adjacent shot or never do. Prior damage and shots that leave pillars give the shut side its items; order B7 reports the set, and if fewer than eight shut items are more than trivial, the set shrinks or input 2 changes.
+- **Labels in the world may crowd the screen.** The lab's enclosure has ten sections; M4's castle has about thirty (ADR-020, *Left open*). The owner's run after F3 judges ten.
+- **The CPU pick and the GPU disagree at a voxel's edge** (ADR-001, *Consequences*), so a click on an edge may pick the neighbour. The lab fires its shots at the mark, so no key depends on a click.
+- **Fast-forward meets the tick's cost.** The benchmark's slowest tick of play is 6 ms, and ten times is 200 ticks a second; the clock's cap of eight ticks a frame lets game time slow rather than skip (ADR-013, decision 2).
+- **Six owner runs and a session of six people.** Each run may add fix orders, as M2-D3 provided for, and gathering six people is the owner's calendar.
+
+**Done when** all of the following hold:
+- **Headless, in CI:**
+  - the paper test's 16 states give the paper's readings and keys from the real resolver, in 16 of 16, or the paper's report is corrected to what the resolver does;
+  - the lab's 16 items split 8 open and 8 shut by the simulation's own key, each key stable, and the squad reaches the courtyard if and only if the key is open;
+  - every query round-trips as bytes, is answered on its tick within the budget, oldest first, and the 65th pending query drops the oldest;
+  - the interface pass and the overlay pipeline pass their render tests on WARP;
+  - every suite passes, `ClientTests` among them.
+- **On the benchmark machine:**
+  - `Earthrise --lab` runs free fire, the practice item and all 16 items, and every item's live state hash matches its headless hash;
+  - the top bar, the banner, the buttons and the alerts render with no overlap and no clipped text at 1280 × 720 and 1920 × 1080, at each UI scale step;
+  - the slowest tick of play across the items, the query budget included, fits M2's 25 ms (GameDesign.md, *M2's values*, item 2).
+- **With six people:** the median prediction accuracy on items split evenly between open and shut reaches 0.65 or better. If it falls short, legibility is reworked before M4, and that rework counts toward the one round the kill criterion allows (GameDesign.md, *Kill criteria*).
+- **Throughout:** the AGENTS.md checklist passes, and every order that draws or takes input was run by the owner.
+
+**The record.** Each phase's pull request, its commits, one per order, and what CI found.
+
+| Phase | PR | Commits | Notes |
+|---|---|---|---|
+| Plan | | | This revision, the work orders and ADR-018 to ADR-020, Proposed. |
 
 **What M3 inherits from M2** (written 2026-11-01, when M2's orders were done; its calendar and owner-hours forecast was dropped on closing M2, GameDesign.md, *No time logging*):
 - **M2's shape.** Its 30 orders from B1 to G3 landed in 32 commits; two orders needed a second CI run, both for a lint the container could not reach.
@@ -403,7 +472,7 @@ Run it with six people (F-48).
 - units, stats and combat, physical shots for arrows and bolts (the trebuchet's shot and craters come from M2), the ram's blows and craters, hits on units, elevation, garrisons and the gatehouse's passage attack;
 - drawing units and buildings;
 - fog with the visibility filter and last-seen land;
-- the shared hash between the client's tables and `ServerData` checked in `Earthrise` (ADR-008, decision 5; the spike checks it from M2); the world templates T1–T7 redrawn natively at 1 m, and the Siege castle built from them;
+- the world templates T1–T7 redrawn natively at 1 m, and the Siege castle built from them (the shared-hash check of ADR-008, decision 5, is `Earthrise`'s from M3, ADR-019);
 - the subset of jobs the trial needs: repair and trenches;
 - the rest of the interface: layout A of [Hud.md](Hud.md), with squad selection, control groups, the command card, the minimap, alerts and the repair lock, and every hover reading also reachable without hover (ADR-007);
 - the Siege defender AI;
@@ -448,8 +517,9 @@ Run it with six people (F-48).
 | Risk | Where it shows | Response |
 |---|---|---|
 | The renderer misses the pass mark | M1 | Kill criterion: revisit ADR-001 before any gameplay code |
-| 1 m craters do not show which weapon made them | M3 | Tune each weapon's crater radius and depth for each material, the client's debris, and the integrity view |
+| 1 m craters do not show which weapon made them | M5 (moved from M3 by input 11: M3 has the trebuchet alone) | Tune each weapon's crater radius and depth for each material, the client's debris, and the integrity view |
 | Players cannot read breaches | M3, M5 | The single round of legibility work, then the kill criterion |
+| The lab's items cannot be split evenly between open and shut | M3 | Prior damage and pillars give the shut side its items; B7 reports the set, and the owner changes input 2 if it falls short |
 | The Siege defender is too weak or too strong to test anything | M4 | Scripted behaviors and tuning; it plays one authored castle, not arbitrary ones |
 | The plan overruns | Every milestone | The plan neither forecasts nor logs time (GameDesign.md, *No time logging*); what to cut is the owner's call (*Planning M2*) |
 | Content takes longer than code | M4, M6 | The templates and models already exist in `GameData/`; one castle and two Hold maps only |
