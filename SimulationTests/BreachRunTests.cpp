@@ -26,6 +26,15 @@ constexpr std::int32_t SECTION_EAST = 384;
 /// What the M2 breach run did, tick by tick.
 struct Outcome
 {
+  Outcome() = default;
+  ~Outcome() = default;
+  Outcome(const Outcome&) = default;
+  Outcome& operator=(const Outcome&) = default;
+  // A move may allocate under the debug library's checked containers, so it is not noexcept
+  // (bugprone-exception-escape), as World's is not.
+  Outcome(Outcome&&) noexcept(false) = default;
+  Outcome& operator=(Outcome&&) noexcept(false) = default;
+
   Simulation::World::Desc desc;
   Simulation::BreachRun run;
   std::vector<Simulation::ShotHit> hits;
@@ -68,7 +77,8 @@ void CheckStanding(const Simulation::World& _world, std::uint32_t _tick, Outcome
 
 Outcome RunBreach()
 {
-  Outcome outcome{.desc = Simulation::BreachRunDesc(BakedServerData(), FlatWorld::BUILD_ID), .run = {}};
+  Outcome outcome;
+  outcome.desc = Simulation::BreachRunDesc(BakedServerData(), FlatWorld::BUILD_ID);
   Simulation::World world(outcome.desc);
   outcome.run = Simulation::BuildBreachRun(world);
   const Simulation::BreachRun& run = outcome.run;
