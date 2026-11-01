@@ -4,6 +4,7 @@
 
 #include "Catalog.h"
 #include "ChunkCoordinate.h"
+#include "Palette.h"
 #include "VoxelGridView.h"
 
 namespace Spike
