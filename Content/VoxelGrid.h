@@ -10,7 +10,7 @@ namespace Content
 
 /// A baked voxel shape: a box of palette indices (ADR-005, decision 5), trimmed to its occupied voxels, so that their
 /// minimum corner is the origin (ADR-005, decision 2). y is up and +z is the front, as in the layer files, and x is the
-/// layer file's mirrored, so that the shape looks as drawn in the world's left-handed frame (ADR-013).
+/// layer file's mirrored, so that the shape looks as drawn in the world's left-handed frame (ADR-017).
 struct VoxelGrid
 {
   static constexpr std::uint8_t EMPTY = 0;

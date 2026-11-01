@@ -160,7 +160,7 @@ public:
   TEST_METHOD(MirrorsALayerFileInX)
   {
     // The trebuchet's layer file draws its counterweight (palette index 21) at the high-x end and its sling's cloth
-    // (23) at the low-x end. The bake mirrors x, so that the shape looks as drawn in the world's frame (ADR-013).
+    // (23) at the low-x end. The bake mirrors x, so that the shape looks as drawn in the world's frame (ADR-017).
     constexpr std::uint8_t COUNTERWEIGHT = 21;
     constexpr std::uint8_t CLOTH = 23;
     const Content::VoxelGrid& grid = Content::FindModel("S3")->grid;

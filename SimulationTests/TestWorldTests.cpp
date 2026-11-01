@@ -82,7 +82,7 @@ public:
 
   TEST_METHOD(MirrorsTheSceneNorthToSouth)
   {
-    // The v5 scene's +z is south and the world's is north (ADR-013): the quarry the prototype digs
+    // The v5 scene's +z is south and the world's is north (ADR-017): the quarry the prototype digs
     // under the castle's south wall, at the scene's (74, 93), is at the world's lower z.
     Simulation::ChunkStore store;
     const Simulation::TestWorld world = Simulation::BuildTestWorld(store, SCENE, SEED, OneVoxel);

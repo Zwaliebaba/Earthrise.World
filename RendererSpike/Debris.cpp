@@ -4,7 +4,7 @@
 
 #include "Palette.h"
 
-namespace Spike
+namespace RendererSpike
 {
 
 namespace
@@ -143,4 +143,4 @@ std::size_t Debris::Pieces() const noexcept
   return m_pieces.size();
 }
 
-} // namespace Spike
+} // namespace RendererSpike

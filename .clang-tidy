@@ -11,13 +11,12 @@
 # ── Status: CI gates this over the whole tree ──────────────────────────────────────────────
 #
 # `.github/workflows/build.yml` runs clang-tidy on the Windows job, after the build, over every
-# hand-written translation unit in the tree (AGENTS.md §6) -- from the moment Build/RunClangTidy.py
-# exists, which it does not yet, so the step is guarded until it does. It runs through clang's MSVC
-# driver (`--driver-mode=cl`) against the same switches the .vcxproj files set, because the
+# hand-written translation unit in the tree (AGENTS.md §6), through Build/RunClangTidy.py. It runs
+# through clang's MSVC driver (`--driver-mode=cl`) against the switches Build/Earthrise.props sets, because the
 # alternative — GNU driver mode against the Windows SDK — disagrees with MSVC in both directions
 # and reports defects that are not there.
 #
-# This repository is GREENFIELD, and at the time of writing it holds no C++ at all. Nothing is
+# This repository is GREENFIELD: its C++ began with M1's scaffold. Nothing is
 # grandfathered, a whole-tree pass comes back clean, and a finding is therefore a defect rather
 # than archaeology. That is a claim CI keeps true from the first translation unit onwards; it is
 # not a claim about how careful anyone was. When it breaks, fix the code — do not narrow the
@@ -56,7 +55,7 @@
 # Four rules of AGENTS.md §1 this file cannot express — R2's banned type affixes, R7's file naming
 # and .vcxproj/.filters registration, R11's standing spelling families, and §2's flat project
 # directories — are checked by Build/CheckProjectFiles.py, which runs in the same CI job that
-# builds, once somebody writes it (AGENTS.md §6). A check that exists somewhere is worth more
+# builds (AGENTS.md §6). A check that exists somewhere is worth more
 # than a rule everyone is asked to remember.
 #
 # readability-identifier-length is deliberately NOT enabled. Its defaults reject the domain
@@ -102,12 +101,12 @@ WarningsAsErrors: '*'
 # THIS ALTERNATION IS A PROJECT REGISTRY. It names the projects whose headers are linted, so
 # ADDING A PROJECT MEANS ADDING IT HERE -- a project missing from this list is a project whose
 # headers are checked by nothing at all, with no finding and no warning to say so. It is the
-# quietest way to lose a gate, which is why Build/CheckProjectFiles.py should be written to
-# compare this list against the solution rather than trusting anyone to remember.
+# quietest way to lose a gate, which is why Build/CheckProjectFiles.py compares this list against
+# the solution rather than trusting anyone to remember.
 #
-# Only the `<Something>Tests` convention is seeded, because that is all this repository has agreed
-# on so far. Each project adds its own name to the alternation when it is created, and
-# Build/CheckProjectFiles.py fails until the list matches the solution exactly (ADR-010).
+# Each project adds its own name to the alternation when it is created, and the `<Something>Tests`
+# convention covers every test project; Build/CheckProjectFiles.py fails until the list matches
+# the solution exactly (ADR-010).
 #
 # `(^|[/\\])` anchors a name to a whole path segment, so build output such as
 # `Intermediate\Content\Generated\Palette.h` never matches `Content` (ADR-010, decision 8).

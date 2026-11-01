@@ -1018,7 +1018,7 @@ Ten changes, ready to paste. Three are **Decided (owner, 2026-10-31)** and recor
 ```markdown
 ### 2026-10-31: the Siege route table
 
-The [Siege route table](Review/PaperTests/SiegeRouteTable.md) tested the Siege castle against its three criteria. After its first run, the owner settled three of the paper tests' open values (*Starting the MVP*, item 7). The rest are its fixes, Proposed for the owner to confirm or change.
+The [Siege route table](SiegeRouteTable.md) tested the Siege castle against its three criteria. After its first run, the owner settled three of the paper tests' open values (*Starting the MVP*, item 7). The rest are its fixes, Proposed for the owner to confirm or change.
 
 1. **Stone spans 2 m** (Decided). T2's floors and roof are timber, so every template's stone stands at that span.
 2. **Masonry is ordinary stone** (Decided). Palette index 6, masonry, is the stone a template lays, which the asset package calls dressed stone. It takes the crater table's stone column, and its rubble yields stone. The Masons' dressed-stone upgrade gets a palette index of its own.

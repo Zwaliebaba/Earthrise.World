@@ -1,6 +1,6 @@
 # ADR-009 — Queries cross the server boundary, read-only and filtered
 
-**Status:** Accepted, 2026-10-31, by the owner, from the MVP readiness review ([Review/MvpReadiness-2026-10-31.md](../Review/MvpReadiness-2026-10-31.md), B5). It amends [ADR-002](ADR-002-authoritative-simulation.md), decision 2. Like ADR-002 to ADR-008, it is written ahead of the code it governs; M3 builds the first queries.
+**Status:** Accepted, 2026-10-31, by the owner, from the MVP readiness review ([Review/MvpReadiness-2026-10-31.md](../Review/MvpReadiness-2026-10-31.md), B5). It amends [ADR-002](ADR-002-authoritative-simulation.md), decision 2. Like ADR-002 to ADR-008, it is written ahead of the code it governs; M3 builds the first queries. Amended 2026-11-01 by the owner (GameDesign.md, M2's values, item 15): decision 5's budget is counted in units of work, not time, as [ADR-013](ADR-013-ticks-numbers-and-randomness.md) requires of everything in the simulation.
 
 ## Context
 
@@ -29,7 +29,7 @@
    - A yield counts only voxels the player has seen.
    - An answer about ground the player has not seen says so, rather than guessing.
 5. **Queries are bounded.**
-   - The simulation answers them after the tick's own work, within what remains of the tick's budget.
+   - The simulation answers them after the tick's own work, within a budget of queries a tick, counted in units of work, never in time (amended 2026-11-01).
    - When too many arrive, it drops the oldest.
    - A readout asks again as the pointer moves, so a dropped query costs a frame of staleness, never a wrong answer.
 6. **Queries and answers are bytes,** written with the same encoder as commands (ADR-002, decision 3), over the same transport. That transport is in-process in single-player.
@@ -49,4 +49,4 @@
 ## Left open
 
 - Which queries exist beyond Hud.md's list.
-- The share of the tick budget that queries may use, measured in M2 and M3.
+- How many queries a tick answers, set in M3 when the first queries exist.

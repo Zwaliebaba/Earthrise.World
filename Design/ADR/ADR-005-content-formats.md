@@ -1,6 +1,6 @@
 # ADR-005 — Voxel content is JSON layer files, baked into the executable
 
-**Status:** Accepted, 2026-10-31, by the owner. It closes the question of the object formats. It was amended the same day for [ADR-006](ADR-006-voxel-sizes.md)'s two voxel sizes. [ADR-008](ADR-008-server-and-client-game-data.md) supersedes decisions 1 and 3, and decision 9 for the server: sources now live in `GameData/`, the `.vox` is a working copy that is not committed, and the server reads its data from files. The rest stands. Nothing implements it yet. Like ADR-002 to ADR-004, it is written ahead of the code it governs, and the bake tool lands in M1 for the client and in M2 for the server ([MvpPlan.md](../MvpPlan.md)).
+**Status:** Accepted, 2026-10-31, by the owner. It closes the question of the object formats. It was amended the same day for [ADR-006](ADR-006-voxel-sizes.md)'s two voxel sizes. [ADR-008](ADR-008-server-and-client-game-data.md) supersedes decisions 1 and 3, and decision 9 for the server: sources now live in `GameData/`, the `.vox` is a working copy that is not committed, and the server reads its data from files. The rest stands. Like ADR-002 to ADR-004, it was written ahead of the code it governs. M1 implements the client half: `Tools/BakeContent.py --client`, the `Content` library and `Tools/CheckAssets.py`; the server half lands in M2 ([MvpPlan.md](../MvpPlan.md)). Amended 2026-11-01 by the owner (GameDesign.md, M2's values, items 7 and 14): in the world a decoration is written as a palette index for its host, so decision 6's rule reaches the world voxel by voxel; and each palette entry gains a server-side `ground` flag beside its behaviour (decision 4).
 
 ## Context
 
@@ -82,7 +82,7 @@ These constraints bind the format:
   - each figure is identical to the figures in its squad.
 - **Templates are authored facing +z.** Rotations in 90° steps are made by the baker or at placement.
 - **The format, project-file and clang-tidy checkers skip `GameData/`.**
-- **`Content` joins the solution layout** in MvpPlan.md.
+- **`Content` joins the solution layout** ([ADR-010](ADR-010-solution-and-build-layout.md)).
 
 ## What this forecloses
 

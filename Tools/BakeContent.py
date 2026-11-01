@@ -1,13 +1,13 @@
 """Bakes GameData/ into what the build compiles in or ships (ADR-005, ADR-008, ADR-010 decision 7).
 
 The client half writes C++ headers into the build's intermediate folder, where the Content library compiles them
-in: the palette's colours, the client view of every template in GameData/Server/Templates/, every model in
-GameData/Client/Models/, and the shared hash. The server half, writing <outputdir>\\ServerData, follows in M2.
+in: the palette's look (colours, jitter and shade sets), the client view of every template in
+GameData/Server/Templates/, every model in GameData/Client/Models/, and the shared hash. The server half, writing <outputdir>\\ServerData, follows in M2.
 
 The client view of a template (ADR-008, decision 2) is its id and display name, its size in voxels after trimming
 the empty padding, so that the occupied voxels' minimum corner is its origin (ADR-005, decision 2), its voxel edge in
 millimetres, one palette index per voxel (x fastest, then z, then y; 0 is empty) with x mirrored from the layer file,
-so that the shape looks as drawn in the world's frame (ADR-013), and its counted cost in m3 of stone and of timber
+so that the shape looks as drawn in the world's frame (ADR-017), and its counted cost in m3 of stone and of timber
 (ADR-005, decision 7). The cost is counted by Tools/CheckAssets.py's own code, so the bake and the asset check cannot
 disagree on it. Nothing server-only goes in, and check 9 of the asset check
 searches what this writes for it. A model's view is the same without the cost (ADR-005, decision 8). Both tables are
@@ -66,7 +66,7 @@ class View:
     self.name = _name
     self.width, self.height, self.depth = _size
     self.edgeMillimeters = _edgeMillimeters
-    self.indices = _indices  # bytes, x fastest, then z, then y, mirrored in x from the layer file (ADR-013)
+    self.indices = _indices  # bytes, x fastest, then z, then y, mirrored in x from the layer file (ADR-017)
     self.cost = _cost  # (stone m3, timber m3), or None for a model
 
 
@@ -150,7 +150,7 @@ def ReadView(_report, _path, _palette, _isTemplate):
   size = [max(position[axis] for position in asset.voxels) - low[axis] + 1 for axis in range(3)]
   width, height, depth = size
   # Mirrored in x: a layer file is drawn in the prototype's right-handed frame and the world is left-handed, so
-  # the mirror keeps its front +z and makes it look as drawn (ADR-013).
+  # the mirror keeps its front +z and makes it look as drawn (ADR-017).
   indices = bytearray(width * height * depth)
   for (x, y, z), index in asset.voxels.items():
     indices[(width - 1 - (x - low[0])) + width * ((z - low[2]) + depth * (y - low[1]))] = index

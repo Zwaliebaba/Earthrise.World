@@ -4,7 +4,7 @@
 
 #include "Catalog.h"
 
-namespace Spike
+namespace RendererSpike
 {
 
 namespace
@@ -69,7 +69,7 @@ float GroundUnder(const Simulation::ChunkStore& _store, float _xMeters, float _z
 }
 
 /// A group of units scattered about a point, as the v5 scene scatters them, at least 1.1 m apart.
-/// Its point and radii are the scene's, in the prototype's frame (ADR-013).
+/// Its point and radii are the scene's, in the prototype's frame (ADR-017).
 struct Group
 {
   float xMeters;
@@ -145,7 +145,7 @@ std::vector<Walker> BuildUnits(const Simulation::ChunkStore& _store, const Simul
 }
 
 /// A fixed model stood on the ground under its footprint, which is given as the scene states it: its
-/// minimum corner and its turn in the prototype's frame, taken to the world's (ADR-013).
+/// minimum corner and its turn in the prototype's frame, taken to the world's (ADR-017).
 ModelPlacement Stand(const Simulation::ChunkStore& _store, const Simulation::TestWorld& _world, std::string_view _id, float _xMeters,
                      float _zMeters, std::uint32_t _quarterTurns, std::uint8_t _sideColorIndex)
 {
@@ -245,4 +245,4 @@ void PlaceWalkers(const Simulation::ChunkStore& _store, const TestScene& _scene,
   }
 }
 
-} // namespace Spike
+} // namespace RendererSpike
