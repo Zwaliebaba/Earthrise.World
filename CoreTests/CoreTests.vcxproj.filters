@@ -30,5 +30,8 @@
     <ClCompile Include="SplitMix64Tests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="ByteTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

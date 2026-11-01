@@ -16,6 +16,9 @@
     <Filter Include="Randomness">
       <UniqueIdentifier>{57DE9752-1A50-5732-BB53-5B76381EDECE}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Encoding">
+      <UniqueIdentifier>{2C50A158-D3AD-5AEF-B43B-8BA38EBD6BA9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -51,5 +54,17 @@
     <ClInclude Include="SplitMix64.h">
       <Filter>Randomness</Filter>
     </ClInclude>
+    <ClInclude Include="ByteWriter.h">
+      <Filter>Encoding</Filter>
+    </ClInclude>
+    <ClCompile Include="ByteWriter.cpp">
+      <Filter>Encoding</Filter>
+    </ClCompile>
+    <ClInclude Include="ByteReader.h">
+      <Filter>Encoding</Filter>
+    </ClInclude>
+    <ClCompile Include="ByteReader.cpp">
+      <Filter>Encoding</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
