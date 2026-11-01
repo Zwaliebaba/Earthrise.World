@@ -417,6 +417,37 @@ def LineModelHeader(_models):
 
 
 
+def FontHeader(_glyphs):
+  body = ("// Each glyph of Earthrise Mason, in ascending code point (ADR-019, decision 1). Content/Font.cpp includes this\n"
+          "// after Font.h, which declares Glyph. A row is a mask, bit x set for a pixel at column x, from the glyph's top.\n\n"
+          f"inline constexpr std::uint32_t FONT_CELL = {CheckAssets.FONT_CELL_ROWS};\n"
+          f"inline constexpr std::uint32_t FONT_BASELINE = {CheckAssets.FONT_BASELINE_ROW};\n\n")
+  entries = []
+  for glyph in _glyphs:
+    name = f"GLYPH_{glyph.code:04X}_ROWS"
+    body += (f"inline constexpr std::array<std::uint16_t, {len(glyph.masks)}> {name} = {{"
+             + ", ".join(str(mask) for mask in glyph.masks) + "};\n")
+    entries.append(f"  {{.codePoint = 0x{glyph.code:04X}U, .widthPixels = {glyph.width}, .heightPixels = {len(glyph.masks)}, "
+                   f".topRow = {glyph.top}, .advancePixels = {glyph.advance}, .icon = {'true' if glyph.icon else 'false'}, "
+                   f".rows = {name}}},")
+  body += f"\ninline constexpr std::array<Glyph, {len(_glyphs)}> GLYPHS = {{{{\n" + "\n".join(entries) + "\n}};\n\n"
+  return Header(f"GameData/{CheckAssets.FONT_FILE}", ["array", "cstdint"], body)
+
+
+def DebrisHeader(_choices):
+  body = ("// The debris scattered over each rubble, in ascending palette index (MvpAssets.md, *Poses, projectiles, gates and\n"
+          "// debris*). Content/DebrisChoice.cpp includes this after DebrisChoice.h, which declares DebrisChoice. A tint of 0\n"
+          "// keeps each model's own colours.\n\n")
+  entries = []
+  for choice in _choices:
+    name = f"DEBRIS_{choice.rubbleIndex}_MODELS"
+    body += (f"inline constexpr std::array<std::string_view, {len(choice.models)}> {name} = {{"
+             + ", ".join(CppString(model) for model in choice.models) + "};\n")
+    entries.append(f"  {{.rubbleIndex = {choice.rubbleIndex}, .models = {name}, .tintIndex = {choice.tintIndex}}},")
+  body += f"\ninline constexpr std::array<DebrisChoice, {len(_choices)}> DEBRIS_CHOICES = {{{{\n" + "\n".join(entries) + "\n}};\n\n"
+  return Header("GameData/Manifest.json's debrisByRubble", ["array", "string_view"], body)
+
+
 def SharedHashHeader(_hash):
   return Header("GameData/Server/Palette.json and GameData/Server/Templates/", ["cstdint"],
                 "// FNV-1a 64 over the canonical encoding of the client view of the palette and the templates\n"
@@ -555,6 +586,8 @@ def Main(_arguments):
   # Only the client half reads GameData/Client/ (ADR-008, decision 2; the asset check's check 11).
   models = ReadViews(report, MODELS, palette, False) if arguments.client is not None else []
   lineModels = ReadLineModels(report, LINES) if arguments.client is not None else []
+  glyphs = CheckAssets.ReadFont(report, ROOT) if arguments.client is not None else []
+  debris = CheckAssets.ReadDebris(report, ROOT, palette, {view.id for view in models}) if arguments.client is not None else []
   sharedHash = Fnv1a64(SharedEncoding(colors, present, templates))
   serverFile = BakeServer(report, palette, templates, sharedHash) if arguments.server is not None else None
   if report.problems:
@@ -569,6 +602,8 @@ def Main(_arguments):
       "TemplateTable.h": TemplateHeader(templates),
       "ModelTable.h": ModelHeader(models),
       "LineModelTable.h": LineModelHeader(lineModels),
+      "FontTable.h": FontHeader(glyphs),
+      "DebrisTable.h": DebrisHeader(debris),
       "SharedHashValue.h": SharedHashHeader(sharedHash),
     }
     arguments.client.mkdir(parents=True, exist_ok=True)

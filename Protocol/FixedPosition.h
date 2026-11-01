@@ -2,11 +2,11 @@
 
 #include "Fixed.h"
 
-namespace Simulation
+namespace Protocol
 {
 
 /// A point in meters, held as Core::Fixed (ADR-013, decision 3). y is the height: for a unit, the
-/// height of its feet.
+/// height of its feet. It crosses the boundary in state updates, so it lives here (ADR-020).
 struct FixedPosition
 {
   Core::Fixed xMeters;
@@ -16,4 +16,4 @@ struct FixedPosition
   friend constexpr bool operator==(const FixedPosition&, const FixedPosition&) = default;
 };
 
-} // namespace Simulation
+} // namespace Protocol

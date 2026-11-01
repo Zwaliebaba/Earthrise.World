@@ -5,6 +5,7 @@
 #include "FixedPosition.h"
 #include "MaterialRules.h"
 #include "Rules.h"
+#include "VoxelWorld.h"
 
 #include <cstdint>
 #include <functional>
@@ -13,6 +14,8 @@
 
 namespace Simulation
 {
+
+using Protocol::FixedPosition;
 
 /// A trebuchet shot's arc (GameDesign.md, M2's values, item 12): it leaves shotLaunchHeightVoxels
 /// above the middle of the engine's cell and comes down at exactly 45 degrees onto the middle of the
@@ -60,6 +63,22 @@ std::optional<Protocol::VoxelPosition> TraverseVoxels(const FixedPosition& _from
 
 /// The crater a behaviour takes, in voxels, from RULE.
 [[nodiscard]] std::int32_t CraterSizeVoxels(Behavior _behavior, const Rules& _rules) noexcept;
+
+/// One tick of a shot's flight: the first solid voxel the step from _ticksFlown to the next tick
+/// crosses, if any, and, missing, whether the shot has left a world _widthVoxels by _depthVoxels,
+/// below the ground or past an edge (M2-E1).
+struct ShotStep
+{
+  std::optional<Protocol::VoxelPosition> hit;
+  bool left;
+};
+[[nodiscard]] ShotStep StepShot(const ShotArc& _arc, std::uint32_t _ticksFlown, const VoxelWorld& _world, std::int32_t _widthVoxels,
+                                std::int32_t _depthVoxels);
+
+/// The first solid voxel a shot on _arc meets, stepping as the shot flies, or nothing when it leaves
+/// the world (M3-B4). Step 4 and the aim check both step through StepShot, so they cannot disagree.
+[[nodiscard]] std::optional<Protocol::VoxelPosition> TraceShot(const ShotArc& _arc, const VoxelWorld& _world, std::int32_t _widthVoxels,
+                                                               std::int32_t _depthVoxels);
 
 /// The voxel holding a point: each coordinate floored.
 [[nodiscard]] Protocol::VoxelPosition VoxelHolding(const FixedPosition& _point) noexcept;

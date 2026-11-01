@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Build">
+      <UniqueIdentifier>{C806FA2C-EC87-5C2F-B3B7-74AAD8B14AEC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="World">
+      <UniqueIdentifier>{2925F9CE-7821-537A-866E-3C97928AF87E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Look">
+      <UniqueIdentifier>{15E82C97-5C22-5C2C-BF05-36FF26498CA0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Time">
+      <UniqueIdentifier>{6A34C316-6520-50C0-BACC-8C4E688E2B5D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Session">
+      <UniqueIdentifier>{47CF1ADC-BAB0-5CB9-BFFE-1C1C65FBE543}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Camera">
+      <UniqueIdentifier>{5FF14317-24F4-5BEF-925F-0D08C7E921DC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Rendering">
+      <UniqueIdentifier>{1A8E7324-E758-5483-BBFA-AFB242A1BD28}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h">
+      <Filter>Build</Filter>
+    </ClInclude>
+    <ClCompile Include="pch.cpp">
+      <Filter>Build</Filter>
+    </ClCompile>
+    <ClInclude Include="ModelPlacement.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClInclude Include="WorldView.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="WorldView.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
+    <ClInclude Include="Debris.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="Debris.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
+    <ClInclude Include="Look.h">
+      <Filter>Look</Filter>
+    </ClInclude>
+    <ClInclude Include="TickClock.h">
+      <Filter>Time</Filter>
+    </ClInclude>
+    <ClCompile Include="TickClock.cpp">
+      <Filter>Time</Filter>
+    </ClCompile>
+    <ClInclude Include="Session.h">
+      <Filter>Session</Filter>
+    </ClInclude>
+    <ClCompile Include="Session.cpp">
+      <Filter>Session</Filter>
+    </ClCompile>
+    <ClInclude Include="Camera.h">
+      <Filter>Camera</Filter>
+    </ClInclude>
+    <ClCompile Include="Camera.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
+    <ClInclude Include="WorldRenderer.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="WorldRenderer.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

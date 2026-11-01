@@ -178,9 +178,15 @@ public:
 std::int32_t queryWorkPerTick; // units of work step 12 spends: an aim check 1, a tile's reach 1, a section's integrity 8
 
 // Simulation/Shot.h gains:
-/// The first solid voxel a shot on _arc meets, tick by tick through the grid as the shot flies, or
-/// nothing when it leaves the world. The aim check and the shot's own flight share it.
-[[nodiscard]] std::optional<Protocol::VoxelPosition> TraceShot(const ShotArc& _arc, const VoxelWorld& _world, std::int32_t _heightVoxels);
+/// One tick of a shot's flight: the first solid voxel the step from _ticksFlown crosses, if any, and,
+/// missing, whether it has left a world _widthVoxels by _depthVoxels, below the ground or past an edge.
+struct ShotStep { std::optional<Protocol::VoxelPosition> hit; bool left; };
+[[nodiscard]] ShotStep StepShot(const ShotArc& _arc, std::uint32_t _ticksFlown, const VoxelWorld& _world, std::int32_t _widthVoxels,
+                                std::int32_t _depthVoxels);
+/// The first solid voxel a shot on _arc meets, stepping as the shot flies, or nothing when it leaves
+/// the world. The aim check and the shot's own flight share StepShot, so they cannot disagree.
+[[nodiscard]] std::optional<Protocol::VoxelPosition> TraceShot(const ShotArc& _arc, const VoxelWorld& _world, std::int32_t _widthVoxels,
+                                                               std::int32_t _depthVoxels);
 
 // Simulation/Integrity.h — B5. Pure: reads the world, changes nothing, same inputs same reading.
 [[nodiscard]] Protocol::IntegrityReading ReadIntegrity(const World& _world, Protocol::EntityId _structure); // throws std::out_of_range for an unknown structure
@@ -203,17 +209,20 @@ struct LabItem
 struct LabSetup { Protocol::EntityId engine; Protocol::EntityId squad; Protocol::EntityId target; Protocol::VoxelPosition squadStartVoxels; Protocol::VoxelPosition goalVoxels; };
 struct LabOutcome { bool open; std::uint32_t ticks; std::uint64_t stateHash; bool timedOut; };
 inline constexpr std::uint32_t LAB_MAX_TICKS_PER_PHASE = 4000;
+inline constexpr std::uint32_t LAB_ORDER_TICK = 1; // the squad's order, once tick 0's rebuild has put the enclosure into navigation
 [[nodiscard]] std::span<const LabItem> LabItems();                              // P0 first, then L01 to L16
 [[nodiscard]] std::uint64_t LabItemsHash();                                     // Fnv1a64 over every item's fields: names the item set in the logs
 [[nodiscard]] World::Desc LabDesc(const ServerData& _data, std::uint64_t _buildId); // the breach run's map and seeds
 /// The breach run's site on a world not yet ticked: the footprint levelled, the enclosure as structures
-/// W1 to W10 clockwise from the south-west corner, W2 the middle south section and the target, the
-/// trebuchet 40 m south of W2 facing it, and six men-at-arms 10 m south, ordered into the courtyard
+/// W1 to W10 anticlockwise seen from above from the south-west corner, south side first: W1 to W3 the south side
+/// west to east, W4 and W5 the east side south to north, W6 to W8 the north side east to west, and W9 and W10 the
+/// west side north to south, with W2, the middle south section, the target; the trebuchet 40 m south of W2 facing it, and six men-at-arms 10 m south, ordered into the courtyard
 /// on tick 1.
 [[nodiscard]] LabSetup BuildLabSite(World& _world);
 /// Fires shots from the site's trebuchet, one on the first tick it is loaded, then waits for the world
 /// to go quiet with the trebuchet loaded. Driven a tick at a time, so that Earthrise draws between
-/// ticks and the headless run reaches the same ticks.
+/// ticks and the headless run reaches the same ticks. Whichever LabShots ticks the world through
+/// LAB_ORDER_TICK also gives the site's squad its order, as the breach run's script does.
 class LabShots
 {
 public:
@@ -247,7 +256,7 @@ inline constexpr std::uint32_t FONT_CELL_ROWS = 10;
 inline constexpr std::uint32_t FONT_BASELINE_ROW = 7;
 inline constexpr std::uint32_t FONT_GLYPH_COUNT = 127;
 
-// Content/Debris.h — input 16. Baked from GameData/Manifest.json's debrisByRubble (MvpAssets.md, *Poses, projectiles,
+// Content/DebrisChoice.h — input 16. Baked from GameData/Manifest.json's debrisByRubble (MvpAssets.md, *Poses, projectiles,
 // gates and debris*).
 struct DebrisChoice
 {
@@ -340,6 +349,8 @@ public:
   [[nodiscard]] const Protocol::StateUpdate& State() const noexcept;
   /// The update before the last, for the shot's interpolation (input 17); empty before the second.
   [[nodiscard]] const Protocol::StateUpdate& PreviousState() const noexcept;
+  /// The chunks received since the last call, oldest first, for the world view to take.
+  [[nodiscard]] std::vector<Protocol::ChunkSnapshot> TakeSnapshots();
   /// The commands and queries the client has queued since the last call, as bytes, for the executable to hand the simulation.
   [[nodiscard]] std::vector<std::vector<std::byte>> TakeCommands();
   [[nodiscard]] std::vector<std::vector<std::byte>> TakeQueries();
@@ -349,6 +360,8 @@ public:
   [[nodiscard]] const Protocol::AimReading* Aim(Protocol::EntityId _engine, Protocol::VoxelPosition _target) const noexcept;
   [[nodiscard]] const Protocol::IntegrityReading* Integrity(Protocol::EntityId _structure) const noexcept;
   [[nodiscard]] const Protocol::TileReachReading* Reach(std::int32_t _tileX, std::int32_t _tileZ) const noexcept;
+  /// The sources of the commands TakeCommands last gave out, in the same order, for the lab's log (G1).
+  [[nodiscard]] const std::vector<std::string>& TakenSources() const noexcept;
 };
 
 // Client/HudModel.h — Hud.md §10, the part M3 builds. Plain fields, built each frame from the Session.
@@ -392,7 +405,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 - **Waits on:** A1.
 - **Read first:** ADR-005, decision 10; Hud.md §10, *Section names*; `Simulation/BreachRun.cpp`'s `PlaceSection`; *Contracts*, `Simulation`.
 - **Changes:**
-  - `Structure`, `AddStructure` and `Structures` in `World`, in the filter `Tick`; `PlaceSection` becomes `World`'s stamping, turned clockwise as the engine turns a batch, and the breach run raises its enclosure through `AddStructure`, as W1 to W10, W2 the target, with the same voxels as before.
+  - `Structure`, `AddStructure` and `Structures` in `World`, in the filter `Tick`; `PlaceSection` becomes `World`'s stamping, turned clockwise as the engine turns a batch, and the breach run raises its enclosure through `AddStructure`, as W1 to W10 in the order B7's contract names them, W2 the target, with the same voxels as before.
   - `Collapse::structure`, set in step 5 from the piece's first voxel.
   - `AddSiegeEngine` takes the engine's facing; the breach run's trebuchet faces north, towards the wall.
   - Structures in the save and the state hash (record version 1), and in `SaveTests`.
@@ -421,7 +434,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 - **Read first:** ADR-009; ADR-020, decisions 5 and 6; ADR-013, decision 6; `Protocol/Command.cpp`; `Simulation/ServerData.cpp`'s `RULE_FIELDS`; `Tools/CheckAssets.py`, check 10; *Contracts*, `Protocol` and `Simulation`.
 - **Changes:**
   - **`Protocol/Query.h` and `.cpp`,** in the filter `Queries`: the three queries, the three readings, `Encode` and `Decode` for requests and answers.
-  - **`World::Ask`, `TakeAnswers`, `AnswerQueries`** (step 12) and `MAX_PENDING_QUERIES`; the three kinds dispatch to B4, B5 and B6, which this order lands as stubs that throw `std::logic_error`, so that the budget and the plumbing are tested here and each reading in its own order.
+  - **`World::Ask`, `TakeAnswers`, `AnswerQueries`** (step 12) and `MAX_PENDING_QUERIES`; the three kinds dispatch to B4, B5 and B6, which this order lands as stubs that return empty readings, so that the budget and the plumbing are tested here and each reading in its own order. (Written first as stubs that throw `std::logic_error`, which the budget tests could not drive; corrected by B3.)
   - **`queryWorkPerTick`** in `GameData/Server/Rules.json` at 16, `Rules.h`, `RULE_FIELDS`, and `Tools/TestBakeContent.py`'s RULE test, which reads the key back.
   - **`World::Quiet`.**
 - **Tests:**
@@ -474,7 +487,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 - **Waits on:** B1, B3 and B6, and inputs 2 and 4.
 - **Read first:** MvpPlan.md, M3, *Done when* and *Risks*; GameDesign.md, *Hypotheses*, H2; the M2 report, *What a breach looks like*; `Simulation/BreachRun.cpp`; *Contracts*, `Simulation`.
 - **Changes:** `Simulation/BreachLab.h` and `.cpp`, in the filter `World`: `LabItems`, `LabDesc`, `BuildLabSite`, `LabShots`, `CourtyardOpen` and `ResolveLabItem`. `BuildBreachRun` keeps its site through the same code, so M2's tests still pass.
-  - **The items** are the implementer's: the practice item P0, an intact wall and two shots at the ground row, which stays shut; then L01 to L16, varying the aim row, the columns, the prior damage and N, so that the set splits eight open and eight shut and no reading of the set is trivial (a shot at the crenellation alone, or five adjacent shots at the ground row alone). Each item's key is the simulation's, never typed by hand.
+  - **The items** are the implementer's: the practice item P0, an intact wall and two shots at the ground row, which stays shut (they are aimed at the earth at the wall's foot, since a shot strikes the face a voxel above its aim, and two aimed a row higher at one mark open a doorway 1 m wide and 2 m high); then L01 to L16, varying the aim row, the columns, the prior damage and N, so that the set splits eight open and eight shut and no reading of the set is trivial (a shot at the crenellation alone, or five adjacent shots at the ground row alone). Each item's key is the simulation's, never typed by hand.
   - **`SimulationBench --lab-items`** runs every item headless and prints its id, key, ticks, state hash and the slowest tick.
 - **Tests:** **`BreachLabTests`:**
   - The 16 items split 8 and 8. Their keys are committed as a table and the test fails on any change, with the new keys printed, as the generator's golden hashes do; a changed rule is a changed item set.
@@ -487,10 +500,10 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 - **Read first:** ADR-019, decision 1; Hud.md §9; MvpAssets.md, *Poses, projectiles, gates and debris*; `GameData/Manifest.json`'s `debrisByRubble`; `Tools/BakeContent.py`'s client half; `Content/Palette.cpp`, which reads a generated table; *Contracts*, `Content`.
 - **Changes:**
   - **`Tools/BakeContent.py --client`** writes `FontTable.h` from the glyph JSON, and `DebrisTable.h` from `Manifest.json`'s `debrisByRubble`, each tint as the palette index of that colour; `Content.vcxproj`'s bake inputs and outputs name both sources and both headers.
-  - **`Content/Font.h` and `.cpp`,** in the filter `Fonts`; **`Content/Debris.h` and `.cpp`,** in the filter `Catalog`, beside the models.
+  - **`Content/Font.h` and `.cpp`,** in the filter `Fonts`; **`Content/DebrisChoice.h` and `.cpp`,** in the filter `Catalog`, beside the models, named for their type so that `Client`'s `Debris.h` (C2) does not hide them on the include path.
   - **`Tools/CheckAssets.py`** gains check 13, after main's check 12 for line models: the glyph file holds 127 glyphs, each row as wide as its glyph says, no code point twice, every row made of `.` and `#`, and the 15 symbols and 25 icons of Hud.md §9 present. It gains check 14 too: each `debrisByRubble` row names a palette index whose behaviour is a rubble, models that are in `GameData/Client/Models/`, and a tint, if any, that is exactly one palette entry's colour.
   - **`Tools/TestCheckAssets.py`** and **`Tools/TestBakeContent.py`** gain the font and the table: a broken glyph fails, a row naming a model that does not exist fails, the baked rows of `1` are its bitmap, and rock rubble's row bakes D1–D3 with tint index 28.
-- **Tests:** **`DebrisTests`** (`ContentTests`): four choices in ascending rubble index, 8, 25, 26 and 28; 25 gives D4 and D5 with no tint; every model named is in `Models()`; `FindDebrisChoice(6)` is null. **`FontTests`** (`ContentTests`): 127 glyphs in ascending code point; `FindGlyph(U'1')`'s rows are the seven known masks, with `topRow` 1 and `advancePixels` 6; `FindGlyph(U'$')` is null, since the font lacks it; every icon code point U+E000 to U+E018 is present and 9 wide.
+- **Tests:** **`DebrisChoiceTests`** (`ContentTests`): four choices in ascending rubble index, 8, 25, 26 and 28; 25 gives D4 and D5 with no tint; every model named is in `Models()`; `FindDebrisChoice(6)` is null. **`FontTests`** (`ContentTests`): 127 glyphs in ascending code point; `FindGlyph(U'1')`'s rows are the seven known masks, with `topRow` 1 and `advancePixels` 6; `FindGlyph(U'$')` is null, since the font lacks it; every icon code point U+E000 to U+E018 is present and 9 wide.
 
 ## Phase C — The client and the executable join
 

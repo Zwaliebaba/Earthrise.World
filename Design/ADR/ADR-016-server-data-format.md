@@ -79,7 +79,7 @@
 
      It refuses anything else with a message naming what failed. Recomputing the hash is how "corrupt" is detected, which ADR-008 asks for.
    - **What it does not check:** none of the content checks run again. They all ran at bake time.
-7. **The shared hash is compared wherever one process holds both halves.** That is `RendererSpike` from M2, which draws `Content`'s templates over a world built from `ServerData`'s, and `Earthrise` from M4 (ADR-008, decision 5). A mismatch refuses to start, naming both hashes. The likely cause is one half rebuilt without the other.
+7. **The shared hash is compared wherever one process holds both halves.** That is `RendererSpike` from M2, which draws `Content`'s templates over a world built from `ServerData`'s, and `Earthrise` from M3 (ADR-008, decision 5; amended 2026-11-01 by [ADR-020](ADR-020-the-in-process-client.md), decision 7, and order M3-C3, where it had said M4). A mismatch refuses to start, naming both hashes. The likely cause is one half rebuilt without the other.
 
 ## Consequences for the code
 

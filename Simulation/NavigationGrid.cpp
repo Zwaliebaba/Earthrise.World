@@ -331,44 +331,39 @@ void NavigationGrid::LabelTile(std::size_t _class, std::int32_t _tileX, std::int
   m_componentCounts.at(_class)[TileIndex(minX, minZ)] = static_cast<std::uint16_t>(next - 1);
 }
 
-std::int64_t NavigationGrid::NearestReachable(std::int64_t _start, std::int64_t _goal, NavigationClass _class) const
+std::size_t NavigationGrid::ComponentNumber(std::int32_t _x, std::int32_t _z, std::size_t _class) const
 {
-  if (!m_reachCurrent)
+  // Each component is numbered across the whole grid by its tile's offset.
+  return m_componentOffsets.at(_class)[TileIndex(_x, _z)] + m_components.at(_class)[Index(_x, _z)] - 1;
+}
+
+NavigationGrid::Walked NavigationGrid::WalkComponents(std::int32_t _startX, std::int32_t _startZ, std::size_t _class,
+                                                      std::span<const std::size_t> _until) const
+{
+  // A walk from the start's component marks every one its tile's border links join it to, until every
+  // number in _until is marked or none is left to walk.
+  const std::vector<std::uint16_t>& components = m_components.at(_class);
+  const std::vector<std::uint8_t>& links = m_links.at(_class);
+  const std::vector<std::size_t>& offsets = m_componentOffsets.at(_class);
+  Walked walked{.reached = std::vector<std::uint8_t>(offsets.back(), 0), .tileReached = std::vector<std::uint8_t>(m_tileChanged.size(), 0)};
+  std::vector<std::uint8_t>& reached = walked.reached;
+  std::vector<std::uint8_t>& tileReached = walked.tileReached;
+  if (components[Index(_startX, _startZ)] == 0)
   {
-    throw std::logic_error("reach is asked for before UpdateReach has caught up with the grid's rebuilds");
+    return walked;
   }
-  const std::int32_t width = m_desc.widthCells;
-  const auto startX = static_cast<std::int32_t>(_start % width);
-  const auto startZ = static_cast<std::int32_t>(_start / width);
-  const auto goalX = static_cast<std::int32_t>(_goal % width);
-  const auto goalZ = static_cast<std::int32_t>(_goal / width);
-  if (!Inside(startX, startZ) || !Inside(goalX, goalZ))
-  {
-    throw std::out_of_range("reach between cells outside the grid");
-  }
-  const auto navigationClass = static_cast<std::size_t>(_class);
-  const std::vector<std::uint16_t>& components = m_components.at(navigationClass);
-  const std::vector<std::uint8_t>& links = m_links.at(navigationClass);
-  const std::vector<std::size_t>& offsets = m_componentOffsets.at(navigationClass);
-  if (components[Index(startX, startZ)] == 0)
-  {
-    return _start;
-  }
-  // Each component is numbered across the whole grid by its tile's offset; a walk from the start's
-  // marks every one its tile's border links join it to, until the goal's is marked or none is left.
-  const auto numberOf = [&](std::int32_t _x, std::int32_t _z) { return offsets[TileIndex(_x, _z)] + components[Index(_x, _z)] - 1; };
-  std::vector<std::uint8_t> reached(offsets.back(), 0);
-  std::vector<std::uint8_t> tileReached(m_tileChanged.size(), 0);
+  const auto numberOf = [&](std::int32_t _x, std::int32_t _z) { return ComponentNumber(_x, _z, _class); };
+  const auto done = [&]
+  { return !_until.empty() && std::ranges::all_of(_until, [&reached](std::size_t _number) { return reached[_number] != 0; }); };
   std::vector<std::tuple<std::int32_t, std::int32_t, std::uint16_t>> open; // tile x, tile z, component
-  const std::size_t goalNumber = components[Index(goalX, goalZ)] == 0 ? SIZE_MAX : numberOf(goalX, goalZ);
-  reached[numberOf(startX, startZ)] = 1;
-  tileReached[TileIndex(startX, startZ)] = 1;
-  open.emplace_back(TileOf(startX), TileOf(startZ), components[Index(startX, startZ)]);
+  reached[numberOf(_startX, _startZ)] = 1;
+  tileReached[TileIndex(_startX, _startZ)] = 1;
+  open.emplace_back(TileOf(_startX), TileOf(_startZ), components[Index(_startX, _startZ)]);
   while (!open.empty())
   {
-    if (goalNumber != SIZE_MAX && reached[goalNumber] != 0)
+    if (done())
     {
-      return _goal;
+      return walked;
     }
     const auto [tileX, tileZ, component] = open.back();
     open.pop_back();
@@ -406,6 +401,92 @@ std::int64_t NavigationGrid::NearestReachable(std::int64_t _start, std::int64_t 
       }
     }
   }
+  return walked;
+}
+
+NavigationGrid::TileReach NavigationGrid::ReachInTile(std::int64_t _start, std::int32_t _tileX, std::int32_t _tileZ,
+                                                      NavigationClass _class) const
+{
+  if (!m_reachCurrent)
+  {
+    throw std::logic_error("reach is asked for before UpdateReach has caught up with the grid's rebuilds");
+  }
+  const std::int32_t width = m_desc.widthCells;
+  const auto startX = static_cast<std::int32_t>(_start % width);
+  const auto startZ = static_cast<std::int32_t>(_start / width);
+  if (_start < 0 || !Inside(startX, startZ) || _tileX < 0 || _tileZ < 0 || _tileX >= TilesAcross() || _tileZ >= TilesDeep())
+  {
+    throw std::out_of_range("reach in a tile, or from a start, off the grid");
+  }
+  const auto navigationClass = static_cast<std::size_t>(_class);
+  const std::vector<std::uint16_t>& components = m_components.at(navigationClass);
+  const std::int32_t minX = _tileX * TILE_EDGE_CELLS;
+  const std::int32_t minZ = _tileZ * TILE_EDGE_CELLS;
+  // The tile's components, which the walk may stop once it has reached.
+  std::vector<std::size_t> until;
+  TileReach reach;
+  for (std::int32_t z = 0; z < TILE_EDGE_CELLS; ++z)
+  {
+    for (std::int32_t x = 0; x < TILE_EDGE_CELLS; ++x)
+    {
+      if (components[Index(minX + x, minZ + z)] != 0)
+      {
+        reach.usable.set((static_cast<std::size_t>(z) * TILE_EDGE_CELLS) + static_cast<std::size_t>(x));
+        const std::size_t number = ComponentNumber(minX + x, minZ + z, navigationClass);
+        if (std::ranges::find(until, number) == until.end())
+        {
+          until.push_back(number);
+        }
+      }
+    }
+  }
+  if (until.empty())
+  {
+    return reach;
+  }
+  const Walked walked = WalkComponents(startX, startZ, navigationClass, until);
+  for (std::int32_t z = 0; z < TILE_EDGE_CELLS; ++z)
+  {
+    for (std::int32_t x = 0; x < TILE_EDGE_CELLS; ++x)
+    {
+      const std::size_t bit = (static_cast<std::size_t>(z) * TILE_EDGE_CELLS) + static_cast<std::size_t>(x);
+      if (reach.usable.test(bit) && walked.reached[ComponentNumber(minX + x, minZ + z, navigationClass)] != 0)
+      {
+        reach.reached.set(bit);
+      }
+    }
+  }
+  return reach;
+}
+
+std::int64_t NavigationGrid::NearestReachable(std::int64_t _start, std::int64_t _goal, NavigationClass _class) const
+{
+  if (!m_reachCurrent)
+  {
+    throw std::logic_error("reach is asked for before UpdateReach has caught up with the grid's rebuilds");
+  }
+  const std::int32_t width = m_desc.widthCells;
+  const auto startX = static_cast<std::int32_t>(_start % width);
+  const auto startZ = static_cast<std::int32_t>(_start / width);
+  const auto goalX = static_cast<std::int32_t>(_goal % width);
+  const auto goalZ = static_cast<std::int32_t>(_goal / width);
+  if (!Inside(startX, startZ) || !Inside(goalX, goalZ))
+  {
+    throw std::out_of_range("reach between cells outside the grid");
+  }
+  const auto navigationClass = static_cast<std::size_t>(_class);
+  const std::vector<std::uint16_t>& components = m_components.at(navigationClass);
+  if (components[Index(startX, startZ)] == 0)
+  {
+    return _start;
+  }
+  const std::size_t goalNumber = components[Index(goalX, goalZ)] == 0 ? SIZE_MAX : ComponentNumber(goalX, goalZ, navigationClass);
+  const std::array<std::size_t, 1> until = {goalNumber};
+  const Walked walked =
+    WalkComponents(startX, startZ, navigationClass, goalNumber == SIZE_MAX ? std::span<const std::size_t>{} : std::span(until));
+  const std::vector<std::uint8_t>& reached = walked.reached;
+  const std::vector<std::uint8_t>& tileReached = walked.tileReached;
+  const auto numberOf = [&](std::int32_t _x, std::int32_t _z) { return ComponentNumber(_x, _z, navigationClass); };
   if (goalNumber != SIZE_MAX && reached[goalNumber] != 0)
   {
     return _goal;

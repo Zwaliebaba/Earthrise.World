@@ -28,8 +28,10 @@ class ChunkStore
 public:
   ChunkStore() = default;
   ~ChunkStore() = default;
-  ChunkStore(const ChunkStore&) = default;
-  ChunkStore& operator=(const ChunkStore&) = default;
+  /// A copy shares the published snapshots, which never change, and takes copies of the chunks still
+  /// being changed, so an edit to one store never reaches the other.
+  ChunkStore(const ChunkStore& _other);
+  ChunkStore& operator=(const ChunkStore& _other);
   // A move may allocate under the debug library's checked containers, whose std::map allocates in
   // its move constructor, so it is not noexcept (bugprone-exception-escape).
   ChunkStore(ChunkStore&&) noexcept(false) = default;

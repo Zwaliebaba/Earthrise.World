@@ -13,7 +13,9 @@ ADR-010 decision 9 adds:
 - Windows headers stay out of Core, Protocol, Content and Simulation (ADR-007), and only
   Engine/framework.h defines the Windows macros (AGENTS.md §4);
 - float and double stay out of the code of Simulation and Protocol (ADR-013, decision 3);
-- .clang-tidy's header filter names exactly the solution's projects, anchored (ADR-010).
+- .clang-tidy's header filter names exactly the solution's projects, anchored (ADR-010);
+- each project references and includes only the projects the layering table lets it, and nothing
+  references or includes a test suite (ADR-020, decision 1; MvpPlan.md, *Solution layout*).
 
 Usage:
     python Build/CheckProjectFiles.py              the repository this script sits in
@@ -509,6 +511,53 @@ def CheckSources(_report, _root, _project):
           _report.Error(file, f"defines {macro}; only {MACRO_OWNER.as_posix()} does (AGENTS.md §4)")
 
 
+# ── The layering (ADR-020, decision 1) ──────────────────────────────────────────────────────
+
+# MvpPlan.md's *Solution layout*: which projects each may reference, and put on its include path. The
+# edges run one way, and Client never reaches Simulation (ADR-002, decision 3). A test suite may reach
+# its library and what its library may. A project the table does not name is held only to the rule
+# that nothing reaches a test suite; Build/TestCheckers.py fails the repository if one of its projects
+# is missing here.
+LAYERS = {
+  "Core": set(),
+  "Engine": {"Core"},
+  "Protocol": {"Core"},
+  "Content": {"Core"},
+  "Simulation": {"Core", "Protocol"},
+  "Client": {"Core", "Engine", "Protocol", "Content"},
+  "Earthrise": {"Core", "Engine", "Protocol", "Content", "Simulation", "Client"},
+  "RendererSpike": {"Core", "Engine", "Protocol", "Content", "Simulation", "Client"},
+  "SimulationBench": {"Core", "Protocol", "Simulation"},
+}
+
+
+def Allowed(_name):
+  """The projects _name may reach, or None when the table does not name it."""
+  if _name.endswith("Tests"):
+    library = _name[: -len("Tests")]
+    return None if library not in LAYERS else {library} | LAYERS[library]
+  return set(LAYERS[_name]) if _name in LAYERS else None
+
+
+def CheckLayers(_report, _project):
+  path, name = _project.path, _project.name
+  reached = []
+  for item in _project.items:
+    if item.kind == "ProjectReference":
+      match = re.fullmatch(r"\.\./([A-Za-z0-9]+)/[A-Za-z0-9]+\.vcxproj", item.include.replace("\\", "/"))
+      if match:
+        reached.append(("references", match.group(1)))
+  for directory in Model.ProjectSettings(_project).get(("ClCompile", "AdditionalIncludeDirectories"), []):
+    if directory.startswith("$(SolutionDir)"):
+      reached.append(("includes", directory[len("$(SolutionDir)") :].rstrip("\\/")))
+  allowed = Allowed(name)
+  for verb, other in reached:
+    if other.endswith("Tests"):
+      _report.Error(path, f"{verb} {other}, a test suite: nothing references or includes a test suite (ADR-020, decision 1)")
+    elif allowed is not None and other != name and other not in allowed:
+      _report.Error(path, f"{verb} {other}, which the layering table does not let {name} reach (ADR-020, decision 1)")
+
+
 # ── The clang-tidy registry ─────────────────────────────────────────────────────────────────
 
 REGISTRY_PREFIX = r"(^|[/\\])("
@@ -559,6 +608,7 @@ def Check(_root):
     if project.path.name != f"{project.name}.vcxproj":
       continue
     CheckProjectFile(report, project, names)
+    CheckLayers(report, project)
     registered = CheckItems(report, project, names)
     CheckFolder(report, project, registered)
     CheckFilters(report, project, registered)

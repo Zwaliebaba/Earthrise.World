@@ -24,5 +24,11 @@
     <ClCompile Include="SharedHashTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="FontTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="DebrisChoiceTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

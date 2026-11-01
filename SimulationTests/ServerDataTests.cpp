@@ -105,6 +105,26 @@ public:
     Assert::IsTrue(masonry.behavior == Simulation::Behavior::BuildingStone);
   }
 
+  TEST_METHOD(ReadsTheQueryBudget)
+  {
+    // M3's values, item 10: 16 units of work a tick, Proposed until M3-G3 measures it.
+    Assert::AreEqual(16, BakedServerData().Tuning().queryWorkPerTick);
+  }
+
+  TEST_METHOD(RefusesAFileLackingAKeyItNeedsByName)
+  {
+    const std::vector<std::byte> file = BakedServerDataWithout("queryWorkPerTick");
+    try
+    {
+      static_cast<void>(Simulation::ServerData::Read(file));
+      Assert::Fail(L"a file lacking queryWorkPerTick was read");
+    }
+    catch (const std::runtime_error& error)
+    {
+      Assert::IsTrue(std::string_view(error.what()).find("queryWorkPerTick") != std::string_view::npos);
+    }
+  }
+
   TEST_METHOD(ReadsTheTuningInTheSimulationsUnits)
   {
     const Simulation::Rules& rules = BakedServerData().Tuning();

@@ -1,11 +1,14 @@
 #include "pch.h"
 
+#include "BreachLab.h"
 #include "BreachRun.h"
 #include "ChunkStore.h"
 #include "Generator.h"
 #include "Hash.h"
+#include "Integrity.h"
 #include "NavigationGrid.h"
 #include "PathSearch.h"
+#include "Save.h"
 #include "ServerData.h"
 #include "SupportSearch.h"
 #include "TestWorld.h"
@@ -458,6 +461,93 @@ int RunBreach(const std::filesystem::path& _executable, const std::filesystem::p
   return within ? 0 : 2;
 }
 
+/// The integrity reading's cost (M3-B5): on the breach run, W2's reading before the first shot and
+/// after each that strikes, the median and the slowest of REPEATS readings, with the support searches
+/// each runs, against the query budget's charge of 8 for it (ADR-020, decision 6).
+int RunIntegrity(const std::filesystem::path& _executable)
+{
+  const std::uint64_t buildId = BuildIdOf(_executable);
+  const Simulation::ServerData data = Simulation::ServerData::Load(_executable.parent_path() / "ServerData" / "ServerData.bin");
+  Simulation::World world(Simulation::BreachRunDesc(data, buildId));
+  const Simulation::BreachRun run = Simulation::BuildBreachRun(world);
+  Protocol::EntityId section = Protocol::NO_ENTITY;
+  for (const auto& [id, structure] : world.Structures())
+  {
+    section = structure.name == "W2" ? id : section;
+  }
+  if (section == Protocol::NO_ENTITY)
+  {
+    throw std::runtime_error("the breach run has no W2");
+  }
+  const auto measure = [&](std::uint32_t _tick)
+  {
+    std::uint32_t searches = 0;
+    Protocol::IntegrityReading reading{};
+    const Timing timing = Time(REPEATS, [&] { reading = Simulation::ReadIntegrity(world, section, &searches); });
+    std::println("tick {}: W2's hole {} wide, falls at {}; gap {}; {} support searches; {:.3f} ms median, {:.3f} ms slowest", _tick,
+                 reading.holeWidthVoxels, reading.holeFallWidthVoxels, reading.gapRunVoxels, searches, timing.medianMilliseconds,
+                 timing.slowestMilliseconds);
+  };
+  std::println("The integrity reading on the M2 breach run's W2, build id {:016x}", buildId);
+  Simulation::RunScript(world, run.script, 1);
+  measure(0);
+  for (std::uint32_t tick = 1; tick < run.ticks; ++tick)
+  {
+    Simulation::RunScript(world, run.script, 1);
+    if (!world.LastTickHits().empty())
+    {
+      measure(tick);
+    }
+  }
+  return 0;
+}
+
+/// Every lab item headless (M3-B7): each on a fresh copy of the lab's site, its prior shots, then its
+/// asked shots, each tick timed. Prints the item's id, its key, the world's ticks at the end, its state
+/// hash and its slowest tick of play, every tick but tick 0, which takes in the site's own edits.
+int RunLabItems(const std::filesystem::path& _executable)
+{
+  const std::uint64_t buildId = BuildIdOf(_executable);
+  const Simulation::ServerData data = Simulation::ServerData::Load(_executable.parent_path() / "ServerData" / "ServerData.bin");
+  const Simulation::World::Desc desc = Simulation::LabDesc(data, buildId);
+  Simulation::World site(desc);
+  const Simulation::LabSetup setup = Simulation::BuildLabSite(site);
+  std::println("The breach lab's items, build id {:016x}, item set {:016x}", buildId, Simulation::LabItemsHash());
+  bool timedOut = false;
+  for (const Simulation::LabItem& item : Simulation::LabItems())
+  {
+    Simulation::World world = site;
+    double slowest = 0.0;
+    std::uint32_t slowestTick = 0;
+    const auto play = [&](std::span<const Protocol::VoxelPosition> _aims)
+    {
+      Simulation::LabShots shots(setup, _aims);
+      for (bool done = false; !done;)
+      {
+        const std::uint32_t tick = world.TickCount();
+        const Clock::time_point start = Clock::now();
+        done = shots.Advance(world);
+        const double milliseconds = MillisecondsSince(start);
+        if (tick > 0 && milliseconds > slowest)
+        {
+          slowest = milliseconds;
+          slowestTick = tick;
+        }
+      }
+      return shots.TimedOut();
+    };
+    const std::vector<Protocol::VoxelPosition> asked(item.shotsAsked, item.markVoxels);
+    const bool priorTimedOut = play(item.priorAimVoxels);
+    const bool askedTimedOut = play(asked);
+    const bool itemTimedOut = priorTimedOut || askedTimedOut;
+    timedOut = timedOut || itemTimedOut;
+    std::println("{}: {}{}, {} ticks, state hash {:016x}, slowest tick {} at {:.3f} ms", item.id,
+                 Simulation::CourtyardOpen(world, setup) ? "OPEN" : "SHUT", itemTimedOut ? " (TIMED OUT)" : "", world.TickCount(),
+                 Simulation::StateHash(world), slowestTick, slowest);
+  }
+  return timedOut ? 2 : 0;
+}
+
 int Run(const std::filesystem::path& _executable)
 {
   std::println("SimulationBench: the renderer spike's question 6, at 1 m and at 0.5 m (ADR-006). Times are this machine's.");
@@ -509,12 +599,21 @@ int wmain(int _argumentCount, wchar_t** _arguments)
       throw std::runtime_error("the bench was started without its own path, so it cannot find its ServerData folder");
     }
     const std::filesystem::path executable = std::filesystem::absolute(_arguments[0]);
-    // SimulationBench --breach-run [file.csv] times the breach run (M2-G2); without it, the M1
+    // SimulationBench --breach-run [file.csv] times the breach run (M2-G2), --integrity the integrity
+    // reading on it (M3-B5), --lab-items the breach lab's items (M3-B7); without any, the M1
     // measurements and the navigation's run.
     const std::span<wchar_t*> arguments(_arguments, static_cast<std::size_t>(_argumentCount));
     if (arguments.size() >= 2 && std::wstring_view(arguments[1]) == L"--breach-run")
     {
       return RunBreach(executable, arguments.size() >= 3 ? std::filesystem::path(arguments[2]) : std::filesystem::path("BreachRun.csv"));
+    }
+    if (arguments.size() >= 2 && std::wstring_view(arguments[1]) == L"--integrity")
+    {
+      return RunIntegrity(executable);
+    }
+    if (arguments.size() >= 2 && std::wstring_view(arguments[1]) == L"--lab-items")
+    {
+      return RunLabItems(executable);
     }
     return Run(executable);
   }

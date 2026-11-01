@@ -9,7 +9,7 @@
 #include <winrt/base.h>
 
 #include "ChunkSnapshot.h"
-#include "SceneScript.h"
+#include "ModelPlacement.h"
 #include "StaticBuffer.h"
 #include "UploadRing.h"
 #include "VoxelGridView.h"
@@ -24,17 +24,10 @@
 #include <utility>
 #include <vector>
 
-namespace RendererSpike
+namespace Client
 {
 
-/// The palette entry fords are drawn in: water one world voxel deep over a solid floor draws
-/// lighter, so fords show (RendererLook.md §3, index 9). Its colour is water's with its HSL
-/// lightness raised by FORD_LIGHTNESS_SCALE, which RendererLook.md proposes as 15% and leaves to the
-/// spike to tune.
-inline constexpr std::uint8_t FORD_COLOR_INDEX = 242;
-inline constexpr float FORD_LIGHTNESS_SCALE = 1.15F;
-
-/// What the spike draws, and only from what it was told (ADR-002): one batch of voxel records per
+/// What the client draws, and only from what it was told (ADR-002): one batch of voxel records per
 /// world chunk, built from the chunk snapshots the simulation publishes, and one per model, drawn at
 /// each placement. Both go through the one voxel pass (MvpPlan.md, M1: two voxel sources).
 class WorldView
@@ -129,4 +122,4 @@ private:
   std::vector<std::pair<std::uint64_t, std::unique_ptr<Engine::StaticBuffer>>> m_retired; // fence, buffer
 };
 
-} // namespace RendererSpike
+} // namespace Client

@@ -4,6 +4,7 @@
 
 #include "Catalog.h"
 #include "Generator.h"
+#include "Look.h"
 #include "SplitMix64.h"
 
 namespace RendererSpike
@@ -131,8 +132,8 @@ std::vector<Walker> BuildUnits(const Simulation::ChunkStore& _store, const Simul
   // The v5 scene's groups: the attackers at the breach, behind the mantlets, in reserve and with
   // the trebuchets; the defenders inside the breach; and the labourers in the quarry and fields.
   // Spearmen are U2, the v5 scene's figures without spears men-at-arms (U5) or archers (U3).
-  constexpr std::uint8_t RED = ATTACKER_COLOR_INDEX;
-  constexpr std::uint8_t BLUE = DEFENDER_COLOR_INDEX;
+  constexpr std::uint8_t RED = Client::ATTACKER_COLOR_INDEX;
+  constexpr std::uint8_t BLUE = Client::DEFENDER_COLOR_INDEX;
   const std::array<Group, 12> groups = {
     Group{54.0F, 61.0F, 18, 3.5F, 3.0F, RED, 1, 0.5F, "U5"}, Group{59.0F, 61.0F, 5, 0.6F, 1.2F, RED, 11, 0.3F, "U5"},
     Group{42.0F, 55.5F, 7, 1.2F, 2.0F, RED, 2, 0.6F, "U5"},  Group{42.0F, 66.5F, 7, 1.2F, 2.0F, RED, 3, 0.6F, "U5"},
@@ -151,8 +152,8 @@ std::vector<Walker> BuildUnits(const Simulation::ChunkStore& _store, const Simul
 
 /// A fixed model stood on the ground under its footprint, which is given as the scene states it: its
 /// minimum corner and its turn in the prototype's frame, taken to the world's (ADR-017).
-ModelPlacement Stand(const Simulation::ChunkStore& _store, const Simulation::TestWorld& _world, std::string_view _id, float _xMeters,
-                     float _zMeters, std::uint32_t _quarterTurns, std::uint8_t _sideColorIndex)
+Client::ModelPlacement Stand(const Simulation::ChunkStore& _store, const Simulation::TestWorld& _world, std::string_view _id,
+                             float _xMeters, float _zMeters, std::uint32_t _quarterTurns, std::uint8_t _sideColorIndex)
 {
   const auto [width, depth] = Footprint(Model(_id), _quarterTurns);
   const float x = WorldXMeters(_world, _xMeters);
@@ -234,7 +235,7 @@ TestScene BuildTestScene(Simulation::ChunkStore& _store, std::uint64_t _seed, co
     scene.fixedModels.push_back(Stand(_store, scene.world, "P1", x - 1.0F, z, 1, 0));
   }
   // The defenders' banner on top of the keep's great tower.
-  ModelPlacement banner = Stand(_store, scene.world, "P2", 74.0F, 61.0F, 0, DEFENDER_COLOR_INDEX);
+  Client::ModelPlacement banner = Stand(_store, scene.world, "P2", 74.0F, 61.0F, 0, Client::DEFENDER_COLOR_INDEX);
   banner.yMeters = static_cast<float>(Simulation::TopSolidAtOrBelow(_store, scene.world.WorldXVoxels(74), scene.world.WorldZVoxels(61),
                                                                     Simulation::TestWorld::HEIGHT_VOXELS - 1) +
                                       1);
@@ -243,7 +244,7 @@ TestScene BuildTestScene(Simulation::ChunkStore& _store, std::uint64_t _seed, co
 }
 
 void PlaceWalkers(const Simulation::ChunkStore& _store, const TestScene& _scene, std::uint32_t _frame,
-                  std::vector<ModelPlacement>& _placements)
+                  std::vector<Client::ModelPlacement>& _placements)
 {
   const float seconds = static_cast<float>(_frame) / static_cast<float>(Simulation::TestWorldEdits::FRAMES_PER_SECOND);
   const float turned = seconds * WALK_METERS_PER_SECOND / WALK_RADIUS_METERS;

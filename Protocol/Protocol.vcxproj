@@ -47,6 +47,12 @@
     <ClInclude Include="EntityId.h" />
     <ClInclude Include="Command.h" />
     <ClCompile Include="Command.cpp" />
+    <ClInclude Include="FixedPosition.h" />
+    <ClInclude Include="EntityKinds.h" />
+    <ClInclude Include="PlacedVoxel.h" />
+    <ClInclude Include="StateUpdate.h" />
+    <ClInclude Include="Query.h" />
+    <ClCompile Include="Query.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

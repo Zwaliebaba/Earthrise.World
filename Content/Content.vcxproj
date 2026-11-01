@@ -46,6 +46,10 @@
     <ClCompile Include="Catalog.cpp" />
     <ClInclude Include="SharedHash.h" />
     <ClCompile Include="SharedHash.cpp" />
+    <ClInclude Include="Font.h" />
+    <ClCompile Include="Font.cpp" />
+    <ClInclude Include="DebrisChoice.h" />
+    <ClCompile Include="DebrisChoice.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
@@ -53,19 +57,22 @@
     </ProjectReference>
   </ItemGroup>
   <!-- The client half of the bake (ADR-008, ADR-010 decision 7): GameData to generated headers. The inputs are
-       everything the bake reads: the palette, every layer file and line model in the three folders it bakes, the script and the
-       modules it imports. The outputs are every header it writes. It rewrites only a header whose text changed,
+       everything the bake reads: the palette, every layer file and line model in the three folders it bakes, the font's
+       glyph file, the manifest for its debris table, the script and the modules it imports. The outputs are every header
+       it writes. It rewrites only a header whose text changed,
        so an edit that leaves one header as it was reruns the bake on later builds, but recompiles nothing. -->
   <ItemGroup>
     <BakeInput Include="$(SolutionDir)GameData\Server\Palette.json" />
     <BakeInput Include="$(SolutionDir)GameData\Server\Templates\*.json" />
     <BakeInput Include="$(SolutionDir)GameData\Client\Models\*.json" />
     <BakeInput Include="$(SolutionDir)GameData\Client\Lines\*.json" />
+    <BakeInput Include="$(SolutionDir)GameData\Client\Fonts\*.json" />
+    <BakeInput Include="$(SolutionDir)GameData\Manifest.json" />
     <BakeInput Include="$(SolutionDir)Tools\BakeContent.py" />
     <BakeInput Include="$(SolutionDir)Tools\CheckAssets.py" />
     <BakeInput Include="$(SolutionDir)Tools\VoxFile.py" />
   </ItemGroup>
-  <Target Name="BakeClientContent" BeforeTargets="ClCompile" Inputs="@(BakeInput)" Outputs="$(IntDir)Generated\PaletteTable.h;$(IntDir)Generated\TemplateTable.h;$(IntDir)Generated\ModelTable.h;$(IntDir)Generated\LineModelTable.h;$(IntDir)Generated\SharedHashValue.h">
+  <Target Name="BakeClientContent" BeforeTargets="ClCompile" Inputs="@(BakeInput)" Outputs="$(IntDir)Generated\PaletteTable.h;$(IntDir)Generated\TemplateTable.h;$(IntDir)Generated\ModelTable.h;$(IntDir)Generated\LineModelTable.h;$(IntDir)Generated\FontTable.h;$(IntDir)Generated\DebrisTable.h;$(IntDir)Generated\SharedHashValue.h">
     <Exec Command="python &quot;$(SolutionDir)Tools\BakeContent.py&quot; --client &quot;$(IntDir)Generated&quot; || (echo error: the content bake failed, see its output above; it needs Python 3.12 or later on PATH, ADR-010 &amp;&amp; exit 1)" />
   </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -123,9 +123,6 @@
     <ClCompile Include="Generator.cpp">
       <Filter>Generation</Filter>
     </ClCompile>
-    <ClInclude Include="FixedPosition.h">
-      <Filter>World</Filter>
-    </ClInclude>
     <ClInclude Include="Shot.h">
       <Filter>Destruction</Filter>
     </ClInclude>
@@ -143,6 +140,18 @@
     </ClInclude>
     <ClCompile Include="PathSearch.cpp">
       <Filter>Navigation</Filter>
+    </ClCompile>
+    <ClInclude Include="Integrity.h">
+      <Filter>Destruction</Filter>
+    </ClInclude>
+    <ClCompile Include="Integrity.cpp">
+      <Filter>Destruction</Filter>
+    </ClCompile>
+    <ClInclude Include="BreachLab.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="BreachLab.cpp">
+      <Filter>World</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

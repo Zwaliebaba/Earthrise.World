@@ -45,6 +45,8 @@
     <ClCompile Include="CatalogTests.cpp" />
     <ClCompile Include="SharedHashTests.cpp" />
     <ClCompile Include="PaletteTests.cpp" />
+    <ClCompile Include="FontTests.cpp" />
+    <ClCompile Include="DebrisChoiceTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

@@ -13,6 +13,9 @@
     <Filter Include="SharedHash">
       <UniqueIdentifier>{5178E987-0338-5294-B7F5-F6CFE87D531B}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Fonts">
+      <UniqueIdentifier>{4DFE502D-2308-5F5C-A34F-6E8764EF50BE}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -41,6 +44,18 @@
     </ClInclude>
     <ClCompile Include="SharedHash.cpp">
       <Filter>SharedHash</Filter>
+    </ClCompile>
+    <ClInclude Include="Font.h">
+      <Filter>Fonts</Filter>
+    </ClInclude>
+    <ClCompile Include="Font.cpp">
+      <Filter>Fonts</Filter>
+    </ClCompile>
+    <ClInclude Include="DebrisChoice.h">
+      <Filter>Catalog</Filter>
+    </ClInclude>
+    <ClCompile Include="DebrisChoice.cpp">
+      <Filter>Catalog</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

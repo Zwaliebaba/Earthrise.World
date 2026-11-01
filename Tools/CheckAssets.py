@@ -57,6 +57,14 @@ What it checks, and how each rule is read against the files:
    contiguously from 0 to the drawn length, each with a `color` that is `#rrggbb` or `faction` and a `widthPixels` of at
    least 1. The bake reads line models with this check's code, so a problem here stops the bake too. Check 8 covers
    their manifest entries, and a layer file in Client/Lines/ is a problem: voxel models go in Client/Models/.
+13. The font's glyph file, GameData/Client/Fonts/EarthriseMason-glyphs.json (Hud.md §9; ADR-019, decision 1), holds 127
+   glyphs, no code point twice. Each glyph's rows are made of `.` and `#`, each as wide as its `w` says, at most 16 so
+   that a row is one 16-bit mask, and they fit the cell below their `top`. The 15 symbols and the 25 icons of Hud.md §9
+   are present, the icons marked as icons. The bake reads the font with this check's code.
+14. Manifest.json's `debrisByRubble` (MvpAssets.md, *Poses, projectiles, gates and debris*): each row names a palette
+   index whose behaviour is a rubble, once; models, by id, that are in GameData/Client/Models/; and a tint, if any,
+   that is exactly one palette entry's colour, so that it bakes as that index. The bake reads the table with this
+   check's code.
 
 Usage:
   python3 Tools/CheckAssets.py              the repository this script sits in
@@ -596,6 +604,149 @@ def ReadLineModels(_report, _root):
   return models
 
 
+# ── Check 13, the font ──────────────────────────────────────────────────────────────────────────
+
+FONT_FILE = "Client/Fonts/EarthriseMason-glyphs.json"
+FONT_GLYPH_COUNT = 127
+FONT_CELL_ROWS = 10    # Hud.md §9: one row above the caps, two below the baseline
+FONT_BASELINE_ROW = 7
+FONT_ROW_BITS = 16
+# Hud.md §9: the 15 symbols, and the 25 command icons at U+E000 to U+E018.
+FONT_SYMBOLS = "·×²³°←→↑↓↺↻…–—’"
+FONT_ICONS = range(0xE000, 0xE019)
+
+
+class Glyph:
+  """A glyph, read (ADR-019, decision 1): what the bake writes of it. Its masks are its rows from its top, bit x set
+  for a pixel at column x."""
+
+  def __init__(self, _code, _width, _top, _advance, _icon, _masks):
+    self.code = _code
+    self.width = _width
+    self.top = _top
+    self.advance = _advance
+    self.icon = _icon
+    self.masks = _masks
+
+
+def ReadFont(_report, _root):
+  """Check 13. Returns the glyphs in ascending code point, or None after reporting everything wrong with the file."""
+  path = _root / "GameData" / FONT_FILE
+  if not path.is_file():
+    _report.Problem(path, "is missing: it is the font the HUD draws with (Hud.md §9)")
+    return None
+  data = ReadJson(_report, path)
+  if data is None:
+    return None
+  before = len(_report.problems)
+  cell, baseline = data.get("cell"), data.get("baselineRow")
+  if cell != FONT_CELL_ROWS or baseline != FONT_BASELINE_ROW:
+    _report.Problem(path, f"its cell of {cell!r} rows with the baseline at {baseline!r} is not Hud.md §9's {FONT_CELL_ROWS} "
+                          f"with the baseline at {FONT_BASELINE_ROW}")
+    cell = FONT_CELL_ROWS
+  glyphs = data.get("glyphs")
+  if not isinstance(glyphs, list) or not all(isinstance(glyph, dict) for glyph in glyphs):
+    _report.Problem(path, "has no list of glyphs")
+    return None
+  if len(glyphs) != FONT_GLYPH_COUNT:
+    _report.Problem(path, f"holds {Plural(len(glyphs), 'glyph')}, not the {FONT_GLYPH_COUNT} of Hud.md §9")
+  read, seen = {}, set()
+  for number, glyph in enumerate(glyphs, 1):
+    code = glyph.get("code")
+    label = f"glyph {number} (U+{code:04X})" if isinstance(code, int) else f"glyph {number}"
+    if not isinstance(code, int) or isinstance(code, bool) or not 0 <= code <= 0x10FFFF:
+      _report.Problem(path, f"{label} has the code {code!r}, which is not a code point")
+      continue
+    if code in seen:
+      _report.Problem(path, f"{label} is the second glyph for U+{code:04X}")
+      continue
+    seen.add(code)
+    width, top, advance, rows = glyph.get("w"), glyph.get("top"), glyph.get("advance"), glyph.get("rows")
+    if not WholePixels(width) or width > FONT_ROW_BITS:
+      _report.Problem(path, f"{label} is {width!r} wide, not from 1 to {FONT_ROW_BITS} pixels, the widest a row's mask holds")
+      continue
+    if not isinstance(rows, list) or not rows or not all(isinstance(row, str) for row in rows):
+      _report.Problem(path, f"{label} has no rows")
+      continue
+    for row in rows:
+      if len(row) != width:
+        _report.Problem(path, f"{label} has the row {row!r}, which is not {width} wide, as its w says")
+      if set(row) - {".", "#"}:
+        _report.Problem(path, f"{label} has the row {row!r}, which is not made of . and #")
+    if not isinstance(top, int) or isinstance(top, bool) or top < 0 or top + len(rows) > cell:
+      _report.Problem(path, f"{label}'s {Plural(len(rows), 'row')} from its top {top!r} do not fit the {cell}-row cell")
+    if not isinstance(advance, int) or isinstance(advance, bool) or advance < 0:
+      _report.Problem(path, f"{label} has the advance {advance!r}, not a whole number of pixels")
+    icon = glyph.get("icon")
+    if not isinstance(icon, bool):
+      _report.Problem(path, f"{label} has an icon of {icon!r}, not true or false")
+    masks = [sum(1 << x for x, char in enumerate(row) if char == "#") for row in rows]
+    read[code] = Glyph(code, width, top, advance, icon is True, masks)
+  missing = [symbol for symbol in FONT_SYMBOLS if ord(symbol) not in read]
+  if missing:
+    _report.Problem(path, f"lacks the symbol(s) {' '.join(missing)} of Hud.md §9")
+  icons = [f"U+{code:04X}" for code in FONT_ICONS if code not in read or not read[code].icon]
+  if icons:
+    _report.Problem(path, f"lacks the command icon(s) {', '.join(icons)} of Hud.md §9, or does not mark them as icons")
+  if len(_report.problems) > before:
+    return None
+  return [read[code] for code in sorted(read)]
+
+
+# ── Check 14, the debris table ──────────────────────────────────────────────────────────────────
+
+
+class DebrisChoice:
+  """A row of debrisByRubble, read: the rubble's palette index, its models' ids, and its tint as a palette index, or 0."""
+
+  def __init__(self, _rubbleIndex, _models, _tintIndex):
+    self.rubbleIndex = _rubbleIndex
+    self.models = _models
+    self.tintIndex = _tintIndex
+
+
+def ReadDebris(_report, _root, _palette, _modelIds):
+  """Check 14 over Manifest.json's debrisByRubble, given the ids of the models in GameData/Client/Models/. Returns the
+  rows in ascending rubble index, or None after reporting everything wrong with them."""
+  path = _root / "GameData" / "Manifest.json"
+  data = ReadJson(_report, path) or {}
+  table = (data.get("debrisByRubble") or {}).get("table")
+  if not isinstance(table, list) or not table or not all(isinstance(row, dict) for row in table):
+    _report.Problem(path, "has no debrisByRubble table, which says what debris lies on each rubble")
+    return None
+  before = len(_report.problems)
+  rubbles = {index for index, entry in _palette.items() if str(entry.get("behavior", "")).endswith("Rubble")}
+  colors = Counter(str(entry.get("hex", "")).lower() for entry in _palette.values())
+  read = {}
+  for number, row in enumerate(table, 1):
+    index = row.get("rubbleIndex")
+    label = f"debrisByRubble row {number}"
+    if index not in rubbles:
+      _report.Problem(path, f"{label} names index {index!r}, which is not a palette index whose behaviour is a rubble")
+      continue
+    if index in read:
+      _report.Problem(path, f"{label} names index {index} a second time")
+      continue
+    models = row.get("debris")
+    if not isinstance(models, list) or not models or not all(isinstance(model, str) for model in models):
+      _report.Problem(path, f"{label} names no models")
+      continue
+    for model in models:
+      if model not in _modelIds:
+        _report.Problem(path, f"{label} names the model {model!r}, which is not in GameData/Client/Models/")
+    tint, tintIndex = row.get("tint"), 0
+    if tint is not None:
+      matching = [entry for entry, value in sorted(_palette.items()) if str(value.get("hex", "")).lower() == str(tint).lower()]
+      if not isinstance(tint, str) or not HEX_COLOR.fullmatch(tint) or colors[tint.lower()] != 1:
+        _report.Problem(path, f"{label} has the tint {tint!r}, which is not exactly one palette entry's colour")
+      else:
+        tintIndex = matching[0]
+    read[index] = DebrisChoice(index, models, tintIndex)
+  if len(_report.problems) > before:
+    return None
+  return [read[index] for index in sorted(read)]
+
+
 # ── Check 9, the client bake ────────────────────────────────────────────────────────────────────
 
 
@@ -717,6 +868,9 @@ def Check(_root):
   palette, behaviors = ReadPalette(report, _root)
   assets = ReadAssets(report, _root, palette)
   lineModels = ReadLineModels(report, _root)
+  ReadFont(report, _root)
+  modelIds = {asset.data.get("id") for relative, asset in assets.items() if relative.startswith("Client/Models/")}
+  ReadDebris(report, _root, palette, modelIds)
   manifestPath = _root / "GameData" / "Manifest.json"
   manifest = ReadJson(report, manifestPath) or {}
   entries = CheckManifest(report, _root, manifest, assets, lineModels)

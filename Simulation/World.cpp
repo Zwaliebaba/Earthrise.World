@@ -4,6 +4,7 @@
 
 #include "Generator.h"
 #include "IntegerMath.h"
+#include "Integrity.h"
 
 namespace Simulation
 {
@@ -67,9 +68,51 @@ void World::Submit(std::uint8_t _player, std::span<const std::byte> _command)
   m_pendingCommands.push_back({.player = _player, .bytes = {_command.begin(), _command.end()}});
 }
 
+void World::Ask(std::uint8_t _player, std::span<const std::byte> _query)
+{
+  m_pendingQueries.push_back({.player = _player, .bytes = {_query.begin(), _query.end()}});
+  if (m_pendingQueries.size() > MAX_PENDING_QUERIES)
+  {
+    m_pendingQueries.pop_front();
+  }
+}
+
+std::vector<std::vector<std::byte>> World::TakeAnswers()
+{
+  return std::exchange(m_answers, {});
+}
+
+bool World::Quiet() const noexcept
+{
+  if (!m_shots.empty() || !m_collapses.empty() || !m_slumpQueue.empty() || !m_searches.empty() || !m_unsearchedEdits.empty() ||
+      !m_voxels.TickEdits().empty() || !m_pendingCommands.empty())
+  {
+    return false;
+  }
+  // A unit stands still at its place in its squad's file: in no step, and at the cell it stops in.
+  for (const auto& [id, squad] : m_squads)
+  {
+    for (std::size_t place = 0; place < squad.units.size(); ++place)
+    {
+      const auto unit = m_units.find(squad.units[place]);
+      if (unit == m_units.end() || squad.trail.empty())
+      {
+        continue;
+      }
+      const std::size_t end = squad.trail.size() - 1 - std::min(place, squad.trail.size() - 1);
+      if (unit->second.stepEffort > 0 || unit->second.trailStep < end)
+      {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 void World::Tick()
 {
   m_tickCrushes.clear();
+  m_endedCollapses.clear();
   ApplyCommands();
   AdvanceJobs();
   MoveUnits();
@@ -119,6 +162,11 @@ VoxelWorld& World::Voxels() noexcept
 std::vector<Protocol::ChunkSnapshot> World::Publish()
 {
   return m_voxels.Publish();
+}
+
+const Protocol::StateUpdate& World::State() const noexcept
+{
+  return m_state;
 }
 
 const World::Desc& World::Description() const noexcept
@@ -205,7 +253,8 @@ std::span<const Protocol::VoxelPosition> World::LastTickEdits() const noexcept
   return m_lastTickEdits;
 }
 
-Protocol::EntityId World::AddSquad(std::uint8_t _owner, NavigationClass _class, std::span<const Protocol::VoxelPosition> _cellsVoxels)
+Protocol::EntityId World::AddSquad(std::uint8_t _owner, NavigationClass _class, std::span<const Protocol::VoxelPosition> _cellsVoxels,
+                                   UnitKind _kind)
 {
   const Protocol::EntityId squadId = NewEntityId();
   Squad squad{.id = squadId,
@@ -227,20 +276,115 @@ Protocol::EntityId World::AddSquad(std::uint8_t _owner, NavigationClass _class, 
                                  .position = CellFloorMiddle(cell),
                                  .cellVoxels = cell,
                                  .trailStep = 0,
-                                 .stepEffort = 0});
+                                 .stepEffort = 0,
+                                 .kind = _kind});
     squad.units.push_back(unitId);
   }
   m_squads.emplace(squadId, std::move(squad));
   return squadId;
 }
 
-Protocol::EntityId World::AddSiegeEngine(std::uint8_t _owner, EngineKind _kind, Protocol::VoxelPosition _cellVoxels)
+Protocol::EntityId World::AddSiegeEngine(std::uint8_t _owner, EngineKind _kind, Protocol::VoxelPosition _cellVoxels,
+                                         std::uint32_t _quarterTurns)
 {
   const Protocol::EntityId id = NewEntityId();
-  m_siegeEngines.emplace(
-    id, SiegeEngine{
-          .id = id, .owner = _owner, .kind = _kind, .position = CellFloorMiddle(_cellVoxels), .cellVoxels = _cellVoxels, .reloadTicks = 0});
+  m_siegeEngines.emplace(id, SiegeEngine{.id = id,
+                                         .owner = _owner,
+                                         .kind = _kind,
+                                         .position = CellFloorMiddle(_cellVoxels),
+                                         .cellVoxels = _cellVoxels,
+                                         .reloadTicks = 0,
+                                         .quarterTurns = _quarterTurns % 4});
   return id;
+}
+
+Protocol::EntityId World::AddStructure(std::uint8_t _owner, std::string_view _templateId, Protocol::VoxelPosition _originVoxels,
+                                       std::uint32_t _quarterTurns, std::string_view _name)
+{
+  const ServerTemplate* found = Data().FindTemplate(_templateId);
+  if (found == nullptr)
+  {
+    throw std::invalid_argument("the server data holds no template " + std::string(_templateId));
+  }
+  const TemplateShape shape = found->Shape();
+  const auto width = static_cast<std::int32_t>(shape.widthVoxels);
+  const auto depth = static_cast<std::int32_t>(shape.depthVoxels);
+  const std::uint32_t turns = _quarterTurns % 4;
+  for (std::uint32_t y = 0; y < shape.heightVoxels; ++y)
+  {
+    for (std::int32_t z = 0; z < depth; ++z)
+    {
+      for (std::int32_t x = 0; x < width; ++x)
+      {
+        const std::uint8_t index = shape.At(static_cast<std::uint32_t>(x), y, static_cast<std::uint32_t>(z));
+        if (index == Protocol::Chunk::EMPTY)
+        {
+          continue;
+        }
+        // Clockwise seen from above, as the voxel pass turns a batch: one turn takes +z to +x, and the
+        // footprint's minimum corner stays at the origin.
+        std::int32_t turnedX = x;
+        std::int32_t turnedZ = z;
+        switch (turns)
+        {
+        case 1:
+          turnedX = z;
+          turnedZ = width - 1 - x;
+          break;
+        case 2:
+          turnedX = width - 1 - x;
+          turnedZ = depth - 1 - z;
+          break;
+        case 3:
+          turnedX = depth - 1 - z;
+          turnedZ = x;
+          break;
+        default:
+          break;
+        }
+        m_voxels.Edit({.xVoxels = _originVoxels.xVoxels + turnedX,
+                       .yVoxels = _originVoxels.yVoxels + static_cast<std::int32_t>(y),
+                       .zVoxels = _originVoxels.zVoxels + turnedZ},
+                      index);
+      }
+    }
+  }
+  const Protocol::EntityId id = NewEntityId();
+  m_structures.emplace(id, Structure{.id = id,
+                                     .owner = _owner,
+                                     .templateId = std::string(_templateId),
+                                     .originVoxels = _originVoxels,
+                                     .quarterTurns = turns,
+                                     .name = std::string(_name)});
+  return id;
+}
+
+const std::map<Protocol::EntityId, Structure>& World::Structures() const noexcept
+{
+  return m_structures;
+}
+
+Protocol::EntityId World::StructureHolding(Protocol::VoxelPosition _voxel) const
+{
+  for (const auto& [id, structure] : m_structures)
+  {
+    const ServerTemplate* found = Data().FindTemplate(structure.templateId);
+    if (found == nullptr)
+    {
+      continue;
+    }
+    const bool across = structure.quarterTurns % 2 == 1;
+    const auto extentX = static_cast<std::int32_t>(across ? found->depthVoxels : found->widthVoxels);
+    const auto extentZ = static_cast<std::int32_t>(across ? found->widthVoxels : found->depthVoxels);
+    const Protocol::VoxelPosition& origin = structure.originVoxels;
+    if (_voxel.xVoxels >= origin.xVoxels && _voxel.xVoxels < origin.xVoxels + extentX && _voxel.zVoxels >= origin.zVoxels &&
+        _voxel.zVoxels < origin.zVoxels + extentZ && _voxel.yVoxels >= origin.yVoxels &&
+        _voxel.yVoxels < origin.yVoxels + static_cast<std::int32_t>(found->heightVoxels))
+    {
+      return id;
+    }
+  }
+  return Protocol::NO_ENTITY;
 }
 
 void World::RemoveSquad(Protocol::EntityId _squad)
@@ -312,14 +456,6 @@ void World::Fire(std::uint8_t _player, const Protocol::FireEngine& _fire)
   const Protocol::EntityId id = NewEntityId();
   m_shots.emplace(id, Shot{.id = id, .engine = engine->first, .owner = _player, .arc = *arc, .ticksFlown = 0});
   engine->second.reloadTicks = static_cast<std::uint32_t>(Data().Tuning().shotReloadTicks);
-}
-
-bool World::OutsideWorld(const FixedPosition& _point) const noexcept
-{
-  const std::int32_t x = _point.xMeters.FloorWhole();
-  const std::int32_t z = _point.zMeters.FloorWhole();
-  return _point.yMeters.Raw() < 0 || x < 0 || z < 0 || x >= m_desc.widthChunks * Protocol::CHUNK_EDGE_VOXELS ||
-         z >= m_desc.depthChunks * Protocol::CHUNK_EDGE_VOXELS;
 }
 
 void World::AdvanceJobs()
@@ -546,11 +682,9 @@ void World::AdvanceShots()
   std::vector<Protocol::EntityId> landed;
   for (auto& [id, shot] : m_shots)
   {
-    const FixedPosition from = ShotPositionAt(shot.arc, shot.ticksFlown);
+    const ShotStep step = StepShot(shot.arc, shot.ticksFlown, m_voxels, WidthVoxels(), DepthVoxels());
     ++shot.ticksFlown;
-    const FixedPosition to = ShotPositionAt(shot.arc, shot.ticksFlown);
-    const std::optional<Protocol::VoxelPosition> hit = TraverseVoxels(
-      from, to, [this](Protocol::VoxelPosition _voxel) { return _voxel.yVoxels >= 0 && m_voxels.At(_voxel) != Protocol::Chunk::EMPTY; });
+    const std::optional<Protocol::VoxelPosition>& hit = step.hit;
     if (hit.has_value())
     {
       const bool alongX = std::abs(shot.arc.acrossXMeters.Raw()) >= std::abs(shot.arc.acrossZMeters.Raw());
@@ -568,7 +702,7 @@ void World::AdvanceShots()
       }
       landed.push_back(id);
     }
-    else if (OutsideWorld(to))
+    else if (step.left)
     {
       landed.push_back(id);
     }
@@ -620,7 +754,14 @@ void World::SearchSupport()
     }
     const Protocol::EntityId id = NewEntityId();
     CollapsePlan plan = PlanCollapse(piece, edits, m_voxels, Data());
-    m_collapses.emplace(id, Collapse{.id = id, .piece = std::move(piece), .plan = std::move(plan), .ticksElapsed = 0, .struck = {}});
+    const Protocol::EntityId structure = StructureHolding(piece.front());
+    m_collapses.emplace(id, Collapse{.id = id,
+                                     .piece = std::move(piece),
+                                     .plan = std::move(plan),
+                                     .ticksElapsed = 0,
+                                     .struck = {},
+                                     .structure = structure,
+                                     .fallen = {}});
   }
 }
 
@@ -636,6 +777,7 @@ void World::AdvanceCollapses()
     if (collapse.ticksElapsed > collapse.plan.warningTicks && Fall(collapse))
     {
       ended.push_back(id);
+      m_endedCollapses.push_back(ViewOf(collapse));
     }
   }
   for (const Protocol::EntityId id : ended)
@@ -651,9 +793,10 @@ bool World::Fall(Collapse& _collapse)
   if (fallTick == 1)
   {
     // The piece leaves the grid on the fall's first tick, and every unit standing in the strip is hit,
-    // once (items 5 and 8).
+    // once (items 5 and 8). What it was is kept for the client's debris (M3-B2).
     for (const Protocol::VoxelPosition& voxel : _collapse.piece)
     {
+      _collapse.fallen.push_back({.position = voxel, .paletteIndex = m_voxels.At(voxel)});
       m_voxels.Edit(voxel, Protocol::Chunk::EMPTY);
     }
     std::set<std::pair<std::int32_t, std::int32_t>> strip;
@@ -908,6 +1051,9 @@ void World::RebuildNavigation()
   {
     return;
   }
+  // Reach too, so the queries of step 12 and whoever reads navigation between ticks find it current
+  // (M3-B5). It labels only the tiles the rebuild changed, as the next search would have.
+  m_navigation.UpdateReach();
   // Then, in squad-id order, the squads to search again in the next tick's step 3 (ADR-015,
   // decision 5): each short of its goal, each whose path crosses a rebuilt tile, and each whose
   // search is not done, since the cells it has closed may have changed under it.
@@ -1003,13 +1149,231 @@ void World::CheckRules()
 
 void World::PublishState()
 {
-  // Step 11: state updates filtered by what each player sees. M2 is headless; Publish() hands the
-  // chunks to whoever asks.
+  // Step 11: the state update, filtered by what the player sees (ADR-002, decision 4; ADR-020,
+  // decision 3). Publish() hands the chunks to whoever asks.
+  m_state = StateFor(0);
+}
+
+Protocol::StateUpdate World::StateFor([[maybe_unused]] std::uint8_t _player) const
+{
+  Protocol::StateUpdate state{
+    .tick = m_tick, .structures = {}, .engines = {}, .squads = {}, .units = {}, .shots = {}, .collapses = {}, .hits = {}};
+  for (const auto& [id, structure] : m_structures)
+  {
+    state.structures.push_back({.id = id,
+                                .owner = structure.owner,
+                                .templateId = structure.templateId,
+                                .originVoxels = structure.originVoxels,
+                                .quarterTurns = structure.quarterTurns,
+                                .name = structure.name});
+  }
+  for (const auto& [id, engine] : m_siegeEngines)
+  {
+    state.engines.push_back({.id = id,
+                             .owner = engine.owner,
+                             .kind = engine.kind,
+                             .cellVoxels = engine.cellVoxels,
+                             .quarterTurns = engine.quarterTurns,
+                             .reloadTicks = engine.reloadTicks});
+  }
+  for (const auto& [id, squad] : m_squads)
+  {
+    state.squads.push_back({.id = id,
+                            .owner = squad.owner,
+                            .units = squad.units,
+                            .hasGoal = squad.hasGoal,
+                            .goalVoxels = squad.goalVoxels,
+                            .shortOfGoal = squad.shortOfGoal});
+  }
+  for (const auto& [id, unit] : m_units)
+  {
+    state.units.push_back(
+      {.id = id, .squad = unit.squad, .owner = unit.owner, .kind = unit.kind, .position = unit.position, .cellVoxels = unit.cellVoxels});
+  }
+  for (const auto& [id, shot] : m_shots)
+  {
+    state.shots.push_back({.id = id, .engine = shot.engine, .position = ShotPositionAt(shot.arc, shot.ticksFlown)});
+  }
+  // The collapses still running and those whose fall ended this tick, in id order.
+  for (const auto& [id, collapse] : m_collapses)
+  {
+    state.collapses.push_back(ViewOf(collapse));
+  }
+  state.collapses.insert(state.collapses.end(), m_endedCollapses.begin(), m_endedCollapses.end());
+  std::ranges::sort(state.collapses, {}, &Protocol::CollapseView::id);
+  for (const ShotHit& hit : m_tickHits)
+  {
+    state.hits.push_back({.shot = hit.shot, .voxel = hit.voxel});
+  }
+  return state;
+}
+
+Protocol::CollapseView World::ViewOf(const Collapse& _collapse) const
+{
+  const CollapsePlan& plan = _collapse.plan;
+  const std::uint32_t warned = std::min(_collapse.ticksElapsed, plan.warningTicks);
+  const std::uint32_t fallen = _collapse.ticksElapsed > plan.warningTicks ? _collapse.ticksElapsed - plan.warningTicks : 0;
+  const std::uint64_t fallTicks = std::max<std::uint32_t>(plan.fallTicks, 1);
+  // As Fall lands them: in equal parts over the fall's ticks.
+  const std::uint64_t landed = plan.landing.size() * std::min<std::uint64_t>(fallen, fallTicks) / fallTicks;
+  return {.id = _collapse.id,
+          .structure = _collapse.structure,
+          .warningTicksLeft = plan.warningTicks - warned,
+          .fallTicksLeft = fallen >= plan.fallTicks ? 0 : plan.fallTicks - fallen,
+          .piece = _collapse.piece,
+          .strip = plan.strip,
+          .landing = plan.landing,
+          .landedVoxels = static_cast<std::uint32_t>(landed),
+          .fallen = _collapse.fallen};
 }
 
 void World::AnswerQueries()
 {
-  // Step 12: queries within the tick's budget (ADR-009), which M3 sets.
+  // Step 12: the queries, oldest first, on the tick's state, within queryWorkPerTick units of work
+  // (ADR-009, decision 5; ADR-020, decision 6). A query that does not fit what is left waits for the
+  // next tick, unless nothing has been answered yet this tick, so that one dearer than the whole
+  // budget cannot block the queue for good.
+  constexpr std::int32_t AIM_CHECK_WORK = 1;
+  constexpr std::int32_t TILE_REACH_WORK = 1;
+  constexpr std::int32_t SECTION_INTEGRITY_WORK = 8; // the most support searches it runs (M3-B5)
+  const std::int32_t budget = Data().Tuning().queryWorkPerTick;
+  std::int32_t left = budget;
+  while (!m_pendingQueries.empty())
+  {
+    const SubmittedCommand& asked = m_pendingQueries.front();
+    Core::ByteReader reader(asked.bytes);
+    const Protocol::QueryRequest request = Protocol::DecodeQueryRequest(reader);
+    if (!reader.AtEnd())
+    {
+      throw std::invalid_argument("a query's bytes run on past the query");
+    }
+    const std::int32_t work = std::holds_alternative<Protocol::SectionIntegrity>(request.query)
+                                ? SECTION_INTEGRITY_WORK
+                                : (std::holds_alternative<Protocol::TileReach>(request.query) ? TILE_REACH_WORK : AIM_CHECK_WORK);
+    if (work > left && left < budget)
+    {
+      break;
+    }
+    Core::ByteWriter writer;
+    Protocol::Encode(Protocol::Answer{.queryId = request.id, .tick = m_tick, .reading = Answer(asked.player, request.query)}, writer);
+    m_answers.push_back(writer.TakeBytes());
+    left -= work;
+    m_pendingQueries.pop_front();
+    if (left <= 0)
+    {
+      break;
+    }
+  }
+}
+
+Protocol::Reading World::Answer(std::uint8_t _player, const Protocol::Query& _query) const
+{
+  // Answers pass the state update's filter, which passes everything in M3.
+  if (const auto* integrity = std::get_if<Protocol::SectionIntegrity>(&_query))
+  {
+    if (m_structures.contains(integrity->structure))
+    {
+      return ReadIntegrity(*this, integrity->structure);
+    }
+    // A structure the world no longer holds reads empty: the client asks about what it last saw.
+    return Protocol::IntegrityReading{.structure = integrity->structure,
+                                      .ground = Protocol::GroundKind::Earth,
+                                      .canBeUndermined = false,
+                                      .holeWidthVoxels = 0,
+                                      .holeHeightVoxels = 0,
+                                      .holeFallWidthVoxels = 0,
+                                      .hasOpening = false,
+                                      .openingFloorVoxels = 0,
+                                      .openingFloor = Protocol::OpeningFloor::Stone,
+                                      .openingClearVoxels = 0,
+                                      .routeNow = false,
+                                      .gapRunVoxels = 0,
+                                      .gapFallRunVoxels = 0,
+                                      .falling = false,
+                                      .weakMinVoxels = {},
+                                      .weakMaxVoxels = {}};
+  }
+  if (const auto* reach = std::get_if<Protocol::TileReach>(&_query))
+  {
+    return TileReachReadingFor(*reach);
+  }
+  return AimReadingFor(_player, std::get<Protocol::AimCheck>(_query));
+}
+
+Protocol::TileReachReading World::TileReachReadingFor(const Protocol::TileReach& _reach) const
+{
+  // The tile's reach from the start cell, from the components step 8 brought up to date (M3-B6). A
+  // tile or a start off the grid reads empty, as a structure the world no longer holds does: the
+  // client asks about what is on its screen.
+  Protocol::TileReachReading reading{.tileX = _reach.tileX, .tileZ = _reach.tileZ, .usable = {}, .reached = {}};
+  const std::int32_t width = m_navigation.WidthCells();
+  const Protocol::VoxelPosition start = _reach.startCellVoxels;
+  const bool inside = start.xVoxels >= 0 && start.zVoxels >= 0 && start.xVoxels < width && start.zVoxels < m_navigation.DepthCells() &&
+                      _reach.tileX >= 0 && _reach.tileZ >= 0 && _reach.tileX < m_navigation.TilesAcross() &&
+                      _reach.tileZ < m_navigation.TilesDeep();
+  if (!inside)
+  {
+    return reading;
+  }
+  const NavigationGrid::TileReach reach =
+    m_navigation.ReachInTile(std::int64_t{start.zVoxels} * width + start.xVoxels, _reach.tileX, _reach.tileZ, _reach.navigationClass);
+  for (std::size_t bit = 0; bit < reach.usable.size(); ++bit)
+  {
+    const auto mask = static_cast<std::uint8_t>(1U << (bit % 8));
+    if (reach.usable.test(bit))
+    {
+      reading.usable.at(bit / 8) |= mask;
+    }
+    if (reach.reached.test(bit))
+    {
+      reading.reached.at(bit / 8) |= mask;
+    }
+  }
+  return reading;
+}
+
+Protocol::AimReading World::AimReadingFor(std::uint8_t _player, const Protocol::AimCheck& _aim) const
+{
+  // Hud.md §8's attack cursor, from the shot's own arc (M3-B4): TOO CLOSE and OUT OF RANGE from the
+  // range AimShot keeps, and otherwise where the arc strikes, IN RANGE when that is the target or one
+  // of its six face neighbours and BLOCKED when it is anything else, or nothing.
+  Protocol::AimReading reading{.verdict = Protocol::AimVerdict::OutOfRange, .distanceMeters = 0, .strikes = false, .strikeVoxels = {}};
+  const auto engine = m_siegeEngines.find(_aim.engine);
+  if (engine == m_siegeEngines.end() || engine->second.owner != _player)
+  {
+    return reading;
+  }
+  const Protocol::VoxelPosition from = engine->second.cellVoxels;
+  const std::int64_t acrossX = std::int64_t{_aim.targetVoxels.xVoxels} - from.xVoxels;
+  const std::int64_t acrossZ = std::int64_t{_aim.targetVoxels.zVoxels} - from.zVoxels;
+  const std::int64_t acrossSquared = acrossX * acrossX + acrossZ * acrossZ;
+  reading.distanceMeters = static_cast<std::int32_t>(Core::IntegerSquareRoot(static_cast<std::uint64_t>(acrossSquared)));
+  const std::int64_t nearest = Data().Tuning().shotMinRangeVoxels;
+  if (acrossSquared < nearest * nearest)
+  {
+    reading.verdict = Protocol::AimVerdict::TooClose;
+    return reading;
+  }
+  const std::optional<ShotArc> arc = AimShot(from, _aim.targetVoxels, Data().Tuning());
+  if (!arc.has_value())
+  {
+    return reading; // beyond its range, or too far below the launch to reach at 45 degrees
+  }
+  const std::optional<Protocol::VoxelPosition> strike = TraceShot(*arc, m_voxels, WidthVoxels(), DepthVoxels());
+  reading.verdict = Protocol::AimVerdict::Blocked;
+  if (strike.has_value())
+  {
+    reading.strikes = true;
+    reading.strikeVoxels = *strike;
+    const std::int32_t apart = std::abs(strike->xVoxels - _aim.targetVoxels.xVoxels) +
+                               std::abs(strike->yVoxels - _aim.targetVoxels.yVoxels) +
+                               std::abs(strike->zVoxels - _aim.targetVoxels.zVoxels);
+    if (apart <= 1)
+    {
+      reading.verdict = Protocol::AimVerdict::InRange;
+    }
+  }
+  return reading;
 }
 
 } // namespace Simulation

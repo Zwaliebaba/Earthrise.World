@@ -1,5 +1,5 @@
 """Tests for Tools/BakeContent.py: the server half's ServerData file of ADR-016, and the client half's rule for ids and
-its line models (ADR-018).
+its line models (ADR-018), font (ADR-019) and debris table.
 
 Each test bakes the real sources into a temporary folder, or bakes a copy of them with one thing changed, and reads
 the file back by hand, with the layout BakeContent.py's docstring states. The reader in Simulation (M2-B6) is tested
@@ -202,6 +202,7 @@ class ServerBakeTests(unittest.TestCase):
     self.assertEqual(2293, rules["machinesSpeedMetersPerTick"])
     self.assertEqual(20, rules["warningBaseTicks"])
     self.assertEqual(1607, rules["gravityMetersPerTickSquared"])
+    self.assertEqual(16, rules["queryWorkPerTick"])
     self.assertEqual(sorted(rules), list(rules))
 
   def test_a_span_that_is_not_a_whole_number_of_voxels_fails(self):
@@ -287,6 +288,50 @@ class LineModelBakeTests(unittest.TestCase):
       self.assertEqual(1, result.returncode)
       self.assertIn("segment 2 (shaft) has a widthPixels of 0", result.stdout)
       self.assertFalse((root / "out" / "client" / "LineModelTable.h").exists())
+
+
+class FontAndDebrisBakeTests(unittest.TestCase):
+  """The client half's font (ADR-019, decision 1) and debris table (GameDesign.md, M3's values, item 16)."""
+
+  @classmethod
+  def setUpClass(cls):
+    with tempfile.TemporaryDirectory() as folder:
+      out = Path(folder)
+      result = Bake(ROOT, out, "client")
+      assert result.returncode == 0, result.stdout + result.stderr
+      cls.font = (out / "client" / "FontTable.h").read_text(encoding="utf-8")
+      cls.debris = (out / "client" / "DebrisTable.h").read_text(encoding="utf-8")
+
+  def test_the_digit_one_bakes_as_its_bitmap(self):
+    # ..#.. .##.. ..#.. ..#.. ..#.. ..#.. .###.
+    self.assertIn("inline constexpr std::array<std::uint16_t, 7> GLYPH_0031_ROWS = {4, 6, 4, 4, 4, 4, 14};", self.font)
+    self.assertIn("{.codePoint = 0x0031U, .widthPixels = 5, .heightPixels = 7, .topRow = 1, .advancePixels = 6, .icon = false, "
+                  ".rows = GLYPH_0031_ROWS},", self.font)
+    self.assertIn("inline constexpr std::array<Glyph, 127> GLYPHS = {{", self.font)
+
+  def test_the_glyphs_come_in_ascending_code_point(self):
+    codes = [int(code, 16) for code in re.findall(r"\.codePoint = 0x([0-9A-F]+)U", self.font)]
+    self.assertEqual(127, len(codes))
+    self.assertEqual(sorted(codes), codes)
+
+  def test_rock_rubble_bakes_three_stones_tinted_its_own_index(self):
+    self.assertIn('inline constexpr std::array<std::string_view, 3> DEBRIS_28_MODELS = {"D1", "D2", "D3"};', self.debris)
+    self.assertIn("{.rubbleIndex = 28, .models = DEBRIS_28_MODELS, .tintIndex = 28},", self.debris)
+    self.assertIn("{.rubbleIndex = 25, .models = DEBRIS_25_MODELS, .tintIndex = 0},", self.debris)
+
+  def test_a_broken_glyph_stops_the_bake(self):
+    with tempfile.TemporaryDirectory() as folder:
+      root = Path(folder)
+      shutil.copytree(TOOLS, root / "Tools", ignore=shutil.ignore_patterns("__pycache__"))
+      shutil.copytree(ROOT / "GameData", root / "GameData")
+      path = root / "GameData" / "Client" / "Fonts" / "EarthriseMason-glyphs.json"
+      data = json.loads(path.read_text(encoding="utf-8"))
+      next(glyph for glyph in data["glyphs"] if glyph["char"] == "1")["rows"][0] = "..#..."
+      path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+      result = Bake(root, root / "out", "client")
+      self.assertEqual(1, result.returncode)
+      self.assertIn("has the row '..#...', which is not 5 wide", result.stdout)
+      self.assertFalse((root / "out" / "client" / "FontTable.h").exists())
 
 
 class HandWrittenEncodingTests(unittest.TestCase):

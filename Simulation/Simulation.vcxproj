@@ -66,7 +66,6 @@
     <ClCompile Include="Replay.cpp" />
     <ClInclude Include="Generator.h" />
     <ClCompile Include="Generator.cpp" />
-    <ClInclude Include="FixedPosition.h" />
     <ClInclude Include="Shot.h" />
     <ClCompile Include="Shot.cpp" />
     <ClInclude Include="CollapsePlan.h" />
@@ -75,6 +74,10 @@
     <ClCompile Include="PathSearch.cpp" />
     <ClInclude Include="BreachRun.h" />
     <ClCompile Include="BreachRun.cpp" />
+    <ClInclude Include="Integrity.h" />
+    <ClCompile Include="Integrity.cpp" />
+    <ClInclude Include="BreachLab.h" />
+    <ClCompile Include="BreachLab.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
