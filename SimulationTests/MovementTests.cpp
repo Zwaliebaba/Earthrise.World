@@ -64,16 +64,16 @@ std::uint32_t TicksForFourteenMeters(Simulation::World& _world, Simulation::Navi
   const std::array<Protocol::VoxelPosition, 1> cells = {Cell(10, 20)};
   const Protocol::EntityId squad = Order(_world, cells, Cell(24, 20), _class);
   const Simulation::FixedPosition goal = Simulation::CellFloorMiddle(Cell(24, 20));
-  for (std::uint32_t ticks = 1; ticks <= 6 * PLAIN_TICKS; ++ticks)
+  std::uint32_t ticks = 0;
+  bool arrived = false;
+  while (!arrived && ticks < 6 * PLAIN_TICKS)
   {
     _world.Tick();
-    if (Lead(_world, squad).position == goal)
-    {
-      return ticks;
-    }
+    ++ticks;
+    arrived = Lead(_world, squad).position == goal;
   }
-  Assert::Fail(L"the squad never arrived");
-  return 0;
+  Assert::IsTrue(arrived);
+  return ticks;
 }
 
 bool InOrder(Core::Fixed _behind, Core::Fixed _ahead)
