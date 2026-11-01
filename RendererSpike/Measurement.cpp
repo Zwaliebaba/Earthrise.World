@@ -54,7 +54,7 @@ std::wstring Measurement::Write(const std::filesystem::path& _folder, std::wstri
   {
     if (row.frame >= _setup.firstMeasuredFrame)
     {
-      measured.push_back(row.voxelPassMilliseconds);
+      measured.push_back(row.voxelPassMilliseconds + row.shadowPassMilliseconds);
     }
   }
   const double p95 = Core::NearestRankPercentile(measured, 95.0);
@@ -76,8 +76,9 @@ std::wstring Measurement::Write(const std::filesystem::path& _folder, std::wstri
   // The voxel pass's work is set by the size the scene draws at, not by the display's.
   const bool atPassMarkSize =
     _setup.renderWidthPixels == PASS_MARK_WIDTH_PIXELS && _setup.renderHeightPixels == PASS_MARK_HEIGHT_PIXELS && !_setup.resizedDuringRun;
-  std::wstring results = std::format(L"Voxel pass, 95th percentile: {:.3f} ms over {} frames, against a pass mark of {:.0f} ms.\n", p95,
-                                     measured.size(), PASS_MARK_MILLISECONDS);
+  std::wstring results =
+    std::format(L"Voxel pass with its shadow passes, 95th percentile: {:.3f} ms over {} frames, against a pass mark of {:.0f} ms.\n", p95,
+                measured.size(), PASS_MARK_MILLISECONDS);
   if (_setup.worldVoxelMeters != 1.0F)
   {
     results += std::format(L"World voxels of {} m, for ADR-006's comparison: the pass mark is the 1 m world's.\n", _setup.worldVoxelMeters);
@@ -121,11 +122,11 @@ std::wstring Measurement::Write(const std::filesystem::path& _folder, std::wstri
     framesOut << "# " << Utf8(remaining.substr(0, end)) << "\n";
     remaining.remove_prefix(end == std::wstring_view::npos ? remaining.size() : end + 1);
   }
-  framesOut << "frame,azimuth_degrees,voxels_drawn,voxel_pass_ms,frame_ms,rebuild_ms\n";
+  framesOut << "frame,azimuth_degrees,voxels_drawn,voxel_pass_ms,shadow_pass_ms,frame_ms,rebuild_ms\n";
   for (const FrameRow& row : frames)
   {
-    framesOut << std::format("{},{:.1f},{},{:.4f},{:.4f},{:.4f}\n", row.frame, row.azimuthDegrees, row.voxelsDrawn,
-                             row.voxelPassMilliseconds, row.frameMilliseconds, row.rebuildMilliseconds);
+    framesOut << std::format("{},{:.1f},{},{:.4f},{:.4f},{:.4f},{:.4f}\n", row.frame, row.azimuthDegrees, row.voxelsDrawn,
+                             row.voxelPassMilliseconds, row.shadowPassMilliseconds, row.frameMilliseconds, row.rebuildMilliseconds);
   }
 
   std::ofstream editsOut = OpenForWriting(editsFile);

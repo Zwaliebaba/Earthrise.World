@@ -53,7 +53,13 @@ public:
   /// yet. Called each frame, as units move. Throws std::runtime_error for an unknown model.
   void PlaceModels(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, const std::vector<ModelPlacement>& _placements);
 
+  /// Draws every chunk batch and every model placement, through whichever of the pass's pipelines
+  /// was last begun: the scene's, or a shadow map's.
   void Draw(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const;
+  /// The world's chunks alone, for the static shadow map.
+  void DrawChunks(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const;
+  /// The model placements alone, for the dynamic shadow map.
+  void DrawModels(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const;
 
   /// Records across every chunk batch and model placement: what one frame draws.
   [[nodiscard]] std::uint64_t RecordsDrawn() const noexcept;

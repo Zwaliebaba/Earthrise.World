@@ -17,6 +17,10 @@ struct FrameConstants
   float4 skyRadiance;
   float4 groundRadiance;
   float4 cornerShades[2]; // each table's shade at corner levels 0 to 3 (RendererLook.md §5)
+  row_major float4x4 shadowViewProjection; // the sun's, for both shadow maps
+  // x: the normal offset in meters; y: the depth bias; z: a static-map texel; w: a dynamic-map
+  // texel, or 0 for no shadows (VoxelPass.h).
+  float4 shadowParameters;
 };
 
 struct PaletteConstants
@@ -284,6 +288,22 @@ bool IntersectBox(float3 _boxCenter, float3 _boxRadius, float3 _rayOrigin, float
   _distance = (sgn.x != 0.0) ? d.x : ((sgn.y != 0.0) ? d.y : d.z);
   _normal = sgn;
   return (sgn.x != 0.0) || (sgn.y != 0.0) || (sgn.z != 0.0);
+}
+
+// The orthographic ray through this pixel, from the near plane along the frame's forward, against
+// the voxel's box: the camera's in the voxel pass, the sun's in the shadow passes. Returns whether
+// it hits, and the hit and the outward normal of the face it hits.
+bool CastRay(VoxelInterpolants _input, out float3 _hit, out float3 _normal)
+{
+  const float2 ndc = float2(_input.position.x * g_frame.viewportPixels.z * 2.0 - 1.0, 1.0 - _input.position.y * g_frame.viewportPixels.w * 2.0);
+  const float4 nearPoint = mul(float4(ndc, 1.0, 1.0), g_frame.inverseViewProjection);
+  const float3 rayOrigin = nearPoint.xyz / nearPoint.w;
+  const float3 rayDirection = g_frame.rayDirection.xyz;
+  float hitDistance;
+  const bool hits = IntersectBox(_input.boxCenter, float3(_input.boxRadius, _input.boxRadius, _input.boxRadius), rayOrigin, rayDirection,
+                                 1.0 / rayDirection, hitDistance, _normal);
+  _hit = rayOrigin + rayDirection * hitDistance;
+  return hits;
 }
 
 #endif

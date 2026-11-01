@@ -46,6 +46,7 @@
     <ClCompile Include="GpuDeviceTests.cpp" />
     <ClCompile Include="PointerInputTests.cpp" />
     <ClCompile Include="VoxelPassTests.cpp" />
+    <ClCompile Include="SunProjectionTests.cpp" />
     <ClCompile Include="VoxelGridViewTests.cpp" />
     <ClCompile Include="CameraTests.cpp" />
     <ClCompile Include="UpscalePassTests.cpp" />

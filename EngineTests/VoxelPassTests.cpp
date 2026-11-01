@@ -5,6 +5,8 @@
 #include "FrameRing.h"
 #include "GpuDevice.h"
 #include "ResourceBarrier.h"
+#include "ShadowMap.h"
+#include "SunProjection.h"
 #include "UploadRing.h"
 #include "VoxelPass.h"
 #include "VoxelRecord.h"
@@ -74,6 +76,7 @@ Engine::VoxelPass::FrameConstants MakeFrame(DirectX::FXMVECTOR _eye, DirectX::FX
   frame.skyRadiance = FLAT_LIGHT;
   frame.groundRadiance = FLAT_LIGHT;
   frame.cornerShades = CORNER_SHADES;
+  frame.shadowParameters = NO_LIGHT; // no shadows unless a test draws them
   return frame;
 }
 
@@ -167,9 +170,20 @@ constexpr Engine::VoxelPass::Batch PLAIN_BATCH{.originMeters = {0.0F, 0.0F, 0.0F
                                                .swapFromIndex = 0,
                                                .swapToIndex = 0};
 
-/// Draws _records as one batch, and reads the frame back.
+/// What a test casts shadows with: the sun's frame, and what each shadow map holds, drawn as one
+/// batch each, like the scene's.
+struct ShadowScene
+{
+  Engine::VoxelPass::FrameConstants sunFrame;
+  std::span<const Engine::VoxelRecord> staticRecords;
+  std::span<const Engine::VoxelRecord> dynamicRecords;
+};
+
+constexpr std::uint32_t SHADOW_MAP_TEXELS = 256;
+
+/// Draws _records as one batch, with shadows when _shadows says, and reads the frame back.
 Readback Render(Engine::GpuDevice& _device, const Engine::VoxelPass::FrameConstants& _frame, std::span<const Engine::VoxelRecord> _records,
-                const Engine::VoxelPass::Batch& _batch = PLAIN_BATCH)
+                const Engine::VoxelPass::Batch& _batch = PLAIN_BATCH, const ShadowScene* _shadows = nullptr)
 {
   ID3D12Device* device = _device.Device();
   winrt::com_ptr<ID3D12Resource> color =
@@ -200,9 +214,41 @@ Readback Render(Engine::GpuDevice& _device, const Engine::VoxelPass::FrameConsta
   std::memcpy(palette->bytes.data(), colors.data(), sizeof(colors));
   std::memcpy(records->bytes.data(), _records.data(), _records.size_bytes());
 
-  const Engine::VoxelPass pass(device, {.colorFormat = COLOR_FORMAT, .depthFormat = DEPTH_FORMAT});
+  Engine::VoxelPass pass(device, {.colorFormat = COLOR_FORMAT, .depthFormat = DEPTH_FORMAT});
   Engine::FrameRing frames(device, _device.DirectQueue());
   ID3D12GraphicsCommandList* commandList = frames.Begin();
+
+  // The shadow maps first, through the shadow pipeline with the sun's frame.
+  Engine::ShadowMap staticShadow(device, SHADOW_MAP_TEXELS);
+  Engine::ShadowMap dynamicShadow(device, SHADOW_MAP_TEXELS);
+  if (_shadows != nullptr)
+  {
+    const std::optional<Engine::UploadRing::Allocation> sunFrame =
+      ring.Allocate(sizeof(Engine::VoxelPass::FrameConstants), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+    if (!sunFrame)
+    {
+      throw std::runtime_error("the upload ring refused the sun's frame");
+    }
+    std::memcpy(sunFrame->bytes.data(), &_shadows->sunFrame, sizeof(_shadows->sunFrame));
+    for (const auto& [map, mapRecords] :
+         {std::pair{&staticShadow, _shadows->staticRecords}, std::pair{&dynamicShadow, _shadows->dynamicRecords}})
+    {
+      const std::optional<Engine::UploadRing::Allocation> held = ring.Allocate(std::max<std::size_t>(mapRecords.size_bytes(), 1), 256);
+      if (!held)
+      {
+        throw std::runtime_error("the upload ring refused a shadow map's records");
+      }
+      if (!mapRecords.empty())
+      {
+        std::memcpy(held->bytes.data(), mapRecords.data(), mapRecords.size_bytes());
+      }
+      map->BeginDrawing(commandList);
+      pass.BeginShadow(commandList, sunFrame->gpuAddress, palette->gpuAddress);
+      pass.Draw(commandList, held->gpuAddress, static_cast<std::uint32_t>(mapRecords.size()), _batch);
+      map->EndDrawing(commandList);
+    }
+    pass.SetShadowMaps(staticShadow.Texture(), dynamicShadow.Texture());
+  }
   constexpr std::array<float, 4> CLEAR = {0.0F, 0.0F, 0.0F, 1.0F};
   commandList->OMSetRenderTargets(1, &colorView, FALSE, &depthView);
   commandList->ClearRenderTargetView(colorView, CLEAR.data(), 0, nullptr);
@@ -462,6 +508,60 @@ public:
     const std::array<Engine::VoxelRecord, 1> records = {Engine::MakeVoxelRecord(0, 0, 0, ORANGE, shade)};
     const Readback frame = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), records);
     Assert::IsTrue(Near(frame.ColorAt(40, 24), 255, 111, 39), Describe(frame.ColorAt(40, 24)).c_str());
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(CastsTheSunsShadowFromEitherMap)
+  {
+    // A floor of four voxels from x -2 to 2, and one above its east end at x 1, y 2. The sun stands
+    // to the east at 45 degrees, so the raised voxel's shadow falls on the floor's top from x -1 to
+    // 1: the cells at -1 and 0 take only the sky, the one at -2 the sun too. The sun at 0.5 and the
+    // sky and ground at 0.25 give 0.25 in shadow and 0.25 + 0.5 x 0.7071 in the sun. The raised
+    // voxel casts from the static map in one run and from the dynamic map in the other.
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const std::array<Engine::VoxelRecord, 4> floor = {Engine::MakeVoxelRecord(0, 0, 0, ORANGE), Engine::MakeVoxelRecord(1, 0, 0, ORANGE),
+                                                      Engine::MakeVoxelRecord(2, 0, 0, ORANGE), Engine::MakeVoxelRecord(3, 0, 0, ORANGE)};
+    const std::array<Engine::VoxelRecord, 1> raised = {Engine::MakeVoxelRecord(3, 2, 0, ORANGE)};
+    std::vector<Engine::VoxelRecord> scene(floor.begin(), floor.end());
+    scene.push_back(raised[0]);
+    Engine::VoxelPass::Batch batch = PLAIN_BATCH;
+    batch.originMeters = {-2.0F, 0.0F, 0.0F};
+
+    const DirectX::XMVECTOR towardsSun = DirectX::XMVectorSet(1.0F, 1.0F, 0.0F, 0.0F);
+    Engine::VoxelPass::FrameConstants sun{};
+    const DirectX::XMMATRIX sunViewProjection =
+      Engine::SunViewProjection(towardsSun, DirectX::XMFLOAT3{-2.0F, 0.0F, 0.0F}, DirectX::XMFLOAT3{2.0F, 3.0F, 1.0F}, 0.5F);
+    DirectX::XMStoreFloat4x4(&sun.viewProjection, sunViewProjection);
+    DirectX::XMStoreFloat4x4(&sun.inverseViewProjection, DirectX::XMMatrixInverse(nullptr, sunViewProjection));
+    DirectX::XMStoreFloat4(&sun.rayDirection, DirectX::XMVector3Normalize(DirectX::XMVectorNegate(towardsSun)));
+    constexpr float MAP = static_cast<float>(SHADOW_MAP_TEXELS);
+    sun.viewportPixels = {MAP, MAP, 1.0F / MAP, 1.0F / MAP};
+
+    Engine::VoxelPass::FrameConstants frame = TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS);
+    DirectX::XMStoreFloat4(&frame.lightDirection, DirectX::XMVector3Normalize(towardsSun));
+    frame.sunRadiance = {0.5F, 0.5F, 0.5F, 0.0F};
+    frame.skyRadiance = {0.25F, 0.25F, 0.25F, 0.0F};
+    frame.groundRadiance = frame.skyRadiance;
+    DirectX::XMStoreFloat4x4(&frame.shadowViewProjection, sunViewProjection);
+    // A hit is moved 0.1 m out along its normal before the maps are read, enough to clear the filter's
+    // reach on a floor lit at 45 degrees and far less than the 0.5 m from any probed pixel to the
+    // shadow's edge.
+    frame.shadowParameters = {0.1F, 0.0F, 1.0F / MAP, 1.0F / MAP};
+
+    for (const bool fromDynamic : {false, true})
+    {
+      const ShadowScene shadows{
+        .sunFrame = sun,
+        .staticRecords = fromDynamic ? std::span<const Engine::VoxelRecord>(floor) : std::span<const Engine::VoxelRecord>(scene),
+        .dynamicRecords = fromDynamic ? std::span<const Engine::VoxelRecord>(raised) : std::span<const Engine::VoxelRecord>{}};
+      const Readback image = Render(device, frame, scene, batch, &shadows);
+      const std::wstring which = fromDynamic ? L" (dynamic map)" : L" (static map)";
+      Assert::IsTrue(Near(image.ColorAt(8, 24), 154, 77, 38), (L"in the sun at x -2: " + Describe(image.ColorAt(8, 24)) + which).c_str());
+      Assert::IsTrue(Near(image.ColorAt(24, 24), 64, 32, 16), (L"in shadow at x -1: " + Describe(image.ColorAt(24, 24)) + which).c_str());
+      Assert::IsTrue(Near(image.ColorAt(40, 24), 64, 32, 16), (L"in shadow at x 0: " + Describe(image.ColorAt(40, 24)) + which).c_str());
+      Assert::IsTrue(Near(image.ColorAt(56, 24), 154, 77, 38),
+                     (L"the raised voxel's top: " + Describe(image.ColorAt(56, 24)) + which).c_str());
+    }
     AssertNoDebugErrors(device);
   }
 

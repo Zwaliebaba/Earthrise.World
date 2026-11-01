@@ -309,6 +309,12 @@ WorldView::Batch WorldView::Upload(ID3D12GraphicsCommandList* _commandList, Engi
 
 void WorldView::Draw(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const
 {
+  DrawChunks(_commandList, _pass);
+  DrawModels(_commandList, _pass);
+}
+
+void WorldView::DrawChunks(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const
+{
   for (const auto& [key, batch] : m_chunks)
   {
     if (batch.records)
@@ -323,6 +329,10 @@ void WorldView::Draw(ID3D12GraphicsCommandList* _commandList, const Engine::Voxe
                   .swapToIndex = 0});
     }
   }
+}
+
+void WorldView::DrawModels(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const
+{
   for (const ModelPlacement& placement : m_placements)
   {
     const Batch& batch = m_models.at(placement.modelId);

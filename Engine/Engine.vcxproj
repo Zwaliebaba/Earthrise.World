@@ -56,6 +56,10 @@
     <ClInclude Include="VoxelRecord.h" />
     <ClInclude Include="VoxelPass.h" />
     <ClCompile Include="VoxelPass.cpp" />
+    <ClInclude Include="ShadowMap.h" />
+    <ClCompile Include="ShadowMap.cpp" />
+    <ClInclude Include="SunProjection.h" />
+    <ClCompile Include="SunProjection.cpp" />
     <ClInclude Include="VoxelGridView.h" />
     <ClCompile Include="VoxelGridView.cpp" />
     <ClInclude Include="StaticBuffer.h" />
@@ -89,6 +93,9 @@
       <ShaderType>Vertex</ShaderType>
     </FXCompile>
     <FXCompile Include="Shader\VoxelPS.hlsl">
+      <ShaderType>Pixel</ShaderType>
+    </FXCompile>
+    <FXCompile Include="Shader\VoxelShadowPS.hlsl">
       <ShaderType>Pixel</ShaderType>
     </FXCompile>
     <None Include="Shader\VoxelCommon.hlsli" />

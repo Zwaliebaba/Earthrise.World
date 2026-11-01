@@ -3,7 +3,9 @@
 #include "VoxelPass.h"
 
 #include "CompiledShader/VoxelPS.h"
+#include "CompiledShader/VoxelShadowPS.h"
 #include "CompiledShader/VoxelVS.h"
+#include "ShadowMap.h"
 
 namespace Engine
 {
@@ -18,8 +20,11 @@ enum RootParameter : UINT
   RootPalette, // b1, a root CBV
   RootBatch,   // b2, root constants
   RootRecords, // t0, a root SRV
+  RootShadows, // t1 and t2, the static and the dynamic shadow map, a descriptor table
   RootCount
 };
+
+constexpr std::uint32_t SHADOW_MAPS = 2;
 
 // The origin and the voxel edge, the turn packed with the extent, and the swap's two indices.
 constexpr UINT BATCH_CONSTANT_COUNT = 7;
@@ -41,11 +46,36 @@ winrt::com_ptr<ID3D12RootSignature> MakeRootSignature(ID3D12Device* _device)
   parameters[RootRecords].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
   parameters[RootRecords].Descriptor = {.ShaderRegister = 0, .RegisterSpace = 0};
   parameters[RootRecords].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+  const D3D12_DESCRIPTOR_RANGE shadowRange{.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+                                           .NumDescriptors = SHADOW_MAPS,
+                                           .BaseShaderRegister = 1,
+                                           .RegisterSpace = 0,
+                                           .OffsetInDescriptorsFromTableStart = 0};
+  parameters[RootShadows].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+  parameters[RootShadows].DescriptorTable = {.NumDescriptorRanges = 1, .pDescriptorRanges = &shadowRange};
+  parameters[RootShadows].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+  // Percentage-closer filtering: each tap compares 2 x 2 texels and blends them. Under reversed Z a
+  // hit is lit when it is at or nearer the sun than what the map holds, and beyond the map, where
+  // the border reads as 0, the far plane, everything is lit.
+  const D3D12_STATIC_SAMPLER_DESC shadowSampler{.Filter = D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT,
+                                                .AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER,
+                                                .AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER,
+                                                .AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER,
+                                                .MipLODBias = 0.0F,
+                                                .MaxAnisotropy = 1,
+                                                .ComparisonFunc = D3D12_COMPARISON_FUNC_GREATER_EQUAL,
+                                                .BorderColor = D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK,
+                                                .MinLOD = 0.0F,
+                                                .MaxLOD = 0.0F,
+                                                .ShaderRegister = 0,
+                                                .RegisterSpace = 0,
+                                                .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL};
 
   const D3D12_ROOT_SIGNATURE_DESC desc{.NumParameters = RootCount,
                                        .pParameters = parameters.data(),
-                                       .NumStaticSamplers = 0,
-                                       .pStaticSamplers = nullptr,
+                                       .NumStaticSamplers = 1,
+                                       .pStaticSamplers = &shadowSampler,
                                        .Flags = D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
                                                 D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
                                                 D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS};
@@ -65,7 +95,9 @@ winrt::com_ptr<ID3D12RootSignature> MakeRootSignature(ID3D12Device* _device)
 } // namespace
 
 VoxelPass::VoxelPass(ID3D12Device* _device, const Desc& _desc)
-  : m_rootSignature(MakeRootSignature(_device))
+  : m_device(_device),
+    m_rootSignature(MakeRootSignature(_device)),
+    m_shadowViews(_device, {.type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, .capacityDescriptors = SHADOW_MAPS, .shaderVisible = true})
 {
   // Every enum is named, because several of D3D12's have no zero value (no d3dx12.h defaults, R14).
   constexpr D3D12_RENDER_TARGET_BLEND_DESC OPAQUE_TARGET{.BlendEnable = FALSE,
@@ -122,16 +154,59 @@ VoxelPass::VoxelPass(ID3D12Device* _device, const Desc& _desc)
     .CachedPSO = {.pCachedBlob = nullptr, .CachedBlobSizeInBytes = 0},
     .Flags = D3D12_PIPELINE_STATE_FLAG_NONE};
   winrt::check_hresult(_device->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(m_pipelineState.put())));
+
+  // The shadow passes: the same quads and ray-box test, cast along the sun's direction, into a
+  // depth map alone (ADR-011, decision 9).
+  D3D12_GRAPHICS_PIPELINE_STATE_DESC shadowDesc = desc;
+  shadowDesc.PS = {.pShaderBytecode = g_VoxelShadowPS, .BytecodeLength = sizeof(g_VoxelShadowPS)};
+  shadowDesc.NumRenderTargets = 0;
+  shadowDesc.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
+  shadowDesc.DSVFormat = ShadowMap::DEPTH_FORMAT;
+  winrt::check_hresult(_device->CreateGraphicsPipelineState(&shadowDesc, IID_PPV_ARGS(m_shadowPipelineState.put())));
+
+  // Until it is given shadow maps, the pass reads null views; FrameConstants::shadowParameters
+  // turns the lookup off, but the table is bound for every draw all the same.
+  m_shadowTable = m_shadowViews.Allocate(SHADOW_MAPS);
+  SetShadowMaps(nullptr, nullptr);
+}
+
+void VoxelPass::SetShadowMaps(ID3D12Resource* _static, ID3D12Resource* _dynamic)
+{
+  D3D12_SHADER_RESOURCE_VIEW_DESC view{};
+  view.Format = ShadowMap::READ_FORMAT;
+  view.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+  view.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+  view.Texture2D.MostDetailedMip = 0;
+  view.Texture2D.MipLevels = 1;
+  view.Texture2D.PlaneSlice = 0;
+  view.Texture2D.ResourceMinLODClamp = 0.0F;
+  m_device->CreateShaderResourceView(_static, &view, m_shadowViews.At(m_shadowTable.index).cpu);
+  m_device->CreateShaderResourceView(_dynamic, &view, m_shadowViews.At(m_shadowTable.index + 1).cpu);
 }
 
 void VoxelPass::Begin(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _frameConstants,
                       D3D12_GPU_VIRTUAL_ADDRESS _palette) const
 {
+  Bind(_commandList, m_pipelineState.get(), _frameConstants, _palette);
+}
+
+void VoxelPass::BeginShadow(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _sunFrameConstants,
+                            D3D12_GPU_VIRTUAL_ADDRESS _palette) const
+{
+  Bind(_commandList, m_shadowPipelineState.get(), _sunFrameConstants, _palette);
+}
+
+void VoxelPass::Bind(ID3D12GraphicsCommandList* _commandList, ID3D12PipelineState* _pipelineState,
+                     D3D12_GPU_VIRTUAL_ADDRESS _frameConstants, D3D12_GPU_VIRTUAL_ADDRESS _palette) const
+{
+  ID3D12DescriptorHeap* heap = m_shadowViews.Heap();
+  _commandList->SetDescriptorHeaps(1, &heap);
   _commandList->SetGraphicsRootSignature(m_rootSignature.get());
-  _commandList->SetPipelineState(m_pipelineState.get());
+  _commandList->SetPipelineState(_pipelineState);
   _commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
   _commandList->SetGraphicsRootConstantBufferView(RootFrame, _frameConstants);
   _commandList->SetGraphicsRootConstantBufferView(RootPalette, _palette);
+  _commandList->SetGraphicsRootDescriptorTable(RootShadows, m_shadowTable.gpu);
 }
 
 void VoxelPass::Draw(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _records, std::uint32_t _recordCount,
