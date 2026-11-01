@@ -52,7 +52,7 @@ enum class UnitKind : std::uint8_t { Laborer, Spearman, Archer, Outrider, ManAtA
 
 // Protocol/StateUpdate.h — ADR-020, decision 3: the whole visible state, a value, once a tick. Every
 // vector is in id order. No byte encoding until online work; M3 copies the struct.
-struct StructureView { EntityId id; std::uint8_t owner; std::string templateId; VoxelPosition originVoxels; std::uint32_t quarterTurns; std::string name; };
+struct StructureView { EntityId id; std::uint8_t owner; std::string templateId; VoxelPosition originVoxels; std::uint32_t quarterTurns; VoxelPosition extentVoxels; std::string name; }; // extentVoxels: the box's size after the turn, for the integrity label's anchor (F2), since templates are the server's
 struct EngineView { EntityId id; std::uint8_t owner; EngineKind kind; VoxelPosition cellVoxels; std::uint32_t quarterTurns; std::uint32_t reloadTicks; };
 struct SquadView { EntityId id; std::uint8_t owner; std::vector<EntityId> units; bool hasGoal; VoxelPosition goalVoxels; bool shortOfGoal; };
 struct UnitView { EntityId id; EntityId squad; std::uint8_t owner; UnitKind kind; FixedPosition position; VoxelPosition cellVoxels; };
