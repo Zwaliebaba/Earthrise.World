@@ -349,6 +349,8 @@ public:
   [[nodiscard]] const Protocol::StateUpdate& State() const noexcept;
   /// The update before the last, for the shot's interpolation (input 17); empty before the second.
   [[nodiscard]] const Protocol::StateUpdate& PreviousState() const noexcept;
+  /// The chunks received since the last call, oldest first, for the world view to take.
+  [[nodiscard]] std::vector<Protocol::ChunkSnapshot> TakeSnapshots();
   /// The commands and queries the client has queued since the last call, as bytes, for the executable to hand the simulation.
   [[nodiscard]] std::vector<std::vector<std::byte>> TakeCommands();
   [[nodiscard]] std::vector<std::vector<std::byte>> TakeQueries();
@@ -358,6 +360,8 @@ public:
   [[nodiscard]] const Protocol::AimReading* Aim(Protocol::EntityId _engine, Protocol::VoxelPosition _target) const noexcept;
   [[nodiscard]] const Protocol::IntegrityReading* Integrity(Protocol::EntityId _structure) const noexcept;
   [[nodiscard]] const Protocol::TileReachReading* Reach(std::int32_t _tileX, std::int32_t _tileZ) const noexcept;
+  /// The sources of the commands TakeCommands last gave out, in the same order, for the lab's log (G1).
+  [[nodiscard]] const std::vector<std::string>& TakenSources() const noexcept;
 };
 
 // Client/HudModel.h — Hud.md §10, the part M3 builds. Plain fields, built each frame from the Session.
