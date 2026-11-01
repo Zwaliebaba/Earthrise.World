@@ -1,6 +1,6 @@
 # ADR-004 — Destruction is resolved by rules in the simulation; debris is cosmetic
 
-**Status:** Accepted, 2026-10-31. Proposed 2026-10-30 and revised the same day after a design review (decisions 2, 3, 4 and 6); accepted by the owner after the review of the game description, which added three consequences below. Nothing implements it yet.
+**Status:** Accepted, 2026-10-31. Proposed 2026-10-30 and revised the same day after a design review (decisions 2, 3, 4 and 6); accepted by the owner after the review of the game description, which added three consequences below. M1 implements a first support search for decision 2 (`Simulation/SupportSearch.h`), measured in `SimulationBench`; the resolver comes in M2.
 
 ## Context
 
@@ -45,6 +45,6 @@ Destruction is the reason the world is made of voxels, and Teardown is the refer
 
 ## Left open
 
-- The numbers in the resolver's rules, such as warning times and fall lengths. The rules themselves, covering the direction of a fall, how rubble settles and slows movement, and what a fall damages, are decided in GameDesign.md (*Where RTS logic meets destruction*).
-- Each material's span. It is tuning, and it is counted in voxels, so it waits on the simulation voxel size.
-- How cosmetic debris is simulated and drawn, including whether it uses ADR-001's oriented voxels.
+- The numbers in the resolver's rules, such as warning times and fall lengths. The rules themselves, covering the direction of a fall, how rubble settles and slows movement, and what a fall damages, are decided in GameDesign.md (*Where RTS logic meets destruction*). *(The warning and the fall's length decided 2026-11-01: GameDesign.md, M2's values, items 4 to 8.)*
+- Each material's span. It is tuning, and it is counted in voxels, so it waits on the simulation voxel size. *(Decided: stone 2 m and timber 5 m, GameDesign.md, the paper tests' values, item 1, and M1's open values, item 1; leaves 3 m and common rock 2 m, M2's values, item 14.)*
+- How cosmetic debris is simulated and drawn, including whether it uses ADR-001's oriented voxels. *(Decided: oriented voxels that tumble for about 1.5 s and then rest, seeded by the collapse's id, GameDesign.md, M1's open values, item 7.)*

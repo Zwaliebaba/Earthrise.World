@@ -16,7 +16,7 @@ Nothing implements it yet.
 
   `Build/Earthrise.props` links the CRT as a DLL (`MultiThreadedDLL`, and `MultiThreadedDebugDLL` in Debug), so both apply to this build.
 - **Replays leave the machine that made them.** The playtests (M5, M7) log what each player did. The owner replays those logs on another machine, which may run another Windows build, and a playtester may use the ARM64 Surface while the owner replays on x64.
-- **M1's simulation code is already integer:** voxel coordinates, the chunk store, the support search and the navigation tiles. The only floats in `Simulation` and `Protocol` are `TestWorld::CastleXMeters()` and `CastleZMeters()`, which tell the renderer spike where to point its camera.
+- **M1's simulation code is already integer:** voxel coordinates, the chunk store, the support search and the navigation tiles. Floating point appears in `Simulation` twice: `TestWorld::CastleXMeters()` and `CastleZMeters()`, which tell the renderer spike where to point its camera, and `TestWorld`'s integer square root, which starts from a `double` guess and corrects it to the exact root. `Protocol` has none.
 - **There is no pinned PRNG in `Core` yet.** SplitMix64 is written out three times: in `Simulation/TestWorld.cpp`, `RendererSpike/Debris.cpp` and `RendererSpike/SceneScript.cpp`. GameDesign.md's Proposed wave draw names it too (*the paper tests' values*, item 21).
 - **The tick of [MvpPlan.md](../MvpPlan.md)** runs in a fixed order, and its deferred work is budgeted "in units of work, never in elapsed time".
 
@@ -27,7 +27,7 @@ Nothing implements it yet.
    - A rate the design states per second converts once, through `TICKS_PER_SECOND`, into a per-tick quantity. Where it does not divide evenly, the per-tick quantity is a fixed-point value (decision 3), never a fraction recomputed each tick.
    - **Why 20:**
      - A command takes effect on the tick after it arrives (ADR-002), so its effect comes 50–100 ms after the click. The client acknowledges the click at once (ADR-002, *Consequences*), which covers that wait.
-     - A shot at 50 m/s moves 2.5 m a tick. It is traced through every voxel on its way (decision 3), so a faster tick buys no accuracy.
+     - A shot at 50 m/s moves 2.5 m a tick. It is traced through every voxel on its way (MvpPlan.md, *One simulation tick*, step 4), so a faster tick buys no accuracy.
      - A 50 ms tick leaves room for a support search and a tile rebuild on the same tick as the edit that caused them. M1 measures their cost (ADR-006's table), and M2 checks the whole tick against the budget in decision 6.
 2. **Wall time meets ticks at one seam, outside the simulation.**
    - The executable, or the headless runner in a test, holds a fixed-step accumulator and calls the tick. The simulation reads no clock.
@@ -50,18 +50,18 @@ Nothing implements it yet.
    - `std::random_device`, `<random>`'s engines and distributions, and any hash of an address stay out of `Simulation`, as R16 says.
 5. **Order is fixed.**
    - Entity ids are given out in rising order from 1 within a world, are never reused, and are saved.
-   - Every pass over entities in a tick goes in id order, unless a step's own rule states another order: collapses that start on the same tick go in entity-id order (ADR-004), and slump in the order decision 6's budget names.
+   - Every pass over entities in a tick goes in id order, unless a step's own rule states another order: collapses that start on the same tick go in entity-id order (ADR-004), and slump in the order its own step states, which decision 6 requires of all deferred work.
    - Containers whose iteration reaches a result are ordered, such as `std::map` or a sorted `std::vector`, as `ChunkStore` already does.
 6. **Deferred work is counted in units of work. A wall-time target is measured against them, never enforced by them.**
    - **Each kind of deferred work** has a budget per tick in its own unit, for example voxels slumped or path nodes expanded. Work over the budget waits for the next tick, in a stated order.
    - **The budgets are server data** ([ADR-016](ADR-016-server-data-format.md)). They change outcomes, how fast a slope settles for example, so the server-data hash covers them (ADR-008, decision 5).
-   - **The wall-time target** is how long a tick may take at the 95th percentile on the reference machine. The owner sets it, and `SimulationBench` measures against it. It is never read inside a tick. MvpPlan.md, M2, proposes a value.
+   - **The wall-time target** is how long a tick may take at the 95th percentile on the reference machine. The owner sets it, and `SimulationBench` measures against it. It is never read inside a tick. The owner set it at 25 ms on 2026-11-01 (GameDesign.md, M2's values, item 2). Queries are budgeted the same way, in units of work ([ADR-009](ADR-009-queries-across-the-server-boundary.md), amended).
 7. **M2 runs the tick on one thread.** ADR-002 allows work spread over threads, merged in a fixed order. It is added when a measurement calls for it, not before.
 
 ## Consequences for the code
 
 - **`Core` gains** `Fixed`, the integer square root, SplitMix64 with its keyed draws, and the byte writer and reader that commands, saves and `ServerData` share (ADR-014, ADR-016). Each comes with tests.
-- **`Build/CheckProjectFiles.py` gains a check** that fails on the tokens `float` and `double` in `Simulation/` and `Protocol/`, outside comments and strings, with a broken fixture that shows it firing (AGENTS.md §1, *Enforcement*). R16's rule then binds by check instead of by review.
+- **`Build/CheckProjectFiles.py` gains a check** that fails on the tokens `float` and `double` in `Simulation/` and `Protocol/`, outside comments and strings, with a broken fixture that shows it firing (AGENTS.md §1, *Enforcement*). R16's rule then binds by check instead of by review. On acceptance, R16's example of a fixed-point quantity, integer hundredths named in the identifier, gains `Core::Fixed` beside it, whose type carries the representation while the name carries the unit.
 - **`TestWorld`'s camera accessors** return voxels or `Core::Fixed`, and the renderer spike converts them to `float` on its own side.
 - **The client converts.** `Client` and `Engine` work in `float`, and they convert `Core::Fixed` at the boundary, the one place a simulation number becomes a float. A float never travels back into a command.
 - **Integer results are identical on x64 and ARM64,** because they leave nothing to the instruction set or the CRT. A replay recorded on one architecture therefore has a good chance of reproducing on the other. ADR-002 still promises reproduction only within one build, and nothing here widens that promise. If the owner wants it widened, a test that replays an ARM64 log on x64 has to come first.
@@ -79,5 +79,4 @@ Nothing implements it yet.
 - A different tick rate for Worlds, where a server may run many worlds at once.
 - The client's interpolation between ticks ([ADR-002](ADR-002-authoritative-simulation.md), *Left open*).
 - How the simulation uses more than one core.
-- The wall-time target's value, which the owner sets (MvpPlan.md, M2).
 - A replay promise that crosses architectures, as above.

@@ -20,7 +20,7 @@ Buildings, used by both the simulation and the client. The costs are counted und
 | T4 | Tower | 7 × 12 × 7 | 479 m³ stone | Firing platform | Hollow, with 2 m walls. The platform is the top 3 m, merlons included. |
 | T5 | Gatehouse | 9 × 12 × 7 | 585 m³ stone + 12 m³ timber | Gate | The gate is 3 m wide and 4 m high. The garrison fires down into the passage. |
 | T6 | Palisade | 8 × 4 × 2 | 35 m³ timber | None | |
-| T7 | Palisade gate | 8 × 5 × 1 | 32 m³ timber | Gate | Its iron fittings cost as timber. The grid has 1 m of padding in front, which the baker trims. |
+| T7 | Palisade gate | 8 × 5 × 1 | 32 m³ timber | Gate | Its iron fittings cost as timber. The grid has 1 m of padding in front, which the baker trims. T2, T8 and T9 carry empty padding too, which it trims the same way. |
 | T8 | Quarry yard | 7 × 3 × 6 | 41 m³ timber | Shed | The stone drop site. Its stone stack is stock. The shed stands on four corner posts. |
 | T9 | Lumber camp | 7 × 3 × 6 | 38 m³ timber | Shed | The timber drop site. Its log stack is stock. The shed stands on four corner posts. |
 
@@ -67,7 +67,7 @@ The packages made choices the design documents had not fixed. The owner adopted 
 - **Hollow buildings:** towers and the keep are hollow, with 2 m walls and floors, so they cost less than their outline. The first package's walls were 1.5 m, which the 1 m grid cannot draw.
 - **The standard ditch** is 5 m wide at the top and 2 m deep, with 1:1 sides. Those are 45°, the slope at which earth stands. On the 1 m grid the sides step: 4 m wide in the top metre and 2 m in the second, which is 6 m² of cross-section, the same as the 1:1 profile. The rampart is built from the spoil on the side towards the keep.
 - **Unit cues:** one cue per unit type, as listed under Models.
-- **Render-only colours:** horse #5e4330, leather (hides and hoods) #6e5a3e, timber rubble #5f4530 and earth rubble #7d6044. Rock rubble is #7f7c77, which is provisional.
+- **Colours added for the look:** horse #5e4330 and leather (hides and hoods) #6e5a3e, which are render-only; timber rubble #5f4530, earth rubble #7d6044 and rock rubble #7f7c77, provisional, which the simulation now leaves when a collapse falls (GameDesign.md, *M2's values*, item 7).
 
 ## Known issues
 
@@ -76,7 +76,7 @@ The packages made choices the design documents had not fixed. The owner adopted 
 - **E1 does not hold its own spoil.** The rampart holds 48 m³ against 32 m³ dug, and the spoil and the rampart must be equal (GameDescription.md). The conversion flattened the ditch to 3 m wide and 1 m deep, with a 1 m slot 2 m deep. Redrawing the ditch at the decided profile digs exactly 48 m³ for its 8 m, which fixes both without touching the rampart.
 - **E1's new rampart is topped with grass.** Only the generator places grass (RendererLook.md), so a fresh rampart is bare earth. E1 is an illustration, so this affects nothing that is baked.
 - **T2's banner was removed.** The conversion dropped its pole and left two faction voxels floating. Banners are 0.5 m models (ADR-006). T2's preview still shows the banner.
-- **The package's costs left decorations out.** `Manifest.json` keeps each original figure as `packageCostM3`, next to the recount. T1, T2, T4 and T7 cost slightly more than the package said.
+- **The package's costs left decorations out.** `Manifest.json` keeps each original figure as `packageCostM3`, next to the recount. T1, T2, T4 and T7 cost slightly more than the package said. T2 has changed more since: at stone's 2 m span its floors and roof became timber, so it is 1,530 m³ of stone and 192 m³ of timber against the package's 1,718 m³ of stone (GameDesign.md, *the paper tests' values*, item 1).
 - **The scene prompt builds its walls 1.5 m thick.** T3 is 2 m. Where they differ, the templates win ([MvpPlan.md](MvpPlan.md), M1).
 
 ## Previews

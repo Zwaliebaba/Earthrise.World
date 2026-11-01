@@ -29,9 +29,9 @@ It fixes the model and leaves the search algorithm to the navigation orders, whi
   | Foot figures, the sapper included | 1–1.5 m | 2–3.5 m | 0.5–1 m |
   | The outrider, horse and rider | 0.5 m | 2.5 m | 2.5 m |
   | The battering ram | 3 m | 3.5 m | 7.5 m |
-  | The trebuchet, cocked | 13 m | 14 m | 4.5 m |
+  | The trebuchet, cocked | 11.5 m | 13 m | 3.5 m |
 
-  For foot the design overrides the models: "a unit stands 2 m tall on a 0.5 m square" (GameDescription.md, *Units and the land*), so arms, tools and spears do not count. The design gives no such size for cavalry or engines. T5's passage is exactly 3 m wide and 4 m high, the ram's width and its height rounded up to whole voxels.
+  For foot the design overrides the models: "a foot soldier stands 2 m tall on a 0.5 m square" (GameDescription.md, *Combat model*), so arms, tools and spears do not count. The design gives no such size for cavalry or engines. T5's passage is exactly 3 m wide and 4 m high, the ram's width and its height rounded up to whole voxels.
 - **Two needs come from outside navigation:**
   - The passability view (M3) shows "a route for foot soldiers through the section", which H2's prediction items depend on (GameDesign.md, *Hypotheses*).
   - A unit ordered inside must take the breach as soon as it opens.
@@ -49,7 +49,7 @@ It fixes the model and leaves the search algorithm to the navigation orders, whi
    - **cavalry:** the outriders;
    - **machines:** the ram, and the trebuchet when it moves packed.
 
-   Their values are server data ([ADR-016](ADR-016-server-data-format.md)). MvpPlan.md, M2, proposes them from the models for the owner to decide.
+   Their values are server data ([ADR-016](ADR-016-server-data-format.md)). The owner decided them on 2026-11-01, from the models (GameDesign.md, M2's values, item 10).
    - **Climb:** a class climbs at most 1 m over a run of R cells. A link is open for it when the ground along the link's line rises or falls by at most 1 m over any R consecutive cells that include the link. Foot has R = 1, which is M1's rule. A class that "climbs less" has a larger R. A single limit per step could not say that on a 1 m grid, because the only limit below 1 m is zero.
    - **Corners:** a diagonal link is open only when the cells beside it are open for the class, as M1 does.
    - **Width:** each cell holds, for each class, its clearance. That is the width of the largest square of cells, with this cell at its minimum corner, on which the class can stand: every cell walkable for it, with its headroom, and within 1 m of this cell's height (Harabor and Botea, *Hierarchical path planning for multi-size agents in heterogeneous environments*, 2008). A unit enters only cells whose clearance is at least its width. The square takes the footprint's width and ignores its length, so a long machine is treated as square. The ram's 7.5 m can therefore clip a corner, and the MVP accepts that: the ram drives straight to a gate.
@@ -57,7 +57,7 @@ It fixes the model and leaves the search algorithm to the navigation orders, whi
 4. **Tiles are rebuilt on the tick of the edit, all of them.** In the tick's navigation step, every tile whose cells the tick's edits can change is rebuilt, in tile order. That includes the margin the clearance squares and the climb runs reach into. None is deferred: a deferred tile is a wrong answer about whether a breach is open, and that is what H2 tests.
 5. **A squad goes as near its goal as it can, and searches again when the ground changes.**
    - **Out of reach:** a goal the class cannot reach gives a path to the reachable cell nearest it, and the squad is marked short of its goal.
-   - **Searching again:** after each tick's rebuild, two kinds of squad search again, in squad-id order:
+   - **Searching again:** after each tick's rebuild, two kinds of squad are marked to search again, and they search in the next tick's step 3, before units move, in squad-id order (MvpPlan.md, *One simulation tick*):
      - every squad marked short of its goal;
      - every squad whose path crosses a rebuilt tile.
 
@@ -80,7 +80,7 @@ It fixes the model and leaves the search algorithm to the navigation orders, whi
 - **`Simulation` gains** the search, its budget and its pending queue, squad paths, figure movement, and the drop step.
 - **Clearance, and whatever the search keeps to answer reach,** are derived data. Saves leave them out and loads rebuild them (ADR-014, decision 4).
 - **The passability view (M3) reads reach from navigation,** the same answer the squads move by.
-- **A breach is open to cavalry and the ram only where it slopes gently enough for their R.** Settled earth and rubble lie at 45°, so a rubble ramp into a breach is open to foot alone, unless the owner sets cavalry's R to 1. MvpPlan.md, M2, asks the owner.
+- **A breach is open to cavalry and the ram only where it slopes gently enough for their R.** Settled earth and rubble lie at 45°, so a rubble ramp into a breach is open to foot alone, unless the owner sets cavalry's R to 1. The owner kept it so (M2's values, item 11).
 - **T5's redraw before M4** (GameDesign.md, *the paper tests' values*, item 14) has to keep a passage at least 3 m wide and 4 m high, or the ram cannot reach its gate.
 
 ## What this forecloses
@@ -98,4 +98,4 @@ It fixes the model and leaves the search algorithm to the navigation orders, whi
 - **A tile-level graph** (Botea, Müller and Schaeffer, *Near optimal hierarchical path-finding*, 2004), if cross-map searches run too far past the budget.
 - **Flow fields for many units** with one goal.
 - **Formations and separation,** in M4.
-- **The classes' values,** and the trebuchet's packed width once its packed model is drawn.
+- **The trebuchet's packed width,** once its packed model is drawn.

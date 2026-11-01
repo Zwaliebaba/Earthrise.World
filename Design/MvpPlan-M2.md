@@ -1,17 +1,17 @@
 # Earthrise.World — M2 work orders
 
-**Status:** Proposed, 2026-11-01, with [MvpPlan.md](MvpPlan.md)'s M2 revision. No order starts before M1 closes (GameDesign.md, *Planning M2*). These orders carry out M2 as MvpPlan.md, M2, defines it, under [ADR-013](ADR/ADR-013-ticks-numbers-and-randomness.md) to [ADR-016](ADR/ADR-016-server-data-format.md). Where an order and those differ, they win, and the order is corrected.
+**Status:** Proposed, 2026-11-01, with [MvpPlan.md](MvpPlan.md)'s M2 revision. No order from phase B on starts before M1 closes (GameDesign.md, *Planning M2*); phase A is paper. "Input N" means MvpPlan.md, M2, input N. These orders carry out M2 as MvpPlan.md, M2, defines it, under [ADR-013](ADR/ADR-013-ticks-numbers-and-randomness.md) to [ADR-016](ADR/ADR-016-server-data-format.md). Where an order and those differ, they win, and the order is corrected.
 
 **An order is one commit, and a phase is one pull request** (AGENTS.md §6). There are 31 orders in seven phases:
 
 | Phase | Orders | What lands | Waits on | Owner hours |
 |---|---|---|---|---|
-| A | A1 | The owner's decisions, written down | The owner's answers to MvpPlan.md, M2, inputs 1–13 | 3 |
+| A | A1 | The owner's decisions, written down | The owner's answers to MvpPlan.md, M2, inputs 1–15 | 3 |
 | B | B1–B6 | `Core`'s numbers, randomness and bytes; the float check; `ServerData` | A, and M1 closed | 1 |
 | C | C1–C5 | Commands, edits, the world and its tick, saves, replays | B | 0.5 |
 | D | D1–D3 | The generator | C | 4 |
 | E | E1–E7 | The shot, craters, the collapse, slump | C | 3 |
-| F | F1–F6 | Navigation | C; F6 also E4 | 2 |
+| F | F1–F6 | Navigation | C; F6 also phase E | 2 |
 | G | G1–G3 | The done-when, the tick's timing, the report | D, E, F | 3 |
 
 D, E and F each branch from `main` once C has merged, and can run side by side. Each fills its own steps of the tick, which C lands as empty functions.
@@ -19,7 +19,7 @@ D, E and F each branch from `main` once C has merged, and can run side by side. 
 ## How a session works an order
 
 1. **Read** AGENTS.md, this section, *Contracts*, the order, and the order's *Read first* list. Nothing else should be needed. If something is, the order is incomplete: say so in the report.
-2. **Check *Waits on*.** An order starts only when everything listed has merged or been decided.
+2. **Check *Waits on*.** An order starts only when every order it lists is committed, in its own phase, or merged, in an earlier one, and every input it lists is decided.
 3. **Keep the contracts.** The signatures under *Contracts* are what other orders build on. A session that cannot keep one stops and reports. The contract is then changed in this file, in a commit of its own, before any code departs from it. A session never deviates silently (AGENTS.md).
 4. **Verify through CI.** The cloud container has no MSVC and no vstest, so CI is the build.
    - **Before pushing,** run what runs here: `Build/CheckProjectFiles.py`; `Build/CheckFormat.py` with clang-format 18 where it is installed; `Build/TestCheckers.py` when a checker changed; and `Tools/CheckAssets.py` and the `Tools` tests when `GameData/` or `Tools/` changed.
@@ -29,7 +29,7 @@ D, E and F each branch from `main` once C has merged, and can run side by side. 
 6. **Register every file** in its project's `.vcxproj` and `.filters`, under the functional filter the order names. Folders stay flat (AGENTS.md §2).
 7. **Write the tests the order names.** They go in `<Project>Tests/<Type>Tests.cpp`, in `TEST_CLASS(<Type>Tests)`, with methods named for the behaviour they check. M2 has no test that needs a window or a GPU.
 8. **Save what you add.** An order that adds an entity kind or a queue of pending work adds it to the save, and extends `SaveTests`, in the same commit. ADR-014, decision 4 says a save holds everything the next tick reads.
-9. **Accept the ADR you implement.** The commit that first implements an ADR marks it Accepted, with the date and any amendment the code forced (AGENTS.md §6). Each order says which ADR, if any.
+9. **Accept the ADR you implement.** The commit that first implements an ADR marks it Accepted, with the date and any amendment the code forced (AGENTS.md §6), and notes the earlier ADRs' *Left open* items it closes. Each order says which ADR, if any.
 10. **Hand the spike to the owner.** An order that changes `RendererSpike` lists it under *Owner runs*, and the owner launches the spike before the phase merges (AGENTS.md §3).
 11. **Leave out-of-scope work out.** What a session notices beyond its order goes in the PR description, not the commit.
 12. **Log the phase.** Its last commit fills in its row of the time log in MvpPlan.md, M2: dates, the PR, its commits, CI runs and the owner's hours.
@@ -154,7 +154,7 @@ public:
   void Edit(Protocol::VoxelPosition _position, std::uint8_t _paletteIndex);         // no-op when unchanged
   [[nodiscard]] std::span<const Protocol::VoxelPosition> TickEdits() const noexcept; // each voxel once, first-edit order
   void EndTick();                                                                    // clears TickEdits
-  [[nodiscard]] const std::set<std::uint64_t>& EditedChunks() const noexcept;       // packed keys, for the world's life
+  [[nodiscard]] const std::set<std::uint64_t>& EditedChunks() const noexcept;       // packed keys since generation or load; a load rebuilds it from the chunks the save holds
   [[nodiscard]] std::uint64_t VoxelHash() const; // Fnv1a64 over (key, chunk hash) in key order; chunk hashes cached
   [[nodiscard]] std::vector<Protocol::ChunkSnapshot> Publish();
 };
@@ -187,7 +187,7 @@ public:
   [[nodiscard]] std::span<const SubmittedCommand> LastTickCommands() const noexcept; // what the last Tick applied
   [[nodiscard]] Protocol::EntityId NewEntityId() noexcept;
   [[nodiscard]] const VoxelWorld& Voxels() const noexcept;
-  [[nodiscard]] VoxelWorld& Voxels() noexcept; // for scenarios and tests, between ticks: their edits are searched in the next step 5
+  [[nodiscard]] VoxelWorld& Voxels() noexcept; // for the breach run, scenarios and tests, between ticks: their edits are searched in the next step 5
   [[nodiscard]] std::vector<Protocol::ChunkSnapshot> Publish(); // chunks changed since the last call
 };
 ```
@@ -240,7 +240,7 @@ struct CollapsePlan
 ## Phase A — Decisions
 
 ### M2-A1 — Write down the owner's decisions
-- **Waits on:** the owner's answers to MvpPlan.md, M2, inputs 1–13. This order needs no M1 close, because it is paper.
+- **Waits on:** the owner's answers to MvpPlan.md, M2, inputs 1–15. This order needs no M1 close, because it is paper.
 - **Read first:** MvpPlan.md, M2, *The owner's inputs*; GameDesign.md, *Planning M2*.
 - **Changes:**
   - **GameDesign.md** gains `### <date>: M2's values`, with each input as Decided in the owner's words, or as the owner changed it. Input 13 stays Proposed, because G2 measures it.
@@ -302,7 +302,7 @@ struct CollapsePlan
 - **Changes:**
   - **`CheckSources`** reports `float` or `double` as a whole word in the code of `Simulation` and `Protocol`, after `StripCommentsAndStrings`. Its message is "{project} uses {word}; the simulation holds no floating point (ADR-013)".
   - **`TestCheckers.py`** gains the broken variant "floating point in the simulation", built as the Windows-free variant is.
-  - **`TestWorld`:** `CastleXMeters()` and `CastleZMeters()` become `CastleXVoxels()` and `CastleZVoxels()`, returning `std::int32_t`.
+  - **`TestWorld`:** `CastleXMeters()` and `CastleZMeters()` become `CastleXVoxels()` and `CastleZVoxels()`, returning `std::int32_t`. Its `IntegerSqrt`, which starts from a `double` guess, becomes B1's `Core::IntegerSquareRoot`; both return the exact floor, so its world is bit-identical.
   - **The callers:** `RendererSpike/SceneScript.cpp` casts to `float` on its own side, and `SimulationTests/TestWorldTests.cpp` drops its casts.
 - **Tests:** `Build/TestCheckers.py`, which passes the repository and fails the new variant for its reason. It runs here and in the Linux job.
 - **Owner runs:** the spike, to confirm its camera still opens on the castle.
@@ -312,13 +312,14 @@ struct CollapsePlan
 - **Read first:** ADR-016; ADR-008, decisions 2, 4 and 5; `Tools/BakeContent.py`; `Tools/CheckAssets.py`; *Contracts*, `ServerData`.
 - **Changes:**
   - **`Tools/BakeContent.py --server OUT_DIR`** writes `OUT_DIR/ServerData.bin` as ADR-016 and the contract fix it, and only when its bytes change.
-  - **Decorations:** each decoration index takes the behaviour of its most common host across all the templates, with ties to the lower palette index (input 7).
-  - **`GameData/Server/Rules.json`** holds every value A1 decided. Each value is a decimal string under a key named with its unit, and converts exactly through `fractions.Fraction`, floored once.
+  - **Decorations** (input 7): the bake gives each decoration voxel a palette index for its host. Palette.json gains, at the next free indices, one entry for each decoration and host behaviour the templates hold (an opening in timber, an opening in stone, iron in timber), each with the decoration's look and its host's behaviour. Both halves of the bake write these indices, so a template's world voxels and the client's preview agree; the shared hash covers them.
+  - **Ground and spans** (input 14): Palette.json gains a server-side `ground` flag for each index, which the client half ignores. `Rules.json` holds each behaviour's span: stone 2 m, timber 5 m, leaves 3 m, common rock 2 m.
+  - **`GameData/Server/Rules.json`** holds every value A1 decided, among them the spans, E1's launch height of 10 m and gravity of 9.81 m/s², and E2's craters. Each value is a decimal string under a key named with its unit, and converts exactly through `fractions.Fraction`, floored once unless the decision says otherwise (the fall rounds up).
   - **`Tools/CheckAssets.py`** gains two checks: `Rules.json` converts to whole units, and nothing under `GameData/Client/` reaches the server's bake.
   - **`Tools/TestBakeContent.py`** is new, with a step in the workflow's Linux job, `python3 Tools/TestBakeContent.py -v`, guarded like the asset check's tests.
 - **Tests:** **`TestBakeContent.py`:**
   - **The file:** the header's hash covers exactly the body, and the body's shared hash equals the client half's for the same sources. A second bake of unchanged sources leaves the file untouched.
-  - **`MATL`:** indices 4 and 6 give stone rubble (8), 7 and 12 give timber rubble (25), 2 gives earth rubble (26), 3 gives rock rubble (28), and 10 and 11 give 0.
+  - **`MATL`:** indices 4 and 6 give stone rubble (8), 7 and 12 give timber rubble (25), 2 gives earth rubble (26), 3 gives rock rubble (28), and 10 and 11 give 0. Index 4 is ground and 6 is not. Each new decoration index takes its host's rule.
   - **`TMPL`:** it holds T1–T9, with T3 at 96 m³ of stone.
   - **`RULE`:** 1.4 m/s converts to 4587 raw a tick, and a span that is not a whole number of voxels fails.
 - **ADR:** marks ADR-016 Accepted.
@@ -327,7 +328,7 @@ struct CollapsePlan
 - **Waits on:** B3 and B5.
 - **Read first:** ADR-016, decisions 5 to 7; ADR-010, decision 7, and its amendment; `Content/Content.vcxproj`'s `BakeClientContent` target.
 - **Changes:**
-  - **New files:** `Simulation/ServerData.h` and `.cpp` and `Simulation/Rules.h`, in the filter `Data`. `MaterialRule` gains `behavior` and `rubbleIndex`, and `StandInMaterialRules` is deleted.
+  - **New files:** `Simulation/ServerData.h` and `.cpp` and `Simulation/Rules.h`, in the filter `Data`. `MaterialRule` gains `behavior` and `rubbleIndex`. `StandInMaterialRules` is replaced by `ScaleSpans(const MaterialRules&, std::uint32_t _voxelsPerMeter)`, which `SimulationBench` uses for ADR-006's 0.5 m column, and the support and navigation test fixtures take the baked rules.
   - **`Simulation.vcxproj`** gains the target `BakeServerData`, modelled on `BakeClientContent`, with outputs in `$(OutDir)ServerData\ServerData.bin`.
   - **`SimulationBench`:**
     - It drops `Content`: its reference, its include directory and `ContentTemplates`.
@@ -340,7 +341,8 @@ struct CollapsePlan
     - The real file reads, with its template count and T3's stone matching `GameData/Manifest.json`.
     - Index 6 spans 2 voxels and leaves rubble 8.
     - A copy with one body byte flipped is refused, naming the hash. A wrong magic number or format version is refused too.
-    - Every index's support, span, ground and liquid flags equal what `StandInMaterialRules` gave, except the decoration indices, whose rule input 7 changes. The expected table is written into the test from `MaterialRules.cpp` before that function is deleted.
+    - Every index's support, span, ground and liquid flags equal what `StandInMaterialRules` gave. The decoration indices 18 and 20 no longer reach the world, and the new host indices take their host's rule. The expected table is written into the test from `MaterialRules.cpp` before that function goes.
+    - `ScaleSpans(rules, 2)` doubles every span, which `SupportSearchTests`' half-metre test now checks.
   - **The existing support and navigation tests** pass on the baked rules.
 - **Owner runs:** the spike, to confirm the town is unchanged and that a stale `Content` is refused.
 - **ADR:** ADR-010, amended.
@@ -386,7 +388,7 @@ struct CollapsePlan
   - A command submitted before tick n takes effect in tick n's step 1, not before.
   - Ids rise from 1 and are not reused after an entity goes.
   - Two worlds given the same `Desc` and script agree after 100 ticks, in `VoxelHash` and in every squad's goal.
-  - A malformed command throws `std::invalid_argument` in step 1.
+  - A malformed command throws in step 1: `std::invalid_argument` for an unknown tag or version, `std::out_of_range` for truncated bytes.
   - Every chunk is generated.
   - `LastTickCommands` holds what the tick applied.
 - **ADR:** ADR-013, amended if the tick forced anything.
@@ -457,7 +459,7 @@ struct CollapsePlan
 - **Changes:**
   - **New entity kind:** `Shot`. `SiegeEngine` gains a reload counter.
   - **When a `FireEngine` is refused:** when the target lies outside the range, or the engine is still reloading. A refused command does nothing.
-  - **The arc:** the shot leaves a launch height above the engine's cell, a `RULE` value, and descends at exactly 45° at the target's height. It is solved in `Core::Fixed` with `IntegerSquareRoot`, under gravity from `RULE`.
+  - **The arc:** the shot leaves 10 m above the engine's cell (input 12, a `RULE` value baked by B5), and descends at exactly 45° at the target's height. It is solved in `Core::Fixed` with `IntegerSquareRoot`, under gravity from `RULE`.
   - **Each tick** it moves along its arc and visits every voxel the step crosses, by an integer 3D DDA (Amanatides and Woo, 1987). It stops at the first solid voxel, which is the hit E2 takes.
 - **Tests:** **`ShotTests`:**
   - A shot at open ground strikes the target's column, or the first solid voxel before it.
@@ -469,22 +471,23 @@ struct CollapsePlan
 
 ### M2-E2 — Craters
 - **Waits on:** E1.
-- **Read first:** input 12; the [Siege route table](Review/PaperTests/SiegeRouteTable.md), *craters*.
+- **Read first:** input 12; the [Siege route table](Review/PaperTests/SiegeRouteTable.md)'s crater ladder, in its table of the values it proposed.
 - **Changes:** a hit stamps the crater the struck voxel's behaviour sets in `RULE`, as edits to empty. "Behind" is along the shot's larger horizontal axis, ties to x.
   - **Timber:** the voxel and its six face neighbours, timber only.
   - **Earth:** the voxel, the one behind it, and the one below each.
   - **Stone:** the voxel and the one behind it.
+  - **The rest** (input 12): common rock as stone; leaves as timber, leaves only; every rubble as earth; bedrock and water take nothing, and the shot stops.
 - **Tests:** **`CraterTests`:**
   - Each material's count and shape.
   - A timber crater takes no stone.
-  - Masonry (index 6) takes stone's crater.
+  - Masonry (index 6) and common rock take stone's crater, rubble takes earth's, and bedrock takes none.
   - The crater's voxels are in `TickEdits`.
 
 ### M2-E3 — The support search in the tick, and the collapse plan
 - **Waits on:** E2, and inputs 4–7.
 - **Read first:** ADR-004, decisions 2 to 5; *Contracts*, collapse plan; MvpPlan.md, M2, *Risks this estimate sees*.
 - **Changes:**
-  - **The edits not yet searched:** `World` keeps them as a queue: those from steps 6 to 11 of the last tick and steps 1 to 4 of this one. Step 5 searches and clears it, and the queue is saved.
+  - **The edits not yet searched:** `World` keeps them as a queue: every edit since the last step 5, those made between ticks included. Step 5 searches and clears it, and the queue is saved.
   - **New entity kind:** `Collapse`, one for each unsupported piece, given ids in piece order.
   - **`Simulation/CollapsePlan.h` and `.cpp`,** in the filter `Destruction`. They set the warning (input 4), the fall's ticks (input 5), its direction (input 6) and the landing, one rubble voxel per fallen voxel (input 7), along the fall over at most the piece's height.
   - **During the warning,** no voxel of the piece moves.
@@ -525,7 +528,7 @@ struct CollapsePlan
 ### M2-E6 — Slump
 - **Waits on:** E5, and input 9.
 - **Changes:** step 7 settles loose material over four neighbours.
-  - **What is loose:** earth, grass and every rubble.
+  - **What is loose:** earth, grass and every rubble. A grass voxel that moves lands as earth (index 2), because only the generator places grass.
   - **The rule:** the top voxel of a column more than one above a neighbour moves to its lowest such neighbour, with ties in north, east, south, west order.
   - **The budget:** columns wait in a queue, in column-index order, under `RULE`'s `slumpVoxelsPerTick`, which this order adds with a Proposed value. The queue is saved.
 - **Tests:** **`SlumpTests`:**
@@ -547,7 +550,7 @@ struct CollapsePlan
 ## Phase F — Navigation
 
 ### M2-F1 — Headroom, ground and classes
-- **Waits on:** C3, and input 10.
+- **Waits on:** C3, and inputs 10 and 11.
 - **Read first:** ADR-015, decisions 1 and 2; `Simulation/NavigationGrid.h` and `.cpp`.
 - **Changes:**
   - Each cell gains its headroom and ground kind.
@@ -555,7 +558,7 @@ struct CollapsePlan
   - `TilesTouchedBy` widens by the largest margin.
 - **Tests:** **`NavigationClassTests`:**
   - **Climb:** on 1 m steps foot passes and cavalry does not. On a 1-in-2 ramp cavalry passes and machines do not.
-  - **Headroom:** T5's passage, from `ServerData`, takes every class's headroom. A 2.5 m arch takes foot only.
+  - **Headroom:** T5's passage, from `ServerData`, takes every class's headroom. A 2 m arch takes foot only.
   - **Fords:** one voxel of water passes every class, and two pass none.
   - **Corners:** no class cuts a corner.
   - **The existing `NavigationGridTests`** pass.
@@ -575,6 +578,7 @@ struct CollapsePlan
 - **Read first:** ADR-015, decision 5; ADR-013, decision 6.
 - **Changes:**
   - **The algorithm** to start from is A\* over cells. Steps cost 10 straight and 14 diagonally, times the ground's factor. The heuristic is octile distance in the same integers, and ties go by f, then h, then cell index.
+  - **Where:** searches run in step 3, `MoveUnits`, before units move, for the squads step 8 marked and those still searching (MvpPlan.md, *One simulation tick*).
   - **The budget:** `RULE`'s `pathNodesPerTick`, added with a Proposed value. Searches are served in request order, then by squad id. A search the budget interrupts goes on next tick and is saved.
   - **An unreachable goal** gives the nearest reachable cell by octile distance, with ties to the lower index.
   - **`SimulationBench`** reports nodes and milliseconds for cross-map searches on the MVP map.
@@ -611,7 +615,7 @@ struct CollapsePlan
   - A save taken mid-walk continues identically.
 
 ### M2-F6 — The drop step
-- **Waits on:** F5, and E4.
+- **Waits on:** F5, and phase E merged.
 - **Changes:** step 9, `SettleUnits`, runs as ADR-015, decision 7, sets out.
 - **Tests:** **`DropTests`:**
   - **Ground dug away:** the unit drops. A drop over 3 m raises a crush event carrying the drop, and a drop of 3 m or less raises none.
@@ -621,10 +625,10 @@ struct CollapsePlan
 
 ## Phase G — Done
 
-### M2-G1 — The M2 scenario in CI
+### M2-G1 — The M2 breach run, in CI
 - **Waits on:** D2, E7 and F6.
-- **Read first:** MvpPlan.md, M2, *Done when*.
-- **Changes:** `SimulationTests/M2ScenarioTests.cpp`, set up as follows:
+- **Read first:** MvpPlan.md, M2, *Done when*. It is not a scenario in ADR-014's sense; it is built in C++, as M1's test world is, so the tests and the bench share it.
+- **Changes:** `Simulation/BreachRun.h` and `.cpp`, in the filter `World`, build it, and `SimulationTests/BreachRunTests.cpp` asserts it. It is set up as follows:
   - **The ground:** the generated map with fixed seeds.
   - **The wall:** a T3 section placed by edits on a levelled footprint.
   - **The forces:** a trebuchet 40 m off, and a squad of six foot outside the wall, ordered inside before the breach.
@@ -636,7 +640,7 @@ struct CollapsePlan
 ### M2-G2 — The tick's timing
 - **Waits on:** G1, and input 2.
 - **Changes:**
-  - **`SimulationBench --m2-scenario`** times every tick of the scenario. It writes a CSV holding the per-tick times, their 95th percentile against input 2's target, the build id, and the CPU from `PROCESSOR_IDENTIFIER` and `NUMBER_OF_PROCESSORS`, read with `std::getenv`, so no Windows header is needed.
+  - **`SimulationBench --breach-run`** times every tick of the breach run. It writes a CSV holding the per-tick times, their 95th percentile against input 2's target, the build id, and the CPU from `PROCESSOR_IDENTIFIER` and `NUMBER_OF_PROCESSORS`, read with `std::getenv`, so no Windows header is needed.
   - **The work budgets** are tuned to fit input 2's target and recorded as Proposed in GameDesign.md, *M2's values* (input 13).
 - **Owner runs:** the bench on the RTX 3060 machine (owner hours: 1).
 
@@ -649,5 +653,5 @@ struct CollapsePlan
     - the budgets measured;
     - the CI runs per order and the owner's hours per phase;
     - each ADR amendment.
-  - **MvpPlan.md:** its time log is complete, and M3's forecast is rescaled by M2's pace.
+  - **MvpPlan.md:** its time log is complete, and M3's forecast is written from M2's pace.
 - **Owner hours:** 2, to read the report and sign M2 off.

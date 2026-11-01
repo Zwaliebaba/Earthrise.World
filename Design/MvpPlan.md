@@ -1,6 +1,6 @@
 # Earthrise.World — MVP implementation plan
 
-**Status:** Accepted by the owner for M0 to M2, 2026-10-31; M3 to M7 stay Proposed until after M1 (GameDesign.md, *Starting the MVP*). M2's revision of 2026-11-01 is Proposed until the owner accepts it. It covers:
+**Status:** Accepted by the owner for M0 to M2, 2026-10-31; M3 to M7 stay Proposed until after M1 (GameDesign.md, *Starting the MVP*). M2's revision of 2026-11-01 is accepted when the owner merges it (pull request #32). It covers:
 - M2's work orders and phases, in [MvpPlan-M2.md](MvpPlan-M2.md);
 - the owner inputs;
 - the trebuchet's shot, moved in from M4;
@@ -24,7 +24,7 @@ The MVP ends at the verdict on stages 1 and 2 (GameDesign.md, decided 2026-10-31
 
 - **The look** of [RendererLook.md](RendererLook.md): 1 m world voxels and 0.5 m models ([ADR-006](ADR/ADR-006-voxel-sizes.md)), and its palette, jitter, corner shading, lighting and camera.
 - **Platforms:** Windows on x64 and ARM64, played with mouse and keyboard ([ADR-007](ADR/ADR-007-platforms-and-input.md)). The interface keeps to ADR-007's rule that hover is never the only way to see something.
-- **One map**, 512 m × 512 m, generated from its seeds by the integer-only generator and held in memory. The Siege castle and the Hold maps are scenarios, which means saves of seeds, edits and entities.
+- **One map**, 512 m × 512 m, generated from its seeds by the integer-only generator and held in memory. The Siege castle and the Hold maps are scenarios: baked sources of seeds, structures, earthworks and entities, placed on the generated world ([ADR-014](ADR/ADR-014-edits-saves-and-replays.md), decision 7).
 - **Materials:** earth, common rock, building stone, bedrock, timber, and rubble that keeps the material it fell from; also grass, which only the generator places, leaves and water (GameDesign.md, 2026-10-31).
 - **Economy, used by Hold only:** stone and timber, counted by volume. Six designations: quarry, pit, ditch, trench, felling and clearance. Two drop sites, the quarry yard and the lumber camp, with laborers hauling to them.
 - **Templates:** hall and keep, palisade and palisade gate, standard stone wall, tower, gatehouse with its passage attack, quarry yard and lumber camp. These are T1–T9 in `GameData/Server/Templates/`, catalogued in [MvpAssets.md](MvpAssets.md). Ditch and rampart as earthworks. Deep foundations, priced by their volume.
@@ -128,8 +128,9 @@ The edges run one way:
 | Queries across the boundary | Decided | [ADR-009](ADR/ADR-009-queries-across-the-server-boundary.md): read-only queries and answers, filtered like state updates |
 | Content formats | Decided | [ADR-005](ADR/ADR-005-content-formats.md): JSON layer files, baked. [ADR-008](ADR/ADR-008-server-and-client-game-data.md): client content compiled into `Content`, server data baked into files in `<outputdir>\ServerData`, `.vox` written on demand for MagicaVoxel |
 | Platforms and input | Decided | [ADR-007](ADR/ADR-007-platforms-and-input.md): Windows on x64 and ARM64; two input schemes over one command layer, touch after the verdict |
+| Render tests | M1 | [ADR-012](ADR/ADR-012-render-tests-on-warp.md), Accepted: each pass draws a known scene on WARP in CI and checks its coverage, colour and depth |
 | Text rendering | M3 | Earthrise Mason ([Hud.md](Hud.md) §9): its glyph rows in `GameData/Client/Fonts/`, baked into `Content` by a tool, drawn only at whole multiples of a font pixel |
-| How units are drawn | M1 | Units are 0.5 m models of 1 × 1 × 4 voxels, axis-aligned and rotated in 90° steps. Engine poses are baked; debris is oriented voxels. |
+| How units are drawn | M1 | Units are 0.5 m models ([MvpAssets.md](MvpAssets.md)), axis-aligned and rotated in 90° steps. Engine poses are baked; debris is oriented voxels. |
 
 ### One simulation tick, in order
 
@@ -137,16 +138,16 @@ The order is fixed, so that one build replays the same commands to the same resu
 
 1. Decode and apply the commands that arrived for this tick.
 2. Advance designations and jobs: digging, hauling, construction, repair at its fixed rate per section.
-3. Move units along their paths, and resolve melee.
+3. Search for the squads that need a path, those marked by step 8 of the last tick and those still searching, within the node budget (ADR-015, decision 5); then move units along their paths, and resolve melee.
 4. Advance shots through the voxel grid; apply hits to units, and stamp craters as edits.
 5. Run the support search over the region the tick's edits so far can affect, and start a collapse for each unsupported piece, in entity-id order.
 6. Advance the collapses in progress: warnings, falls, rubble, damage, cascades that start next tick.
 7. Run slump and the rule for loose material, within the tick's work budget. The edits of steps 6 and 7 are searched in step 5 of the next tick, so a slump that undermines a wall starts its collapse one tick later.
 8. Rebuild every navigation tile the tick's edits touched, none deferred, and what navigation keeps to answer reach (ADR-015).
-9. Drop, lift or move the units whose cells changed, in unit-id order (ADR-015, decision 8).
+9. Drop, lift or move the units whose cells changed, in unit-id order (ADR-015, decision 7).
 10. Check the win and loss rules: the storming clock, and the Siege trial's limits.
 11. Filter state by what each player can see, and publish state updates and chunk snapshots.
-12. Answer queries on the tick's state, filtered the same way, within what remains of the tick's budget (ADR-009).
+12. Answer queries on the tick's state, filtered the same way, within the tick's query budget, a number of queries in units of work (ADR-009, amended 2026-11-01).
 
 ## Milestones
 
@@ -195,7 +196,7 @@ Each CI guard is removed once its input is there.
 - under the revised rules, the breach moves with where the player quarried in at least two of the three layouts;
 - the support readout reaches a median accuracy of 0.65 or better;
 - no route dominates in the table;
-- the repair spreadsheet meets the pass mark the implementer proposes (the review suggested 1.3–2×, F-03).
+- the repair spreadsheet meets the pass mark: with one engine, repair adds 1.3–2× to the time to open a section (the owner's, GameDesign.md, *the paper tests' values*, item 3).
 
 ### M1 — Renderer spike
 
@@ -238,7 +239,7 @@ The review asks for this in writing before the spike starts, so that its actual 
 
 | # | Task | Owner hours | PRs |
 |---|---|---|---|
-| 1 | The scaffold of ADR-010: the solution, ten projects, the sheet, `framework.h`, the precompiled headers, `SuiteSmoke`, built in CI on both architectures | 1 | 1 |
+| 1 | The scaffold of ADR-010: the solution, ten projects, the sheet, `framework.h`, the precompiled headers, `SuiteSmoke`, built in CI on both architectures (CI has built x64 only since ADR-007's amendment) | 1 | 1 |
 | 2 | The engine base: the DPI-aware window, pointer input, the timer, the device and debug layer, the flip-model swap chain, frames in flight, descriptor heaps, the upload ring and hand-written barriers (ADR-011) | 2 | 2 |
 | 3 | A minimal chunk store with copy-on-write snapshots in `Simulation`, its `Protocol` handles and tests | 0 | 1 |
 | 4 | The client half of the bake and the asset check (ADR-005, ADR-008), with the CI step | 0.5 | 1 |
@@ -255,14 +256,14 @@ The review asks for this in writing before the spike starts, so that its actual 
 
 **The owner can give about 20 hours a week** to running builds and judging them (owner, 2026-10-31). The owner's 32 hours are therefore under two weeks of their time, and the calendar is set by round trips instead. There are 19 pull requests, and about half of them need one to three rounds of the owner looking at the screen. **Forecast: M1 takes 4–8 calendar weeks.** This is a judgment, and the time log below measures it.
 
-**The biggest risk to the estimate is debugging the renderer without eyes on the screen.** A Claude session cannot see a frame, so every visual defect costs a round trip through the owner. To keep that cheap, the spike writes a screenshot and its GPU timings to files on demand, which the owner can attach to an issue or a session. CI also renders each pass on WARP and checks the result by number (ADR-012), so a defect in coverage, colour or depth should reach CI before it reaches the owner. That leaves the owner's round trips for the look and the timings.
+**The biggest risk to the estimate is debugging the renderer without eyes on the screen.** A Claude session cannot see a frame, so every visual defect costs a round trip through the owner. To keep that cheap, the spike writes its GPU timings to a CSV, which the owner can attach to an issue or a session. (A screenshot on demand was planned here and not built; the owner dropped it on 2026-11-01.) CI also renders each pass on WARP and checks the result by number (ADR-012), so a defect in coverage, colour or depth should reach CI before it reaches the owner. That leaves the owner's round trips for the look and the timings.
 
 **How the actual pace is recorded:**
 - each task's start and finish dates;
 - its pull requests;
 - the owner's hours, logged per task below as the work proceeds.
 
-At the end of M1, the ratio of the actual owner hours and calendar weeks to this estimate rescales the forecasts of M2 to M7.
+At the end of M1, the ratio of the actual owner hours and calendar weeks to this estimate rescales the forecasts written for the milestones after it.
 
 | # | Started | Finished | PRs | Owner hours | Notes |
 |---|---|---|---|---|---|
@@ -275,7 +276,7 @@ At the end of M1, the ratio of the actual owner hours and calendar weeks to this
 | 7 | 2026-11-01 | | #26, #27, #28, #29, #30 | | The look: jitter, corner shading, Lambert and hemisphere light, fords and rubble colours; the two shadow maps; contact shading; impostors; the collapse's debris |
 | 8 | 2026-10-31 | | #17 | | The render scale and its bilinear upscale |
 | 9 | 2026-11-01 | | #21, #22 | | The v5 test scene: the batch turn and palette swap, then the scene, its edits and its moving units |
-| 10 | 2026-11-01 | | #19 | | Measurement: the GPU timer, the scripted path, the CSV and its 95th percentile, edit-to-present latency |
+| 10 | 2026-11-01 | | #19, #20 | | Measurement: the GPU timer, the scripted path, the CSV and its 95th percentile, edit-to-present latency; then the borderless full screen and the measured run at 1920 × 1080 |
 | 11 | 2026-11-01 | | #24, #25 | | The support search and navigation tiles, then the test world in Simulation and `SimulationBench` on the MVP map and the season world |
 | 12 | 2026-11-01 | | #25 | | The 0.5 m column: the test world split eight ways, its memory, search and tiles |
 
@@ -308,37 +309,39 @@ The plan credits what M1 already built: the chunk store, a first support search,
 
 | Phase | Orders | What lands | Needs first | Owner hours |
 |---|---|---|---|---|
-| A | 1 | The owner's decisions, written down | Inputs 1–13 below | 3 |
+| A | 1 | The owner's decisions, written down | Inputs 1–15 below | 3 |
 | B | 6 | `Core`'s numbers, randomness and bytes; the float check; `ServerData` | A, and M1 closed | 1 |
 | C | 5 | Commands, edits, the world and its tick, saves, replays | B | 0.5 |
 | D | 3 | The generator | C; input 3 | 4 |
 | E | 7 | The trebuchet's shot, craters, the collapse, slump | C; inputs 4–9 and 12 | 3 |
-| F | 6 | Navigation | C; inputs 10 and 11; its last order also E | 2 |
+| F | 6 | Navigation | C; inputs 10 and 11; its last order also phase E | 2 |
 | G | 3 | The done-when in CI, the tick's timing, the report | D, E and F; inputs 2 and 13 | 3 |
 | | **31 orders, 7 pull requests** | | | **about 17** |
 
-**The calendar cannot be forecast from M1 yet.** M1's code landed in two days, in 18 pull requests (#8 to #30), but no M1 task has a finish date and no owner hours are logged. The ratio this plan rescales by therefore does not exist yet. **Logging M1's finish dates and owner hours is what turns M1 into a measurement.** Until then, the judgment is 3–6 calendar weeks from M1's close.
-- **The code is not the constraint.** What constrains the calendar is the owner's 13 inputs and about 17 hours, the rounds that the research-grade phases E and F take to come right, and CI's round trips, one per order at least.
-- **The owner answered all 13 inputs on 2026-11-01,** before M2 starts, which removes most of the waiting.
+**The calendar cannot be forecast from M1 yet.** M1's code landed in two days, in 19 pull requests between #8 and #30, but no M1 task has a finish date and no owner hours are logged. The ratio this plan rescales by therefore does not exist yet. **Logging M1's finish dates and owner hours is what turns M1 into a measurement.** Until then, the judgment is 3–6 calendar weeks from M1's close.
+- **The code is not the constraint.** What constrains the calendar is the owner's inputs and about 17 hours, the rounds that the research-grade phases E and F take to come right, and CI's round trips, one per order at least.
+- **The owner answered all 15 inputs on 2026-11-01,** before M2 starts, which removes most of the waiting.
 - **Phases D, E and F can run side by side** once C has merged, each in its own pull request, which shortens the calendar if the owner can review them together.
 
-**The owner's inputs.** Each is a design value no document gives, and AGENTS.md requires it written down before the code that rests on it. The implementer proposed them, and the owner took every proposal on 2026-11-01. GameDesign.md, *M2's values*, records them, and input 13 stays the implementer's to measure.
+**The owner's inputs.** Each is a design value no document gives, and AGENTS.md requires it written down before the code that rests on it. The implementer proposed them, and the owner took every proposal on 2026-11-01. A check of the documents the same day changed input 7 and added inputs 14 and 15. GameDesign.md, *M2's values*, records them all, and input 13 stays the implementer's to measure.
 
 | # | Input | For orders | Decided, 2026-11-01 |
 |---|---|---|---|
 | 1 | Give ADR-013 to ADR-016 the go-ahead, or change them. Each is marked Accepted by the commit that first implements it (AGENTS.md §6) | B1, B5, C2, F1 | Go-ahead for all four, as written |
 | 2 | **The tick's wall-time target.** It replaces "the budget the spike measured" in the done-when, which is circular: the spike measures costs, it does not set a budget | G2 | 25 ms, half a tick, at the 95th percentile, on one core of the RTX 3060 machine, with `SimulationBench` recording its CPU |
 | 3 | **What the generator makes on the MVP map** | D1, D3 | 512 m × 512 m and 64 m high, two chunks. The relief and soil depths of M1's test ground, carried over the map. Bedrock depth varying so that thin soil over rock and deep earth both occur. Sparse outcrops of building stone, forest, and one river with fords. The owner judges the first maps in the spike, by eye |
-| 4 | **A collapse's warning** | E3 | 1 s, plus the time a foot soldier at 1.4 m/s takes to walk the piece's height, rounded up to whole ticks: 135 ticks, 6.75 s, for an 8 m piece |
-| 5 | **The fall** | E3, E4 | It lasts the free-fall time from the piece's height, in whole ticks: 26 ticks for 8 m. The piece leaves the grid on the fall's first tick, and its rubble and damage land in equal parts over the fall, nearest the foot first |
+| 4 | **A collapse's warning** | B5, E3 | 1 s, plus the time a foot soldier at 1.4 m/s takes to walk the piece's height, rounded up to whole ticks: 135 ticks, 6.75 s, for an 8 m piece |
+| 5 | **The fall** | B5, E3, E4 | It lasts the free-fall time from the piece's height, under gravity of 9.81 m/s², rounded up to whole ticks: 26 ticks for 8 m. The piece leaves the grid on the fall's first tick, and its rubble and damage land in equal parts over the fall, nearest the foot first |
 | 6 | **Which way it falls** | E3 | Towards the one of four sides where the voxels whose removal unsupported it lie, measured from the piece's centre. Straight down when that offset is less than a quarter of the piece's width along it |
-| 7 | **What each material leaves** | B5, E3 | One rubble voxel for each voxel that falls. Building stone and masonry become stone rubble (8); common rock, rock rubble (28); timber and roof, timber rubble (25); earth, grass, field and road, earth rubble (26). Leaves leave nothing. Each decoration index takes the behaviour of its most common host across the templates |
+| 7 | **What each material leaves** | B5, E3 | One rubble voxel for each voxel that falls. Building stone and masonry become stone rubble (8); common rock, rock rubble (28); timber and roof, timber rubble (25); earth, grass, field and road, earth rubble (26). Leaves leave nothing. A decoration takes its host's behaviour voxel by voxel: the bake writes it into the world as a palette index for its host, with the decoration's look (changed the same day from "the most common host across the templates", which made T1's openings in timber behave as stone) |
 | 8 | **What the fall damages** | E4 | Every structure voxel in the landing strip below the rubble's top is removed and becomes rubble of its own material. Units in the strip take the collapse's crush damage, whose amount is M4's |
-| 9 | **Slump** | E6, E7 | Over the four side neighbours. Diagonal neighbours may then differ by 2 m, and navigation closes those diagonals. Loose material rests at most 1 m below a structure's top, confirming the paper tests' item 8 |
-| 10 | **The navigation classes,** from the models (ADR-015) | F1, F5 | Foot: R = 1, 2 m headroom, width 1. Cavalry: R = 2, 3 m, width 1. Machines: R = 3, 4 m, width 3. Every class fords one voxel of water. Rubble and fords halve speed. Foot moves at 1.4 m/s, the spike's walkers' speed, until M4's statistics |
+| 9 | **Slump** | B5, E6, E7 | Over the four side neighbours. Diagonal neighbours may then differ by 2 m, and navigation closes those diagonals. Loose material rests at least 1 m below a structure's top, confirming the paper tests' item 8 |
+| 10 | **The navigation classes,** from the models (ADR-015) | B5, F1, F5 | Foot: R = 1, 2 m headroom, width 1. Cavalry: R = 2, 3 m, width 1. Machines: R = 3, 4 m, width 3. Every class fords one voxel of water. Rubble and fords halve speed. Foot moves at 1.4 m/s, the spike's walkers' speed, until M4's statistics |
 | 11 | **A consequence of input 10 to confirm:** settled earth and rubble lie at 45°, so a rubble ramp into a breach is open to foot alone | F1 | Keep it. "Men-at-arms storm up the rubble" (GameDescription.md), and rams go for gates |
-| 12 | **The trebuchet's craters,** on the paper tests' ladder of 1, 2, 4 and 7 voxels ([Siege route table](Review/PaperTests/SiegeRouteTable.md)) | E1, E2 | **Timber:** very large, the voxel struck and its six face neighbours, timber only. **Earth:** large, 4 voxels, which slump closed. **Stone:** medium, the voxel struck and the one behind it along the shot. Reload, range and descent stay the paper tests' Proposed 20 s, 12–50 m and 45° or steeper. The ram's contact craters are M4's |
+| 12 | **The trebuchet's craters,** on the paper tests' ladder of 1, 2, 4 and 7 voxels ([Siege route table](Review/PaperTests/SiegeRouteTable.md)) | B5, E1, E2 | **Timber:** very large, the voxel struck and its six face neighbours, timber only. **Earth:** large, 4 voxels, which slump closed. **Stone:** medium, the voxel struck and the one behind it along the shot. Common rock as stone; bedrock and water none; leaves as timber, leaves only; every rubble as earth. For M2 the shot reloads in 20 s, reaches 12–50 m and descends at 45° or steeper, leaving from 10 m above the engine's cell under gravity of 9.81 m/s². The ram's contact craters are M4's |
 | 13 | **M2's work budgets a tick:** voxels slumped and path nodes expanded | E6, F3, G2 | Set by the implementer from M2's measurements to fit input 2, and recorded as Proposed |
+| 14 | **Ground, and the spans not yet decided** | B5 | Palette.json gives each index a server-side `ground` flag: terrain, fields, roads and rubble are ground; masonry, timber, roof, leaves and decorations are not. Leaves span 3 m and common rock 2 m |
+| 15 | **How queries are budgeted** (ADR-009 against ADR-013) | — | In units of work, a number answered a tick, oldest dropped first; the simulation reads no clock. M3 sets the number |
 
 **Risks this estimate sees** (judgments, beside the plan's risk table):
 - **What a breach looks like on the 1 m grid may not be a collapse.** This is worked by hand from ADR-004, decision 2, not measured:
@@ -351,13 +354,13 @@ The plan credits what M1 already built: the chunk store, a first support search,
 
 **Done when** all of the following hold:
 - **Headless, in CI** (`SimulationTests`, with no window open):
-  - a trebuchet placed by the M2 scenario on a generated map fires on scripted commands at a T3 section, and its shots fly through the voxel grid and leave craters by material;
-  - the section, or the part of it the rules drop, loses support, warns for its warning ticks before any of its voxels move, and falls towards the side that lost support;
+  - a trebuchet placed by the M2 breach run, built in `Simulation` so the tests and the bench share it, on a generated map fires on scripted commands at a T3 section, and its shots fly through the voxel grid and leave craters by material;
+  - the section, or the part of it the rules drop, loses support, warns for its warning ticks before any of its voxels move, and falls towards the side that lost support, or straight down if it lost support evenly;
   - its rubble keeps its material;
   - a squad of six foot, ordered inside before the breach, goes as near as it can. Once the tiles rebuild, it searches again and paths through the breach, and no unit stands on a structure on any tick;
   - the whole run replays with every state hash equal, and a save taken at any tick continues identically;
   - the generator's golden hashes and slope invariant pass.
-- **On the RTX 3060 machine:** every tick of the scenario fits input 2's target at the 95th percentile, measured in `SimulationBench`.
+- **On the RTX 3060 machine:** every tick of the breach run fits input 2's target at the 95th percentile, measured in `SimulationBench`.
 - **Throughout:** the AGENTS.md checklist passes.
 
 **How the actual pace is recorded.** Each phase's last commit fills in its row below:
@@ -396,10 +399,10 @@ Run it with six people (F-48).
 ### M4 — Siege trial
 
 **Build:**
-- units, stats and combat, physical shots for arrows and bolts (the trebuchet's shot and craters come from M2), hits on units, elevation, garrisons and the gatehouse's passage attack;
+- units, stats and combat, physical shots for arrows and bolts (the trebuchet's shot and craters come from M2), the ram's blows and craters, hits on units, elevation, garrisons and the gatehouse's passage attack;
 - drawing units and buildings;
 - fog with the visibility filter and last-seen land;
-- the shared hash between the client's tables and `ServerData` (ADR-008, decision 5); the world templates T1–T7 redrawn natively at 1 m, and the Siege castle built from them;
+- the shared hash between the client's tables and `ServerData` checked in `Earthrise` (ADR-008, decision 5; the spike checks it from M2); the world templates T1–T7 redrawn natively at 1 m, and the Siege castle built from them;
 - the subset of jobs the trial needs: repair and trenches;
 - the rest of the interface: layout A of [Hud.md](Hud.md), with squad selection, control groups, the command card, the minimap, alerts and the repair lock, and every hover reading also reachable without hover (ADR-007);
 - the Siege defender AI;
@@ -447,7 +450,7 @@ Run it with six people (F-48).
 | 1 m craters do not show which weapon made them | M3 | Tune each weapon's crater radius and depth for each material, the client's debris, and the integrity view |
 | Players cannot read breaches | M3, M5 | The single round of legibility work, then the kill criterion |
 | The Siege defender is too weak or too strong to test anything | M4 | Scripted behaviors and tuning; it plays one authored castle, not arbitrary ones |
-| The plan overruns | Every milestone | Each milestone's measured pace rescales the forecasts after it, and what to cut is the owner's call (GameDesign.md, *Planning M2*); within the MVP the trebuchet, the gatehouse attack and the breach lab are the last things to cut |
+| The plan overruns | Every milestone | Each milestone's measured pace rescales the forecasts after it, and what to cut is the owner's call (GameDesign.md, *Planning M2*) |
 | Content takes longer than code | M4, M6 | The templates and models already exist in `GameData/`; one castle and two Hold maps only |
 
 ## Deferred to the Skirmish plan

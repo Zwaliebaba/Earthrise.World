@@ -1,6 +1,6 @@
 # ADR-016 — The `ServerData` file and where it is baked
 
-**Status:** Proposed, 2026-11-01. It settles two items left open by earlier ADRs: the `ServerData` format in detail ([ADR-008](ADR-008-server-and-client-game-data.md), *Left open*), and where its bake target lives ([ADR-010](ADR-010-solution-and-build-layout.md), *Left open*).
+**Status:** Proposed, 2026-11-01. It settles two items left open by earlier ADRs: the `ServerData` format in detail ([ADR-008](ADR-008-server-and-client-game-data.md), *Left open*), and where its bake target lives ([ADR-010](ADR-010-solution-and-build-layout.md), *Left open*). It amends ADR-008, decision 4: the reader also recomputes the server-data hash and checks each section's version (decision 6).
 - **The owner gave the go-ahead** on 2026-11-01 ([MvpPlan.md](../MvpPlan.md), M2, input 1; GameDesign.md, *M2's values*).
 - **The commit that first implements it** marks it Accepted (AGENTS.md §6).
 
@@ -47,7 +47,7 @@ Nothing implements it yet.
      - whether it is walkable ground or liquid;
      - the palette index its rubble takes, with 0 when it leaves none.
 
-     It replaces `StandInMaterialRules`. The bake resolves decorations to one rule per index; how it does so is an owner input (MvpPlan.md, M2).
+     It replaces `StandInMaterialRules`. A decoration reaches the world as a palette index for its host, with the decoration's look, so each index has exactly one rule (GameDesign.md, M2's values, item 7). Spans come from each behaviour's value in `RULE`, and "walkable ground" from Palette.json's server-side `ground` flag (item 14).
    - **`TMPL`:** the server view of each template. That is the client view (ADR-008, decision 2) plus each voxel's part and the names of its critical parts. It feeds `TemplateLookup`, and `SimulationBench` drops `Content`.
    - **`RULE`:** the tuning values, already in the simulation's units:
      - the work budgets;
@@ -58,7 +58,7 @@ Nothing implements it yet.
 
    Later sections join when their milestone needs them: unit statistics, waves and scenarios ([ADR-014](ADR-014-edits-saves-and-replays.md), decision 7). Each joining section raises nothing but its own section version. The format version changes only when the header or the directory does.
 4. **Sources say what the design says, and the bake converts them exactly.**
-   - **Where they live:** the tuning values are in `GameData/Server/Rules.json`, each named with its unit, as R6 asks of code: `warningBaseSeconds`, `spanMeters`, `speedMetersPerSecond`.
+   - **Where they live:** the tuning values are in `GameData/Server/Rules.json`, each named with its unit, as R6 asks of code: `warningBaseSeconds`, `stoneSpanMeters`, `speedMetersPerSecond`.
    - **How they convert:** the bake reads each number as a decimal string into Python's `fractions.Fraction`, converts it to voxels, ticks or Q16.16 exactly, and rounds once, toward negative infinity, as `Core::Fixed` does (ADR-013, decision 3).
    - **Why:** no binary floating point touches a value on its way into the simulation, so the same sources give the same file on any machine. The asset check fails on a value that does not convert to a whole number of the unit it needs, such as a span that is not a whole number of voxels.
 5. **The bake target lives in `Simulation.vcxproj`.**
