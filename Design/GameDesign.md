@@ -211,7 +211,7 @@ M0's three paper tests ran: the [Hold rule test](Review/PaperTests/HoldRuleTest.
 5. **A quarry's undermining outweighs its ditch reason.** A quarry in front of a wall still counts as a ditch in front, as pillar 1 says; where it also undermines the wall, the undermining weighs more. The rerun passes in all three M0 layouts, one of them exactly at the bar.
 
 **Proposed, from the breach-prediction prototype:**
-6. **The anchor depth is 8 m** below the generated surface, deeper than any siege dig the MVP draws.
+6. **The anchor depth is 8 m** below the generated surface, deeper than any siege dig the MVP draws. (Decided 2026-11-01, *M1's open values*.)
 7. **Foot soldiers climb 1 m in each 1 m step**, the slope of settled earth.
 8. **Loose material comes to rest at most 1 m below a structure's top.**
 9. **A breach-prediction item shows the damage as done (N = 0)** and asks one question, "open or shut?", with a free-text reason.
@@ -237,7 +237,20 @@ M0's three paper tests ran: the [Hold rule test](Review/PaperTests/HoldRuleTest.
 25. **The test's own inputs.** Standard foundations draw nothing below the levelled surface. Digs cut once to their depth and then slump. Quarries are 8 m deep, and the near quarry stops at the closest berm at which the slump drops nothing. The breach moves when at least 1/3 of the waves breach elsewhere, averaged over waves with and without a ram.
 
 **Open:**
-26. **Timber's span.** T1's roof needs 5 m and T2's timber floors 4 m.
+26. **Timber's span.** T1's roof needs 5 m and T2's timber floors 4 m. (Decided 2026-11-01: 5 m, *M1's open values*.)
+
+### 2026-11-01: M1's open values
+
+The owner settled what M1's remaining tasks needed and no document gave (MvpPlan.md, M1 tasks 7, 11 and 12).
+
+1. **Timber spans 5 m,** the smallest span at which every MVP template's timber stands as drawn, T1's roof included.
+2. **The anchor depth is 8 m** below the generated surface, as the paper tests proposed (ADR-004, decision 2).
+3. **A navigation tile is 32 × 32 m:** one per chunk column, of 1,024 cells of 1 m, each holding its walkable height and its links to its eight neighbours. An edit rebuilds the tiles its chunks touch.
+4. **A season is about a million voxel edits.** A Skirmish castle is about 5,400 m³ of building, quarried from as much again, plus its earthworks: about 12,000 edits a lord. Thirty-two lords building about twice over in eight weeks, and a dozen breached sieges, come to about a million. The synthetic 2 km world of the renderer spike's question 6 carries that many, where holdings would stand.
+5. **Until the generator (M2), the MVP map in `SimulationBench` is the test scene's ground at 512 m:** its seeded integer height field, rock and river carried out to 512 m × 512 m, with the castle and quarry of the v5 scene at its middle.
+6. **Models get contact shading baked per instance on the CPU:** a placed model's corner values are worked out against the world when it moves or the world under it changes, and go in its own records, as world chunks' do (ADR-006, *Left open*).
+7. **Collapse debris tumbles, then rests.** Its pieces fall with the collapse for about 1.5 s, turning, as oriented voxels, and then lie on the rubble at their final angles for good, so a breach keeps its ragged look. They are seeded by the collapse's id, so every client shows the same (RendererLook.md, checks 3 and 6).
+8. **The 0.5 m world for ADR-006's comparison is the test scene with each 1 m voxel split into eight,** so the two columns differ only in voxel size.
 
 ## Pillars (Decided)
 
