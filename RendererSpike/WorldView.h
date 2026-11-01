@@ -49,9 +49,14 @@ public:
   void TakeSnapshots(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring,
                      std::span<const Protocol::ChunkSnapshot> _snapshots);
 
-  /// Draws these placements from now on, building a batch for each model they use that has none
-  /// yet. Called each frame, as units move. Throws std::runtime_error for an unknown model.
-  void PlaceModels(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, const std::vector<ModelPlacement>& _placements);
+  /// Draws these placements this frame, each with records of its own: its model's voxels, their
+  /// corner shades counting the world where it stands as solid as well as the model, so that it is
+  /// shaded where it touches the ground (RendererLook.md §5; the owner's choice of 2026-11-01, baked
+  /// per instance on the CPU). A placement keeps its records while its model, place and turn are as
+  /// they were and no chunk under it was rebuilt; the rest are worked out again. All of them are
+  /// copied into _ring, which this frame's draws read. Called each frame, after TakeSnapshots.
+  /// Throws std::runtime_error for an unknown model, or when the ring has no room.
+  void PlaceModels(Engine::UploadRing& _ring, const std::vector<ModelPlacement>& _placements);
 
   /// Draws every chunk batch and every model placement, through whichever of the pass's pipelines
   /// was last begun: the scene's, or a shadow map's.
@@ -81,7 +86,22 @@ private:
     std::uint32_t depthCells;
   };
 
+  /// A model placed this frame: its records, and where this frame's copy of them is in the ring.
+  struct Placed
+  {
+    ModelPlacement placement;
+    std::vector<Engine::VoxelRecord> records;
+    D3D12_GPU_VIRTUAL_ADDRESS recordsAddress;
+    float voxelEdgeMeters;
+    std::uint32_t widthCells; // the model's extent along x and z, which turning it needs
+    std::uint32_t depthCells;
+  };
+
   void RebuildChunk(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, std::uint64_t _key);
+  /// Works out a placement's records against the world it stands in.
+  void BuildPlaced(Placed& _placed) const;
+  /// Whether a chunk rebuilt since the last PlaceModels lies under a placement, or beside it.
+  [[nodiscard]] bool WorldChangedUnder(const Placed& _placed) const;
   /// The palette index at a world voxel, from the snapshots taken so far; 0 where none holds it.
   [[nodiscard]] std::uint8_t IndexAt(Protocol::VoxelPosition _position) const;
   [[nodiscard]] Batch Upload(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring,
@@ -93,8 +113,8 @@ private:
   Engine::PaletteShading m_shading;
   std::map<std::uint64_t, Protocol::ChunkSnapshot> m_snapshots;
   std::map<std::uint64_t, Batch> m_chunks;
-  std::map<std::string_view, Batch> m_models;
-  std::vector<ModelPlacement> m_placements;
+  std::vector<std::uint64_t> m_rebuiltChunks; // since the last PlaceModels
+  std::vector<Placed> m_placed;
   std::vector<std::unique_ptr<Engine::StaticBuffer>> m_replaced;                          // not yet stamped
   std::vector<std::pair<std::uint64_t, std::unique_ptr<Engine::StaticBuffer>>> m_retired; // fence, buffer
 };

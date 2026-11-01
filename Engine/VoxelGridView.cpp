@@ -47,6 +47,8 @@ std::vector<VoxelRecord> BuildVisibleRecords(const VoxelGridView& _grid, const S
                                 static_cast<std::size_t>(_x)] != 0;
   };
   const auto solidAt = [&solid](const std::array<std::int32_t, 3>& _cell) { return solid(_cell[0], _cell[1], _cell[2]); };
+  const auto cornerSolid = [&solidAt, &_shading](const std::array<std::int32_t, 3>& _cell)
+  { return solidAt(_cell) || (_shading.alsoSolid != nullptr && (*_shading.alsoSolid)(_cell[0], _cell[1], _cell[2])); };
 
   std::vector<VoxelRecord> records;
   std::size_t index = 0;
@@ -87,9 +89,9 @@ std::vector<VoxelRecord> BuildVisibleRecords(const VoxelGridView& _grid, const S
             side2[axes.wAxis] += (corner & 2U) != 0 ? 1 : -1;
             std::array<std::int32_t, 3> diagonal = side1;
             diagonal[axes.wAxis] = side2[axes.wAxis];
-            const bool first = solidAt(side1);
-            const bool second = solidAt(side2);
-            const int occluders = (first ? 1 : 0) + (second ? 1 : 0) + (solidAt(diagonal) ? 1 : 0);
+            const bool first = cornerSolid(side1);
+            const bool second = cornerSolid(side2);
+            const int occluders = (first ? 1 : 0) + (second ? 1 : 0) + (cornerSolid(diagonal) ? 1 : 0);
             shade.cornerLevels[face][corner] = first && second ? std::uint8_t{0} : static_cast<std::uint8_t>(OPEN_CORNER - occluders);
           }
         }

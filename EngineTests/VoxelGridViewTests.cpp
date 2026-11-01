@@ -141,6 +141,27 @@ public:
     Assert::IsTrue(Levels(RecordAt(grounded, 0, 0, 0), Engine::VoxelFace::NegativeZ) == std::array<std::uint8_t, 4>{1, 1, 3, 3});
   }
 
+  TEST_METHOD(CountsWhatElseIsSolidAtTheCorners)
+  {
+    // A lone model voxel standing on the world: the world's ground below it shades the lower
+    // corners of its sides, as the cell under the one in front and its diagonal (RendererLook.md
+    // §5), though the model has no voxel there; its top sees nothing; and the faces it shows are
+    // its own, so the bottom, against the ground, still counts as exposed.
+    const std::vector<std::uint8_t> cell = {19};
+    const Engine::SolidOutside ground = [](std::int32_t, std::int32_t _y, std::int32_t) { return _y < 0; };
+    const std::vector<Engine::VoxelRecord> records =
+      Engine::BuildVisibleRecords({.paletteIndices = cell, .xVoxels = 1, .yVoxels = 1, .zVoxels = 1}, NothingOutside,
+                                  {.palette = nullptr, .originCells = {0, 0, 0}, .jitterCellShift = 0, .alsoSolid = &ground});
+    Assert::AreEqual(std::size_t{1}, records.size());
+    Assert::IsTrue(Levels(records[0], Engine::VoxelFace::NegativeZ) == std::array<std::uint8_t, 4>{1, 1, 3, 3});
+    Assert::IsTrue(Levels(records[0], Engine::VoxelFace::PositiveX) == std::array<std::uint8_t, 4>{1, 3, 1, 3});
+    Assert::IsTrue(Levels(records[0], Engine::VoxelFace::PositiveY) == OPEN);
+    // Without it, the same voxel is open all round.
+    const std::vector<Engine::VoxelRecord> alone =
+      Engine::BuildVisibleRecords({.paletteIndices = cell, .xVoxels = 1, .yVoxels = 1, .zVoxels = 1}, NothingOutside);
+    Assert::IsTrue(Levels(alone[0], Engine::VoxelFace::NegativeZ) == OPEN);
+  }
+
   TEST_METHOD(JittersByTheHashOfTheWorldCell)
   {
     // RendererLook.md §4's hash, against values worked out independently from the prototype's
@@ -151,7 +172,7 @@ public:
     const std::vector<std::uint8_t> cell = {6};
     const std::vector<Engine::VoxelRecord> records =
       Engine::BuildVisibleRecords({.paletteIndices = cell, .xVoxels = 1, .yVoxels = 1, .zVoxels = 1}, NothingOutside,
-                                  {.palette = &shading, .originCells = {3, 5, 7}, .jitterCellShift = 0});
+                                  {.palette = &shading, .originCells = {3, 5, 7}, .jitterCellShift = 0, .alsoSolid = nullptr});
     Assert::AreEqual(-19.0F / 1024.0F, Engine::LightnessOffset(records.at(0)));
     Assert::AreEqual(1U, (records.at(0).cellAndPalette >> 26) & 1U, L"the palette's shade table");
   }
@@ -164,7 +185,7 @@ public:
     const std::vector<std::uint8_t> cell = {2};
     const std::vector<Engine::VoxelRecord> records =
       Engine::BuildVisibleRecords({.paletteIndices = cell, .xVoxels = 1, .yVoxels = 1, .zVoxels = 1}, NothingOutside,
-                                  {.palette = &shading, .originCells = {-1, 1, 1}, .jitterCellShift = 1});
+                                  {.palette = &shading, .originCells = {-1, 1, 1}, .jitterCellShift = 1, .alsoSolid = nullptr});
     Assert::AreEqual(-10.0F / 1024.0F, Engine::LightnessOffset(records.at(0)));
   }
 
