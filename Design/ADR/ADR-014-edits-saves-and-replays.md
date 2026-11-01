@@ -1,6 +1,10 @@
 # ADR-014 — Edits, saves and replays
 
-**Status:** Proposed, 2026-11-01, for the owner to accept before M2's edits and saves ([MvpPlan.md](../MvpPlan.md), M2). It closes [ADR-003](ADR-003-world-as-seed-plus-edits.md)'s open item on the edit encoding, and fixes the layout of the save that ADR-003 and [ADR-005](ADR-005-content-formats.md), decision 10, describe. Nothing implements it yet.
+**Status:** Proposed, 2026-11-01. It closes [ADR-003](ADR-003-world-as-seed-plus-edits.md)'s open item on the edit encoding, and fixes the layout of the save that ADR-003 and [ADR-005](ADR-005-content-formats.md), decision 10, describe.
+- **Before code rests on it,** the owner's go-ahead is needed ([MvpPlan.md](../MvpPlan.md), M2, input 1).
+- **The commit that first implements it** marks it Accepted (AGENTS.md §6).
+
+Nothing implements it yet.
 
 ## Context
 
@@ -59,12 +63,12 @@
 
 ## Consequences for the code
 
-- **`Simulation` gains** the editing call, the edited-chunk set and the tick's edit list. M1's `TestWorld` and `TestWorldEdits` make their edits through the same call.
+- **`Simulation` gains** the editing call, the edited-chunk set and the tick's edit list. M1's `TestWorld` and `TestWorldEdits` build the spike's and the bench's stand-in world outside any simulation, so they keep writing their `ChunkStore` directly until the generator and the M2 scenario replace them.
 - **CI runs three tests:**
   - the save test of decision 4 on a scripted scenario;
   - a replay test that records the M2 scenario and replays it inside the same test, comparing every state hash;
   - a round trip of each chunk form, with a chunk that comes back to its base.
-- **The executables compute their build id** at startup: `SimulationBench` and `RendererSpike` in M2, and `Earthrise` when it joins in M4.
+- **Each executable that saves or replays computes its build id** at startup: `SimulationBench` in M2, `RendererSpike` if it ever does, and `Earthrise` when it joins in M4.
 - **GameDesign.md's line "A scenario is a save" changes** on acceptance, because decision 7 departs from it. It would read: "A scenario holds the seeds, the structures and earthworks placed on the generated world, and the entities; a save holds the same and the work in flight." What a scenario holds is unchanged, but its form differs from a save's. GameDesign.md governs, so this waits for the owner.
 - **A replay's size grows with the commands, not the world.** A save's edited chunks are bounded above by 3 bytes a changed voxel (decision 3). GameDesign.md puts a whole season of a 2 km world at about a million edits, which bounds its edits at about 3 MB. That figure is arithmetic on the format, not a measurement.
 
