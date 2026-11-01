@@ -1,7 +1,7 @@
 # ADR-016 — The `ServerData` file and where it is baked
 
 **Status:** Proposed, 2026-11-01. It settles two items left open by earlier ADRs: the `ServerData` format in detail ([ADR-008](ADR-008-server-and-client-game-data.md), *Left open*), and where its bake target lives ([ADR-010](ADR-010-solution-and-build-layout.md), *Left open*).
-- **Before code rests on it,** the owner's go-ahead is needed ([MvpPlan.md](../MvpPlan.md), M2, input 1).
+- **The owner gave the go-ahead** on 2026-11-01 ([MvpPlan.md](../MvpPlan.md), M2, input 1; GameDesign.md, *M2's values*).
 - **The commit that first implements it** marks it Accepted (AGENTS.md §6).
 
 Nothing implements it yet.

@@ -232,7 +232,7 @@ If the 1 m baseline misses the pass mark, ADR-001 is revisited before any gamepl
 
 ### The spike's own estimate (written 2026-10-31, before M1 starts)
 
-The review asks for this in writing before the spike starts, so that its actual time can rescale the plan (F-52; GameDesign.md, *Build budget*). It is a judgment estimate, not a measurement. It is given in two units, plus the calendar forecast below. The work-content column it was written with, in FTE-days, was dropped on 2026-11-01 with the plan's other effort estimates.
+The review asks for this in writing before the spike starts, so that its actual time can rescale the plan (F-52). It is a judgment estimate, not a measurement. It is given in two units, plus the calendar forecast below. The work-content column it was written with, in FTE-days, was dropped on 2026-11-01 with the plan's other effort estimates.
 - **Owner hours:** the owner's time to run builds on Windows, judge the look and take the measurements. Claude sessions write the code (GameDesign.md, *Starting the MVP*).
 - **Pull requests:** the number of changes, each green in CI before it merges.
 
@@ -262,7 +262,7 @@ The review asks for this in writing before the spike starts, so that its actual 
 - its pull requests;
 - the owner's hours, logged per task below as the work proceeds.
 
-At the end of M1, the ratio of the actual owner hours and calendar weeks to this estimate rescales the forecasts of M2 to M7, as GameDesign.md's build budget asks.
+At the end of M1, the ratio of the actual owner hours and calendar weeks to this estimate rescales the forecasts of M2 to M7.
 
 | # | Started | Finished | PRs | Owner hours | Notes |
 |---|---|---|---|---|---|
@@ -319,14 +319,14 @@ The plan credits what M1 already built: the chunk store, a first support search,
 
 **The calendar cannot be forecast from M1 yet.** M1's code landed in two days, in 18 pull requests (#8 to #30), but no M1 task has a finish date and no owner hours are logged. The ratio this plan rescales by therefore does not exist yet. **Logging M1's finish dates and owner hours is what turns M1 into a measurement.** Until then, the judgment is 3–6 calendar weeks from M1's close.
 - **The code is not the constraint.** What constrains the calendar is the owner's 13 inputs and about 17 hours, the rounds that the research-grade phases E and F take to come right, and CI's round trips, one per order at least.
-- **Answering all 13 inputs in one sitting,** before M2 starts, removes most of the waiting.
+- **The owner answered all 13 inputs on 2026-11-01,** before M2 starts, which removes most of the waiting.
 - **Phases D, E and F can run side by side** once C has merged, each in its own pull request, which shortens the calendar if the owner can review them together.
 
-**The owner's inputs.** Each is a design value no document gives. AGENTS.md requires it written down before the code that rests on it. The proposals are the implementer's; the owner confirms or changes them.
+**The owner's inputs.** Each is a design value no document gives, and AGENTS.md requires it written down before the code that rests on it. The implementer proposed them, and the owner took every proposal on 2026-11-01. GameDesign.md, *M2's values*, records them, and input 13 stays the implementer's to measure.
 
-| # | Input | For orders | Proposal |
+| # | Input | For orders | Decided, 2026-11-01 |
 |---|---|---|---|
-| 1 | Give ADR-013 to ADR-016 the go-ahead, or change them. Each is marked Accepted by the commit that first implements it (AGENTS.md §6) | B1, B5, C2, F1 | As written |
+| 1 | Give ADR-013 to ADR-016 the go-ahead, or change them. Each is marked Accepted by the commit that first implements it (AGENTS.md §6) | B1, B5, C2, F1 | Go-ahead for all four, as written |
 | 2 | **The tick's wall-time target.** It replaces "the budget the spike measured" in the done-when, which is circular: the spike measures costs, it does not set a budget | G2 | 25 ms, half a tick, at the 95th percentile, on one core of the RTX 3060 machine, with `SimulationBench` recording its CPU |
 | 3 | **What the generator makes on the MVP map** | D1, D3 | 512 m × 512 m and 64 m high, two chunks. The relief and soil depths of M1's test ground, carried over the map. Bedrock depth varying so that thin soil over rock and deep earth both occur. Sparse outcrops of building stone, forest, and one river with fords. The owner judges the first maps in the spike, by eye |
 | 4 | **A collapse's warning** | E3 | 1 s, plus the time a foot soldier at 1.4 m/s takes to walk the piece's height, rounded up to whole ticks: 135 ticks, 6.75 s, for an 8 m piece |
@@ -347,7 +347,7 @@ The plan credits what M1 already built: the chunk store, a first support search,
 
   So the done-when's "the wall collapses with its warning" depends on where the scripted shots land. Order E3 tests the hand calculation, G3 reports what the rules do to a T3 section, and the owner judges whether that reads as a breach before M3 asks players to predict one.
 - **Clearance treats the ram as a 3 m square,** so its 7.5 m length can clip corners (ADR-015). T5's passage fits it with no margin, and T5's redraw has to keep 3 m by 4 m.
-- **A scenario is not a save** (ADR-014, decision 7). GameDesign.md says it is, in a Proposed line, so the owner either accepts the change or the scenarios have to be rebuilt with every build.
+- **A scenario is not a save** (ADR-014, decision 7). The owner accepted the change on 2026-11-01, and GameDesign.md's line now says so.
 
 **Done when** all of the following hold:
 - **Headless, in CI** (`SimulationTests`, with no window open):
@@ -369,8 +369,8 @@ The plan credits what M1 already built: the chunk store, a first support search,
 
 | Phase | Started | Finished | PR | Commits | CI runs | Owner hours | Notes |
 |---|---|---|---|---|---|---|---|
-| Plan | 2026-11-01 | | | | | | This plan, the work orders and ADR-013 to ADR-016, Proposed |
-| A | | | | | | | |
+| Plan | 2026-11-01 | 2026-11-01 | #32 | 4 | 1 | | This plan, the work orders and ADR-013 to ADR-016, Proposed. Owner hours for the owner to log |
+| A | 2026-11-01 | 2026-11-01 | #32 | 1 | 1 | | The owner's 13 answers, in the plan's PR because they edit the files it adds. Owner hours for the owner to log |
 | B | | | | | | | |
 | C | | | | | | | |
 | D | | | | | | | |
@@ -447,7 +447,7 @@ Run it with six people (F-48).
 | 1 m craters do not show which weapon made them | M3 | Tune each weapon's crater radius and depth for each material, the client's debris, and the integrity view |
 | Players cannot read breaches | M3, M5 | The single round of legibility work, then the kill criterion |
 | The Siege defender is too weak or too strong to test anything | M4 | Scripted behaviors and tuning; it plays one authored castle, not arbitrary ones |
-| The plan overruns | Every milestone | Each milestone's measured pace rescales the forecasts after it; the cut order in GameDesign.md applies past Skirmish, and within the MVP the trebuchet, the gatehouse attack and the breach lab are the last things to cut |
+| The plan overruns | Every milestone | Each milestone's measured pace rescales the forecasts after it, and what to cut is the owner's call (GameDesign.md, *Planning M2*); within the MVP the trebuchet, the gatehouse attack and the breach lab are the last things to cut |
 | Content takes longer than code | M4, M6 | The templates and models already exist in `GameData/`; one castle and two Hold maps only |
 
 ## Deferred to the Skirmish plan

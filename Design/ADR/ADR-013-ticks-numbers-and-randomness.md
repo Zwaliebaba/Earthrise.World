@@ -1,7 +1,7 @@
 # ADR-013 — The simulation's tick, its numbers and its randomness
 
 **Status:** Proposed, 2026-11-01. It settles what [ADR-002](ADR-002-authoritative-simulation.md) leaves open on the tick rate and the number representation, and it is the decision on a deterministic core that AGENTS.md R16 asks for.
-- **Before code rests on it,** the owner's go-ahead is needed ([MvpPlan.md](../MvpPlan.md), M2, input 1).
+- **The owner gave the go-ahead** on 2026-11-01 ([MvpPlan.md](../MvpPlan.md), M2, input 1; GameDesign.md, *M2's values*).
 - **The commit that first implements it** marks it Accepted (AGENTS.md §6).
 
 Nothing implements it yet.

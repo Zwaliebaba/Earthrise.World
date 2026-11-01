@@ -45,7 +45,7 @@ The [review](Review/GameDescription-2026-10-31.md) of the game description kept 
 5. **Windows sit in a contest band, and sacks need a declared siege.** Each world sets a home time zone and an evening band, and every window starts inside it. A sack needs a siege declared a day ahead, so the banner can defend an absent lord. Outposts are open during the band. (F-33, F-34)
 6. **Earthstone and sacking.** All Earthstone a lord owns counts and can be sacked, wherever it is. The window uses the most held at any moment of the previous day, capped at twelve hours. A sack needs the keep broken under a declared siege during the window and still down at its close. A third passes to whoever did the most damage, and a sacked holding cannot be sacked again for 48 hours, in place of the two-way truce. (F-31, F-32)
 7. **Worlds open from a queue.** A world opens when lords have queued for at least half its seats. Seats run from 8 to 32, and the land is sized to them. Online work starts only after a counted demand signal (*Persistence*). One person holds one seat. (F-55, F-42)
-8. **Two cuts now.** Titles are recorded in each world's archive, not by a central account service. The season timelapse is rendered from top-down daily images by a tool under `Tools/`, not by the game's renderer. AI houses that play the whole game, and Worlds that open with three cultures, stay; they head the cut order (*Build budget*). (F-52, F-56, F-63)
+8. **Two cuts now.** Titles are recorded in each world's archive, not by a central account service. The season timelapse is rendered from top-down daily images by a tool under `Tools/`, not by the game's renderer. AI houses that play the whole game, and Worlds that open with three cultures, stay; they head the cut order (*Build budget*). (The build budget and its cut order were removed on 2026-11-01, *Planning M2*.) (F-52, F-56, F-63)
 9. **The review's other fixes, as recommended.** Each is written into the description:
    - **Holdings.** Holdings protect their ground, not just their structures. Designations go only in a lord's own holding, or on shared ground outside a margin from every boundary. Inside another's holding, during its window, an attacker may only trench and clear rubble. (F-30)
    - **Repair.** It works at a fixed rate per section, from the owner's side, and restores only voxels once built. A hit is an engine shot, a ram blow or a trench. A critical part's threshold is a share of its voxels. (F-03, F-40, F-05)
@@ -212,15 +212,15 @@ M0's three paper tests ran: the [Hold rule test](Review/PaperTests/HoldRuleTest.
 
 **Proposed, from the breach-prediction prototype:**
 6. **The anchor depth is 8 m** below the generated surface, deeper than any siege dig the MVP draws. (Decided 2026-11-01, *M1's open values*.)
-7. **Foot soldiers climb 1 m in each 1 m step**, the slope of settled earth.
-8. **Loose material comes to rest at most 1 m below a structure's top.**
+7. **Foot soldiers climb 1 m in each 1 m step**, the slope of settled earth. (Decided 2026-11-01, *M2's values*.)
+8. **Loose material comes to rest at most 1 m below a structure's top.** (Decided 2026-11-01, *M2's values*.)
 9. **A breach-prediction item shows the damage as done (N = 0)** and asks one question, "open or shut?", with a free-text reason.
 10. **Six people take each readout**, twelve in all. The prototype's key splits 8 open and 8 shut. M0 asks the support readout to reach a median accuracy of 0.65, and nobody has taken the test yet.
 
 **Proposed, from the Siege route table:**
 11. **The engine-range guard is measured, not computed.** No point outside every garrison's reach lies within an engine's range of the great tower, on the Siege castle or on any castle the Skirmish AI builds. It is measured on the castle's plan, because between towers their reach ends closer to the curtain than the formula assumes. When confirmed, this replaces the guard sentence in decision 2 of *2026-10-31: the design review*.
-12. **The trebuchet's range is 12–50 m**, in place of Hud.md's placeholder of 12–70 m.
-13. **A trebuchet's shot descends at 45° or steeper.**
+12. **The trebuchet's range is 12–50 m**, in place of Hud.md's placeholder of 12–70 m. (Decided 2026-11-01 for M2, *M2's values*.)
+13. **A trebuchet's shot descends at 45° or steeper.** (Decided 2026-11-01 for M2, *M2's values*.)
 14. **T5's gate stands at the inner end of its passage.** The gatehouse then fires into the passage in front of the gate. A lobbed shot cannot reach the gate until the arch over the passage is cut back. T5 is redrawn with it before M4.
 15. **Undermining, and a ram at a wall's base, each open a standard section in about three minutes, unopposed,** as one trebuchet does. Repair at most doubles that.
 16. **A ram strikes every 15 s, and a standard foundation on deep earth reaches 4 m down.** These are the values that meet item 13.
@@ -258,13 +258,61 @@ The owner settled what M1's remaining tasks needed and no document gave (MvpPlan
 The owner settled how M2 is planned and when it starts ([MvpPlan.md](MvpPlan.md), M2).
 
 1. **No M2 code until M1 closes.** M2 starts once the pass mark is measured on the RTX 3060 machine, ADR-006's table is filled in, and M1 is signed off. Until then M2 is planned on paper only.
-2. **Effort is not estimated.**
-   - FTE-months and FTE-days are dropped from the plan and from the build budget (*Build budget*).
+2. **Effort is not estimated, and there is no build budget.**
+   - FTE-months and FTE-days are dropped from the plan.
+   - The build budget is removed, with its cut order. What to cut, if scope must shrink, is the owner's call when it arises.
    - Claude sessions write the code, so what sets the pace is the owner's hours, the owner's decisions and CI's round trips.
    - Each milestone forecasts its calendar weeks and the owner's hours, and logs both.
 3. **Work is planned as work orders,** each a self-contained brief a Claude session can carry out without rebuilding its scope from the other documents. M2's are in [MvpPlan-M2.md](MvpPlan-M2.md).
 4. **One commit per order, one pull request per phase.** A phase is a group of orders that lands together (AGENTS.md §6).
 5. **An ADR may be written ahead of its code.** It stays Proposed until the pull request that first implements it marks it Accepted (AGENTS.md §6).
+
+### 2026-11-01: M2's values
+
+The owner answered MvpPlan.md's thirteen M2 inputs, taking each proposal as written (work order M2-A1). Input 13 is the implementer's, measured in M2 and recorded here as Proposed when it is.
+
+1. **ADR-013 to ADR-016 have the go-ahead,** as written. Each is marked Accepted by the commit that first implements it.
+2. **A tick takes at most 25 ms at the 95th percentile,** on one core of the RTX 3060 machine, measured in `SimulationBench` over the M2 scenario. That is half of a 50 ms tick.
+3. **The generator makes the MVP map** at 512 m × 512 m and 64 m high:
+   - the relief and soil depths of M1's test ground, carried over the map;
+   - bedrock depth varying, so that thin soil over rock and deep earth both occur;
+   - sparse outcrops of building stone;
+   - forest;
+   - one river with fords.
+
+   The owner judges the first maps in the renderer spike.
+4. **A collapse warns for 1 s plus the time a foot soldier at 1.4 m/s takes to walk the piece's height,** rounded up to whole ticks: 135 ticks for an 8 m piece.
+5. **The fall lasts the free-fall time from the piece's height,** in whole ticks: 26 ticks for 8 m.
+   - The piece leaves the grid on the fall's first tick.
+   - Its rubble and damage land in equal parts over the fall, nearest the foot first.
+6. **A piece falls towards the one of four sides where the voxels whose removal unsupported it lie,** measured from its centre. It falls straight down when that offset is less than a quarter of its width along it.
+7. **Each voxel that falls leaves one rubble voxel:**
+   - building stone and masonry, stone rubble (8);
+   - common rock, rock rubble (28);
+   - timber and roof, timber rubble (25);
+   - earth, grass, field and road, earth rubble (26);
+   - leaves, nothing.
+
+   A decoration takes the behaviour of its most common host across the templates.
+8. **A fall removes every structure voxel in its landing strip below the rubble's top,** and each becomes rubble of its own material. Units in the strip take the collapse's crush damage, whose amount is M4's.
+9. **Loose material slumps over the four side neighbours,** and rests at least 1 m below a structure's top (the paper tests' item 8).
+10. **The navigation classes** ([ADR-015](ADR/ADR-015-navigation.md)):
+
+    | Class | Climbs | Headroom | Width |
+    |---|---|---|---|
+    | Foot | 1 m in 1 m | 2 m | 1 |
+    | Cavalry | 1 m in 2 m | 3 m | 1 |
+    | Machines | 1 m in 3 m | 4 m | 3 |
+
+    Every class fords one voxel of water. Rubble and fords halve speed. Foot moves at 1.4 m/s until M4's statistics.
+11. **A rubble breach is open to foot alone.** Settled earth and rubble lie at 45°, steeper than cavalry and machines climb. Men-at-arms storm up the rubble; rams go for gates.
+12. **The trebuchet's craters follow the paper tests' ladder:**
+    - **Timber:** the voxel struck and its six face neighbours, timber only.
+    - **Earth:** 4 voxels, which slump closed.
+    - **Stone:** the voxel struck and the one behind it along the shot.
+
+    For M2 the shot reloads in 20 s, reaches 12–50 m and descends at 45° or steeper (the paper tests' items 12 and 13). The ram's craters are M4's.
+13. **The work budgets a tick,** voxels slumped and path nodes expanded, are set by the implementer from M2's measurements to fit item 2 (Proposed until measured).
 
 ## Pillars (Decided)
 
@@ -305,19 +353,6 @@ A classic RTS match ends; a world lasts a season, and the season replaces the ma
 - **The demand threshold** is 32 sign-ups, enough to open two 32-seat worlds at half human.
 - **Online work starts only when** the MVP's hypotheses and the season tests (*Kill criteria*) have passed, and the demand threshold is met. The simulation must build headless as its own project, with no dependency on the client. [ADR-003](ADR/ADR-003-world-as-seed-plus-edits.md)'s generator versioning must be in force, and a save must survive a change of generator version. An operations budget must be written down, in hours per week and money per month. Two questions must be decided apart: whether distribution goes through a store, which needs no SDK in the executable, and whether identity goes through a platform such as Steam, whose SDK R14 excludes.
 
-## Build budget (Decided: there is one, with a cut order, measured in calendar time and the owner's hours; Proposed: the order)
-
-The design review estimated the work in FTE-months of one experienced developer (review finding F-52). The owner dropped effort estimates on 2026-11-01 (*Planning M2*): Claude sessions write the code, so the pace is set by the owner's hours, the owner's decisions and CI's round trips, not by how long a solo developer would take.
-
-The budget is therefore the forecast [MvpPlan.md](MvpPlan.md) writes for each milestone before it starts: its calendar weeks and the owner's hours. Each milestone logs both as it goes. Each milestone's measured pace rescales the forecasts after it, as the spike's did first.
-
-**Cut order.** When a stage overruns its forecast by half, in calendar weeks or in the owner's hours, the next cut in this order is taken before the stage goes on:
-
-1. AI houses become fortress garrisons: they hold the old fortresses with the Siege defender's AI, and never hold Earthstone or rank.
-2. Worlds open with one culture, and the other two follow.
-3. Banners share vision and truces only.
-4. Fire stays out of the first season.
-
 ## MVP (Decided: the stages, the hypotheses, the control, the roster and where the MVP ends; Proposed: the rest)
 
 The MVP exists to prove that pillars 1 and 2 are fun. It does not try to prove persistence or networking, only to keep both possible. The simulation sits behind a server boundary ([ADR-002](ADR/ADR-002-authoritative-simulation.md)), and the world is a seed plus edits ([ADR-003](ADR/ADR-003-world-as-seed-plus-edits.md)). It is built in stages (below), so the test of the pillars does not wait for an AI that plays the whole game. The MVP ends with the verdict on stages 1 and 2; Skirmish, stage 3, comes after it under its own plan. [MvpPlan.md](MvpPlan.md) plans the MVP's build (Proposed).
@@ -331,7 +366,7 @@ The MVP exists to prove that pillars 1 and 2 are fun. It does not try to prove p
 - Gathering by excavation, construction and repair from templates, and rule-based collapse.
 - Fog of war as a vision radius, enforced by the simulation ([ADR-002](ADR/ADR-002-authoritative-simulation.md), decision 4). A fogged area shows what the player last saw.
 - A win condition for each stage.
-- Save and load as a seed plus edits. A scenario is a save: the seeds, the edits and the entities.
+- Save and load as a seed plus edits. A scenario holds the seeds, the structures and earthworks placed on the generated world, and the entities; a save holds the same and the work in flight ([ADR-014](ADR/ADR-014-edits-saves-and-replays.md), decision 7; changed 2026-11-01, *M2's values*).
 - The simulation running in-process behind the server boundary.
 
 **Out.** Each item here is a later decision, not a never:

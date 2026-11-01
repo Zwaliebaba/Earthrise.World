@@ -1,7 +1,7 @@
 # ADR-015 — Navigation: one surface per column, classes by climb and clearance, rebuilt every tick
 
 **Status:** Proposed, 2026-11-01. It records the navigation model MvpPlan.md schedules for M2, on top of the tiles M1 built.
-- **Before code rests on it,** the owner's go-ahead is needed ([MvpPlan.md](../MvpPlan.md), M2, input 1).
+- **The owner gave the go-ahead** on 2026-11-01 ([MvpPlan.md](../MvpPlan.md), M2, input 1; GameDesign.md, *M2's values*).
 - **The commit that first implements it** marks it Accepted (AGENTS.md §6).
 
 It fixes the model and leaves the search algorithm to the navigation orders, which choose it by measurement ([MvpPlan-M2.md](../MvpPlan-M2.md), phase F). Nothing implements the classes, the search or the movement yet.
