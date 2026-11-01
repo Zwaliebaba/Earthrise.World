@@ -24,5 +24,8 @@
     <ClCompile Include="NavigationGridTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="TestWorldTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
