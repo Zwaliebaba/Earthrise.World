@@ -18,14 +18,16 @@
      claims. Say which configurations you actually built. -->
 
 - [ ] Builds clean, `Debug|x64`, through the solution
-- [ ] Every test suite runs and passes
+- [ ] Every test suite runs and passes on x64
+- [ ] Builds `Debug|ARM64` (**required** if this touches intrinsics, `/arch` or anything conditioned on the platform; CI does not build it)
 - [ ] `python Build\CheckProjectFiles.py`
 - [ ] `python Build\CheckFormat.py`
 - [ ] `python Build\RunClangTidy.py`
-- [ ] Release built locally (CI does not build it — AGENTS.md §6)
+- [ ] `python Build\TestCheckers.py`, if a checker changed
+- [ ] Release built locally, if the change could break only under optimisation (CI does not build it — AGENTS.md §6)
 - [ ] Ran the executable (**required** if this touches rendering, input, audio or presentation)
 
-<!-- A checker that is not written yet is not a box to tick. Strike it and say so below. -->
+<!-- A box that does not apply is struck through, with the reason. -->
 
 ## Conformance
 
@@ -33,8 +35,9 @@
       constants, `PascalCase` enumerators, no `I`/`C`/`Base` affixes
 - [ ] New, removed or moved files are in the `.vcxproj` **and** the `.filters`
 - [ ] A new project was added to `.clang-tidy`'s `HeaderFilterRegex`, or this PR adds none
-- [ ] Debug and Release still agree on everything AGENTS.md §3 says they must
-- [ ] No warning silenced, no `ConformanceMode`/`LanguageStandard`/`WarningLevel` changed
+- [ ] Debug and Release, and x64 and ARM64, still agree on everything AGENTS.md §3 says they must
+- [ ] No warning silenced, no `ConformanceMode`/`LanguageStandard`/`WarningLevel`/`TreatWarningAsError` changed
+- [ ] `Design/ADR/` has a new file if the change was a decision, or an ADR it implements is marked Accepted (AGENTS.md §6)
 - [ ] No new third-party dependency (R14)
 - [ ] Only the lines the task required were changed
 

@@ -23,7 +23,7 @@ The owner also plans the Surface Pro, whose integrated GPU the spike measures, a
 1. **The world voxel is the simulation voxel, and it is 1 m.** That covers terrain, every template, earthworks, quarries, craters, rubble and trees. Support, collapse, slump, navigation, edits and cost all run on it.
 2. **Models use 0.5 m voxels.** That covers units, siege engines, mantlets, carts, banners and the client's debris.
    - A model is drawn through ADR-001's pipeline at its entity's position.
-   - It is rotated in 90° steps, so its voxels stay axis-aligned.
+   - It is rotated in 90° steps, so its voxels stay axis-aligned. Debris is the exception: it tumbles as oriented voxels and rests at its final angles (GameDesign.md, M1's open values, item 7; ADR-011, amended).
    - It is never written into the world grid.
    - Moving parts, such as the trebuchet's arm, switch between baked poses.
 3. **Walls are 2 m thick, and thick walls 3 m.** A building still costs exactly its volume, so a standard section of 8 × 2 × 6 m costs 96 m³ and a thick one costs half as much again.
@@ -65,6 +65,6 @@ M1's figures were measured on 2026-11-01 on the benchmark machine (GameDesign.md
 ## Left open
 
 - Redrawing the world templates natively at 1 m. Today's are automatic conversions from 0.5 m, to be redrawn before the M4 Siege castle is final.
-- Crater radius and depth for each weapon and material, in 1 m voxels.
+- Crater radius and depth for each weapon and material, in 1 m voxels. *(The trebuchet's decided for M2: GameDesign.md, M2's values, item 12. The ram's in M4.)*
 - ~~The method for model contact shading.~~ Settled 2026-11-01 (GameDesign.md, *M1's open values*): baked per instance on the CPU.
 - Platforms beyond the Windows PC.

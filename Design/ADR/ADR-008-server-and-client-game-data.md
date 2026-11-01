@@ -55,7 +55,7 @@ These checks were run by script on the day, against the 27 `.vox` files then com
 
 ## Consequences for the code
 
-- **The solution layout changes** (MvpPlan.md, Proposed):
+- **The solution layout changes** (settled by [ADR-010](ADR-010-solution-and-build-layout.md)):
   - `Content` becomes the client's compiled-in content and depends only on `Core`;
   - `Simulation` reads `ServerData` itself and no longer depends on `Content`;
   - the in-process executable compares the shared hash of the two halves at startup.
@@ -73,6 +73,6 @@ These checks were run by script on the day, against the 27 `.vox` files then com
 
 ## Left open
 
-- The `ServerData` format in detail, written with the server half of the bake in M2.
-- Where `<outputdir>` is, settled with the solution layout in M1.
+- The `ServerData` format in detail, written with the server half of the bake in M2. *([ADR-016](ADR-016-server-data-format.md), Proposed, answers it, and amends decision 4: the reader also recomputes the server-data hash and checks each section's version.)*
+- Where `<outputdir>` is, settled with the solution layout in M1. *(Settled by ADR-010, decision 3: `$(SolutionDir)$(Platform)\$(Configuration)\`.)*
 - Whether a running Worlds season may take new server data, and how its saves would follow.

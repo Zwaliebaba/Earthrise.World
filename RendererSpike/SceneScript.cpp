@@ -4,7 +4,7 @@
 
 #include "Catalog.h"
 
-namespace Spike
+namespace RendererSpike
 {
 
 namespace
@@ -239,4 +239,4 @@ void PlaceWalkers(const Simulation::ChunkStore& _store, const TestScene& _scene,
   }
 }
 
-} // namespace Spike
+} // namespace RendererSpike

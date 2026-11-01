@@ -7,7 +7,7 @@
 #include <string_view>
 #include <vector>
 
-namespace Spike
+namespace RendererSpike
 {
 
 /// The palette entries the two sides' faction colour is drawn in, beyond the materials'
@@ -67,4 +67,4 @@ struct TestScene
 void PlaceWalkers(const Simulation::ChunkStore& _store, const TestScene& _scene, std::uint32_t _frame,
                   std::vector<ModelPlacement>& _placements);
 
-} // namespace Spike
+} // namespace RendererSpike
