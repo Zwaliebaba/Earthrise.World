@@ -207,8 +207,9 @@ inline constexpr std::uint32_t LAB_MAX_TICKS_PER_PHASE = 4000;
 [[nodiscard]] std::uint64_t LabItemsHash();                                     // Fnv1a64 over every item's fields: names the item set in the logs
 [[nodiscard]] World::Desc LabDesc(const ServerData& _data, std::uint64_t _buildId); // the breach run's map and seeds
 /// The breach run's site on a world not yet ticked: the footprint levelled, the enclosure as structures
-/// W1 to W10 clockwise from the south-west corner, W2 the middle south section and the target, the
-/// trebuchet 40 m south of W2 facing it, and six men-at-arms 10 m south, ordered into the courtyard
+/// W1 to W10 anticlockwise seen from above from the south-west corner, south side first: W1 to W3 the south side
+/// west to east, W4 and W5 the east side south to north, W6 to W8 the north side east to west, and W9 and W10 the
+/// west side north to south, with W2, the middle south section, the target; the trebuchet 40 m south of W2 facing it, and six men-at-arms 10 m south, ordered into the courtyard
 /// on tick 1.
 [[nodiscard]] LabSetup BuildLabSite(World& _world);
 /// Fires shots from the site's trebuchet, one on the first tick it is loaded, then waits for the world
@@ -392,7 +393,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 - **Waits on:** A1.
 - **Read first:** ADR-005, decision 10; Hud.md §10, *Section names*; `Simulation/BreachRun.cpp`'s `PlaceSection`; *Contracts*, `Simulation`.
 - **Changes:**
-  - `Structure`, `AddStructure` and `Structures` in `World`, in the filter `Tick`; `PlaceSection` becomes `World`'s stamping, turned clockwise as the engine turns a batch, and the breach run raises its enclosure through `AddStructure`, as W1 to W10, W2 the target, with the same voxels as before.
+  - `Structure`, `AddStructure` and `Structures` in `World`, in the filter `Tick`; `PlaceSection` becomes `World`'s stamping, turned clockwise as the engine turns a batch, and the breach run raises its enclosure through `AddStructure`, as W1 to W10 in the order B7's contract names them, W2 the target, with the same voxels as before.
   - `Collapse::structure`, set in step 5 from the piece's first voxel.
   - `AddSiegeEngine` takes the engine's facing; the breach run's trebuchet faces north, towards the wall.
   - Structures in the save and the state hash (record version 1), and in `SaveTests`.
