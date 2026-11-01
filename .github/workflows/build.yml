@@ -250,6 +250,11 @@ jobs:
       - name: Test the server bake
         run: python3 Tools/TestBakeContent.py -v
 
+      # The breach lab's scorer's own tests (M3-G2): the plan's two sets of six, PASS and FAIL, and each check of a
+      # session's logs failing by name, over hand-written logs.
+      - name: Test the breach lab's scorer
+        run: python3 Tools/TestScoreBreachLab.py -v
+
       # The asset check is Python over GameData/ and needs no Windows, so it runs here, where it
       # takes seconds. It runs the client bake too, to see that nothing server-only reaches the
       # client's tables (ADR-005, ADR-008).
