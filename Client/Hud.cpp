@@ -233,9 +233,9 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, float _uiSca
     const std::int32_t textWidth = paint.Width(_model.mode.banner);
     std::vector<std::int32_t> buttonWidths;
     std::int32_t buttonsWidth = 0;
-    for (const HudModeButton& button : _model.mode.buttons)
+    for (const HudModeButton& modeButton : _model.mode.buttons)
     {
-      buttonWidths.push_back(paint.Width(button.label) + (2 * paint.Pixels(CANCEL_PADDING_LOGICAL_PIXELS)));
+      buttonWidths.push_back(paint.Width(modeButton.label) + (2 * paint.Pixels(CANCEL_PADDING_LOGICAL_PIXELS)));
       buttonsWidth += buttonWidths.back() + (buttonWidths.size() > 1 ? gap : 0);
     }
     const bool hasButtons = !buttonWidths.empty();
@@ -253,14 +253,14 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, float _uiSca
     const std::int32_t contentLeft = inside.xPixels + paddingLeft;
     paint.Text(_model.mode.banner, contentLeft + (stacked ? (contentWidth - textWidth) / 2 : 0), paint.CenteredCellTop(textTop, control),
                ACCENT_SRGB, inside);
-    std::int32_t x = stacked ? contentLeft + ((contentWidth - buttonsWidth) / 2) : contentLeft + textWidth + gap;
+    std::int32_t buttonX = stacked ? contentLeft + ((contentWidth - buttonsWidth) / 2) : contentLeft + textWidth + gap;
     const std::int32_t buttonsTop = stacked ? textTop + control + paddingY : textTop;
     for (std::size_t index = 0; index < buttonWidths.size(); ++index)
     {
-      const PixelRect button{x, buttonsTop, buttonWidths.at(index), control};
-      paint.Button(button, _model.mode.buttons.at(index).label);
-      m_targets.push_back({.control = _model.mode.buttons.at(index).control, .alert = 0, .rect = button});
-      x += buttonWidths.at(index) + gap;
+      const PixelRect buttonRect{buttonX, buttonsTop, buttonWidths.at(index), control};
+      paint.Button(buttonRect, _model.mode.buttons.at(index).label);
+      m_targets.push_back({.control = _model.mode.buttons.at(index).control, .alert = 0, .rect = buttonRect});
+      buttonX += buttonWidths.at(index) + gap;
     }
   }
 
