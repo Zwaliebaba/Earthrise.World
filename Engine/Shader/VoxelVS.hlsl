@@ -4,6 +4,8 @@
 
 #include "VoxelCommon.hlsli"
 
+StructuredBuffer<uint3> g_records : register(t0);
+
 VoxelInterpolants main(uint _vertexId : SV_VertexID, uint _instanceId : SV_InstanceID)
 {
   const uint3 record = g_records[_instanceId];

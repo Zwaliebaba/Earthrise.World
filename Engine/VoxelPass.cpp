@@ -2,6 +2,9 @@
 
 #include "VoxelPass.h"
 
+#include "CompiledShader/OrientedShadowPS.h"
+#include "CompiledShader/OrientedVoxelPS.h"
+#include "CompiledShader/OrientedVoxelVS.h"
 #include "CompiledShader/VoxelPS.h"
 #include "CompiledShader/VoxelShadowPS.h"
 #include "CompiledShader/VoxelVS.h"
@@ -164,6 +167,16 @@ VoxelPass::VoxelPass(ID3D12Device* _device, const Desc& _desc)
   shadowDesc.DSVFormat = ShadowMap::DEPTH_FORMAT;
   winrt::check_hresult(_device->CreateGraphicsPipelineState(&shadowDesc, IID_PPV_ARGS(m_shadowPipelineState.put())));
 
+  // Oriented voxels, collapse debris, through both: the same pipelines with their own shaders.
+  D3D12_GRAPHICS_PIPELINE_STATE_DESC orientedDesc = desc;
+  orientedDesc.VS = {.pShaderBytecode = g_OrientedVoxelVS, .BytecodeLength = sizeof(g_OrientedVoxelVS)};
+  orientedDesc.PS = {.pShaderBytecode = g_OrientedVoxelPS, .BytecodeLength = sizeof(g_OrientedVoxelPS)};
+  winrt::check_hresult(_device->CreateGraphicsPipelineState(&orientedDesc, IID_PPV_ARGS(m_orientedPipelineState.put())));
+  D3D12_GRAPHICS_PIPELINE_STATE_DESC orientedShadowDesc = shadowDesc;
+  orientedShadowDesc.VS = {.pShaderBytecode = g_OrientedVoxelVS, .BytecodeLength = sizeof(g_OrientedVoxelVS)};
+  orientedShadowDesc.PS = {.pShaderBytecode = g_OrientedShadowPS, .BytecodeLength = sizeof(g_OrientedShadowPS)};
+  winrt::check_hresult(_device->CreateGraphicsPipelineState(&orientedShadowDesc, IID_PPV_ARGS(m_orientedShadowPipelineState.put())));
+
   // Until it is given shadow maps, the pass reads null views; FrameConstants::shadowParameters
   // turns the lookup off, but the table is bound for every draw all the same.
   m_shadowTable = m_shadowViews.Allocate(SHADOW_MAPS);
@@ -194,6 +207,31 @@ void VoxelPass::BeginShadow(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_V
                             D3D12_GPU_VIRTUAL_ADDRESS _palette) const
 {
   Bind(_commandList, m_shadowPipelineState.get(), _sunFrameConstants, _palette);
+}
+
+void VoxelPass::BeginOriented(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _frameConstants,
+                              D3D12_GPU_VIRTUAL_ADDRESS _palette) const
+{
+  Bind(_commandList, m_orientedPipelineState.get(), _frameConstants, _palette);
+}
+
+void VoxelPass::BeginOrientedShadow(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _sunFrameConstants,
+                                    D3D12_GPU_VIRTUAL_ADDRESS _palette) const
+{
+  Bind(_commandList, m_orientedShadowPipelineState.get(), _sunFrameConstants, _palette);
+}
+
+void VoxelPass::DrawOriented(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _voxels, std::uint32_t _voxelCount) const
+{
+  if (_voxelCount == 0)
+  {
+    return;
+  }
+  // The oriented shaders read no batch, but every root parameter is set before a draw.
+  constexpr std::array<std::uint32_t, BATCH_CONSTANT_COUNT> NO_BATCH{};
+  _commandList->SetGraphicsRoot32BitConstants(RootBatch, BATCH_CONSTANT_COUNT, NO_BATCH.data(), 0);
+  _commandList->SetGraphicsRootShaderResourceView(RootRecords, _voxels);
+  _commandList->DrawInstanced(4, _voxelCount, 0, 0);
 }
 
 void VoxelPass::Bind(ID3D12GraphicsCommandList* _commandList, ID3D12PipelineState* _pipelineState,

@@ -42,6 +42,12 @@
     <ClCompile Include="WorldView.cpp">
       <Filter>Rendering</Filter>
     </ClCompile>
+    <ClInclude Include="Debris.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="Debris.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
     <ClInclude Include="Measurement.h">
       <Filter>Measurement</Filter>
     </ClInclude>

@@ -4,6 +4,7 @@
 #include "DescriptorHeap.h"
 #include "FrameRing.h"
 #include "GpuDevice.h"
+#include "OrientedVoxel.h"
 #include "ResourceBarrier.h"
 #include "ShadowMap.h"
 #include "SunProjection.h"
@@ -177,13 +178,30 @@ struct ShadowScene
   Engine::VoxelPass::FrameConstants sunFrame;
   std::span<const Engine::VoxelRecord> staticRecords;
   std::span<const Engine::VoxelRecord> dynamicRecords;
+  std::span<const Engine::OrientedVoxel> dynamicOriented; // drawn into the dynamic map too
 };
+
+/// _values copied into the ring, at 256 bytes, or a byte of nothing for none.
+template <typename T> D3D12_GPU_VIRTUAL_ADDRESS Held(Engine::UploadRing& _ring, std::span<const T> _values)
+{
+  const std::optional<Engine::UploadRing::Allocation> held = _ring.Allocate(std::max<std::size_t>(_values.size_bytes(), 1), 256);
+  if (!held)
+  {
+    throw std::runtime_error("the upload ring refused a test scene");
+  }
+  if (!_values.empty())
+  {
+    std::memcpy(held->bytes.data(), _values.data(), _values.size_bytes());
+  }
+  return held->gpuAddress;
+}
 
 constexpr std::uint32_t SHADOW_MAP_TEXELS = 256;
 
 /// Draws _records as one batch, with shadows when _shadows says, and reads the frame back.
 Readback Render(Engine::GpuDevice& _device, const Engine::VoxelPass::FrameConstants& _frame, std::span<const Engine::VoxelRecord> _records,
-                const Engine::VoxelPass::Batch& _batch = PLAIN_BATCH, const ShadowScene* _shadows = nullptr)
+                const Engine::VoxelPass::Batch& _batch = PLAIN_BATCH, const ShadowScene* _shadows = nullptr,
+                std::span<const Engine::OrientedVoxel> _oriented = {})
 {
   ID3D12Device* device = _device.Device();
   winrt::com_ptr<ID3D12Resource> color =
@@ -202,7 +220,7 @@ Readback Render(Engine::GpuDevice& _device, const Engine::VoxelPass::FrameConsta
     ring.Allocate(sizeof(Engine::VoxelPass::FrameConstants), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
   const std::optional<Engine::UploadRing::Allocation> palette =
     ring.Allocate(sizeof(DirectX::XMFLOAT4) * Engine::VoxelPass::PALETTE_ENTRIES, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-  const std::optional<Engine::UploadRing::Allocation> records = ring.Allocate(_records.size_bytes(), 256);
+  const std::optional<Engine::UploadRing::Allocation> records = ring.Allocate(std::max<std::size_t>(_records.size_bytes(), 1), 256);
   if (!frame || !palette || !records)
   {
     throw std::runtime_error("the upload ring refused a test scene");
@@ -212,7 +230,10 @@ Readback Render(Engine::GpuDevice& _device, const Engine::VoxelPass::FrameConsta
   colors[ORANGE] = {1.0F, 0.5F, 0.25F, 1.0F};
   colors[GREEN] = {0.0F, 1.0F, 0.0F, 1.0F};
   std::memcpy(palette->bytes.data(), colors.data(), sizeof(colors));
-  std::memcpy(records->bytes.data(), _records.data(), _records.size_bytes());
+  if (!_records.empty())
+  {
+    std::memcpy(records->bytes.data(), _records.data(), _records.size_bytes());
+  }
 
   Engine::VoxelPass pass(device, {.colorFormat = COLOR_FORMAT, .depthFormat = DEPTH_FORMAT});
   Engine::FrameRing frames(device, _device.DirectQueue());
@@ -245,6 +266,11 @@ Readback Render(Engine::GpuDevice& _device, const Engine::VoxelPass::FrameConsta
       map->BeginDrawing(commandList);
       pass.BeginShadow(commandList, sunFrame->gpuAddress, palette->gpuAddress);
       pass.Draw(commandList, held->gpuAddress, static_cast<std::uint32_t>(mapRecords.size()), _batch);
+      if (map == &dynamicShadow && !_shadows->dynamicOriented.empty())
+      {
+        pass.BeginOrientedShadow(commandList, sunFrame->gpuAddress, palette->gpuAddress);
+        pass.DrawOriented(commandList, Held(ring, _shadows->dynamicOriented), static_cast<std::uint32_t>(_shadows->dynamicOriented.size()));
+      }
       map->EndDrawing(commandList);
     }
     pass.SetShadowMaps(staticShadow.Texture(), dynamicShadow.Texture());
@@ -264,6 +290,11 @@ Readback Render(Engine::GpuDevice& _device, const Engine::VoxelPass::FrameConsta
   commandList->RSSetScissorRects(1, &scissor);
   pass.Begin(commandList, frame->gpuAddress, palette->gpuAddress);
   pass.Draw(commandList, records->gpuAddress, static_cast<std::uint32_t>(_records.size()), _batch);
+  if (!_oriented.empty())
+  {
+    pass.BeginOriented(commandList, frame->gpuAddress, palette->gpuAddress);
+    pass.DrawOriented(commandList, Held(ring, _oriented), static_cast<std::uint32_t>(_oriented.size()));
+  }
 
   const std::array<D3D12_RESOURCE_BARRIER, 2> toCopy = {
     Engine::TransitionBarrier(color.get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE),
@@ -517,7 +548,7 @@ public:
     // to the east at 45 degrees, so the raised voxel's shadow falls on the floor's top from x -1 to
     // 1: the cells at -1 and 0 take only the sky, the one at -2 the sun too. The sun at 0.5 and the
     // sky and ground at 0.25 give 0.25 in shadow and 0.25 + 0.5 x 0.7071 in the sun. The raised
-    // voxel casts from the static map in one run and from the dynamic map in the other.
+    // voxel casts from the static map, from the dynamic map, and as an oriented voxel from the dynamic map.
     Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
     const std::array<Engine::VoxelRecord, 4> floor = {Engine::MakeVoxelRecord(0, 0, 0, ORANGE), Engine::MakeVoxelRecord(1, 0, 0, ORANGE),
                                                       Engine::MakeVoxelRecord(2, 0, 0, ORANGE), Engine::MakeVoxelRecord(3, 0, 0, ORANGE)};
@@ -548,20 +579,93 @@ public:
     // shadow's edge.
     frame.shadowParameters = {0.1F, 0.0F, 1.0F / MAP, 1.0F / MAP};
 
-    for (const bool fromDynamic : {false, true})
+    // The raised voxel as an oriented one, unturned, where the batch puts the record: x 1, y 2.
+    const std::array<Engine::OrientedVoxel, 1> raisedOriented = {{{.centerMeters = {1.5F, 2.5F, 0.5F},
+                                                                   .halfEdgeMeters = 0.5F,
+                                                                   .rotation = {0.0F, 0.0F, 0.0F, 1.0F},
+                                                                   .paletteIndex = ORANGE,
+                                                                   .lightnessOffset = 0.0F,
+                                                                   .reserved = {}}}};
+    enum class Caster
     {
-      const ShadowScene shadows{
-        .sunFrame = sun,
-        .staticRecords = fromDynamic ? std::span<const Engine::VoxelRecord>(floor) : std::span<const Engine::VoxelRecord>(scene),
-        .dynamicRecords = fromDynamic ? std::span<const Engine::VoxelRecord>(raised) : std::span<const Engine::VoxelRecord>{}};
-      const Readback image = Render(device, frame, scene, batch, &shadows);
-      const std::wstring which = fromDynamic ? L" (dynamic map)" : L" (static map)";
+      StaticMap,
+      DynamicMap,
+      OrientedInTheDynamicMap
+    };
+    for (const Caster caster : {Caster::StaticMap, Caster::DynamicMap, Caster::OrientedInTheDynamicMap})
+    {
+      const bool oriented = caster == Caster::OrientedInTheDynamicMap;
+      const ShadowScene shadows{.sunFrame = sun,
+                                .staticRecords = caster == Caster::StaticMap ? std::span<const Engine::VoxelRecord>(scene)
+                                                                             : std::span<const Engine::VoxelRecord>(floor),
+                                .dynamicRecords = caster == Caster::DynamicMap ? std::span<const Engine::VoxelRecord>(raised)
+                                                                               : std::span<const Engine::VoxelRecord>{},
+                                .dynamicOriented = oriented ? std::span<const Engine::OrientedVoxel>(raisedOriented)
+                                                            : std::span<const Engine::OrientedVoxel>{}};
+      const Readback image =
+        oriented ? Render(device, frame, floor, batch, &shadows, raisedOriented) : Render(device, frame, scene, batch, &shadows);
+      const std::wstring which =
+        caster == Caster::StaticMap ? L" (static map)" : (caster == Caster::DynamicMap ? L" (dynamic map)" : L" (oriented, dynamic map)");
       Assert::IsTrue(Near(image.ColorAt(8, 24), 154, 77, 38), (L"in the sun at x -2: " + Describe(image.ColorAt(8, 24)) + which).c_str());
       Assert::IsTrue(Near(image.ColorAt(24, 24), 64, 32, 16), (L"in shadow at x -1: " + Describe(image.ColorAt(24, 24)) + which).c_str());
       Assert::IsTrue(Near(image.ColorAt(40, 24), 64, 32, 16), (L"in shadow at x 0: " + Describe(image.ColorAt(40, 24)) + which).c_str());
       Assert::IsTrue(Near(image.ColorAt(56, 24), 154, 77, 38),
                      (L"the raised voxel's top: " + Describe(image.ColorAt(56, 24)) + which).c_str());
     }
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(DrawsAnUnturnedOrientedVoxelAsAnAxisAlignedOne)
+  {
+    // The unit voxel [0, 1]^3 as an oriented voxel with no turn: the same pixels, colour and depth
+    // as CoversExactlyTheVoxelsPixels and WritesTheDepthOfTheHit.
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const std::array<Engine::OrientedVoxel, 1> oriented = {{{.centerMeters = {0.5F, 0.5F, 0.5F},
+                                                             .halfEdgeMeters = 0.5F,
+                                                             .rotation = {0.0F, 0.0F, 0.0F, 1.0F},
+                                                             .paletteIndex = ORANGE,
+                                                             .lightnessOffset = 0.0F,
+                                                             .reserved = {}}}};
+    const Readback frame = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), {}, PLAIN_BATCH, nullptr, oriented);
+    std::uint32_t covered = 0;
+    for (std::uint32_t y = 0; y < TARGET_PIXELS; ++y)
+    {
+      for (std::uint32_t x = 0; x < TARGET_PIXELS; ++x)
+      {
+        const bool inside = x >= 32 && x < 48 && y >= 16 && y < 32;
+        const bool drawn = !Near(frame.ColorAt(x, y), 0, 0, 0);
+        if (inside != drawn)
+        {
+          Assert::Fail(std::format(L"pixel ({}, {}) is {}", x, y, Describe(frame.ColorAt(x, y))).c_str());
+        }
+        covered += drawn ? 1 : 0;
+      }
+    }
+    Assert::AreEqual(std::uint32_t{256}, covered);
+    Assert::IsTrue(Near(frame.ColorAt(40, 24), 255, 128, 64), Describe(frame.ColorAt(40, 24)).c_str());
+    Assert::AreEqual(DepthBelow(EYE_HEIGHT_METERS, 1.0F, NEAR_METERS, FAR_METERS), frame.DepthAt(40, 24), DEPTH_TOLERANCE);
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(TurnsAnOrientedVoxelAboutItsCenter)
+  {
+    // The same voxel turned 45 degrees about y: from above, its top is a diamond about (0.5, 0.5)
+    // reaching 0.707 m along each axis. Pixel (49, 24), 0.594 m east of the middle, is inside it and
+    // outside the unturned square; pixel (47, 16), near the square's north-east corner, is the
+    // other way round. The top still faces up, so it takes its full albedo.
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const float half = 0.5F * DirectX::XM_PIDIV4;
+    const std::array<Engine::OrientedVoxel, 1> oriented = {{{.centerMeters = {0.5F, 0.5F, 0.5F},
+                                                             .halfEdgeMeters = 0.5F,
+                                                             .rotation = {0.0F, std::sin(half), 0.0F, std::cos(half)},
+                                                             .paletteIndex = ORANGE,
+                                                             .lightnessOffset = 0.0F,
+                                                             .reserved = {}}}};
+    const Readback frame = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), {}, PLAIN_BATCH, nullptr, oriented);
+    Assert::IsTrue(Near(frame.ColorAt(40, 24), 255, 128, 64), (L"the middle: " + Describe(frame.ColorAt(40, 24))).c_str());
+    Assert::IsTrue(Near(frame.ColorAt(49, 24), 255, 128, 64), (L"the east tip: " + Describe(frame.ColorAt(49, 24))).c_str());
+    Assert::IsTrue(Near(frame.ColorAt(47, 16), 0, 0, 0), (L"the square's corner: " + Describe(frame.ColorAt(47, 16))).c_str());
+    Assert::AreEqual(DepthBelow(EYE_HEIGHT_METERS, 1.0F, NEAR_METERS, FAR_METERS), frame.DepthAt(40, 24), DEPTH_TOLERANCE);
     AssertNoDebugErrors(device);
   }
 

@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "CameraPath.h"
+#include "Debris.h"
 #include "ChunkStore.h"
 #include "ColorTarget.h"
 #include "CommandQueue.h"
@@ -11,6 +12,7 @@
 #include "GpuTimer.h"
 #include "KeyboardInput.h"
 #include "Measurement.h"
+#include "OrientedVoxel.h"
 #include "OrthographicCamera.h"
 #include "Palette.h"
 #include "PointerInput.h"
@@ -466,6 +468,22 @@ template <typename T> D3D12_GPU_VIRTUAL_ADDRESS UploadConstants(Engine::UploadRi
   return allocation->gpuAddress;
 }
 
+/// Copies _values into the ring for this frame, for a root shader-resource view; 0 for none.
+template <typename T> D3D12_GPU_VIRTUAL_ADDRESS UploadArray(Engine::UploadRing& _ring, std::span<const T> _values)
+{
+  if (_values.empty())
+  {
+    return 0;
+  }
+  const std::optional<Engine::UploadRing::Allocation> allocation = _ring.Allocate(_values.size_bytes(), 256);
+  if (!allocation)
+  {
+    throw std::runtime_error("the upload ring is full");
+  }
+  std::memcpy(allocation->bytes.data(), _values.data(), _values.size_bytes());
+  return allocation->gpuAddress;
+}
+
 int Run(const Options& _options)
 {
   const float renderScale = _options.renderScale;
@@ -506,6 +524,9 @@ int Run(const Options& _options)
   Simulation::ChunkStore& shownStore = _options.halfMeterWorld ? halfMeterStore : store;
   std::vector<Protocol::ChunkSnapshot> published = shownStore.Publish();
   Simulation::TestWorldEdits edits(store, scene.world, SCENE_SEED);
+  // The collapse's debris, scattered when it falls and drawn every frame after (RendererLook.md §1).
+  Spike::Debris debris;
+  std::vector<Engine::OrientedVoxel> debrisVoxels;
   // The sun's view over the whole world, its height included, for both shadow maps.
   const auto worldEdgeMeters = static_cast<float>(scene.world.edgeVoxels);
   DirectX::XMFLOAT4X4 sunViewProjection{};
@@ -604,6 +625,23 @@ int Run(const Options& _options)
     // this frame, from what the store publishes (ADR-002, decision 3).
     const auto editStart = std::chrono::steady_clock::now();
     const std::vector<Protocol::VoxelPosition> changedVoxels = edits.Apply(store, sceneFrame);
+    const float sceneSeconds = static_cast<float>(sceneFrame) / static_cast<float>(Simulation::TestWorldEdits::FRAMES_PER_SECOND);
+    if (sceneFrame == Simulation::TestWorldEdits::COLLAPSE_FRAME && !edits.Fallen().empty())
+    {
+      // Its debris comes to rest on the world's top, as the 1 m simulation has it after the collapse.
+      debris.Scatter(
+        edits.CollapseId(), edits.Fallen(), edits.Rubble(),
+        [&store](float _xMeters, float _zMeters)
+        {
+          const auto top =
+            Simulation::TopSolidAtOrBelow(store, static_cast<std::int32_t>(std::floor(_xMeters)),
+                                          static_cast<std::int32_t>(std::floor(_zMeters)), Simulation::TestWorld::HEIGHT_VOXELS - 1);
+          return static_cast<float>(top + 1);
+        },
+        sceneSeconds);
+    }
+    debrisVoxels.clear();
+    debris.Pose(sceneSeconds, debrisVoxels);
     if (!changedVoxels.empty())
     {
       if (_options.halfMeterWorld)
@@ -675,6 +713,13 @@ int Run(const Options& _options)
     dynamicShadow.BeginDrawing(commandList);
     pass.BeginShadow(commandList, dynamicSunFrame, paletteConstants);
     worldView.DrawModels(commandList, pass);
+    const D3D12_GPU_VIRTUAL_ADDRESS debrisAddress = UploadArray(ring, std::span<const Engine::OrientedVoxel>(debrisVoxels));
+    const auto debrisCount = static_cast<std::uint32_t>(debrisVoxels.size());
+    if (debrisCount != 0)
+    {
+      pass.BeginOrientedShadow(commandList, dynamicSunFrame, paletteConstants);
+      pass.DrawOriented(commandList, debrisAddress, debrisCount);
+    }
     dynamicShadow.EndDrawing(commandList);
     gpuTimer.End(commandList, slot, DYNAMIC_SHADOW_SPAN);
 
@@ -691,6 +736,11 @@ int Run(const Options& _options)
     gpuTimer.Begin(commandList, slot, VOXEL_PASS_SPAN);
     pass.Begin(commandList, frameConstants, paletteConstants);
     worldView.Draw(commandList, pass);
+    if (debrisCount != 0)
+    {
+      pass.BeginOriented(commandList, frameConstants, paletteConstants);
+      pass.DrawOriented(commandList, debrisAddress, debrisCount);
+    }
     gpuTimer.End(commandList, slot, VOXEL_PASS_SPAN);
 
     // Then scaled to the back buffer, which the triangle covers whole, so it needs no clear. The
@@ -709,7 +759,7 @@ int Run(const Options& _options)
     gpuTimer.Resolve(commandList, slot);
     waitingRows[slot] = Spike::Measurement::FrameRow{.frame = pathFrame,
                                                      .azimuthDegrees = DirectX::XMConvertToDegrees(camera.AzimuthRadians()),
-                                                     .voxelsDrawn = worldView.RecordsDrawn(),
+                                                     .voxelsDrawn = worldView.RecordsDrawn() + debrisCount,
                                                      .voxelPassMilliseconds = 0.0,
                                                      .shadowPassMilliseconds = 0.0,
                                                      .frameMilliseconds = 1000.0 * lapSeconds,

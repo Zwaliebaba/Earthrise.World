@@ -56,6 +56,7 @@
     <ClInclude Include="VoxelRecord.h" />
     <ClInclude Include="VoxelPass.h" />
     <ClCompile Include="VoxelPass.cpp" />
+    <ClInclude Include="OrientedVoxel.h" />
     <ClInclude Include="ShadowMap.h" />
     <ClCompile Include="ShadowMap.cpp" />
     <ClInclude Include="SunProjection.h" />
@@ -96,6 +97,15 @@
       <ShaderType>Pixel</ShaderType>
     </FXCompile>
     <FXCompile Include="Shader\VoxelShadowPS.hlsl">
+      <ShaderType>Pixel</ShaderType>
+    </FXCompile>
+    <FXCompile Include="Shader\OrientedVoxelVS.hlsl">
+      <ShaderType>Vertex</ShaderType>
+    </FXCompile>
+    <FXCompile Include="Shader\OrientedVoxelPS.hlsl">
+      <ShaderType>Pixel</ShaderType>
+    </FXCompile>
+    <FXCompile Include="Shader\OrientedShadowPS.hlsl">
       <ShaderType>Pixel</ShaderType>
     </FXCompile>
     <None Include="Shader\VoxelCommon.hlsli" />

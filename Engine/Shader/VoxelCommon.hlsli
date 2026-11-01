@@ -41,7 +41,9 @@ struct BatchConstants
 ConstantBuffer<FrameConstants> g_frame : register(b0);
 ConstantBuffer<PaletteConstants> g_palette : register(b1);
 ConstantBuffer<BatchConstants> g_batch : register(b2);
-StructuredBuffer<uint3> g_records : register(t0);
+Texture2D<float> g_staticShadow : register(t1);  // the world's, drawn when it changes
+Texture2D<float> g_dynamicShadow : register(t2); // the models', drawn each frame
+SamplerComparisonState g_shadowSampler : register(s0);
 
 struct VoxelInterpolants
 {
@@ -290,15 +292,112 @@ bool IntersectBox(float3 _boxCenter, float3 _boxRadius, float3 _rayOrigin, float
   return (sgn.x != 0.0) || (sgn.y != 0.0) || (sgn.z != 0.0);
 }
 
+// The share of 3 x 3 taps, each itself a blend of 2 x 2 comparisons, at which the map has nothing
+// nearer the sun than _depth: percentage-closer filtering, for a soft edge (RendererLook.md §6).
+float LitShare(Texture2D<float> _map, float2 _uv, float _depth, float _texel)
+{
+  float lit = 0.0;
+  [unroll] for (int y = -1; y <= 1; ++y)
+  {
+    [unroll] for (int x = -1; x <= 1; ++x)
+    {
+      lit += _map.SampleCmpLevelZero(g_shadowSampler, _uv + float2(x, y) * _texel, _depth);
+    }
+  }
+  return lit / 9.0;
+}
+
+// How much of the sun reaches a hit: 1 in the open, 0 in shadow. The hit is first moved out along
+// its normal, so that a face does not shadow itself, and its depth in the sun's view is biased the
+// same way, nearer the sun.
+float SunVisibility(float3 _hit, float3 _normal)
+{
+  const float4 parameters = g_frame.shadowParameters;
+  if (parameters.w == 0.0)
+  {
+    return 1.0;
+  }
+  const float4 clip = mul(float4(_hit + _normal * parameters.x, 1.0), g_frame.shadowViewProjection);
+  const float2 uv = float2(0.5 * clip.x + 0.5, 0.5 - 0.5 * clip.y);
+  const float depth = clip.z + parameters.y;
+  return min(LitShare(g_staticShadow, uv, depth, parameters.z), LitShare(g_dynamicShadow, uv, depth, parameters.w));
+}
+
+// A hit lit as RendererLook.md §6 says: diffuse only, the sun's Lambert term, dimmed where the
+// shadow maps say the sun does not reach, and a hemisphere from sky to ground, over the albedo
+// darkened by its corner shade, so the shade stays visible in shadow.
+float3 Lit(float3 _albedo, float _shade, float3 _hit, float3 _normal)
+{
+  const float sunFacing = saturate(dot(_normal, g_frame.lightDirection.xyz));
+  const float sun = sunFacing > 0.0 ? sunFacing * SunVisibility(_hit, _normal) : 0.0;
+  const float3 hemisphere = lerp(g_frame.groundRadiance.rgb, g_frame.skyRadiance.rgb, 0.5 * _normal.y + 0.5);
+  return _albedo * _shade * (g_frame.sunRadiance.rgb * sun + hemisphere);
+}
+
+// _vector turned by the unit quaternion _rotation, x, y, z and w.
+float3 Rotate(float4 _rotation, float3 _vector)
+{
+  const float3 twice = 2.0 * cross(_rotation.xyz, _vector);
+  return _vector + _rotation.w * twice + cross(_rotation.xyz, twice);
+}
+
+// The orthographic ray through this pixel, from the near plane along the frame's forward: the
+// camera's in the voxel pass, the sun's in the shadow passes.
+void PixelRay(float4 _position, out float3 _origin, out float3 _direction)
+{
+  const float2 ndc = float2(_position.x * g_frame.viewportPixels.z * 2.0 - 1.0, 1.0 - _position.y * g_frame.viewportPixels.w * 2.0);
+  const float4 nearPoint = mul(float4(ndc, 1.0, 1.0), g_frame.inverseViewProjection);
+  _origin = nearPoint.xyz / nearPoint.w;
+  _direction = g_frame.rayDirection.xyz;
+}
+
+// One voxel at any orientation, collapse debris (Engine/OrientedVoxel.h), as its shaders read it.
+struct OrientedVoxel
+{
+  float3 centerMeters;
+  float halfEdgeMeters;
+  float4 rotation; // a unit quaternion from the voxel's own axes to the world's
+  uint paletteIndex;
+  float lightnessOffset;
+  uint2 reserved;
+};
+
+struct OrientedInterpolants
+{
+  noperspective centroid float4 position : SV_Position;
+  nointerpolation float3 center : BOX_CENTER;
+  nointerpolation float halfEdge : BOX_RADIUS;
+  nointerpolation float4 rotation : ROTATION;
+  nointerpolation float3 albedo : ALBEDO;
+};
+
+// The pixel's ray against an oriented voxel: turned into the voxel's own frame, met there as an
+// axis-aligned box, and the hit's normal turned back into the world.
+bool CastOrientedRay(OrientedInterpolants _input, out float3 _hit, out float3 _normal)
+{
+  float3 origin;
+  float3 direction;
+  PixelRay(_input.position, origin, direction);
+  const float4 inverse = float4(-_input.rotation.xyz, _input.rotation.w);
+  const float3 localOrigin = Rotate(inverse, origin - _input.center);
+  const float3 localDirection = Rotate(inverse, direction);
+  float hitDistance;
+  float3 localNormal;
+  const bool hits = IntersectBox(float3(0.0, 0.0, 0.0), float3(_input.halfEdge, _input.halfEdge, _input.halfEdge), localOrigin,
+                                 localDirection, 1.0 / localDirection, hitDistance, localNormal);
+  _normal = Rotate(_input.rotation, localNormal);
+  _hit = origin + direction * hitDistance;
+  return hits;
+}
+
 // The orthographic ray through this pixel, from the near plane along the frame's forward, against
 // the voxel's box: the camera's in the voxel pass, the sun's in the shadow passes. Returns whether
 // it hits, and the hit and the outward normal of the face it hits.
 bool CastRay(VoxelInterpolants _input, out float3 _hit, out float3 _normal)
 {
-  const float2 ndc = float2(_input.position.x * g_frame.viewportPixels.z * 2.0 - 1.0, 1.0 - _input.position.y * g_frame.viewportPixels.w * 2.0);
-  const float4 nearPoint = mul(float4(ndc, 1.0, 1.0), g_frame.inverseViewProjection);
-  const float3 rayOrigin = nearPoint.xyz / nearPoint.w;
-  const float3 rayDirection = g_frame.rayDirection.xyz;
+  float3 rayOrigin;
+  float3 rayDirection;
+  PixelRay(_input.position, rayOrigin, rayDirection);
   float hitDistance;
   const bool hits = IntersectBox(_input.boxCenter, float3(_input.boxRadius, _input.boxRadius, _input.boxRadius), rayOrigin, rayDirection,
                                  1.0 / rayDirection, hitDistance, _normal);
