@@ -189,6 +189,15 @@ jobs:
         shell: pwsh
         run: python Build\RunClangTidy.py
 
+      # The checkers' tests that need clang-tidy and the MSVC headers, so they run here rather than
+      # in the Linux job: the repository's .clang-tidy passes the good fixture and catches a broken
+      # one. REQUIRE_CLANG_TIDY makes a missing tool a failure, never a skip.
+      - name: Test clang-tidy on the fixtures
+        shell: pwsh
+        env:
+          REQUIRE_CLANG_TIDY: 1
+        run: python Build\TestCheckers.py RunClangTidyTests -v
+
       - name: Upload the build log
         if: always()
         uses: actions/upload-artifact@v4

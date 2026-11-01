@@ -4,11 +4,19 @@ Each case copies Build/Fixtures/Good, with the real Build/Earthrise.props beside
 folder, breaks one thing, and asserts the checker fails for that reason. The good fixture itself
 must pass, and so must the repository.
 
+RunClangTidyTests runs the real clang-tidy, with the repository's .clang-tidy, over the fixture. It
+needs clang-tidy and a Developer PowerShell's INCLUDE, so it runs in CI's Windows job, where
+REQUIRE_CLANG_TIDY turns a missing tool into a failure instead of a skip (AGENTS.md §6).
+
 Usage:
-    python Build/TestCheckers.py            every case
-    python Build/TestCheckers.py -v         with each case's name
+    python Build/TestCheckers.py                       every case
+    python Build/TestCheckers.py -v                    with each case's name
+    python Build/TestCheckers.py RunClangTidyTests -v  only clang-tidy's
 """
 
+import contextlib
+import io
+import os
 import re
 import shutil
 import subprocess
@@ -23,6 +31,7 @@ sys.path.insert(0, str(BUILD))
 
 import CheckFormat  # noqa: E402
 import CheckProjectFiles  # noqa: E402
+import RunClangTidy  # noqa: E402
 
 GOOD = BUILD / "Fixtures" / "Good"
 
@@ -215,6 +224,85 @@ class CheckFormatTests(unittest.TestCase):
       self.assertEqual(self.Run(root), 1)
       self.assertEqual(self.Run(root, "--fix"), 0)
       self.assertEqual(self.Run(root), 0)
+
+
+class RunClangTidyCommandTests(unittest.TestCase):
+  """The commands come from the sheet, not from the script (ADR-010, decision 8)."""
+
+  def Switches(self, _root):
+    commands = RunClangTidy.Commands(_root, "clang-tidy", "Debug", "x64")
+    self.assertTrue(commands)
+    return [command[command.index("--") + 1:] for _, command in commands]
+
+  def test_the_language_comes_from_the_sheet(self):
+    with tempfile.TemporaryDirectory() as folder:
+      root = Path(folder)
+      Copy(root)
+      for switches in self.Switches(root):
+        self.assertIn("/std:c++latest", switches)
+        self.assertIn("/permissive-", switches)
+        self.assertIn("/EHsc", switches)
+
+  def test_a_changed_sheet_changes_the_commands(self):
+    with tempfile.TemporaryDirectory() as folder:
+      root = Path(folder)
+      Copy(root)
+      Edit(root, SHEET, "<LanguageStandard>stdcpplatest</LanguageStandard>", "<LanguageStandard>stdcpp20</LanguageStandard>")
+      Edit(root, SHEET, "<ConformanceMode>true</ConformanceMode>", "<ConformanceMode>false</ConformanceMode>")
+      for switches in self.Switches(root):
+        self.assertIn("/std:c++20", switches)
+        self.assertNotIn("/std:c++latest", switches)
+        self.assertIn("/permissive", switches)
+        self.assertNotIn("/permissive-", switches)
+
+  def test_a_value_it_cannot_map_is_refused(self):
+    with tempfile.TemporaryDirectory() as folder:
+      root = Path(folder)
+      Copy(root)
+      Edit(root, SHEET, "<LanguageStandard>stdcpplatest</LanguageStandard>", "<LanguageStandard>stdcpp99</LanguageStandard>")
+      with contextlib.redirect_stdout(io.StringIO()) as output:
+        self.assertEqual(RunClangTidy.Main(["--root", str(root), "--print-commands"]), 2)
+      self.assertIn("LanguageStandard", output.getvalue())
+
+
+CLANG_TIDY = shutil.which("clang-tidy")
+CLANG_TIDY_READY = CLANG_TIDY is not None and "INCLUDE" in os.environ
+CLANG_TIDY_REQUIRED = bool(os.environ.get("REQUIRE_CLANG_TIDY"))
+
+
+@unittest.skipUnless(CLANG_TIDY_READY or CLANG_TIDY_REQUIRED, "clang-tidy needs a Developer PowerShell (INCLUDE) and clang-tidy on PATH")
+class RunClangTidyTests(unittest.TestCase):
+  """The repository's .clang-tidy is not vacuous: the good fixture passes it, and a broken one does not."""
+
+  def setUp(self):
+    if not CLANG_TIDY_READY:
+      self.fail("REQUIRE_CLANG_TIDY is set, but clang-tidy or INCLUDE is missing")
+
+  def Run(self, _root):
+    # The repository's configuration, with the fixture's own registry of projects.
+    fixtureRegistry = re.search(r"^HeaderFilterRegex:.*$", (GOOD / ".clang-tidy").read_text(encoding="utf-8"), re.M).group(0)
+    configuration = re.sub(r"^HeaderFilterRegex:.*$", lambda _match: fixtureRegistry, (ROOT / ".clang-tidy").read_text(encoding="utf-8"), count=1, flags=re.M)
+    (_root / ".clang-tidy").write_text(configuration, encoding="utf-8")
+    with contextlib.redirect_stdout(io.StringIO()) as output:
+      result = RunClangTidy.Main(["--root", str(_root), "--clang-tidy", CLANG_TIDY, "--jobs", "1"])
+    return result, output.getvalue()
+
+  def test_the_good_fixture_is_clean(self):
+    with tempfile.TemporaryDirectory() as folder:
+      root = Path(folder)
+      Copy(root)
+      result, output = self.Run(root)
+      self.assertEqual(result, 0, output)
+
+  def test_a_naming_violation_is_found(self):
+    with tempfile.TemporaryDirectory() as folder:
+      root = Path(folder)
+      Copy(root)
+      Edit(root, SOURCE, "std::uint32_t PackPosition(std::uint32_t _xVoxels,", "std::uint32_t PackPosition(std::uint32_t xVoxels,")
+      Edit(root, SOURCE, "return _xVoxels", "return xVoxels")
+      result, output = self.Run(root)
+      self.assertEqual(result, 1, output)
+      self.assertIn("readability-identifier-naming", output)
 
 
 if __name__ == "__main__":
