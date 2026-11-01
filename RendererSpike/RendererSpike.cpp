@@ -311,6 +311,19 @@ void SetViewport(ID3D12GraphicsCommandList* _commandList, std::uint32_t _widthPi
   _commandList->RSSetScissorRects(1, &scissor);
 }
 
+/// Takes the row waiting in a frame slot, if there is one, with the voxel pass's GPU time from the
+/// slot's timestamps, which are back once the slot comes round again or the queue is flushed.
+std::optional<Spike::Measurement::FrameRow> TakeWaitingRow(std::optional<Spike::Measurement::FrameRow>& _waiting,
+                                                           const Engine::GpuTimer& _timer, std::uint32_t _slot)
+{
+  std::optional<Spike::Measurement::FrameRow> row = std::exchange(_waiting, std::nullopt);
+  if (row.has_value())
+  {
+    row->voxelPassMilliseconds = _timer.ReadMilliseconds(_slot)[VOXEL_PASS_SPAN];
+  }
+  return row;
+}
+
 /// Copies _value into the ring for this frame, at the alignment constant buffers need.
 template <typename T> D3D12_GPU_VIRTUAL_ADDRESS UploadConstants(Engine::UploadRing& _ring, const T& _value)
 {
@@ -477,16 +490,13 @@ int Run(const Options& _options)
     const std::uint32_t slot = frames.Slot();
     ID3D12GraphicsCommandList* commandList = frames.Begin();
     // Begin waited for this slot's last frame, so its timestamps are back.
-    if (waitingRows[slot].has_value())
+    if (const std::optional<Spike::Measurement::FrameRow> row = TakeWaitingRow(waitingRows[slot], gpuTimer, slot))
     {
-      Spike::Measurement::FrameRow& row = waitingRows[slot].value();
-      row.voxelPassMilliseconds = gpuTimer.ReadMilliseconds(slot)[VOXEL_PASS_SPAN];
-      voxelPassMilliseconds = row.voxelPassMilliseconds;
+      voxelPassMilliseconds = row->voxelPassMilliseconds;
       if (measure)
       {
-        measurement.AddFrame(row);
+        measurement.AddFrame(*row);
       }
-      waitingRows[slot].reset();
     }
     const auto rebuildStart = std::chrono::steady_clock::now();
     if (!published.empty())
@@ -583,11 +593,9 @@ int Run(const Options& _options)
         device.DirectQueue().Flush();
         for (std::uint32_t waitingSlot = 0; waitingSlot < Engine::FrameRing::FRAMES_IN_FLIGHT; ++waitingSlot)
         {
-          if (waitingRows[waitingSlot].has_value())
+          if (const std::optional<Spike::Measurement::FrameRow> row = TakeWaitingRow(waitingRows[waitingSlot], gpuTimer, waitingSlot))
           {
-            Spike::Measurement::FrameRow& row = waitingRows[waitingSlot].value();
-            row.voxelPassMilliseconds = gpuTimer.ReadMilliseconds(waitingSlot)[VOXEL_PASS_SPAN];
-            measurement.AddFrame(row);
+            measurement.AddFrame(*row);
           }
         }
         for (const PendingEdit& edit : pendingEdits)
