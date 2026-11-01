@@ -245,6 +245,11 @@ jobs:
       - name: Test the asset check
         run: python3 Tools/TestCheckAssets.py -v
 
+      # The server bake's own tests (ADR-016): the ServerData file's layout and hashes, and each section against the
+      # sources it is baked from.
+      - name: Test the server bake
+        run: python3 Tools/TestBakeContent.py -v
+
       # The asset check is Python over GameData/ and needs no Windows, so it runs here, where it
       # takes seconds. It runs the client bake too, to see that nothing server-only reaches the
       # client's tables (ADR-005, ADR-008).

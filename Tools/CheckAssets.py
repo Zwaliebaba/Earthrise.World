@@ -41,9 +41,16 @@ What it checks, and how each rule is read against the files:
    One exception is made, because the client rightly holds a template's counted cost (ADR-008, decision 2), and
    timber is both a cost and a behaviour's name: the cost's two fields, the identifiers stoneM3 and timberM3, are
    removed before the search, and nothing else is. Timber under any other name is still caught.
-   Still vacuous: there is no server bake until M2, so nothing yet checks that it reads nothing under
-   GameData/Client/. When a client table rightly names another material whose name is also a behaviour, such as
-   water for the shallow-water rule, the exception here grows by that name in the same commit.
+   When a client table rightly names another material whose name is also a behaviour, such as water for the
+   shallow-water rule, the exception here grows by that name in the same commit.
+10. GameData/Server/Rules.json converts exactly (ADR-016, decision 4). Each value is a decimal string, and its key's
+   unit says how it converts: meters to voxels and seconds to ticks, which must come out whole, and speeds and
+   accelerations to Core::Fixed per tick, floored once. A key with no unit the bake knows, a value that is not a
+   decimal, and a value that does not come out whole are each a problem. A span that is not a whole number of
+   voxels is the case ADR-016 names.
+11. Nothing under GameData/Client/ reaches the server's bake (ADR-008, decision 2). The server bake,
+   `Tools/BakeContent.py --server`, runs twice: in this tree, and in a temporary copy holding only Tools/ and
+   GameData/Server/. The two files must be the same bytes, so the server's data cannot have read a client file.
 
 Usage:
   python3 Tools/CheckAssets.py              the repository this script sits in
@@ -53,10 +60,12 @@ Usage:
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 from collections import Counter
+from fractions import Fraction
 from pathlib import Path
 
 from VoxFile import IsLayerFile, LegendIndex
@@ -90,6 +99,26 @@ SERVER_ONLY_WORDS = {
 # cost (ADR-008, decision 2), whose timber is also a behaviour. Check 9 removes these whole identifiers before it
 # searches, and nothing else.
 CLIENT_COST_FIELDS = ("stoneM3", "timberM3")
+
+
+# Check 10: how a Rules.json key's unit converts into the simulation's (ADR-016, decision 4). The longest suffix that
+# matches wins. Each is (source suffix, converted suffix, factor, whole): a whole conversion must come out a whole
+# number of the converted unit, and the others are Core::Fixed raw values, floored once (ADR-013, decision 3).
+TICKS_PER_SECOND = 20     # ADR-013, decision 1
+VOXELS_PER_METER = 1      # the 1 m world (ADR-006)
+FIXED_ONE_RAW = 1 << 16   # Core::Fixed::ONE_RAW
+RULE_CONVERSIONS = (
+  ("MetersPerSecondSquared", "MetersPerTickSquared", Fraction(FIXED_ONE_RAW, TICKS_PER_SECOND * TICKS_PER_SECOND), False),
+  ("MetersPerSecond", "MetersPerTick", Fraction(FIXED_ONE_RAW, TICKS_PER_SECOND), False),
+  ("Seconds", "Ticks", Fraction(TICKS_PER_SECOND), True),
+  ("Meters", "Voxels", Fraction(VOXELS_PER_METER), True),
+  ("Voxels", "Voxels", Fraction(1), True),
+  ("Cells", "Cells", Fraction(1), True),
+  ("Factor", "Factor", Fraction(1), True),
+  ("PerTick", "PerTick", Fraction(1), True),
+)
+DECIMAL = re.compile(r"-?\d+(\.\d+)?")
+INT64 = (-(1 << 63), (1 << 63) - 1)
 
 
 class Report:
@@ -481,6 +510,75 @@ def CheckClientBake(_report, _root, _behaviors):
     return len(outputs)
 
 
+# ── Checks 10 and 11, the server's data ─────────────────────────────────────────────────────────
+
+
+def ConvertRule(_key, _value):
+  """A Rules.json entry in the simulation's unit: (converted key, integer), or (None, the reason it does not convert)."""
+  if not isinstance(_value, str) or not DECIMAL.fullmatch(_value):
+    return None, f"{_value!r} is not a decimal string"
+  for suffix, converted, factor, whole in RULE_CONVERSIONS:
+    if _key.endswith(suffix) and len(_key) > len(suffix):
+      exact = Fraction(_value) * factor
+      if whole and exact.denominator != 1:
+        return None, f"{_value} comes to {float(exact):g} {converted[0].lower() + converted[1:]}, not a whole number"
+      number = exact.numerator // exact.denominator  # floored once, toward negative infinity
+      if not INT64[0] <= number <= INT64[1]:
+        return None, f"{_value} does not fit in 64 bits"
+      return _key[: -len(suffix)] + converted, number
+  return None, "its key names no unit the bake converts (" + ", ".join(entry[0] for entry in RULE_CONVERSIONS) + ")"
+
+
+def ReadRules(_report, _root):
+  """Check 10: Rules.json, converted. Returns {converted key: integer}, in ascending key order."""
+  path = _root / "GameData" / "Server" / "Rules.json"
+  data = ReadJson(_report, path)
+  if data is None:
+    return {}
+  values = data.get("values")
+  if not isinstance(values, dict) or not values:
+    _report.Problem(path, "has no values (ADR-016, decision 4)")
+    return {}
+  rules = {}
+  for key, value in values.items():
+    converted, number = ConvertRule(key, value)
+    if converted is None:
+      _report.Problem(path, f"{key}: {number} (ADR-016, decision 4)")
+    elif converted in rules:
+      _report.Problem(path, f"{key}: converts to {converted}, which another key already gives")
+    else:
+      rules[converted] = number
+  return dict(sorted(rules.items()))
+
+
+SERVER_ONLY_TREE = ("Tools", "GameData/Server")
+
+
+def CheckServerBake(_report, _root):
+  """Check 11: the server bake gives the same bytes from a tree that holds nothing under GameData/Client/."""
+  bake = _root / "Tools" / "BakeContent.py"
+  if not bake.is_file():
+    _report.Problem(bake, "the bake is missing, so nothing shows the server's data is clean (ADR-008)")
+    return
+  with tempfile.TemporaryDirectory() as folder:
+    here, alone = Path(folder) / "here", Path(folder) / "alone"
+    for relative in SERVER_ONLY_TREE:
+      shutil.copytree(_root / relative, alone / relative, ignore=shutil.ignore_patterns("__pycache__"))
+    files = []
+    for tree, out in ((_root, here), (alone, alone / "out")):
+      result = subprocess.run([sys.executable, str(tree / "Tools" / "BakeContent.py"), "--server", str(out)], capture_output=True,
+                              text=True)
+      if result.returncode != 0:
+        last = ((result.stdout + result.stderr).strip().splitlines() or ["no output"])[-1]
+        where = "" if tree == _root else " from a tree with no GameData/Client/"
+        _report.Problem(bake, f"the server bake failed{where} with exit code {result.returncode}: {last}")
+        return
+      files.append((out / "ServerData.bin").read_bytes())
+    if files[0] != files[1]:
+      _report.Problem(bake, "the server bake writes different bytes when GameData/Client/ is absent, so client content reaches "
+                            "the server's data (ADR-008, decision 2)")
+
+
 # ── Running it ──────────────────────────────────────────────────────────────────────────────────
 
 
@@ -509,6 +607,8 @@ def Check(_root):
     if isinstance(entry.get("figure"), dict):
       CheckFigure(report, _root, entry, assets)
   outputs = CheckClientBake(report, _root, behaviors)
+  ReadRules(report, _root)
+  CheckServerBake(report, _root)
   return report, assets, outputs
 
 
