@@ -189,14 +189,17 @@ TestScene BuildGeneratedScene(Simulation::ChunkStore& _store, std::uint64_t _see
       }
     }
   }
+  // The map's middle column, whole: 1 m voxels, so its index is its distance in meters.
+  constexpr std::int32_t MIDDLE_X_VOXELS = WIDTH / 2;
+  constexpr std::int32_t MIDDLE_Z_VOXELS = DEPTH / 2;
   TestScene scene{
     .world =
       {.edgeVoxels = WIDTH, .sceneXVoxels = 0, .sceneZVoxels = 0, .surfaceVoxels = {}, .editedVoxels = 0, .breach = {}, .breachId = 0},
     .fixedModels = {},
     .walkers = {},
-    .centerXMeters = static_cast<float>(WIDTH / 2),
-    .centerYMeters = static_cast<float>(generator.SurfaceAt(WIDTH / 2, DEPTH / 2) + 3),
-    .centerZMeters = static_cast<float>(DEPTH / 2)};
+    .centerXMeters = static_cast<float>(MIDDLE_X_VOXELS),
+    .centerYMeters = static_cast<float>(generator.SurfaceAt(MIDDLE_X_VOXELS, MIDDLE_Z_VOXELS) + 3),
+    .centerZMeters = static_cast<float>(MIDDLE_Z_VOXELS)};
   scene.world.surfaceVoxels.reserve(static_cast<std::size_t>(WIDTH) * static_cast<std::size_t>(DEPTH));
   for (std::int32_t z = 0; z < DEPTH; ++z)
   {
