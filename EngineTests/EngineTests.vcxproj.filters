@@ -36,5 +36,11 @@
     <ClCompile Include="UpscalePassTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="GpuTimerTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="CameraPathTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

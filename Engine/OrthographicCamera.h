@@ -40,6 +40,9 @@ public:
   /// Advances the easing of a turn by _seconds.
   void Update(float _seconds) noexcept;
 
+  /// Puts the target at _targetMeters, as a scripted path does, leaving the zoom and the turn alone.
+  void SetTargetMeters(const DirectX::XMFLOAT3& _targetMeters) noexcept;
+
   /// World to clip for row vectors, with reversed Z (ADR-011, decision 4), for a screen of _aspect
   /// width over height.
   [[nodiscard]] DirectX::XMMATRIX ViewProjection(float _aspect) const noexcept;

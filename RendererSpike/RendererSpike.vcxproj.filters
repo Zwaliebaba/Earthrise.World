@@ -13,6 +13,9 @@
     <Filter Include="Rendering">
       <UniqueIdentifier>{FA6AD17C-6058-58E0-9FD8-9397B638616F}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Measurement">
+      <UniqueIdentifier>{26F174E0-DAEF-59BB-8AD8-33B11514BC91}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -38,6 +41,12 @@
     </ClInclude>
     <ClCompile Include="WorldView.cpp">
       <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClInclude Include="Measurement.h">
+      <Filter>Measurement</Filter>
+    </ClInclude>
+    <ClCompile Include="Measurement.cpp">
+      <Filter>Measurement</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

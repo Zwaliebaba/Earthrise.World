@@ -18,5 +18,8 @@
     <ClCompile Include="HashTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="PercentileTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

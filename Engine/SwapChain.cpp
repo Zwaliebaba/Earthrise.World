@@ -95,4 +95,22 @@ void SwapChain::Present(bool _vsync)
   winrt::check_hresult(m_swapChain->Present(syncInterval, flags));
 }
 
+std::uint32_t SwapChain::LastPresentCount() const
+{
+  UINT count = 0;
+  winrt::check_hresult(m_swapChain->GetLastPresentCount(&count));
+  return count;
+}
+
+std::optional<DXGI_FRAME_STATISTICS> SwapChain::FrameStatistics() const
+{
+  DXGI_FRAME_STATISTICS statistics{};
+  // A failure here means only that there are no statistics yet, such as DXGI_ERROR_FRAME_STATISTICS_DISJOINT.
+  if (FAILED(m_swapChain->GetFrameStatistics(&statistics)))
+  {
+    return std::nullopt;
+  }
+  return statistics;
+}
+
 } // namespace Engine

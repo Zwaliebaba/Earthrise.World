@@ -7,6 +7,9 @@
     <Filter Include="Hashing">
       <UniqueIdentifier>{3047428C-B6F5-5110-A36A-2C9F26A6EAF7}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Statistics">
+      <UniqueIdentifier>{C0E90103-4224-5980-AC66-744AE9928F32}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -20,6 +23,12 @@
     </ClInclude>
     <ClCompile Include="Hash.cpp">
       <Filter>Hashing</Filter>
+    </ClCompile>
+    <ClInclude Include="Percentile.h">
+      <Filter>Statistics</Filter>
+    </ClInclude>
+    <ClCompile Include="Percentile.cpp">
+      <Filter>Statistics</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
