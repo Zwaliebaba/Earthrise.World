@@ -1,7 +1,10 @@
 #include "pch.h"
 
+#include "ChunkStore.h"
 #include "Generator.h"
 #include "Hash.h"
+#include "NavigationGrid.h"
+#include "ServerDataFile.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
@@ -133,13 +136,13 @@ struct Golden
   std::uint64_t mapHash;
 };
 
-// Computed on 2026-11-01 by clang 18 and GCC 13 on Linux, which agreed; CI's MSVC build checks them
+// Computed on 2026-11-01 for GENERATOR_VERSION 2 by clang 18 and GCC 13 on Linux, which agreed; CI's MSVC build checks them
 // on Windows. A change to the generator's output fails here: an intended one comes with a new
 // GENERATOR_VERSION and new hashes (ADR-003, *Consequences*). Release must give the same.
 constexpr std::array<Golden, 3> GOLDEN = {{
-  {.worldSeed = 1, .resourceSeed = 2, .mapHash = 0xad636116dc91b363ULL},
-  {.worldSeed = 0x5eed2026ULL, .resourceSeed = 0x0e5ULL, .mapHash = 0x1178e40f31025b76ULL},
-  {.worldSeed = 0xdeadbeefULL, .resourceSeed = 7, .mapHash = 0x56212d74ab5a9df6ULL},
+  {.worldSeed = 1, .resourceSeed = 2, .mapHash = 0x6d1f6de7a0fdfc35ULL},
+  {.worldSeed = 0x5eed2026ULL, .resourceSeed = 0x0e5ULL, .mapHash = 0x431d4f7d5760e735ULL},
+  {.worldSeed = 0xdeadbeefULL, .resourceSeed = 7, .mapHash = 0x48ed97b047a6d80bULL},
 }};
 
 } // namespace
@@ -301,6 +304,57 @@ public:
     const auto sky = std::make_unique<Protocol::Chunk>();
     generator.GenerateChunk({.xChunks = 3, .yChunks = 1, .zChunks = 3}, *sky);
     Assert::AreEqual(std::size_t{0}, sky->SolidCount());
+  }
+
+  TEST_METHOD(LetsEveryClassFordTheRiver)
+  {
+    // GENERATOR_VERSION 2 grades each ford's banks 1 m in 3 from its water (the owner, after M2's
+    // report), within machines' climb. On a map 128 m square, along the middle row of the ford at
+    // z 96 to 101, every class reaches the far bank from 12 m out on the near one.
+    constexpr std::int32_t SIZE = 128;
+    constexpr std::int32_t ROW = 98;
+    constexpr std::int32_t OUT = 12;
+    const Simulation::Generator generator(
+      {.worldSeed = 1, .resourceSeed = 2, .widthVoxels = SIZE, .heightVoxels = 64, .depthVoxels = SIZE});
+    Simulation::ChunkStore store;
+    for (std::int32_t y = 0; y < generator.HeightChunks(); ++y)
+    {
+      for (std::int32_t z = 0; z < generator.DepthChunks(); ++z)
+      {
+        for (std::int32_t x = 0; x < generator.WidthChunks(); ++x)
+        {
+          const auto chunk = std::make_unique<Protocol::Chunk>();
+          generator.GenerateChunk({.xChunks = x, .yChunks = y, .zChunks = z}, *chunk);
+          store.SetChunk({.xChunks = x, .yChunks = y, .zChunks = z}, *chunk);
+        }
+      }
+    }
+    std::int32_t west = SIZE;
+    std::int32_t east = -1;
+    for (std::int32_t x = 0; x < SIZE; ++x)
+    {
+      if (store.At({.xVoxels = x, .yVoxels = 3, .zVoxels = ROW}) == WATER)
+      {
+        west = std::min(west, x);
+        east = std::max(east, x);
+      }
+    }
+    Assert::IsTrue(east >= west);
+    // A ford: one voxel of water over its ground.
+    Assert::AreEqual(std::uint8_t{0}, store.At({.xVoxels = west, .yVoxels = 4, .zVoxels = ROW}));
+    Assert::AreNotEqual(std::uint8_t{WATER}, store.At({.xVoxels = west, .yVoxels = 2, .zVoxels = ROW}));
+    Simulation::NavigationGrid grid(
+      {.widthCells = SIZE, .depthCells = SIZE, .heightVoxels = 64, .climbVoxels = 1, .rules = &BakedServerData().Tuning()},
+      BakedServerData().Materials());
+    grid.RebuildAll(store);
+    grid.UpdateReach();
+    const std::int64_t from = std::int64_t{ROW} * SIZE + (west - OUT);
+    const std::int64_t to = std::int64_t{ROW} * SIZE + (east + OUT);
+    for (const Simulation::NavigationClass navigationClass :
+         {Simulation::NavigationClass::Foot, Simulation::NavigationClass::Cavalry, Simulation::NavigationClass::Machines})
+    {
+      Assert::AreEqual(to, grid.NearestReachable(from, to, navigationClass));
+    }
   }
 };
 

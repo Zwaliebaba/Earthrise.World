@@ -49,6 +49,13 @@ constexpr std::int64_t RIVER_FLAT_HALF_WIDTH = 4 * ONE; // the bed is flat withi
 constexpr std::int64_t VALLEY_HALF_WIDTH = 9 * ONE;     // the valley's sides reach out 9 m
 constexpr std::int32_t FORD_PERIOD_VOXELS = 96;
 constexpr std::int32_t FORD_LENGTH_VOXELS = 6;
+// A ford's banks rise 1 m in 3 from its water, gentle enough for every navigation class, the
+// machines' climb being the steepest (the owner, after M2's report; GENERATOR_VERSION 2). From the
+// ford's ground at 3 m to the highest land, 12 m, they reach 27 m beyond the water; no tree stands
+// within a canopy's reach of them.
+constexpr std::int32_t FORD_GROUND_VOXELS = RIVER_WATER_TOP_VOXELS - 1;
+constexpr std::int64_t FORD_BANK_RUN_CELLS = 3;
+constexpr std::int64_t FORD_CLEAR_HALF_WIDTH = 34 * ONE;
 constexpr std::int32_t MEANDER_PERIOD_VOXELS = 192;
 constexpr std::int64_t MEANDER_VOXELS = 30;
 // Outcrops of building stone where the resource seed's noise is highest, at most 3 m deep.
@@ -102,6 +109,12 @@ constexpr std::int32_t Round(std::int64_t _fixed) noexcept
   return static_cast<std::int32_t>((_fixed + ONE / 2) >> 16);
 }
 
+/// Whether row _z crosses the river at a ford.
+constexpr bool IsFordRow(std::int32_t _z) noexcept
+{
+  return _z >= 0 && _z % FORD_PERIOD_VOXELS < FORD_LENGTH_VOXELS;
+}
+
 /// The river's middle at row _z: a meander about two fifths of the way across the map, shifted
 /// along by the world seed.
 std::int64_t RiverX(std::int32_t _z, std::int32_t _widthVoxels, std::uint64_t _seed) noexcept
@@ -134,14 +147,18 @@ Generator::Generator(const Desc& _desc)
   for (std::int32_t z = 0; z < depth; ++z)
   {
     const std::int64_t riverX = RiverX(z, width, seed);
-    const bool ford = z % FORD_PERIOD_VOXELS < FORD_LENGTH_VOXELS;
+    const bool ford = IsFordRow(z);
     for (std::int32_t x = 0; x < width; ++x)
     {
       const std::size_t at = ColumnIndex(x, z);
       std::int64_t land = LAND_BASE_VOXELS * ONE + LAND_RISE_VOXELS * Fbm(x, z, 35, RELIEF_SALT, seed);
       const std::int64_t distance = std::abs(static_cast<std::int64_t>(x) * ONE + ONE / 2 - riverX);
       fromRiver[at] = distance;
-      if (distance < VALLEY_HALF_WIDTH)
+      if (ford)
+      {
+        land = std::min(land, FORD_GROUND_VOXELS * ONE + std::max<std::int64_t>(0, distance - RIVER_HALF_WIDTH) / FORD_BANK_RUN_CELLS);
+      }
+      else if (distance < VALLEY_HALF_WIDTH)
       {
         land = std::min(land, std::max(RIVER_BED_VOXELS * ONE, RIVER_BED_VOXELS * ONE + (distance - RIVER_FLAT_HALF_WIDTH) * 11 / 10));
       }
@@ -208,7 +225,7 @@ Generator::Generator(const Desc& _desc)
   }
 
   // Forest, from the world seed: a tree in most 5 m cells where the forest's noise is high, standing
-  // on grass away from the river.
+  // on grass away from the river and its fords' banks.
   for (std::int32_t cellZ = 0; cellZ * TREE_CELL_VOXELS < depth; ++cellZ)
   {
     for (std::int32_t cellX = 0; cellX * TREE_CELL_VOXELS < width; ++cellX)
@@ -223,7 +240,13 @@ Generator::Generator(const Desc& _desc)
         continue;
       }
       Column& trunk = m_columns[ColumnIndex(x, z)];
-      if (!trunk.grass || fromRiver[ColumnIndex(x, z)] < 2 * VALLEY_HALF_WIDTH ||
+      bool nearFord = false;
+      for (std::int32_t dz = -CANOPY_RADIUS_VOXELS; dz <= CANOPY_RADIUS_VOXELS; ++dz)
+      {
+        nearFord = nearFord || IsFordRow(z + dz);
+      }
+      nearFord = nearFord && fromRiver[ColumnIndex(x, z)] < FORD_CLEAR_HALF_WIDTH;
+      if (!trunk.grass || nearFord || fromRiver[ColumnIndex(x, z)] < 2 * VALLEY_HALF_WIDTH ||
           Core::DrawBelow(Core::KeyedDraw(seed, TREE_KEEP_SALT, key), 100) >= TREE_PERCENT ||
           Fbm(x, z, 12, FOREST_SALT, seed) <= FOREST_THRESHOLD)
       {

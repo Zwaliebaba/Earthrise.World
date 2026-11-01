@@ -12,7 +12,8 @@ namespace Simulation
 
 /// The version of what the generator makes. Its output for a version never changes once a world
 /// has to survive an update (ADR-003, decision 4); until then there is one version, and it may.
-inline constexpr std::uint32_t GENERATOR_VERSION = 1;
+/// Version 2 grades the fords' banks for every navigation class (the owner, after M2's report).
+inline constexpr std::uint32_t GENERATOR_VERSION = 2;
 
 /// Any voxel this many or more below the generated surface is an anchor, as bedrock is (ADR-004,
 /// decision 2). A depth the generator fixes, so it counts as the generator's (ADR-016).

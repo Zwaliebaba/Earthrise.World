@@ -287,7 +287,7 @@ The owner answered MvpPlan.md's thirteen M2 inputs, taking each proposal as writ
    - bedrock depth varying, so that thin soil over rock and deep earth both occur;
    - sparse outcrops of building stone;
    - forest;
-   - one river with fords.
+   - one river with fords, whose banks rise 1 m in 3 from the water, so every navigation class can cross there (Decided 2026-11-01, after the [M2 report](Review/M2-2026-11-01.md) found cavalry and machines could not reach the fords; GENERATOR_VERSION 2).
 
    The owner judges the first maps in the renderer spike.
 4. **A collapse warns for 1 s plus the time a foot soldier at 1.4 m/s takes to walk the piece's height,** rounded up to whole ticks: 135 ticks for an 8 m piece.
