@@ -355,7 +355,7 @@ The plan credits what M1 already built: the chunk store, a first support search,
   - At stone's 2 m span, a hole w metres wide through the base of a T3 section leaves everything above it supported until w reaches 5. Then only a slot w − 4 wide falls.
   - With input 12's medium craters, two shots one above the other open a route for foot, one voxel by two, long before anything falls.
 
-  So the done-when's "the wall collapses with its warning" depends on where the scripted shots land. Order E3 tests the hand calculation, G3 reports what the rules do to a T3 section, and the owner judges whether that reads as a breach before M3 asks players to predict one.
+  So the done-when's "the wall collapses with its warning" depends on where the scripted shots land. Order E3 tests the hand calculation, G3 reports what the rules do to a T3 section, and the owner judges whether that reads as a breach before M3 asks players to predict one. **The owner judged that it does** (2026-11-01, after the [M2 report](Review/M2-2026-11-01.md)): five shots open a hole a voxel above the wall's base, the slot above its middle falls, and its rubble makes the way in; the rules stay.
 - **Clearance treats the ram as a 3 m square,** so its 7.5 m length can clip corners (ADR-015). T5's passage fits it with no margin, and T5's redraw has to keep 3 m by 4 m.
 - **A scenario is not a save** (ADR-014, decision 7). The owner accepted the change on 2026-11-01, and GameDesign.md's line now says so.
 
@@ -384,9 +384,9 @@ The plan credits what M1 already built: the chunk store, a first support search,
 | B | 2026-11-01 | 2026-11-01 | #42 | 6 | 6 | | B1–B6. One draft PR for B to G by the owner's choice. Owner runs: the spike after B2, B4 and B6. Owner hours for the owner to log |
 | C | 2026-11-01 | 2026-11-01 | #42 | 6 | 6 | | C1–C5; C4 took two commits and two runs, its fix a commit of its own (clang-tidy 22, `bugprone-exception-escape`). Owner hours for the owner to log |
 | D | 2026-11-01 | 2026-11-01 | #42 | 4 | 4 | | D1–D3; D3 took two commits and two runs, its fix a commit of its own (clang-tidy 22, `bugprone-integer-division`). Owner runs: the spike with `--generated-map`. Owner hours for the owner to log |
-| E | 2026-11-01 | 2026-11-01 | #42 | 7 | 7 | | E1–E7. Owner hours for the owner to log |
-| F | 2026-11-01 | 2026-11-01 | #42 | 6 | 6 | | F1–F6. Cavalry and machines have no speed yet, and cannot cross the generated map (ADR-015). Owner hours for the owner to log |
-| G | 2026-11-01 | 2026-11-01 | #42 | 3 | 3 | | G1–G3; the report is [Review/M2-2026-11-01.md](Review/M2-2026-11-01.md). Owner runs: `SimulationBench --breach-run` on the benchmark machine. Owner hours for the owner to log |
+| E | 2026-11-01 | 2026-11-01 | #42 | 7 | 7 | | E1–E7. E2 onwards were pushed together at the owner's request, so CI ran on the newest commit only, and from there on the CI runs column counts commits. Owner hours for the owner to log |
+| F | 2026-11-01 | 2026-11-01 | #42 | 7 | 7 | | F1–F6; F4 took a second commit, for MSVC's C4244 in `std::ranges::fill`. Cavalry's and machines' speeds and the graded fords followed the report (row G). Owner hours for the owner to log |
+| G | 2026-11-01 | 2026-11-01 | #42 | 7 | 7 | | G1–G3; the report is [Review/M2-2026-11-01.md](Review/M2-2026-11-01.md). After G3, four commits carry the owner's answers to it: cavalry's and machines' speeds, the fords graded for every class (GENERATOR_VERSION 2), the slowest tick of play as the timing rule, and the breach judged a breach. Owner runs: `SimulationBench --breach-run` on the benchmark machine, and the spike with `--generated-map`. Owner hours for the owner to log |
 
 ### M3 — Breach lab
 
