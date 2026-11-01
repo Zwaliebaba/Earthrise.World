@@ -84,5 +84,8 @@
     <ClCompile Include="SearchTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="ReachTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

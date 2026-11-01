@@ -21,16 +21,21 @@ namespace Simulation
 /// equal paths always come out the same.
 ///
 /// It is budgeted in nodes expanded (ADR-013, decision 6): Advance expands at most the nodes it is
-/// given and leaves the rest for the next tick, and a save holds it part way through. A goal the
-/// class cannot reach gives the path to the reachable cell nearest it by octile distance, ties to
-/// the lower index, and the search says it fell short.
+/// given and leaves the rest for the next tick, and a save holds it part way through. It searches
+/// for its target, which the world sets to the goal, or, for a goal the class cannot reach, to the
+/// reachable cell nearest it, which NavigationGrid::NearestReachable finds without searching the map
+/// (M2-F4). A path that ends anywhere but the goal falls short of it. Should the target prove out of
+/// reach after all, the path ends at the closed cell nearest it by octile distance, ties to the lower
+/// index.
 class PathSearch
 {
 public:
   /// A cell's index: z times the grid's width, plus x.
   using CellIndex = std::int64_t;
 
-  PathSearch(Protocol::EntityId _squad, NavigationClass _class, CellIndex _start, CellIndex _goal, std::int32_t _widthCells);
+  /// Searches from _start for _target, on behalf of a squad whose goal is _goal.
+  PathSearch(Protocol::EntityId _squad, NavigationClass _class, CellIndex _start, CellIndex _goal, CellIndex _target,
+             std::int32_t _widthCells);
   ~PathSearch() = default;
   PathSearch(const PathSearch&) = default;
   PathSearch& operator=(const PathSearch&) = default;
@@ -43,7 +48,7 @@ public:
   std::uint32_t Advance(const NavigationGrid& _grid, std::uint32_t _budget);
 
   [[nodiscard]] bool Done() const noexcept;
-  /// The cells from the start to the goal, or to the reachable cell nearest it, both included.
+  /// The cells from the start to the target, or to the closed cell nearest it, both included.
   [[nodiscard]] const std::vector<CellIndex>& Path() const noexcept;
   [[nodiscard]] bool ShortOfGoal() const noexcept;
   /// Its cost: the sum of its steps' costs.
@@ -54,6 +59,7 @@ public:
   [[nodiscard]] Protocol::EntityId Squad() const noexcept;
   [[nodiscard]] NavigationClass Class() const noexcept;
   [[nodiscard]] CellIndex Goal() const noexcept;
+  [[nodiscard]] CellIndex Target() const noexcept;
 
   /// The octile distance between two cells, in the search's integers.
   [[nodiscard]] static std::int64_t Octile(CellIndex _from, CellIndex _to, std::int32_t _widthCells) noexcept;
@@ -77,10 +83,11 @@ private:
   NavigationClass m_class;
   CellIndex m_start;
   CellIndex m_goal;
+  CellIndex m_target;
   std::int32_t m_widthCells;
   std::map<CellIndex, Node> m_nodes;
   std::set<std::tuple<std::int64_t, std::int64_t, CellIndex>> m_open; // f, h, cell
-  CellIndex m_nearest;                                                // the closed cell nearest the goal
+  CellIndex m_nearest;                                                // the closed cell nearest the target
   std::uint64_t m_expanded = 0;
   bool m_done = false;
   bool m_short = false;

@@ -131,6 +131,22 @@ public:
 
   [[nodiscard]] const ClassRule& Class(NavigationClass _class) const noexcept;
 
+  /// Brings each class's reach up to date with the rebuilds since it was last brought up to date
+  /// (M2-F4): it labels again, in each tile whose links or clearance changed, the tile's components,
+  /// the sets of its cells the class's links join without leaving it. Components in neighbouring
+  /// tiles are joined by the links that cross between them, which NearestReachable follows.
+  void UpdateReach();
+
+  /// The cell a class can reach from _start nearest _goal: the goal itself when the class can reach
+  /// it, else the reachable cell nearest it by octile distance, ties to the lower index; _start
+  /// itself when the class cannot enter it. It walks the components the start's joins to, never the
+  /// cells. Indices are z times the width, plus x. Throws std::logic_error when a rebuild has
+  /// changed the grid since UpdateReach.
+  [[nodiscard]] std::int64_t NearestReachable(std::int64_t _start, std::int64_t _goal, NavigationClass _class) const;
+
+  /// How many components a class's tiles hold between them. Current after UpdateReach.
+  [[nodiscard]] std::size_t Components(NavigationClass _class) const;
+
   /// How far an edit's reach runs to the links it can change: a cell's clearance reads the widest
   /// class's square, less one, and a link reads the longest climb run beyond the cells whose
   /// clearance changed.
@@ -151,8 +167,11 @@ private:
   void RebuildLinks(std::int32_t _minX, std::int32_t _minZ, std::int32_t _maxX, std::int32_t _maxZ);
   [[nodiscard]] bool StraightOpen(std::int32_t _x, std::int32_t _z, std::int32_t _dx, std::int32_t _dz, const ClassRule& _rule,
                                   std::size_t _class) const;
+  void LabelTile(std::size_t _class, std::int32_t _tileX, std::int32_t _tileZ);
+  void MarkChanged(std::int32_t _x, std::int32_t _z);
   [[nodiscard]] bool Inside(std::int32_t _x, std::int32_t _z) const noexcept;
   [[nodiscard]] std::size_t Index(std::int32_t _x, std::int32_t _z) const noexcept;
+  [[nodiscard]] std::size_t TileIndex(std::int32_t _x, std::int32_t _z) const noexcept;
 
   Desc m_desc;
   const MaterialRules* m_materials;
@@ -166,6 +185,14 @@ private:
   std::vector<Ground> m_ground;
   std::array<std::vector<std::uint8_t>, NAVIGATION_CLASS_COUNT> m_links;
   std::array<std::vector<std::uint8_t>, NAVIGATION_CLASS_COUNT> m_clearance;
+  // Reach (M2-F4): per class, each cell's component within its tile, from 1, or 0 where the class
+  // cannot enter; each tile's count of them; and where each tile's start in a list of every
+  // component. A tile whose links or clearance a rebuild changed is labelled again by UpdateReach.
+  std::array<std::vector<std::uint16_t>, NAVIGATION_CLASS_COUNT> m_components;
+  std::array<std::vector<std::uint16_t>, NAVIGATION_CLASS_COUNT> m_componentCounts;
+  std::array<std::vector<std::size_t>, NAVIGATION_CLASS_COUNT> m_componentOffsets;
+  std::vector<std::uint8_t> m_tileChanged;
+  bool m_reachCurrent = false;
   // Scratch space for a rebuild, kept between rebuilds so they do not allocate.
   std::vector<std::uint8_t> m_column;
   std::vector<std::uint8_t> m_straight;

@@ -448,8 +448,10 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
       ApplyChunkEdits(reader, *chunk);
       world.m_voxels.RestoreChunk(coordinate, *chunk);
     }
-    // Navigation is computed from the voxels, so it is rebuilt rather than saved (ADR-014, decision 4).
+    // Navigation and its reach are computed from the voxels, so they are rebuilt rather than saved
+    // (ADR-014, decision 4).
     world.m_navigation.RebuildAll(world.m_voxels.Store());
+    world.m_navigation.UpdateReach();
 
     const std::uint32_t entities = reader.ReadU32();
     for (std::uint32_t number = 0; number < entities; ++number)

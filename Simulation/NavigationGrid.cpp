@@ -86,6 +86,14 @@ NavigationGrid::NavigationGrid(const Desc& _desc, const MaterialRules& _material
   {
     clearance.assign(cells, 0);
   }
+  const auto tiles = static_cast<std::size_t>(TilesAcross()) * static_cast<std::size_t>(TilesDeep());
+  for (std::size_t navigationClass = 0; navigationClass < NAVIGATION_CLASS_COUNT; ++navigationClass)
+  {
+    m_components.at(navigationClass).assign(cells, 0);
+    m_componentCounts.at(navigationClass).assign(tiles, 0);
+    m_componentOffsets.at(navigationClass).assign(tiles + 1, 0);
+  }
+  m_tileChanged.assign(tiles, 1);
 }
 
 void NavigationGrid::RebuildAll(const ChunkStore& _store)
@@ -99,6 +107,8 @@ void NavigationGrid::RebuildAll(const ChunkStore& _store)
   }
   RebuildClearance(0, 0, m_desc.widthCells - 1, m_desc.depthCells - 1);
   RebuildLinks(0, 0, m_desc.widthCells - 1, m_desc.depthCells - 1);
+  std::ranges::fill(m_tileChanged, 1);
+  m_reachCurrent = false;
 }
 
 void NavigationGrid::RebuildTile(const ChunkStore& _store, std::int32_t _tileX, std::int32_t _tileZ)
@@ -218,6 +228,231 @@ bool NavigationGrid::Usable(std::int32_t _x, std::int32_t _z, NavigationClass _c
 const NavigationGrid::ClassRule& NavigationGrid::Class(NavigationClass _class) const noexcept
 {
   return m_classes[static_cast<std::size_t>(_class)];
+}
+
+void NavigationGrid::UpdateReach()
+{
+  if (m_reachCurrent)
+  {
+    return;
+  }
+  for (std::int32_t tileZ = 0; tileZ < TilesDeep(); ++tileZ)
+  {
+    for (std::int32_t tileX = 0; tileX < TilesAcross(); ++tileX)
+    {
+      const std::size_t tile = TileIndex(tileX * TILE_EDGE_CELLS, tileZ * TILE_EDGE_CELLS);
+      if (m_tileChanged[tile] == 0)
+      {
+        continue;
+      }
+      for (std::size_t navigationClass = 0; navigationClass < NAVIGATION_CLASS_COUNT; ++navigationClass)
+      {
+        LabelTile(navigationClass, tileX, tileZ);
+      }
+      m_tileChanged[tile] = 0;
+    }
+  }
+  for (std::size_t navigationClass = 0; navigationClass < NAVIGATION_CLASS_COUNT; ++navigationClass)
+  {
+    const std::vector<std::uint16_t>& counts = m_componentCounts.at(navigationClass);
+    std::vector<std::size_t>& offsets = m_componentOffsets.at(navigationClass);
+    for (std::size_t tile = 0; tile < counts.size(); ++tile)
+    {
+      offsets[tile + 1] = offsets[tile] + counts[tile];
+    }
+  }
+  m_reachCurrent = true;
+}
+
+void NavigationGrid::LabelTile(std::size_t _class, std::int32_t _tileX, std::int32_t _tileZ)
+{
+  // Components from 1, in cell order, each flooded along the class's links that stay in the tile.
+  // A link is open only between cells both of which the class can enter, and the climb rule reads
+  // the same both ways, so the links join cells symmetrically.
+  std::vector<std::uint16_t>& components = m_components.at(_class);
+  const std::vector<std::uint8_t>& links = m_links.at(_class);
+  const NavigationClass which = CLASSES.at(_class);
+  const std::int32_t minX = _tileX * TILE_EDGE_CELLS;
+  const std::int32_t minZ = _tileZ * TILE_EDGE_CELLS;
+  for (std::int32_t z = minZ; z < minZ + TILE_EDGE_CELLS; ++z)
+  {
+    for (std::int32_t x = minX; x < minX + TILE_EDGE_CELLS; ++x)
+    {
+      components[Index(x, z)] = 0;
+    }
+  }
+  std::uint16_t next = 1;
+  std::vector<std::pair<std::int32_t, std::int32_t>> open;
+  for (std::int32_t z = minZ; z < minZ + TILE_EDGE_CELLS; ++z)
+  {
+    for (std::int32_t x = minX; x < minX + TILE_EDGE_CELLS; ++x)
+    {
+      if (components[Index(x, z)] != 0 || !Usable(x, z, which))
+      {
+        continue;
+      }
+      components[Index(x, z)] = next;
+      open.assign(1, {x, z});
+      while (!open.empty())
+      {
+        const auto [fromX, fromZ] = open.back();
+        open.pop_back();
+        const std::uint8_t from = links[Index(fromX, fromZ)];
+        for (std::size_t direction = 0; direction < NEIGHBORS.size(); ++direction)
+        {
+          const std::int32_t toX = fromX + NEIGHBORS.at(direction)[0];
+          const std::int32_t toZ = fromZ + NEIGHBORS.at(direction)[1];
+          if ((from & (1U << direction)) == 0 || TileOf(toX) != _tileX || TileOf(toZ) != _tileZ || components[Index(toX, toZ)] != 0)
+          {
+            continue;
+          }
+          components[Index(toX, toZ)] = next;
+          open.emplace_back(toX, toZ);
+        }
+      }
+      ++next;
+    }
+  }
+  m_componentCounts.at(_class)[TileIndex(minX, minZ)] = static_cast<std::uint16_t>(next - 1);
+}
+
+std::int64_t NavigationGrid::NearestReachable(std::int64_t _start, std::int64_t _goal, NavigationClass _class) const
+{
+  if (!m_reachCurrent)
+  {
+    throw std::logic_error("reach is asked for before UpdateReach has caught up with the grid's rebuilds");
+  }
+  const std::int32_t width = m_desc.widthCells;
+  const auto startX = static_cast<std::int32_t>(_start % width);
+  const auto startZ = static_cast<std::int32_t>(_start / width);
+  const auto goalX = static_cast<std::int32_t>(_goal % width);
+  const auto goalZ = static_cast<std::int32_t>(_goal / width);
+  if (!Inside(startX, startZ) || !Inside(goalX, goalZ))
+  {
+    throw std::out_of_range("reach between cells outside the grid");
+  }
+  const auto navigationClass = static_cast<std::size_t>(_class);
+  const std::vector<std::uint16_t>& components = m_components.at(navigationClass);
+  const std::vector<std::uint8_t>& links = m_links.at(navigationClass);
+  const std::vector<std::size_t>& offsets = m_componentOffsets.at(navigationClass);
+  if (components[Index(startX, startZ)] == 0)
+  {
+    return _start;
+  }
+  // Each component is numbered across the whole grid by its tile's offset; a walk from the start's
+  // marks every one its tile's border links join it to, until the goal's is marked or none is left.
+  const auto numberOf = [&](std::int32_t _x, std::int32_t _z) { return offsets[TileIndex(_x, _z)] + components[Index(_x, _z)] - 1; };
+  std::vector<std::uint8_t> reached(offsets.back(), 0);
+  std::vector<std::uint8_t> tileReached(m_tileChanged.size(), 0);
+  std::vector<std::tuple<std::int32_t, std::int32_t, std::uint16_t>> open; // tile x, tile z, component
+  const std::size_t goalNumber = components[Index(goalX, goalZ)] == 0 ? SIZE_MAX : numberOf(goalX, goalZ);
+  reached[numberOf(startX, startZ)] = 1;
+  tileReached[TileIndex(startX, startZ)] = 1;
+  open.emplace_back(TileOf(startX), TileOf(startZ), components[Index(startX, startZ)]);
+  while (!open.empty())
+  {
+    if (goalNumber != SIZE_MAX && reached[goalNumber] != 0)
+    {
+      return _goal;
+    }
+    const auto [tileX, tileZ, component] = open.back();
+    open.pop_back();
+    const std::int32_t minX = tileX * TILE_EDGE_CELLS;
+    const std::int32_t minZ = tileZ * TILE_EDGE_CELLS;
+    const std::int32_t maxX = minX + TILE_EDGE_CELLS - 1;
+    const std::int32_t maxZ = minZ + TILE_EDGE_CELLS - 1;
+    for (std::int32_t z = minZ; z <= maxZ; ++z)
+    {
+      // The tile's border: its first and last rows whole, and the two end cells of every other.
+      const bool edgeRow = z == minZ || z == maxZ;
+      for (std::int32_t x = minX; x <= maxX; x += edgeRow ? 1 : TILE_EDGE_CELLS - 1)
+      {
+        if (components[Index(x, z)] != component)
+        {
+          continue;
+        }
+        const std::uint8_t from = links[Index(x, z)];
+        for (std::size_t direction = 0; direction < NEIGHBORS.size(); ++direction)
+        {
+          const std::int32_t toX = x + NEIGHBORS.at(direction)[0];
+          const std::int32_t toZ = z + NEIGHBORS.at(direction)[1];
+          if ((from & (1U << direction)) == 0 || (TileOf(toX) == tileX && TileOf(toZ) == tileZ))
+          {
+            continue;
+          }
+          const std::size_t number = numberOf(toX, toZ);
+          if (reached[number] == 0)
+          {
+            reached[number] = 1;
+            tileReached[TileIndex(toX, toZ)] = 1;
+            open.emplace_back(TileOf(toX), TileOf(toZ), components[Index(toX, toZ)]);
+          }
+        }
+      }
+    }
+  }
+  if (goalNumber != SIZE_MAX && reached[goalNumber] != 0)
+  {
+    return _goal;
+  }
+  // The goal is out of reach. The tiles reached, nearest the goal first by the octile distance to
+  // their nearest cell, which no cell of theirs can beat; the scan stops at the first tile that
+  // cannot reach the best found, and an equal distance is still scanned for the lower index.
+  const auto octile = [&](std::int32_t _dx, std::int32_t _dz)
+  {
+    const std::int64_t dx = std::abs(_dx);
+    const std::int64_t dz = std::abs(_dz);
+    return 10 * std::max(dx, dz) + 4 * std::min(dx, dz);
+  };
+  std::vector<std::tuple<std::int64_t, std::int32_t, std::int32_t>> tiles; // bound, tile z, tile x
+  for (std::int32_t tileZ = 0; tileZ < TilesDeep(); ++tileZ)
+  {
+    for (std::int32_t tileX = 0; tileX < TilesAcross(); ++tileX)
+    {
+      if (tileReached[TileIndex(tileX * TILE_EDGE_CELLS, tileZ * TILE_EDGE_CELLS)] == 0)
+      {
+        continue;
+      }
+      const std::int32_t minX = tileX * TILE_EDGE_CELLS;
+      const std::int32_t minZ = tileZ * TILE_EDGE_CELLS;
+      const std::int32_t dx = std::max({0, minX - goalX, goalX - (minX + TILE_EDGE_CELLS - 1)});
+      const std::int32_t dz = std::max({0, minZ - goalZ, goalZ - (minZ + TILE_EDGE_CELLS - 1)});
+      tiles.emplace_back(octile(dx, dz), tileZ, tileX);
+    }
+  }
+  std::ranges::sort(tiles);
+  std::int64_t best = _start;
+  std::int64_t bestDistance = octile(startX - goalX, startZ - goalZ);
+  for (const auto& [bound, tileZ, tileX] : tiles)
+  {
+    if (bound > bestDistance)
+    {
+      break;
+    }
+    for (std::int32_t z = tileZ * TILE_EDGE_CELLS; z < (tileZ + 1) * TILE_EDGE_CELLS; ++z)
+    {
+      for (std::int32_t x = tileX * TILE_EDGE_CELLS; x < (tileX + 1) * TILE_EDGE_CELLS; ++x)
+      {
+        if (components[Index(x, z)] == 0 || reached[numberOf(x, z)] == 0)
+        {
+          continue;
+        }
+        const std::int64_t distance = octile(x - goalX, z - goalZ);
+        const std::int64_t cell = std::int64_t{z} * width + x;
+        if (distance < bestDistance || (distance == bestDistance && cell < best))
+        {
+          best = cell;
+          bestDistance = distance;
+        }
+      }
+    }
+  }
+  return best;
+}
+
+std::size_t NavigationGrid::Components(NavigationClass _class) const
+{
+  return m_componentOffsets.at(static_cast<std::size_t>(_class)).back();
 }
 
 std::int32_t NavigationGrid::MarginCells() const noexcept
@@ -377,7 +612,11 @@ void NavigationGrid::RebuildClearance(std::int32_t _minX, std::int32_t _minZ, st
           }
           ++width;
         }
-        clearance[Index(x, z)] = width;
+        if (clearance[Index(x, z)] != width)
+        {
+          clearance[Index(x, z)] = width;
+          MarkChanged(x, z);
+        }
       }
     }
   }
@@ -445,10 +684,22 @@ void NavigationGrid::RebuildLinks(std::int32_t _minX, std::int32_t _minZ, std::i
             links = static_cast<std::uint8_t>(links | (1U << direction));
           }
         }
-        classLinks[Index(x, z)] = links;
+        if (classLinks[Index(x, z)] != links)
+        {
+          classLinks[Index(x, z)] = links;
+          MarkChanged(x, z);
+        }
       }
     }
   }
+}
+
+void NavigationGrid::MarkChanged(std::int32_t _x, std::int32_t _z)
+{
+  // A cell's component reads only its links and whether the class can enter it, which is its
+  // clearance against the class's width, so a tile in which neither changed keeps its components.
+  m_tileChanged[TileIndex(_x, _z)] = 1;
+  m_reachCurrent = false;
 }
 
 bool NavigationGrid::Inside(std::int32_t _x, std::int32_t _z) const noexcept
@@ -459,6 +710,11 @@ bool NavigationGrid::Inside(std::int32_t _x, std::int32_t _z) const noexcept
 std::size_t NavigationGrid::Index(std::int32_t _x, std::int32_t _z) const noexcept
 {
   return static_cast<std::size_t>(_z) * static_cast<std::size_t>(m_desc.widthCells) + static_cast<std::size_t>(_x);
+}
+
+std::size_t NavigationGrid::TileIndex(std::int32_t _x, std::int32_t _z) const noexcept
+{
+  return static_cast<std::size_t>(TileOf(_z)) * static_cast<std::size_t>(TilesAcross()) + static_cast<std::size_t>(TileOf(_x));
 }
 
 } // namespace Simulation

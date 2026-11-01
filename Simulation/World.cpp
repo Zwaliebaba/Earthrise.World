@@ -56,7 +56,9 @@ World::World(const Desc& _desc)
       }
     }
   }
+  // Reach too, so the first search does not pay for labelling every tile in a tick.
   m_navigation.RebuildAll(m_voxels.Store());
+  m_navigation.UpdateReach();
 }
 
 void World::Submit(std::uint8_t _player, std::span<const std::byte> _command)
@@ -179,9 +181,13 @@ void World::RequestSearch(Squad& _squad)
   const std::int32_t width = m_navigation.WidthCells();
   const std::int32_t goalX = std::clamp(_squad.goalVoxels.xVoxels, 0, width - 1);
   const std::int32_t goalZ = std::clamp(_squad.goalVoxels.zVoxels, 0, m_navigation.DepthCells() - 1);
-  m_searches.emplace(std::pair{m_tick, _squad.id},
-                     PathSearch(_squad.id, _squad.navigationClass, std::int64_t{from.zVoxels} * width + from.xVoxels,
-                                std::int64_t{goalZ} * width + goalX, width));
+  const PathSearch::CellIndex start = std::int64_t{from.zVoxels} * width + from.xVoxels;
+  const PathSearch::CellIndex goal = std::int64_t{goalZ} * width + goalX;
+  // Reach is known without searching the map (M2-F4): the search goes for the goal, or for the
+  // reachable cell nearest it when the goal is out of reach.
+  m_navigation.UpdateReach();
+  const PathSearch::CellIndex target = m_navigation.NearestReachable(start, goal, _squad.navigationClass);
+  m_searches.emplace(std::pair{m_tick, _squad.id}, PathSearch(_squad.id, _squad.navigationClass, start, goal, target, width));
 }
 
 std::span<const CrushEvent> World::LastTickCrushes() const noexcept
@@ -679,9 +685,38 @@ std::optional<std::pair<std::int32_t, std::int32_t>> World::Slump(std::int32_t _
 void World::RebuildNavigation()
 {
   // Step 8: every navigation tile the tick's edits touched, none deferred (ADR-015, decision 4).
-  for (const auto& [tileX, tileZ] : m_navigation.TilesTouchedBy(m_voxels.TickEdits()))
+  const std::vector<std::pair<std::int32_t, std::int32_t>> tiles = m_navigation.TilesTouchedBy(m_voxels.TickEdits());
+  for (const auto& [tileX, tileZ] : tiles)
   {
     m_navigation.RebuildTile(m_voxels.Store(), tileX, tileZ);
+  }
+  if (tiles.empty())
+  {
+    return;
+  }
+  // Then, in squad-id order, the squads to search again in the next tick's step 3 (ADR-015,
+  // decision 5): each short of its goal, each whose path crosses a rebuilt tile, and each whose
+  // search is not done, since the cells it has closed may have changed under it.
+  const std::set<std::pair<std::int32_t, std::int32_t>> rebuilt(tiles.begin(), tiles.end());
+  const std::int32_t width = m_navigation.WidthCells();
+  for (auto& [id, squad] : m_squads)
+  {
+    if (!squad.hasGoal)
+    {
+      continue;
+    }
+    const bool searching = std::ranges::any_of(m_searches, [id](const auto& _search) { return _search.first.second == id; });
+    const bool crosses =
+      std::ranges::any_of(squad.path,
+                          [&rebuilt, width](PathSearch::CellIndex _cell)
+                          {
+                            return rebuilt.contains({static_cast<std::int32_t>(_cell % width) / NavigationGrid::TILE_EDGE_CELLS,
+                                                     static_cast<std::int32_t>(_cell / width) / NavigationGrid::TILE_EDGE_CELLS});
+                          });
+    if (squad.shortOfGoal || searching || crosses)
+    {
+      RequestSearch(squad);
+    }
   }
 }
 

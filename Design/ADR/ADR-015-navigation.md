@@ -21,8 +21,18 @@
 
     A cross-map search takes about 8 ticks at the Proposed budget. Cavalry and machines cannot cross the generated map: the river's valley sides are steeper than 1 m in 2 cells, so they cannot reach its fords, and machines' 3 m clearance and 1-in-3 climb leave them little of the relief. That is a question for the generator's maps (M2-D3), which the owner judges.
   - **Clearance** (M2-F2) is built square by square, adding a row and a column each step, up to the widest class's width, 3; a class enters a cell whose clearance is at least its width, and its links open only between such cells.
+  - **Reach** (M2-F4) is known from **per-tile components**, a tile-level graph kept for reach alone: each class's cells in each tile are labelled by the sets its links join without leaving the tile, and components in neighbouring tiles are joined, at each query, by the links that cross between them. A rebuild marks the tiles in which any cell's links or clearance changed, and the next search labels only those again. A query walks the components from the start's; if it reaches the goal's, the search goes for the goal, and otherwise for the reached cell nearest the goal by octile distance, ties to the lower index, found by scanning the reached tiles nearest the goal first. The search itself still runs over cells. The alternative, region labels over the whole map, was measured beside it in `SimulationBench` on the generated MVP map, in the Linux container with clang 18 at -O2, on 2026-11-01:
 
-It fixes the model and leaves the search algorithm to the navigation orders, which choose it by measurement ([MvpPlan-M2.md](../MvpPlan-M2.md), phase F). M2-F1 implements the classes; the search and movement follow in phase F.
+    | What, every class | Region labels | Per-tile components |
+    |---|---|---|
+    | Labelling the whole map | 11.2 ms, 4,338 regions | 35.7 ms, 5,502 components, once when the world is made or loaded |
+    | After an edit: a 4 m wall across one tile, raised or taken down (3 tiles rebuilt) | 11.2 ms, the whole map again | 0.46 ms |
+    | A query from (8, 8) toward (504, 504) | a lookup | foot 0.13 ms, reaches the goal; cavalry 0.69 ms, reaches (216, 510); machines 0.01 ms, reaches (27, 36) |
+
+    A breach rebuilds tiles on most of its ticks, and every squad short of its goal searches again after each, so the cost that matters is the one after an edit, and per-tile components are the cheaper, by about 24 times. An unreachable goal no longer floods its class's region: the search goes straight for the nearest reachable cell (`ReachTests`).
+  - **Searching again** follows decision 5, with one addition the code forced: a search not yet done when tiles are rebuilt starts again, asked for in the tick of the rebuild, since the cells it has closed may have changed under it. A search that runs past a tick therefore finishes only once the ground holds still for as many ticks as it needs, which G2's timing of the breach run shows.
+
+It fixes the model and leaves the search algorithm to the navigation orders, which choose it by measurement ([MvpPlan-M2.md](../MvpPlan-M2.md), phase F). M2-F1 implements the classes, M2-F3 the search and M2-F4 reach; movement follows in phase F.
 
 ## Context
 
@@ -112,8 +122,8 @@ It fixes the model and leaves the search algorithm to the navigation orders, whi
 
 ## Left open
 
-- **The search algorithm** and **how reach is answered** without searching the map, chosen by the navigation orders on M2's measurements.
-- **A tile-level graph** (Botea, Müller and Schaeffer, *Near optimal hierarchical path-finding*, 2004), if cross-map searches run too far past the budget.
+- ~~**The search algorithm** and **how reach is answered** without searching the map~~: closed by M2-F3 (A\* over cells) and M2-F4 (per-tile components), above.
+- **A tile-level graph for the search** (Botea, Müller and Schaeffer, *Near optimal hierarchical path-finding*, 2004), if cross-map searches run too far past the budget. M2-F4's components are the first half of one: they answer reach, and the search does not yet use them.
 - **Flow fields for many units** with one goal.
 - **Formations and separation,** scheduled in M4 with its own done-when ([MvpPlan.md](../MvpPlan.md), M4). An ADR records how figures keep apart when it is built. Like the rest of movement, it stays inside navigation: nothing pushes a unit (ADR-004, decision 6).
 - **The trebuchet's packed width,** once its packed model is drawn.

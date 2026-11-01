@@ -207,16 +207,14 @@ void Measure(std::string_view _name, Simulation::ChunkStore& _store, const Simul
                halfTile.slowestMilliseconds);
 }
 
-/// Cross-map path searches on the generated MVP map, for each class (M2-F3; ADR-015, decision 5):
-/// the nodes each expands, its time and its path, corner to corner both ways.
-void MeasureSearches(const Simulation::ServerData& _data)
+/// The generated MVP map, every chunk of it, at the generator's fixed seeds.
+void GenerateMvpMap(Simulation::ChunkStore& _store)
 {
   const Simulation::Generator generator({.worldSeed = SEED,
                                          .resourceSeed = SEED + 1,
                                          .widthVoxels = Simulation::Generator::MAP_WIDTH_VOXELS,
                                          .heightVoxels = Simulation::Generator::MAP_HEIGHT_VOXELS,
                                          .depthVoxels = Simulation::Generator::MAP_DEPTH_VOXELS});
-  Simulation::ChunkStore store;
   for (std::int32_t y = 0; y < generator.HeightChunks(); ++y)
   {
     for (std::int32_t z = 0; z < generator.DepthChunks(); ++z)
@@ -225,39 +223,163 @@ void MeasureSearches(const Simulation::ServerData& _data)
       {
         const auto chunk = std::make_unique<Protocol::Chunk>();
         generator.GenerateChunk({.xChunks = x, .yChunks = y, .zChunks = z}, *chunk);
-        store.SetChunk({.xChunks = x, .yChunks = y, .zChunks = z}, *chunk);
+        _store.SetChunk({.xChunks = x, .yChunks = y, .zChunks = z}, *chunk);
       }
     }
   }
-  const std::int32_t width = Simulation::Generator::MAP_WIDTH_VOXELS;
-  Simulation::NavigationGrid grid({.widthCells = width,
-                                   .depthCells = Simulation::Generator::MAP_DEPTH_VOXELS,
-                                   .heightVoxels = Simulation::Generator::MAP_HEIGHT_VOXELS,
-                                   .climbVoxels = 1,
-                                   .rules = &_data.Tuning()},
-                                  _data.Materials());
-  const Clock::time_point rebuildStart = Clock::now();
-  grid.RebuildAll(store);
-  std::println("The generated MVP map: every navigation tile, with its classes and clearance, in {:.0f} ms",
-               MillisecondsSince(rebuildStart));
+}
+
+constexpr std::array<std::pair<Simulation::NavigationClass, const char*>, Simulation::NAVIGATION_CLASS_COUNT> CLASS_NAMES = {
+  {{Simulation::NavigationClass::Foot, "foot"},
+   {Simulation::NavigationClass::Cavalry, "cavalry"},
+   {Simulation::NavigationClass::Machines, "machines"}}};
+
+/// Cross-map path searches on the generated MVP map, for each class (M2-F3; ADR-015, decision 5):
+/// the nodes each expands, its time and its path, corner to corner both ways.
+void MeasureSearches(const Simulation::NavigationGrid& _grid)
+{
+  const std::int32_t width = _grid.WidthCells();
   constexpr std::int32_t CORNER = 8;
   const std::array<std::pair<std::int64_t, std::int64_t>, 2> trips = {
     {{std::int64_t{CORNER} * width + CORNER, std::int64_t{width - CORNER} * width + (width - CORNER)},
      {std::int64_t{width - CORNER} * width + CORNER, std::int64_t{CORNER} * width + (width - CORNER)}}};
-  for (const auto& [navigationClass, name] :
-       {std::pair{Simulation::NavigationClass::Foot, "foot"}, std::pair{Simulation::NavigationClass::Cavalry, "cavalry"},
-        std::pair{Simulation::NavigationClass::Machines, "machines"}})
+  for (const auto& [navigationClass, name] : CLASS_NAMES)
   {
     for (const auto& [from, to] : trips)
     {
-      Simulation::PathSearch search(1, navigationClass, from, to, width);
+      Simulation::PathSearch search(1, navigationClass, from, to, to, width);
       const Clock::time_point start = Clock::now();
-      static_cast<void>(search.Advance(grid, UINT32_MAX));
+      static_cast<void>(search.Advance(_grid, UINT32_MAX));
       const double milliseconds = MillisecondsSince(start);
       std::println("  {} from ({}, {}) to ({}, {}): {} nodes in {:.1f} ms, {} cells{}", name, from % width, from / width, to % width,
                    to / width, search.NodesExpanded(), milliseconds, search.Path().size(),
                    search.ShortOfGoal() ? ", short of the goal" : "");
     }
+  }
+}
+
+/// Region labels over the whole map, the alternative M2-F4 measured against per-tile components: each
+/// class's cells flooded along its links, labelled from 1 in cell order. Returns the regions found.
+std::size_t LabelRegions(const Simulation::NavigationGrid& _grid, std::vector<std::uint32_t>& _regions)
+{
+  const std::int32_t width = _grid.WidthCells();
+  const std::int32_t depth = _grid.DepthCells();
+  std::size_t found = 0;
+  std::vector<std::pair<std::int32_t, std::int32_t>> open;
+  for (const auto& [navigationClass, name] : CLASS_NAMES)
+  {
+    _regions.assign(static_cast<std::size_t>(width) * static_cast<std::size_t>(depth), 0);
+    std::uint32_t next = 1;
+    const auto at = [width](std::int32_t _x, std::int32_t _z)
+    { return static_cast<std::size_t>(_z) * static_cast<std::size_t>(width) + static_cast<std::size_t>(_x); };
+    for (std::int32_t z = 0; z < depth; ++z)
+    {
+      for (std::int32_t x = 0; x < width; ++x)
+      {
+        if (_regions[at(x, z)] != 0 || !_grid.Usable(x, z, navigationClass))
+        {
+          continue;
+        }
+        _regions[at(x, z)] = next;
+        open.assign(1, {x, z});
+        while (!open.empty())
+        {
+          const auto [fromX, fromZ] = open.back();
+          open.pop_back();
+          const std::uint8_t links = _grid.Links(fromX, fromZ, navigationClass);
+          for (std::size_t direction = 0; direction < Simulation::NavigationGrid::NEIGHBORS.size(); ++direction)
+          {
+            const std::int32_t toX = fromX + Simulation::NavigationGrid::NEIGHBORS.at(direction)[0];
+            const std::int32_t toZ = fromZ + Simulation::NavigationGrid::NEIGHBORS.at(direction)[1];
+            if ((links & (1U << direction)) != 0 && _regions[at(toX, toZ)] == 0)
+            {
+              _regions[at(toX, toZ)] = next;
+              open.emplace_back(toX, toZ);
+            }
+          }
+        }
+        ++next;
+      }
+    }
+    found += next - 1;
+  }
+  return found;
+}
+
+/// How reach is known without searching the map (M2-F4): region labels over the whole map, which an
+/// edit anywhere makes the next search label again, against per-tile components, which an edit
+/// labels again only in the tiles whose links changed, joined at each query by the links between
+/// tiles. Both on the generated MVP map, for every class.
+void MeasureReach(Simulation::NavigationGrid& _grid, Simulation::ChunkStore& _store)
+{
+  std::println("Reach on the generated MVP map, every class:");
+  std::vector<std::uint32_t> regions;
+  std::size_t regionCount = 0;
+  const Timing labelling = Time(REPEATS, [&] { regionCount = LabelRegions(_grid, regions); });
+  std::println("  region labels, the whole map: {} regions, {:.2f} ms median, {:.2f} ms slowest", regionCount, labelling.medianMilliseconds,
+               labelling.slowestMilliseconds);
+  Clock::time_point start = Clock::now();
+  _grid.UpdateReach();
+  const double everyTile = MillisecondsSince(start);
+  std::size_t components = 0;
+  for (const auto& [navigationClass, name] : CLASS_NAMES)
+  {
+    components += _grid.Components(navigationClass);
+  }
+  std::println("  per-tile components, every tile: {} components in {:.2f} ms", components, everyTile);
+  // An edit's tiles labelled again: a masonry wall 4 m high across the middle tile, from its south
+  // edge to its north, raised and then taken down, each time rebuilding the tiles it touches and
+  // timing only UpdateReach after it. Region labels would label the whole map again instead.
+  constexpr std::uint8_t MASONRY = 6;
+  constexpr std::int32_t WALL_HEIGHT_VOXELS = 4;
+  const std::int32_t wallX =
+    (_grid.TilesAcross() / 2) * Simulation::NavigationGrid::TILE_EDGE_CELLS + Simulation::NavigationGrid::TILE_EDGE_CELLS / 2;
+  const std::int32_t wallZ = (_grid.TilesDeep() / 2) * Simulation::NavigationGrid::TILE_EDGE_CELLS;
+  std::vector<Protocol::VoxelPosition> wall;
+  for (std::int32_t z = wallZ; z < wallZ + Simulation::NavigationGrid::TILE_EDGE_CELLS; ++z)
+  {
+    const std::int16_t surface = _grid.WalkableHeight(wallX, z);
+    for (std::int32_t y = surface; surface != Simulation::NavigationGrid::NOT_WALKABLE && y < surface + WALL_HEIGHT_VOXELS; ++y)
+    {
+      if (_store.At({.xVoxels = wallX, .yVoxels = y, .zVoxels = z}) == 0)
+      {
+        wall.push_back({.xVoxels = wallX, .yVoxels = y, .zVoxels = z});
+      }
+    }
+  }
+  const std::vector<std::pair<std::int32_t, std::int32_t>> tiles = _grid.TilesTouchedBy(wall);
+  std::vector<double> times;
+  for (int repeat = 0; repeat < REPEATS; ++repeat)
+  {
+    for (const std::uint8_t index : {MASONRY, std::uint8_t{0}})
+    {
+      for (const Protocol::VoxelPosition& voxel : wall)
+      {
+        _store.Set(voxel, index);
+      }
+      for (const auto& [tileX, tileZ] : tiles)
+      {
+        _grid.RebuildTile(_store, tileX, tileZ);
+      }
+      start = Clock::now();
+      _grid.UpdateReach();
+      times.push_back(MillisecondsSince(start));
+    }
+  }
+  std::ranges::sort(times);
+  std::println("  per-tile components, a wall across one tile raised or taken down ({} tiles rebuilt): {:.3f} ms median, {:.3f} ms "
+               "slowest",
+               tiles.size(), times[times.size() / 2], times.back());
+  const std::int32_t width = _grid.WidthCells();
+  constexpr std::int32_t CORNER = 8;
+  const std::int64_t from = std::int64_t{CORNER} * width + CORNER;
+  const std::int64_t to = std::int64_t{width - CORNER} * width + (width - CORNER);
+  for (const auto& [navigationClass, name] : CLASS_NAMES)
+  {
+    std::int64_t nearest = 0;
+    const Timing query = Time(REPEATS, [&] { nearest = _grid.NearestReachable(from, to, navigationClass); });
+    std::println("  {} from ({}, {}) toward ({}, {}): reaches ({}, {}), {:.3f} ms median", name, from % width, from / width, to % width,
+                 to / width, nearest % width, nearest / width, query.medianMilliseconds);
   }
 }
 
@@ -279,7 +401,22 @@ int Run(const std::filesystem::path& _executable)
     const Simulation::TestWorld world = Simulation::BuildSeasonWorld(store, SEASON_WORLD_VOXELS, SEASON_HOLDINGS, SEED, data.Templates());
     Measure("The season world (2 km, 32 holdings)", store, world, MillisecondsSince(start), data);
   }
-  MeasureSearches(data);
+  {
+    Simulation::ChunkStore store;
+    GenerateMvpMap(store);
+    Simulation::NavigationGrid grid({.widthCells = Simulation::Generator::MAP_WIDTH_VOXELS,
+                                     .depthCells = Simulation::Generator::MAP_DEPTH_VOXELS,
+                                     .heightVoxels = Simulation::Generator::MAP_HEIGHT_VOXELS,
+                                     .climbVoxels = 1,
+                                     .rules = &data.Tuning()},
+                                    data.Materials());
+    const Clock::time_point rebuildStart = Clock::now();
+    grid.RebuildAll(store);
+    std::println("The generated MVP map: every navigation tile, with its classes and clearance, in {:.0f} ms",
+                 MillisecondsSince(rebuildStart));
+    MeasureSearches(grid);
+    MeasureReach(grid, store);
+  }
   return 0;
 }
 

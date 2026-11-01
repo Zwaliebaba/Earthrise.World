@@ -14,17 +14,19 @@ constexpr PathSearch::CellIndex NO_CELL = -1;
 
 } // namespace
 
-PathSearch::PathSearch(Protocol::EntityId _squad, NavigationClass _class, CellIndex _start, CellIndex _goal, std::int32_t _widthCells)
+PathSearch::PathSearch(Protocol::EntityId _squad, NavigationClass _class, CellIndex _start, CellIndex _goal, CellIndex _target,
+                       std::int32_t _widthCells)
   : m_squad(_squad),
     m_class(_class),
     m_start(_start),
     m_goal(_goal),
+    m_target(_target),
     m_widthCells(_widthCells),
     m_nearest(_start)
 {
-  if (m_widthCells <= 0 || m_start < 0)
+  if (m_widthCells <= 0 || m_start < 0 || m_target < 0)
   {
-    throw std::invalid_argument("a path search needs a grid and a start on it");
+    throw std::invalid_argument("a path search needs a grid, and a start and a target on it");
   }
   m_nodes.emplace(m_start, Node{.cost = 0, .parent = NO_CELL, .closed = false});
   m_open.insert({Heuristic(m_start), Heuristic(m_start), m_start});
@@ -39,7 +41,7 @@ std::int64_t PathSearch::Octile(CellIndex _from, CellIndex _to, std::int32_t _wi
 
 std::int64_t PathSearch::Heuristic(CellIndex _cell) const noexcept
 {
-  return Octile(_cell, m_goal, m_widthCells);
+  return Octile(_cell, m_target, m_widthCells);
 }
 
 std::uint32_t PathSearch::Advance(const NavigationGrid& _grid, std::uint32_t _budget)
@@ -63,7 +65,7 @@ std::uint32_t PathSearch::Advance(const NavigationGrid& _grid, std::uint32_t _bu
     {
       m_nearest = cell;
     }
-    if (cell == m_goal)
+    if (cell == m_target)
     {
       Finish(cell);
       break;
@@ -160,12 +162,18 @@ PathSearch::CellIndex PathSearch::Goal() const noexcept
   return m_goal;
 }
 
+PathSearch::CellIndex PathSearch::Target() const noexcept
+{
+  return m_target;
+}
+
 void PathSearch::Write(Core::ByteWriter& _writer) const
 {
   _writer.WriteU64(m_squad);
   _writer.WriteU8(static_cast<std::uint8_t>(m_class));
   _writer.WriteI64(m_start);
   _writer.WriteI64(m_goal);
+  _writer.WriteI64(m_target);
   _writer.WriteI32(m_widthCells);
   _writer.WriteI64(m_nearest);
   _writer.WriteU64(m_expanded);
@@ -198,8 +206,9 @@ PathSearch PathSearch::Read(Core::ByteReader& _reader)
   }
   const CellIndex start = _reader.ReadI64();
   const CellIndex goal = _reader.ReadI64();
+  const CellIndex target = _reader.ReadI64();
   const std::int32_t width = _reader.ReadI32();
-  PathSearch search(squad, static_cast<NavigationClass>(navigationClass), start, goal, width);
+  PathSearch search(squad, static_cast<NavigationClass>(navigationClass), start, goal, target, width);
   search.m_nodes.clear();
   search.m_open.clear();
   search.m_nearest = _reader.ReadI64();
