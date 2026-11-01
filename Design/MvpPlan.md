@@ -458,7 +458,7 @@ M3 is carried out as 24 work orders in seven phases, written out in [MvpPlan-M3.
 
 | Phase | PR | Commits | Notes |
 |---|---|---|---|
-| Plan | #45 | 1 | This revision, the work orders and ADR-019 to ADR-021, Proposed. |
+| Plan | #45 | 3 | This revision, the work orders and ADR-019 to ADR-021, Proposed: first numbered 018 to 020, renumbered when main took ADR-018 for line models (#44), and main merged in. |
 | A | #45 | 1 | The owner's 15 answers, every proposal taken, in the plan's PR because they edit the files it adds. |
 
 **What M3 inherits from M2** (written 2026-11-01, when M2's orders were done; its calendar and owner-hours forecast was dropped on closing M2, GameDesign.md, *No time logging*):

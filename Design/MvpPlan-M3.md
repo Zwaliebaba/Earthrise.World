@@ -470,7 +470,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 - **Changes:**
   - **`Tools/BakeContent.py --client`** writes `FontTable.h` from the glyph JSON; `Content.vcxproj`'s bake inputs and outputs name the JSON and the header.
   - **`Content/Font.h` and `.cpp`,** in the filter `Fonts`.
-  - **`Tools/CheckAssets.py`** gains check 12: the glyph file holds 127 glyphs, each row as wide as its glyph says, no code point twice, every row made of `.` and `#`, and the 15 symbols and 25 icons of Hud.md §9 present.
+  - **`Tools/CheckAssets.py`** gains check 13, after main's check 12 for line models: the glyph file holds 127 glyphs, each row as wide as its glyph says, no code point twice, every row made of `.` and `#`, and the 15 symbols and 25 icons of Hud.md §9 present.
   - **`Tools/TestCheckAssets.py`** and **`Tools/TestBakeContent.py`** gain the font: a broken glyph fails, and the baked rows of `1` are its bitmap.
 - **Tests:** **`FontTests`** (`ContentTests`): 127 glyphs in ascending code point; `FindGlyph(U'1')`'s rows are the seven known masks, with `topRow` 1 and `advancePixels` 6; `FindGlyph(U'$')` is null, since the font lacks it; every icon code point U+E000 to U+E018 is present and 9 wide.
 
