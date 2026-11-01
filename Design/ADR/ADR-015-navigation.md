@@ -1,10 +1,14 @@
 # ADR-015 — Navigation: one surface per column, classes by climb and clearance, rebuilt every tick
 
-**Status:** Proposed, 2026-11-01. It records the navigation model MvpPlan.md schedules for M2, on top of the tiles M1 built.
+**Status:** Accepted, 2026-11-01, by order M2-F1 ([MvpPlan-M2.md](../MvpPlan-M2.md)), which implements decisions 1 and 2's climb, headroom and fords in `Simulation::NavigationGrid`. Proposed the same day. It records the navigation model MvpPlan.md schedules for M2, on top of the tiles M1 built.
 - **The owner gave the go-ahead** on 2026-11-01 ([MvpPlan.md](../MvpPlan.md), M2, input 1; GameDesign.md, *M2's values*).
-- **The commit that first implements it** marks it Accepted (AGENTS.md §6).
+- **What the code fixed that the decision left unsaid** (M2-F1):
+  - **A run of R cells is R steps:** a link is open for a class when every window of R + 1 consecutive cells along the link's line that holds both of its ends rises or falls by at most 1 m over its walkable ground. For R = 1 that is M1's rule. Cells off the grid or with no surface are left out of a window.
+  - **A ford is the one voxel of water a surface may stand in,** as M1's surface rule already allows; a class wades it when its ford depth is at least 1, which every class's is.
+  - **Ground is rubble** when the voxel under the surface is rubble of either kind.
+  - **The margin** an edit's tiles widen by is the longest climb run or the widest class's clearance less one, whichever is larger: 3 cells for the MVP's classes.
 
-It fixes the model and leaves the search algorithm to the navigation orders, which choose it by measurement ([MvpPlan-M2.md](../MvpPlan-M2.md), phase F). Nothing implements the classes, the search or the movement yet.
+It fixes the model and leaves the search algorithm to the navigation orders, which choose it by measurement ([MvpPlan-M2.md](../MvpPlan-M2.md), phase F). M2-F1 implements the classes; the search and movement follow in phase F.
 
 ## Context
 

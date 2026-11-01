@@ -62,6 +62,7 @@
     <ClCompile Include="CascadeTests.cpp" />
     <ClCompile Include="SlumpTests.cpp" />
     <ClCompile Include="LooseMaterialTests.cpp" />
+    <ClCompile Include="NavigationClassTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

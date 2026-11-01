@@ -75,5 +75,8 @@
     <ClCompile Include="LooseMaterialTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="NavigationClassTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

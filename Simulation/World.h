@@ -7,6 +7,7 @@
 #include "EntityId.h"
 #include "Fixed.h"
 #include "FixedPosition.h"
+#include "NavigationGrid.h"
 #include "ServerData.h"
 #include "Shot.h"
 #include "VoxelWorld.h"
@@ -36,14 +37,6 @@ struct SubmittedCommand
 {
   std::uint8_t player;
   std::vector<std::byte> bytes;
-};
-
-/// How a unit moves: by its climb, headroom, width and fords (ADR-015, decision 2).
-enum class NavigationClass : std::uint8_t
-{
-  Foot,
-  Cavalry,
-  Machines
 };
 
 /// A squad: units that take orders together.
