@@ -66,12 +66,14 @@ struct Rules
   std::int32_t cavalryFordDepthVoxels;
   std::int32_t cavalryRubbleFactor;
   std::int32_t cavalryFordFactor;
+  Core::Fixed cavalrySpeedMetersPerTick; // the owner's, after M2's report: twice foot's
   std::int32_t machinesClimbRunCells;
   std::int32_t machinesHeadroomVoxels;
   std::int32_t machinesWidthVoxels;
   std::int32_t machinesFordDepthVoxels;
   std::int32_t machinesRubbleFactor;
   std::int32_t machinesFordFactor;
+  Core::Fixed machinesSpeedMetersPerTick; // the owner's, after M2's report: half foot's
 };
 
 } // namespace Simulation

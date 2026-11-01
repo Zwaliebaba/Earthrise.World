@@ -196,6 +196,8 @@ class ServerBakeTests(unittest.TestCase):
   def test_a_walking_speed_converts_to_fixed_point_a_tick(self):
     rules = self.file.Rules()
     self.assertEqual(4587, rules["footSpeedMetersPerTick"])
+    self.assertEqual(9175, rules["cavalrySpeedMetersPerTick"])
+    self.assertEqual(2293, rules["machinesSpeedMetersPerTick"])
     self.assertEqual(20, rules["warningBaseTicks"])
     self.assertEqual(1607, rules["gravityMetersPerTickSquared"])
     self.assertEqual(sorted(rules), list(rules))

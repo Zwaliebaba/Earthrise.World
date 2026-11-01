@@ -41,10 +41,11 @@ void Fill(Simulation::World& _world, Protocol::VoxelPosition _low, Protocol::Vox
   }
 }
 
-/// A foot squad standing in _cells, the lead first, ordered to _to.
-Protocol::EntityId Order(Simulation::World& _world, std::span<const Protocol::VoxelPosition> _cells, Protocol::VoxelPosition _to)
+/// A squad, foot unless _class says otherwise, standing in _cells, the lead first, ordered to _to.
+Protocol::EntityId Order(Simulation::World& _world, std::span<const Protocol::VoxelPosition> _cells, Protocol::VoxelPosition _to,
+                         Simulation::NavigationClass _class = Simulation::NavigationClass::Foot)
 {
-  const Protocol::EntityId squad = _world.AddSquad(PLAYER, Simulation::NavigationClass::Foot, _cells);
+  const Protocol::EntityId squad = _world.AddSquad(PLAYER, _class, _cells);
   Core::ByteWriter writer;
   Protocol::Encode(Protocol::MoveSquad{.squad = squad, .goalVoxels = _to}, writer);
   _world.Submit(PLAYER, writer.Bytes());
@@ -56,14 +57,14 @@ const Simulation::Unit& Lead(const Simulation::World& _world, Protocol::EntityId
   return _world.Units().at(_world.Squads().at(_squad).units.front());
 }
 
-/// The ticks a one-figure squad takes from (10, 20) to (24, 20), 14 m east, counting the tick its
-/// order arrives in.
-std::uint32_t TicksForFourteenMeters(Simulation::World& _world)
+/// The ticks a one-figure squad of _class takes from (10, 20) to (24, 20), 14 m east, counting the
+/// tick its order arrives in.
+std::uint32_t TicksForFourteenMeters(Simulation::World& _world, Simulation::NavigationClass _class = Simulation::NavigationClass::Foot)
 {
   const std::array<Protocol::VoxelPosition, 1> cells = {Cell(10, 20)};
-  const Protocol::EntityId squad = Order(_world, cells, Cell(24, 20));
+  const Protocol::EntityId squad = Order(_world, cells, Cell(24, 20), _class);
   const Simulation::FixedPosition goal = Simulation::CellFloorMiddle(Cell(24, 20));
-  for (std::uint32_t ticks = 1; ticks <= 4 * PLAIN_TICKS; ++ticks)
+  for (std::uint32_t ticks = 1; ticks <= 6 * PLAIN_TICKS; ++ticks)
   {
     _world.Tick();
     if (Lead(_world, squad).position == goal)
@@ -90,6 +91,16 @@ public:
     Simulation::World world(FlatWorld::Desc());
     const std::uint32_t ticks = TicksForFourteenMeters(world);
     Assert::IsTrue(ticks + 1 >= PLAIN_TICKS && ticks <= PLAIN_TICKS + 1);
+  }
+
+  TEST_METHOD(MovesCavalryAndMachinesAtTheirOwnSpeeds)
+  {
+    // Cavalry at 2.8 m/s, twice foot's, and machines at 0.7 m/s, half of it (the owner, after M2's
+    // report): 14 m in 101 ticks and in 401, each 9,175 and 2,293 raw a tick floored.
+    Simulation::World cavalry(FlatWorld::Desc());
+    Simulation::World machines(FlatWorld::Desc());
+    Assert::AreEqual(101U, TicksForFourteenMeters(cavalry, Simulation::NavigationClass::Cavalry));
+    Assert::AreEqual(401U, TicksForFourteenMeters(machines, Simulation::NavigationClass::Machines));
   }
 
   TEST_METHOD(TakesTwiceAsLongOnRubble)

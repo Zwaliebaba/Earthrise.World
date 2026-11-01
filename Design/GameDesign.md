@@ -313,7 +313,7 @@ The owner answered MvpPlan.md's thirteen M2 inputs, taking each proposal as writ
     | Cavalry | 1 m in 2 m | 3 m | 1 |
     | Machines | 1 m in 3 m | 4 m | 3 |
 
-    Every class fords one voxel of water. Rubble and fords halve speed. Foot moves at 1.4 m/s until M4's statistics.
+    Every class fords one voxel of water. Rubble and fords halve speed. Foot moves at 1.4 m/s until M4's statistics. Cavalry moves at 2.8 m/s and machines at 0.7 m/s, twice and half foot's (Decided 2026-11-01, after the [M2 report](Review/M2-2026-11-01.md), which found that the design gave them none).
 11. **A rubble breach is open to foot alone.** Settled earth and rubble lie at 45°, steeper than cavalry and machines climb. Men-at-arms storm up the rubble; rams go for gates.
 12. **The trebuchet's craters follow the paper tests' ladder:**
     - **Timber:** the voxel struck and its six face neighbours, timber only.

@@ -109,6 +109,8 @@ public:
   {
     const Simulation::Rules& rules = BakedServerData().Tuning();
     Assert::AreEqual(4587, rules.footSpeedMetersPerTick.Raw());
+    Assert::AreEqual(9175, rules.cavalrySpeedMetersPerTick.Raw());  // 2.8 m/s
+    Assert::AreEqual(2293, rules.machinesSpeedMetersPerTick.Raw()); // 0.7 m/s
     Assert::AreEqual(20, rules.warningBaseTicks);
     Assert::AreEqual(400, rules.shotReloadTicks);
     Assert::AreEqual(5, rules.timberSpanVoxels);

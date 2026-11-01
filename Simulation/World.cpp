@@ -424,9 +424,17 @@ void World::FormTrail(Squad& _squad)
 
 void World::Walk(Unit& _unit, const Squad& _squad, std::size_t _place, bool _holding)
 {
-  // Only foot has a speed in RULE (GameDesign.md, M2's values, item 10); cavalry and machines stand
-  // until the owner gives theirs.
-  const std::int64_t speed = _unit.navigationClass == NavigationClass::Foot ? Data().Tuning().footSpeedMetersPerTick.Raw() : 0;
+  // Each class's speed from RULE (GameDesign.md, M2's values, item 10).
+  const Rules& rules = Data().Tuning();
+  std::int64_t speed = rules.footSpeedMetersPerTick.Raw();
+  if (_unit.navigationClass == NavigationClass::Cavalry)
+  {
+    speed = rules.cavalrySpeedMetersPerTick.Raw();
+  }
+  else if (_unit.navigationClass == NavigationClass::Machines)
+  {
+    speed = rules.machinesSpeedMetersPerTick.Raw();
+  }
   const std::vector<PathSearch::CellIndex>& trail = _squad.trail;
   if (speed <= 0 || _unit.trailStep >= trail.size())
   {

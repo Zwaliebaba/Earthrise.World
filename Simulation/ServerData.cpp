@@ -32,7 +32,7 @@ struct RuleField
 
 // Every key the simulation reads, in ascending order, as the bake writes them. A key the file holds
 // and this table does not is refused, and so is one this table needs and the file lacks.
-constexpr std::array<RuleField, 41> RULE_FIELDS = {{
+constexpr std::array<RuleField, 43> RULE_FIELDS = {{
   {"bedrockCraterVoxels", &Rules::bedrockCraterVoxels, nullptr},
   {"buildingStoneCraterVoxels", &Rules::buildingStoneCraterVoxels, nullptr},
   {"buildingStoneSpanVoxels", &Rules::buildingStoneSpanVoxels, nullptr},
@@ -41,6 +41,7 @@ constexpr std::array<RuleField, 41> RULE_FIELDS = {{
   {"cavalryFordFactor", &Rules::cavalryFordFactor, nullptr},
   {"cavalryHeadroomVoxels", &Rules::cavalryHeadroomVoxels, nullptr},
   {"cavalryRubbleFactor", &Rules::cavalryRubbleFactor, nullptr},
+  {"cavalrySpeedMetersPerTick", nullptr, &Rules::cavalrySpeedMetersPerTick},
   {"cavalryWidthVoxels", &Rules::cavalryWidthVoxels, nullptr},
   {"commonRockCraterVoxels", &Rules::commonRockCraterVoxels, nullptr},
   {"commonRockSpanVoxels", &Rules::commonRockSpanVoxels, nullptr},
@@ -61,6 +62,7 @@ constexpr std::array<RuleField, 41> RULE_FIELDS = {{
   {"machinesFordFactor", &Rules::machinesFordFactor, nullptr},
   {"machinesHeadroomVoxels", &Rules::machinesHeadroomVoxels, nullptr},
   {"machinesRubbleFactor", &Rules::machinesRubbleFactor, nullptr},
+  {"machinesSpeedMetersPerTick", nullptr, &Rules::machinesSpeedMetersPerTick},
   {"machinesWidthVoxels", &Rules::machinesWidthVoxels, nullptr},
   {"pathNodesPerTick", &Rules::pathNodesPerTick, nullptr},
   {"shotLaunchHeightVoxels", &Rules::shotLaunchHeightVoxels, nullptr},
