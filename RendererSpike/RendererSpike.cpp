@@ -27,13 +27,17 @@
 // built from the simulation's snapshots and 0.5 m models in the same pass, at a render scale of its
 // own, scaled to the window. The look and the v5 test scene follow, one task at a time.
 //
+// It starts borderless over the whole monitor (ADR-011, decision 1), and Alt+Enter switches between
+// that and a window. `--windowed` starts it in a window.
+//
 // `--render-scale 0.75` draws the scene at three quarters of the window's size in each direction;
 // the default is 1 (ADR-011, decision 3).
 //
-// `--measure` flies the scripted camera path once at 1920 x 1080 without waiting for the vertical
-// blank, with an edit published each second, and writes what it measured as CSV beside the
-// executable, in Measurements\, before it exits (MvpPlan.md, M1 task 10; GameDesign.md, *Starting
-// the MVP*).
+// `--measure` flies the scripted camera path once without waiting for the vertical blank, with an
+// edit published each second, and writes what it measured as CSV beside the executable, in
+// Measurements\, before it exits (MvpPlan.md, M1 task 10; GameDesign.md, *Starting the MVP*). Its
+// scene draws at the pass mark's 1920 x 1080 times the render scale, whatever the display's size,
+// and is scaled to the display (the owner's choice of 2026-11-01).
 
 namespace
 {
@@ -97,7 +101,22 @@ struct Options
 {
   float renderScale;
   bool measure;
+  bool windowed;
 };
+
+/// The scene's size for a display _display pixels across: the render scale of the display, or for
+/// a measured run of the pass mark's 1920 x 1080, so that the voxel pass does the pass mark's work
+/// on any monitor.
+Engine::Window::Size RenderSize(const Options& _options, const Engine::Window::Size& _display) noexcept
+{
+  if (_options.measure)
+  {
+    return {.widthPixels = Engine::ScaledPixels(Spike::Measurement::PASS_MARK_WIDTH_PIXELS, _options.renderScale),
+            .heightPixels = Engine::ScaledPixels(Spike::Measurement::PASS_MARK_HEIGHT_PIXELS, _options.renderScale)};
+  }
+  return {.widthPixels = Engine::ScaledPixels(_display.widthPixels, _options.renderScale),
+          .heightPixels = Engine::ScaledPixels(_display.heightPixels, _options.renderScale)};
+}
 
 /// An edit published but not yet seen on screen.
 struct PendingEdit
@@ -314,19 +333,14 @@ int Run(const Options& _options)
 {
   const float renderScale = _options.renderScale;
   const bool measure = _options.measure;
-  // The window's size is asked for at 96 DPI, so a measured run asks for the pass mark's pixels at
-  // the system's DPI.
-  const auto atSystemDpi = [](std::uint32_t _pixels)
-  { return static_cast<std::uint32_t>(MulDiv(static_cast<int>(_pixels), 96, static_cast<int>(GetDpiForSystem()))); };
-  Engine::Window window({.title = TITLE,
-                         .clientWidthPixels = measure ? atSystemDpi(Spike::Measurement::PASS_MARK_WIDTH_PIXELS) : 1280,
-                         .clientHeightPixels = measure ? atSystemDpi(Spike::Measurement::PASS_MARK_HEIGHT_PIXELS) : 720});
+  Engine::Window window({.title = TITLE, .clientWidthPixels = 1280, .clientHeightPixels = 720, .fullScreen = !_options.windowed});
   Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = false});
   Engine::SwapChain swapChain(device, window.Handle());
   // The scene draws at the render scale, and its depth with it (ADR-011, decision 3).
-  Engine::ColorTarget sceneColor(device.Device(), {.format = SCENE_FORMAT, .clearColor = CLEAR_COLOR},
-                                 Engine::ScaledPixels(swapChain.WidthPixels(), renderScale),
-                                 Engine::ScaledPixels(swapChain.HeightPixels(), renderScale));
+  const Engine::Window::Size firstRenderSize =
+    RenderSize(_options, {.widthPixels = swapChain.WidthPixels(), .heightPixels = swapChain.HeightPixels()});
+  Engine::ColorTarget sceneColor(device.Device(), {.format = SCENE_FORMAT, .clearColor = CLEAR_COLOR}, firstRenderSize.widthPixels,
+                                 firstRenderSize.heightPixels);
   Engine::DepthTarget depth(device.Device(), sceneColor.WidthPixels(), sceneColor.HeightPixels());
   Engine::FrameRing frames(device.Device(), device.DirectQueue());
   Engine::UploadRing ring(device.Device(), UPLOAD_RING_BYTES);
@@ -381,6 +395,11 @@ int Run(const Options& _options)
       pointer.ReleaseAll();
       keyboard.ReleaseAll();
     }
+    // Alt+Enter switches between borderless full screen and a window (ADR-011, decision 1).
+    if (keyboard.WasPressed(VK_RETURN) && keyboard.IsDown(VK_MENU))
+    {
+      window.SetFullScreen(!window.IsFullScreen());
+    }
     const Engine::Window::Size size = window.ClientSize();
     if (size.widthPixels == 0 || size.heightPixels == 0)
     {
@@ -392,7 +411,8 @@ int Run(const Options& _options)
     {
       device.DirectQueue().Flush();
       swapChain.Resize(size.widthPixels, size.heightPixels);
-      sceneColor.Resize(Engine::ScaledPixels(size.widthPixels, renderScale), Engine::ScaledPixels(size.heightPixels, renderScale));
+      const Engine::Window::Size renderSize = RenderSize(_options, size);
+      sceneColor.Resize(renderSize.widthPixels, renderSize.heightPixels);
       depth.Resize(sceneColor.WidthPixels(), sceneColor.HeightPixels());
       upscale.SetSource(sceneColor.Texture());
       resizedDuringRun = resizedDuringRun || (measure && pathFrame > 0);
@@ -600,7 +620,9 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
   try
   {
     const std::wstring_view commandLine = _commandLine != nullptr ? _commandLine : L"";
-    return Run({.renderScale = RenderScaleFrom(commandLine), .measure = HasFlag(commandLine, L"--measure")});
+    return Run({.renderScale = RenderScaleFrom(commandLine),
+                .measure = HasFlag(commandLine, L"--measure"),
+                .windowed = HasFlag(commandLine, L"--windowed")});
   }
   catch (const winrt::hresult_error& error)
   {
