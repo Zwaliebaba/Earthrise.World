@@ -9,7 +9,8 @@ namespace Content
 {
 
 /// A baked voxel shape: a box of palette indices (ADR-005, decision 5), trimmed to its occupied voxels, so that their
-/// minimum corner is the origin (ADR-005, decision 2). y is up and +z is the front, as in the layer files.
+/// minimum corner is the origin (ADR-005, decision 2). y is up and +z is the front, as in the layer files, and x is the
+/// layer file's mirrored, so that the shape looks as drawn in the world's left-handed frame (ADR-017).
 struct VoxelGrid
 {
   static constexpr std::uint8_t EMPTY = 0;
@@ -19,7 +20,7 @@ struct VoxelGrid
   std::uint32_t depthVoxels;  // along z
   /// 1000 on the world grid and 500 for a model (ADR-006). An integer, so that it hashes exactly (ADR-008, decision 5).
   std::uint32_t voxelEdgeMillimeters;
-  /// One palette index per voxel, x fastest, then z, then y, as a layer file's layers[y][z][x]; EMPTY where none is.
+  /// One palette index per voxel, x fastest, then z, then y; EMPTY where none is.
   std::span<const std::uint8_t> indices;
 
   /// The palette index at a position counted in voxels from the origin. Throws std::out_of_range outside the grid.

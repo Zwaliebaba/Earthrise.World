@@ -9,7 +9,9 @@ namespace
 {
 
 // The v5 scene's frame (Design/Reference/SiegePrototypeV2/reference, "Earthrise Siege Scene v5"),
-// in its own 128 m square: the castle's ground at 15 m, and the castle's middle at (74, 61).
+// in its own 128 m square: the castle's ground at 15 m, and the castle's middle at (74, 61). Its +z
+// is south, and Site mirrors it into the world, whose +z is north (ADR-017), so the scene's numbers
+// are the prototype's own.
 constexpr std::int32_t SCENE = TestWorld::SCENE_EDGE_VOXELS;
 constexpr std::int32_t HEIGHT = TestWorld::HEIGHT_VOXELS;
 constexpr std::int32_t G = TestWorld::CASTLE_GROUND_VOXELS;
@@ -34,9 +36,11 @@ constexpr std::uint8_t FIELD_B = 14;
 constexpr std::uint8_t ROAD = 15;
 constexpr std::uint8_t OPENING = 20;
 
-// The section of the west curtain that collapses: the one just north of the breach.
+// The section of the west curtain that collapses: the one just north of the breach, at the scene's
+// lower z.
 constexpr std::int32_t COLLAPSE_X_VOXELS = 58;
-constexpr std::int32_t COLLAPSE_Z_VOXELS = 66;
+constexpr std::int32_t COLLAPSE_Z_VOXELS = 50;
+constexpr std::int32_t SECTION_LENGTH_VOXELS = 8; // a T3 section along the wall
 // Quarrying digs no lower than this, so a quarry keeps a floor above the bedrock.
 constexpr std::int32_t QUARRY_FLOOR_VOXELS = 4;
 // The collapse's rubble heap is at most this high above the castle's ground.
@@ -148,7 +152,8 @@ std::int64_t RiverX(std::int32_t _z) noexcept
 // ── Writing into the store ────────────────────────────────────────────────────────────────────
 
 /// Where one copy of the v5 scene stands in a world: its 128 m square's corner. It draws in the
-/// scene's own coordinates, and counts what it changes.
+/// scene's own coordinates, mirrored north to south into the world's (ADR-017), and counts what it
+/// changes.
 class Site
 {
 public:
@@ -164,7 +169,7 @@ public:
   void Set(std::int32_t _x, std::int32_t _y, std::int32_t _z, std::uint8_t _index) const
   {
     const std::int32_t x = _x + m_originX;
-    const std::int32_t z = _z + m_originZ;
+    const std::int32_t z = WorldZ(_z);
     if (x >= 0 && x < m_world.edgeVoxels && z >= 0 && z < m_world.edgeVoxels && _y >= 0 && _y < HEIGHT)
     {
       const Protocol::VoxelPosition position{.xVoxels = x, .yVoxels = _y, .zVoxels = z};
@@ -179,7 +184,7 @@ public:
   [[nodiscard]] std::uint8_t At(std::int32_t _x, std::int32_t _y, std::int32_t _z) const
   {
     const std::int32_t x = _x + m_originX;
-    const std::int32_t z = _z + m_originZ;
+    const std::int32_t z = WorldZ(_z);
     if (x < 0 || x >= m_world.edgeVoxels || z < 0 || z >= m_world.edgeVoxels || _y < 0 || _y >= HEIGHT)
     {
       return 0;
@@ -206,10 +211,15 @@ public:
   /// The generated surface under a column of the scene.
   [[nodiscard]] std::int32_t Height(std::int32_t _x, std::int32_t _z) const
   {
-    return m_world.SurfaceAt(_x + m_originX, _z + m_originZ);
+    return m_world.SurfaceAt(_x + m_originX, WorldZ(_z));
   }
 
 private:
+  [[nodiscard]] std::int32_t WorldZ(std::int32_t _z) const noexcept
+  {
+    return m_originZ + SCENE - 1 - _z;
+  }
+
   ChunkStore& m_store;
   const TestWorld& m_world;
   std::int32_t m_originX;
@@ -245,12 +255,15 @@ std::pair<std::int32_t, std::int32_t> Turned(std::int32_t _x, std::int32_t _z, s
   }
 }
 
-/// Stamps a template with its turned footprint's minimum corner at the voxel given. Its front, +z
-/// as authored, faces +z, +x, -z or -x after none to three quarter turns.
+/// Stamps a template with its turned footprint's minimum corner at the scene's voxel given. Its
+/// front faces the scene's +z, +x, -z or -x after none to three quarter turns. The template is turned
+/// in the world's frame, not mirrored with the scene, so it stands as drawn (ADR-017).
 void Place(const Site& _site, const TemplateShape& _shape, std::int32_t _x, std::int32_t _y, std::int32_t _z, std::uint32_t _quarterTurns)
 {
   const auto width = static_cast<std::int32_t>(_shape.widthVoxels);
   const auto depth = static_cast<std::int32_t>(_shape.depthVoxels);
+  const std::uint32_t worldTurns = TestWorld::WorldQuarterTurns(_quarterTurns);
+  const std::int32_t turnedDepth = worldTurns % 2 == 0 ? depth : width;
   for (std::uint32_t y = 0; y < _shape.heightVoxels; ++y)
   {
     for (std::int32_t z = 0; z < depth; ++z)
@@ -260,8 +273,9 @@ void Place(const Site& _site, const TemplateShape& _shape, std::int32_t _x, std:
         const std::uint8_t index = _shape.At(static_cast<std::uint32_t>(x), y, static_cast<std::uint32_t>(z));
         if (index != 0)
         {
-          const auto [turnedX, turnedZ] = Turned(x, z, width, depth, _quarterTurns);
-          _site.Set(_x + turnedX, _y + static_cast<std::int32_t>(y), _z + turnedZ, index);
+          // Turned in the world, then taken back to the scene's z, which Site mirrors again.
+          const auto [turnedX, turnedZ] = Turned(x, z, width, depth, worldTurns);
+          _site.Set(_x + turnedX, _y + static_cast<std::int32_t>(y), _z + turnedDepth - 1 - turnedZ, index);
         }
       }
     }
@@ -295,7 +309,7 @@ void BuildGround(ChunkStore& _store, TestWorld& _world, std::uint64_t _seed, std
     for (std::int32_t worldX = 0; worldX < edge; ++worldX)
     {
       const std::int32_t x = worldX - _world.sceneXVoxels;
-      const std::int32_t z = worldZ - _world.sceneZVoxels;
+      const std::int32_t z = SCENE - 1 - (worldZ - _world.sceneZVoxels);
       heights[column(worldX, worldZ)] = 6 * ONE + 6 * Fbm(Scaled(x, 35), Scaled(z, 35), 1, _seed);
     }
   }
@@ -303,7 +317,7 @@ void BuildGround(ChunkStore& _store, TestWorld& _world, std::uint64_t _seed, std
   for (const SiteOrigin& site : _sites)
   {
     const std::int32_t castleX = site.xVoxels + CASTLE_X_VOXELS;
-    const std::int32_t castleZ = site.zVoxels + CASTLE_Z_VOXELS;
+    const std::int32_t castleZ = site.zVoxels + SCENE - 1 - CASTLE_Z_VOXELS;
     for (std::int32_t worldZ = std::max(0, castleZ - PLATEAU_EDGE_VOXELS); worldZ <= std::min(edge - 1, castleZ + PLATEAU_EDGE_VOXELS);
          ++worldZ)
     {
@@ -323,7 +337,7 @@ void BuildGround(ChunkStore& _store, TestWorld& _world, std::uint64_t _seed, std
     for (std::int32_t worldX = 0; worldX < edge; ++worldX)
     {
       const std::int32_t x = worldX - _world.sceneXVoxels;
-      const std::int32_t z = worldZ - _world.sceneZVoxels;
+      const std::int32_t z = SCENE - 1 - (worldZ - _world.sceneZVoxels);
       std::int64_t height = heights[column(worldX, worldZ)];
       const std::int64_t fromRiver = std::abs(x * ONE - RiverX(z));
       if (fromRiver < 9 * ONE)
@@ -352,15 +366,15 @@ void BuildGround(ChunkStore& _store, TestWorld& _world, std::uint64_t _seed, std
   }
 }
 
-/// The body of building stone under the ground north of the castle, and whether a column of it is
+/// The body of building stone under the ground south of the castle, and whether a column of it is
 /// within the body: the quarry's stone and where it is dug.
 bool InQuarryBody(std::int32_t _x, std::int32_t _z) noexcept
 {
   return Length((_x - 74) * ONE * 2 / 3, (_z - 93) * ONE) <= 17 * ONE;
 }
 
-/// The terraced quarry: a body of building stone under the ground north of the castle, a pit cut in
-/// steps of 2 m with a ramp down its south side, and the quarry yard beside it.
+/// The terraced quarry: a body of building stone under the ground south of the castle, a pit cut in
+/// steps of 2 m with a ramp down its north side, and the quarry yard beside it.
 void BuildQuarry(const Site& _site, const TemplateLookup& _templates, std::uint64_t _seed)
 {
   for (std::int32_t z = 76; z < 118; ++z)
@@ -417,7 +431,7 @@ void BuildQuarry(const Site& _site, const TemplateLookup& _templates, std::uint6
   Place(_site, yard, YARD_X, yardBase, YARD_Z, 3);
 }
 
-/// The road from the gate to the scene's east edge, and the fields to the north-east.
+/// The road from the gate to the scene's east edge, and the fields to the south-east.
 void BuildRoadAndFields(const Site& _site, std::uint64_t _seed)
 {
   for (std::int32_t x = 93; x < SCENE; ++x)
@@ -503,10 +517,10 @@ void BuildCastle(const Site& _site, const TemplateLookup& _templates)
   }
   for (const std::int32_t x : {63, 71, 79})
   {
-    Place(_site, wall, x, G, 76, 0); // north
-    Place(_site, wall, x, G, 45, 2); // south
+    Place(_site, wall, x, G, 76, 0); // south
+    Place(_site, wall, x, G, 45, 2); // north
   }
-  // East: a section each side of the gatehouse. The southern one overlaps the tower by a meter,
+  // East: a section each side of the gatehouse. The northern one overlaps the tower by a meter,
   // because the gatehouse leaves 15 m for two 8 m sections.
   Place(_site, wall, 89, G, 49, 1);
   Place(_site, wall, 89, G, 66, 1);
@@ -619,13 +633,15 @@ void BuildTree(const Site& _site, std::int32_t _x, std::int32_t _z, std::int32_t
   }
 }
 
-/// The forest, in 1 m world voxels as ADR-006 puts trees. In the v5 scene's square: west and south
-/// of the castle and along the north-west, clear of the castle, the river, the fields and the
-/// attackers' camp. Beyond the square, wherever the same noise allows, clear of the river.
+/// The forest, in 1 m world voxels as ADR-006 puts trees. In the v5 scene's square: north-west and
+/// south-west of the castle, clear of the castle, the river, the fields and the attackers' camp.
+/// Beyond the square, wherever the same noise allows, clear of the river. It keeps 2 m from the
+/// world's edge.
 void BuildForest(const Site& _site, std::int32_t _edgeVoxels, std::int32_t _sceneX, std::int32_t _sceneZ, std::uint64_t _seed)
 {
-  for (std::int32_t z = 2 - _sceneZ; z < _edgeVoxels - 2 - _sceneZ; ++z)
+  for (std::int32_t worldZ = 2; worldZ < _edgeVoxels - 2; ++worldZ)
   {
+    const std::int32_t z = SCENE - 1 - (worldZ - _sceneZ);
     for (std::int32_t x = 2 - _sceneX; x < _edgeVoxels - 2 - _sceneX; ++x)
     {
       const bool inScene = x >= 2 && x < 120 && z >= 2 && z < 122;
@@ -703,6 +719,26 @@ void DigQuarry(const Site& _site, std::uint64_t _voxels)
 
 } // namespace
 
+std::int32_t TestWorld::WorldXVoxels(std::int32_t _sceneXVoxels) const noexcept
+{
+  return sceneXVoxels + _sceneXVoxels;
+}
+
+std::int32_t TestWorld::WorldZVoxels(std::int32_t _sceneZVoxels) const noexcept
+{
+  return sceneZVoxels + SCENE - 1 - _sceneZVoxels;
+}
+
+float TestWorld::WorldXMeters(float _sceneXMeters) const noexcept
+{
+  return static_cast<float>(sceneXVoxels) + _sceneXMeters;
+}
+
+float TestWorld::WorldZMeters(float _sceneZMeters) const noexcept
+{
+  return static_cast<float>(sceneZVoxels + SCENE) - _sceneZMeters;
+}
+
 std::int32_t TestWorld::SurfaceAt(std::int32_t _x, std::int32_t _z) const
 {
   const std::int32_t x = std::clamp(_x, 0, edgeVoxels - 1);
@@ -712,12 +748,12 @@ std::int32_t TestWorld::SurfaceAt(std::int32_t _x, std::int32_t _z) const
 
 float TestWorld::CastleXMeters() const noexcept
 {
-  return static_cast<float>(sceneXVoxels + CASTLE_X_VOXELS);
+  return static_cast<float>(WorldXVoxels(CASTLE_X_VOXELS));
 }
 
 float TestWorld::CastleZMeters() const noexcept
 {
-  return static_cast<float>(sceneZVoxels + CASTLE_Z_VOXELS);
+  return static_cast<float>(WorldZVoxels(CASTLE_Z_VOXELS));
 }
 
 TestWorld BuildTestWorld(ChunkStore& _store, std::int32_t _edgeVoxels, std::uint64_t _seed, const TemplateLookup& _templates)
@@ -862,7 +898,7 @@ TestWorldEdits::TestWorldEdits(const ChunkStore& _store, const TestWorld& _world
     m_sceneZVoxels(_world.sceneZVoxels),
     m_collapseId(Mix(_seed ^ Mix(COLLAPSE_FRAME)))
 {
-  // The quarry's columns: the stone body north of the castle, clear of the castle's north towers
+  // The quarry's columns: the stone body south of the castle, clear of the castle's south towers
   // and of the quarry yard, in world coordinates.
   for (std::int32_t z = 82; z < 118; ++z)
   {
@@ -872,14 +908,14 @@ TestWorldEdits::TestWorldEdits(const ChunkStore& _store, const TestWorld& _world
       {
         continue;
       }
-      const std::int32_t worldX = x + m_sceneXVoxels;
-      const std::int32_t worldZ = z + m_sceneZVoxels;
+      const std::int32_t worldX = _world.WorldXVoxels(x);
+      const std::int32_t worldZ = _world.WorldZVoxels(z);
       m_quarry.push_back({.xVoxels = worldX, .zVoxels = worldZ, .topVoxels = TopSolidAtOrBelow(_store, worldX, worldZ, HEIGHT - 1)});
     }
   }
   // A seeded order, which breaks ties between columns of equal height, so each layer goes in a
-  // scatter rather than a sweep. The order is of the scene's own coordinates, so it is the same
-  // wherever the scene stands.
+  // scatter rather than a sweep. The order is of coordinates within the scene's square, so it is the
+  // same wherever the scene stands.
   std::ranges::sort(m_quarry, {},
                     [this, _seed](const Column& _column)
                     {
@@ -946,12 +982,13 @@ std::vector<Protocol::VoxelPosition> TestWorldEdits::Collapse(ChunkStore& _store
   // The section falls: every voxel it still has goes, and as much stone rubble is heaped at its
   // foot outside, highest by the wall.
   std::vector<Protocol::VoxelPosition> changed;
+  // The section's world corner: its scene z mirrored, so its highest scene z is its lowest world z.
   const std::int32_t sectionX = COLLAPSE_X_VOXELS + m_sceneXVoxels;
-  const std::int32_t sectionZ = COLLAPSE_Z_VOXELS + m_sceneZVoxels;
+  const std::int32_t sectionZ = m_sceneZVoxels + SCENE - (COLLAPSE_Z_VOXELS + SECTION_LENGTH_VOXELS);
   std::uint32_t fallen = 0;
   for (std::int32_t y = G; y < G + 7; ++y)
   {
-    for (std::int32_t z = sectionZ; z < sectionZ + 8; ++z)
+    for (std::int32_t z = sectionZ; z < sectionZ + SECTION_LENGTH_VOXELS; ++z)
     {
       for (std::int32_t x = sectionX; x < sectionX + 2; ++x)
       {

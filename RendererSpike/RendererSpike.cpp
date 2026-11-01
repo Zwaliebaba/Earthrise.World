@@ -60,11 +60,13 @@ constexpr std::uint64_t UPLOAD_RING_BYTES = std::uint64_t{32} * 1024 * 1024;
 
 // The Golden preset (RendererLook.md §6): its clear colour #d6ccba in linear values, because the
 // view that is cleared is sRGB and encodes on write, its sun direction, towards the light, and its
-// lights. Their intensities are three.js r160's physical ones: r160 divides its Lambert term by pi
-// and no longer scales its lights by pi (WebGLRenderer.useLegacyLights is false), so they are
-// divided by pi here, as RendererLook.md expected.
+// lights. The direction is the prototype's (-90, 75, 55) with z negated, because the prototype's
+// +z is south and the world's is north (ADR-017): the sun stands to the south-west. The
+// intensities are three.js r160's physical ones: r160 divides its Lambert term by pi and no longer
+// scales its lights by pi (WebGLRenderer.useLegacyLights is false), so they are divided by pi
+// here, as RendererLook.md expected.
 constexpr std::array<float, 4> CLEAR_COLOR = {0.6724F, 0.6038F, 0.4910F, 1.0F};
-constexpr std::array<float, 3> SUN_TOWARDS = {-90.0F, 75.0F, 55.0F};
+constexpr std::array<float, 3> SUN_TOWARDS = {-90.0F, 75.0F, -55.0F};
 constexpr std::uint32_t SUN_SRGB = 0xffd8a6;
 constexpr float SUN_INTENSITY = 2.7F;
 constexpr std::uint32_t SKY_SRGB = 0xd4dbe6;

@@ -6,9 +6,10 @@ GameData/Server/Templates/, every model in GameData/Client/Models/, and the shar
 
 The client view of a template (ADR-008, decision 2) is its id and display name, its size in voxels after trimming
 the empty padding, so that the occupied voxels' minimum corner is its origin (ADR-005, decision 2), its voxel edge in
-millimetres, one palette index per voxel in layer-file order (x fastest, then z, then y; 0 is empty), and its counted
-cost in m3 of stone and of timber (ADR-005, decision 7). The cost is counted by Tools/CheckAssets.py's own code, so
-the bake and the asset check cannot disagree on it. Nothing server-only goes in, and check 9 of the asset check
+millimetres, one palette index per voxel (x fastest, then z, then y; 0 is empty) with x mirrored from the layer file,
+so that the shape looks as drawn in the world's frame (ADR-017), and its counted cost in m3 of stone and of timber
+(ADR-005, decision 7). The cost is counted by Tools/CheckAssets.py's own code, so the bake and the asset check cannot
+disagree on it. Nothing server-only goes in, and check 9 of the asset check
 searches what this writes for it. A model's view is the same without the cost (ADR-005, decision 8). Both tables are
 in ascending id, compared byte by byte.
 
@@ -65,7 +66,7 @@ class View:
     self.name = _name
     self.width, self.height, self.depth = _size
     self.edgeMillimeters = _edgeMillimeters
-    self.indices = _indices  # bytes, x fastest, then z, then y
+    self.indices = _indices  # bytes, x fastest, then z, then y, mirrored in x from the layer file (ADR-017)
     self.cost = _cost  # (stone m3, timber m3), or None for a model
 
 
@@ -148,9 +149,11 @@ def ReadView(_report, _path, _palette, _isTemplate):
   low = [min(position[axis] for position in asset.voxels) for axis in range(3)]
   size = [max(position[axis] for position in asset.voxels) - low[axis] + 1 for axis in range(3)]
   width, height, depth = size
+  # Mirrored in x: a layer file is drawn in the prototype's right-handed frame and the world is left-handed, so
+  # the mirror keeps its front +z and makes it look as drawn (ADR-017).
   indices = bytearray(width * height * depth)
   for (x, y, z), index in asset.voxels.items():
-    indices[(x - low[0]) + width * ((z - low[2]) + depth * (y - low[1]))] = index
+    indices[(width - 1 - (x - low[0])) + width * ((z - low[2]) + depth * (y - low[1]))] = index
 
   cost = None
   if _isTemplate:
@@ -250,7 +253,7 @@ def PaletteHeader(_look):
 
 
 def IndicesArray(_name, _view):
-  """The view's indices as a constexpr array, one row of x per line, as the layer file holds them."""
+  """The view's indices as a constexpr array, one row of x per line, each the layer file's row reversed."""
   lines = []
   for y in range(_view.height):
     lines.append(f"  // y = {y}")
