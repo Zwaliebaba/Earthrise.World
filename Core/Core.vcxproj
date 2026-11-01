@@ -42,6 +42,7 @@
     <ClCompile Include="Fixed.cpp" />
     <ClInclude Include="IntegerMath.h" />
     <ClCompile Include="IntegerMath.cpp" />
+    <ClInclude Include="SplitMix64.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

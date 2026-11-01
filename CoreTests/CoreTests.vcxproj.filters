@@ -27,5 +27,8 @@
     <ClCompile Include="IntegerMathTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="SplitMix64Tests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

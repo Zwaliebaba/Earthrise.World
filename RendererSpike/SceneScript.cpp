@@ -3,6 +3,7 @@
 #include "SceneScript.h"
 
 #include "Catalog.h"
+#include "SplitMix64.h"
 
 namespace RendererSpike
 {
@@ -19,20 +20,11 @@ constexpr float WALK_METERS_PER_SECOND = 1.4F;
 // How far above where it stands a walker may climb, so that a loop past a wall stays on the ground.
 constexpr std::int32_t WALK_CLIMB_VOXELS = 3;
 
-// SplitMix64's finalizer, for scattering units from the seed.
-constexpr std::uint64_t Mix(std::uint64_t _value) noexcept
-{
-  _value += 0x9e3779b97f4a7c15ULL;
-  _value = (_value ^ (_value >> 30)) * 0xbf58476d1ce4e5b9ULL;
-  _value = (_value ^ (_value >> 27)) * 0x94d049bb133111ebULL;
-  return _value ^ (_value >> 31);
-}
-
 /// A hash of two integers and a salt, as a float from 0 to 1.
 float Hash01(std::int64_t _x, std::int64_t _z, std::uint64_t _salt, std::uint64_t _seed) noexcept
 {
   const std::uint64_t key = static_cast<std::uint64_t>(_x) ^ (static_cast<std::uint64_t>(_z) << 32);
-  return static_cast<float>(Mix(_seed ^ Mix(_salt ^ Mix(key))) & 0xffffU) / 65536.0F;
+  return static_cast<float>(Core::KeyedDraw(_seed, _salt, key) & 0xffffU) / 65536.0F;
 }
 
 const Content::ModelView& Model(std::string_view _id)

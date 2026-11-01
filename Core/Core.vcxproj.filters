@@ -13,6 +13,9 @@
     <Filter Include="Numbers">
       <UniqueIdentifier>{A8001BDE-8619-585F-9476-ACF8EC70A206}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Randomness">
+      <UniqueIdentifier>{57DE9752-1A50-5732-BB53-5B76381EDECE}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -45,5 +48,8 @@
     <ClCompile Include="IntegerMath.cpp">
       <Filter>Numbers</Filter>
     </ClCompile>
+    <ClInclude Include="SplitMix64.h">
+      <Filter>Randomness</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

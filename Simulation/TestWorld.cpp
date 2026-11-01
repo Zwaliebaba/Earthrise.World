@@ -2,6 +2,8 @@
 
 #include "TestWorld.h"
 
+#include "SplitMix64.h"
+
 namespace Simulation
 {
 
@@ -59,20 +61,11 @@ constexpr std::int32_t HEAP_HEIGHT_VOXELS = 4;
 
 constexpr std::int64_t ONE = std::int64_t{1} << 16;
 
-// SplitMix64's finalizer.
-constexpr std::uint64_t Mix(std::uint64_t _value) noexcept
-{
-  _value += 0x9e3779b97f4a7c15ULL;
-  _value = (_value ^ (_value >> 30)) * 0xbf58476d1ce4e5b9ULL;
-  _value = (_value ^ (_value >> 27)) * 0x94d049bb133111ebULL;
-  return _value ^ (_value >> 31);
-}
-
 /// A hash of two integers and a salt, from 0 up to ONE.
 std::int64_t Hash(std::int64_t _x, std::int64_t _z, std::uint64_t _salt, std::uint64_t _seed) noexcept
 {
   const std::uint64_t key = static_cast<std::uint64_t>(_x) ^ (static_cast<std::uint64_t>(_z) << 32);
-  return static_cast<std::int64_t>(Mix(_seed ^ Mix(_salt ^ Mix(key))) & static_cast<std::uint64_t>(ONE - 1));
+  return static_cast<std::int64_t>(Core::KeyedDraw(_seed, _salt, key) & static_cast<std::uint64_t>(ONE - 1));
 }
 
 std::int64_t Smooth(std::int64_t _t) noexcept
@@ -920,7 +913,7 @@ TestWorld BuildTestWorld(ChunkStore& _store, std::int32_t _edgeVoxels, std::uint
                   .surfaceVoxels = {},
                   .editedVoxels = 0,
                   .breach = {},
-                  .breachId = Mix(_seed ^ Mix(BREACH_SALT))};
+                  .breachId = Core::SplitMix64Mix(_seed ^ Core::SplitMix64Mix(BREACH_SALT))};
   const std::array<SiteOrigin, 1> scene{{{.xVoxels = world.sceneXVoxels, .zVoxels = world.sceneZVoxels}}};
   BuildGround(_store, world, _seed, scene);
   std::uint64_t generated = 0;
@@ -959,7 +952,7 @@ TestWorld BuildSeasonWorld(ChunkStore& _store, std::int32_t _edgeVoxels, std::in
                   .surfaceVoxels = {},
                   .editedVoxels = 0,
                   .breach = {},
-                  .breachId = Mix(_seed ^ Mix(BREACH_SALT))};
+                  .breachId = Core::SplitMix64Mix(_seed ^ Core::SplitMix64Mix(BREACH_SALT))};
   // The lord builds twice over: a second castle a little way off, as a holding grows. Each stands on
   // a plateau the generator raised, as the scene's castle does, so its footprints are level already.
   std::vector<SiteOrigin> sites;
@@ -1052,7 +1045,7 @@ void SplitChanges(const ChunkStore& _oneMeter, std::span<const Protocol::VoxelPo
 TestWorldEdits::TestWorldEdits(const ChunkStore& _store, const TestWorld& _world, std::uint64_t _seed)
   : m_sceneXVoxels(_world.sceneXVoxels),
     m_sceneZVoxels(_world.sceneZVoxels),
-    m_collapseId(Mix(_seed ^ Mix(COLLAPSE_FRAME)))
+    m_collapseId(Core::SplitMix64Mix(_seed ^ Core::SplitMix64Mix(COLLAPSE_FRAME)))
 {
   // The quarry's columns: the stone body south of the castle, and the earth south of it between the
   // ditch's line and the quarry yard, clear of the yard and short of the castle's south towers.
@@ -1088,8 +1081,8 @@ TestWorldEdits::TestWorldEdits(const ChunkStore& _store, const TestWorld& _world
   };
   const auto tieBreak = [_seed](const Column& _column)
   {
-    return Mix(_seed ^ Mix((static_cast<std::uint64_t>(static_cast<std::uint32_t>(_column.sceneX)) << 32) |
-                           static_cast<std::uint32_t>(_column.sceneZ)));
+    return Core::SplitMix64Mix(_seed ^ Core::SplitMix64Mix((static_cast<std::uint64_t>(static_cast<std::uint32_t>(_column.sceneX)) << 32) |
+                                                           static_cast<std::uint32_t>(_column.sceneZ)));
   };
   std::ranges::sort(columns, [&fromPit, &tieBreak](const Column& _a, const Column& _b)
                     { return fromPit(_a) != fromPit(_b) ? fromPit(_a) < fromPit(_b) : tieBreak(_a) < tieBreak(_b); });
