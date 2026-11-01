@@ -209,6 +209,7 @@ struct LabItem
 struct LabSetup { Protocol::EntityId engine; Protocol::EntityId squad; Protocol::EntityId target; Protocol::VoxelPosition squadStartVoxels; Protocol::VoxelPosition goalVoxels; };
 struct LabOutcome { bool open; std::uint32_t ticks; std::uint64_t stateHash; bool timedOut; };
 inline constexpr std::uint32_t LAB_MAX_TICKS_PER_PHASE = 4000;
+inline constexpr std::uint32_t LAB_ORDER_TICK = 1; // the squad's order, once tick 0's rebuild has put the enclosure into navigation
 [[nodiscard]] std::span<const LabItem> LabItems();                              // P0 first, then L01 to L16
 [[nodiscard]] std::uint64_t LabItemsHash();                                     // Fnv1a64 over every item's fields: names the item set in the logs
 [[nodiscard]] World::Desc LabDesc(const ServerData& _data, std::uint64_t _buildId); // the breach run's map and seeds
@@ -220,7 +221,8 @@ inline constexpr std::uint32_t LAB_MAX_TICKS_PER_PHASE = 4000;
 [[nodiscard]] LabSetup BuildLabSite(World& _world);
 /// Fires shots from the site's trebuchet, one on the first tick it is loaded, then waits for the world
 /// to go quiet with the trebuchet loaded. Driven a tick at a time, so that Earthrise draws between
-/// ticks and the headless run reaches the same ticks.
+/// ticks and the headless run reaches the same ticks. Whichever LabShots ticks the world through
+/// LAB_ORDER_TICK also gives the site's squad its order, as the breach run's script does.
 class LabShots
 {
 public:
@@ -481,7 +483,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 - **Waits on:** B1, B3 and B6, and inputs 2 and 4.
 - **Read first:** MvpPlan.md, M3, *Done when* and *Risks*; GameDesign.md, *Hypotheses*, H2; the M2 report, *What a breach looks like*; `Simulation/BreachRun.cpp`; *Contracts*, `Simulation`.
 - **Changes:** `Simulation/BreachLab.h` and `.cpp`, in the filter `World`: `LabItems`, `LabDesc`, `BuildLabSite`, `LabShots`, `CourtyardOpen` and `ResolveLabItem`. `BuildBreachRun` keeps its site through the same code, so M2's tests still pass.
-  - **The items** are the implementer's: the practice item P0, an intact wall and two shots at the ground row, which stays shut; then L01 to L16, varying the aim row, the columns, the prior damage and N, so that the set splits eight open and eight shut and no reading of the set is trivial (a shot at the crenellation alone, or five adjacent shots at the ground row alone). Each item's key is the simulation's, never typed by hand.
+  - **The items** are the implementer's: the practice item P0, an intact wall and two shots at the ground row, which stays shut (they are aimed at the earth at the wall's foot, since a shot strikes the face a voxel above its aim, and two aimed a row higher at one mark open a doorway 1 m wide and 2 m high); then L01 to L16, varying the aim row, the columns, the prior damage and N, so that the set splits eight open and eight shut and no reading of the set is trivial (a shot at the crenellation alone, or five adjacent shots at the ground row alone). Each item's key is the simulation's, never typed by hand.
   - **`SimulationBench --lab-items`** runs every item headless and prints its id, key, ticks, state hash and the slowest tick.
 - **Tests:** **`BreachLabTests`:**
   - The 16 items split 8 and 8. Their keys are committed as a table and the test fails on any change, with the new keys printed, as the generator's golden hashes do; a changed rule is a changed item set.
