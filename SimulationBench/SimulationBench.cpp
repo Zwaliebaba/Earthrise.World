@@ -398,9 +398,12 @@ std::string Environment(const char* _name)
   return {owned.get()};
 }
 
-/// The breach run's every tick, timed (M2-G2): the per-tick times go to _csv, with their 95th
-/// percentile against MvpPlan.md's input 2, 25 ms, half a tick, the build id and the CPU. Building
-/// the world and the run is not a tick, and is not timed.
+/// The breach run's every tick, timed (M2-G2): the per-tick times go to _csv with the build id and
+/// the CPU. The run is judged by its slowest tick of play against MvpPlan.md's input 2, 25 ms, half
+/// a tick: every tick but tick 0, which takes in the run's own levelling and enclosure as edits and
+/// is reported on its own (the owner, after M2's report, in place of the 95th percentile over every
+/// tick, which the idle ticks made meaningless). The 95th percentile is still reported. Building the
+/// world and the run is not a tick, and is not timed.
 int RunBreach(const std::filesystem::path& _executable, const std::filesystem::path& _csv)
 {
   constexpr double TARGET_MILLISECONDS = 25.0;
@@ -417,6 +420,14 @@ int RunBreach(const std::filesystem::path& _executable, const std::filesystem::p
     Simulation::RunScript(world, run.script, 1);
     times.push_back(MillisecondsSince(start));
   }
+  if (times.size() < 2)
+  {
+    throw std::runtime_error("the breach run has no tick of play to time");
+  }
+  // The slowest tick of play: every tick after tick 0.
+  const auto slowestPlay = std::ranges::max_element(times.begin() + 1, times.end());
+  const auto slowestPlayTick = static_cast<std::size_t>(slowestPlay - times.begin());
+  const bool within = *slowestPlay <= TARGET_MILLISECONDS;
   std::vector<double> sorted = times;
   std::ranges::sort(sorted);
   // The nearest-rank percentile: the smallest time at least 95% of the ticks do not exceed.
@@ -432,18 +443,19 @@ int RunBreach(const std::filesystem::path& _executable, const std::filesystem::p
     throw std::runtime_error("cannot write " + _csv.string());
   }
   csv << std::format("build id,{:016x}\ncpu,\"{}\"\nprocessors,{}\n", buildId, cpu, processors);
-  csv << std::format("target milliseconds,{:.1f}\n95th percentile milliseconds,{:.3f}\nslowest milliseconds,{:.3f}\n", TARGET_MILLISECONDS,
-                     percentile, sorted.back());
+  csv << std::format("target milliseconds,{:.1f}\nslowest tick of play milliseconds,{:.3f}\nslowest tick of play,{}\n", TARGET_MILLISECONDS,
+                     *slowestPlay, slowestPlayTick);
+  csv << std::format("tick 0 milliseconds,{:.3f}\n95th percentile milliseconds,{:.3f}\n", times.front(), percentile);
   csv << std::format("slumpVoxelsPerTick,{}\npathNodesPerTick,{}\ntick,milliseconds\n", rules.slumpVoxelsPerTick, rules.pathNodesPerTick);
   for (std::size_t tick = 0; tick < times.size(); ++tick)
   {
     csv << std::format("{},{:.4f}\n", tick, times[tick]);
   }
-  std::println("The M2 breach run: {} ticks; 95th percentile {:.3f} ms against {:.0f} ms, {}; slowest {:.3f} ms, tick {}", times.size(),
-               percentile, TARGET_MILLISECONDS, percentile <= TARGET_MILLISECONDS ? "within it" : "OVER IT", sorted.back(),
-               std::ranges::max_element(times) - times.begin());
+  std::println("The M2 breach run: {} ticks; the slowest tick of play, {}, took {:.3f} ms against {:.0f} ms, {}", times.size(),
+               slowestPlayTick, *slowestPlay, TARGET_MILLISECONDS, within ? "within it" : "OVER IT");
+  std::println("tick 0, the run's set-up, took {:.3f} ms; the 95th percentile of every tick is {:.3f} ms", times.front(), percentile);
   std::println("build id {:016x}; CPU {}, {} logical processors; written to {}", buildId, cpu, processors, _csv.string());
-  return percentile <= TARGET_MILLISECONDS ? 0 : 2;
+  return within ? 0 : 2;
 }
 
 int Run(const std::filesystem::path& _executable)

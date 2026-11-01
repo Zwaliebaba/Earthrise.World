@@ -335,7 +335,7 @@ The plan credits what M1 already built: the chunk store, a first support search,
 | # | Input | For orders | Decided, 2026-11-01 |
 |---|---|---|---|
 | 1 | Give ADR-013 to ADR-016 the go-ahead, or change them. Each is marked Accepted by the commit that first implements it (AGENTS.md §6) | B1, B5, C2, F1 | Go-ahead for all four, as written |
-| 2 | **The tick's wall-time target.** It replaces "the budget the spike measured" in the done-when, which is circular: the spike measures costs, it does not set a budget | G2 | 25 ms, half a tick, at the 95th percentile, on one core of the benchmark machine, with `SimulationBench` recording its CPU |
+| 2 | **The tick's wall-time target.** It replaces "the budget the spike measured" in the done-when, which is circular: the spike measures costs, it does not set a budget | G2 | 25 ms, half a tick, at the 95th percentile, on one core of the benchmark machine, with `SimulationBench` recording its CPU. Changed after the M2 report: the breach run's slowest tick of play, all but tick 0, against 25 ms |
 | 3 | **What the generator makes on the MVP map** | D1, D3 | 512 m × 512 m and 64 m high, two chunks. The relief and soil depths of M1's test ground, carried over the map. Bedrock depth varying so that thin soil over rock and deep earth both occur. Sparse outcrops of building stone, forest, and one river with fords. The owner judges the first maps in the spike, by eye |
 | 4 | **A collapse's warning** | B5, E3 | 1 s, plus the time a foot soldier at 1.4 m/s takes to walk the piece's height, rounded up to whole ticks: 135 ticks, 6.75 s, for an 8 m piece |
 | 5 | **The fall** | B5, E3, E4 | It lasts the free-fall time from the piece's height, under gravity of 9.81 m/s², rounded up to whole ticks: 26 ticks for 8 m. The piece leaves the grid on the fall's first tick, and its rubble and damage land in equal parts over the fall, nearest the foot first |
@@ -367,7 +367,7 @@ The plan credits what M1 already built: the chunk store, a first support search,
   - a squad of six foot, ordered inside before the breach, goes as near as it can. Once the tiles rebuild, it searches again and paths through the breach, and no unit stands on a structure on any tick;
   - the whole run replays with every state hash equal, and a save taken at any tick continues identically;
   - the generator's golden hashes and slope invariant pass.
-- **On the benchmark machine:** every tick of the breach run fits input 2's target at the 95th percentile, measured in `SimulationBench`.
+- **On the benchmark machine:** every tick of play in the breach run, all but its set-up tick 0, fits input 2's target, measured in `SimulationBench` (the owner, after the [M2 report](Review/M2-2026-11-01.md), in place of the 95th percentile over every tick).
 - **Throughout:** the AGENTS.md checklist passes.
 
 **How the actual pace is recorded.** Each phase's last commit fills in its row below:

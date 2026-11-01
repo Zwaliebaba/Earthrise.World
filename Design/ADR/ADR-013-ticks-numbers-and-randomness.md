@@ -54,7 +54,7 @@
 6. **Deferred work is counted in units of work. A wall-time target is measured against them, never enforced by them.**
    - **Each kind of deferred work** has a budget per tick in its own unit, for example voxels slumped or path nodes expanded. Work over the budget waits for the next tick, in a stated order.
    - **The budgets are server data** ([ADR-016](ADR-016-server-data-format.md)). They change outcomes, how fast a slope settles for example, so the server-data hash covers them (ADR-008, decision 5).
-   - **The wall-time target** is how long a tick may take at the 95th percentile on the reference machine. The owner sets it, and `SimulationBench` measures against it. It is never read inside a tick. The owner set it at 25 ms on 2026-11-01 (GameDesign.md, M2's values, item 2). Queries are budgeted the same way, in units of work ([ADR-009](ADR-009-queries-across-the-server-boundary.md), amended).
+   - **The wall-time target** is how long a tick may take at the 95th percentile on the reference machine. The owner sets it, and `SimulationBench` measures against it. It is never read inside a tick. The owner set it at 25 ms on 2026-11-01 (GameDesign.md, M2's values, item 2), and the same day, after M2's report, had the breach run judged by its slowest tick of play, every tick but its set-up tick 0, rather than at the 95th percentile, which its idle ticks made meaningless. Queries are budgeted the same way, in units of work ([ADR-009](ADR-009-queries-across-the-server-boundary.md), amended).
 7. **M2 runs the tick on one thread.** ADR-002 allows work spread over threads, merged in a fixed order. It is added when a measurement calls for it, not before.
 
 ## Consequences for the code

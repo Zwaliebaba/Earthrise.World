@@ -281,7 +281,7 @@ The owner settled how M2 is planned and when it starts ([MvpPlan.md](MvpPlan.md)
 The owner answered MvpPlan.md's thirteen M2 inputs, taking each proposal as written (work order M2-A1). Input 13 is the implementer's, measured in M2 and recorded here as Proposed when it is. The same day, after a check of the documents' consistency, the owner changed item 7 and settled items 14 to 16.
 
 1. **ADR-013 to ADR-016 have the go-ahead,** as written. Each is marked Accepted by the commit that first implements it. With ADR-014's go-ahead, a scenario is a baked source, not a save (decision 7), and the MVP's line on scenarios changed with it.
-2. **A tick takes at most 25 ms at the 95th percentile,** on one core of the benchmark machine (*Closing M0 and M1*, item 1), measured in `SimulationBench` over the M2 breach run. That is half of a 50 ms tick.
+2. **A tick takes at most 25 ms at the 95th percentile,** on one core of the benchmark machine (*Closing M0 and M1*, item 1), measured in `SimulationBench` over the M2 breach run. That is half of a 50 ms tick. **Changed the same day, after the [M2 report](Review/M2-2026-11-01.md):** the breach run is judged by its slowest tick of play, every tick but tick 0, which takes in the run's own set-up and is reported on its own, since 95% of the run's ticks are idle and its 95th percentile says almost nothing. The 95th percentile is still reported.
 3. **The generator makes the MVP map** at 512 m × 512 m and 64 m high:
    - the relief and soil depths of M1's test ground, carried over the map;
    - bedrock depth varying, so that thin soil over rock and deep earth both occur;
