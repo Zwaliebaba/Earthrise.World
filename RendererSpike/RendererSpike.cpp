@@ -458,13 +458,14 @@ int Run(const Options& _options)
     const std::uint32_t slot = frames.Slot();
     ID3D12GraphicsCommandList* commandList = frames.Begin();
     // Begin waited for this slot's last frame, so its timestamps are back.
-    if (waitingRows[slot])
+    if (waitingRows[slot].has_value())
     {
-      waitingRows[slot]->voxelPassMilliseconds = gpuTimer.ReadMilliseconds(slot)[VOXEL_PASS_SPAN];
-      voxelPassMilliseconds = waitingRows[slot]->voxelPassMilliseconds;
+      Spike::Measurement::FrameRow& row = waitingRows[slot].value();
+      row.voxelPassMilliseconds = gpuTimer.ReadMilliseconds(slot)[VOXEL_PASS_SPAN];
+      voxelPassMilliseconds = row.voxelPassMilliseconds;
       if (measure)
       {
-        measurement.AddFrame(*waitingRows[slot]);
+        measurement.AddFrame(row);
       }
       waitingRows[slot].reset();
     }
@@ -563,10 +564,11 @@ int Run(const Options& _options)
         device.DirectQueue().Flush();
         for (std::uint32_t waitingSlot = 0; waitingSlot < Engine::FrameRing::FRAMES_IN_FLIGHT; ++waitingSlot)
         {
-          if (waitingRows[waitingSlot])
+          if (waitingRows[waitingSlot].has_value())
           {
-            waitingRows[waitingSlot]->voxelPassMilliseconds = gpuTimer.ReadMilliseconds(waitingSlot)[VOXEL_PASS_SPAN];
-            measurement.AddFrame(*waitingRows[waitingSlot]);
+            Spike::Measurement::FrameRow& row = waitingRows[waitingSlot].value();
+            row.voxelPassMilliseconds = gpuTimer.ReadMilliseconds(waitingSlot)[VOXEL_PASS_SPAN];
+            measurement.AddFrame(row);
           }
         }
         for (const PendingEdit& edit : pendingEdits)
