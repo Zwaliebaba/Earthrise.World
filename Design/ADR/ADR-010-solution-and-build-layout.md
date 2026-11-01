@@ -34,8 +34,10 @@
    | `Content` | static library | Core | The client's baked tables (ADR-008) |
    | `Simulation` | static library | Core, Protocol | The minimal chunk store with copy-on-write snapshots; later, the rest |
    | `RendererSpike` | Windows executable | Core, Engine, Protocol, Content, Simulation | The spike's scene script, camera path and measurements |
-   | `SimulationBench` | console executable | Core, Protocol, Simulation | Spike question 6 |
+   | `SimulationBench` | console executable | Core, Protocol, Content, Simulation | Spike question 6 |
    | `CoreTests`, `EngineTests`, `ProtocolTests`, `ContentTests`, `SimulationTests` | CppUnitTest DLLs | their library | Unit tests, each starting with `SuiteSmoke`. `EngineTests` holds the render tests on WARP ([ADR-012](ADR-012-render-tests-on-warp.md)) |
+
+   `SimulationBench` gained Content during M1 (amended 2026-11-01, by the owner, GameDesign.md, *M1's open values*, item 9). The test world it measures is built in Simulation from templates handed in through `Simulation::TemplateLookup`, and until the server bake writes the templates (M2) the bench hands in Content's. Simulation itself never depends on Content, and the edge goes when the bench reads the server's data instead.
 
    `EngineTests` and `ContentTests` joined during M1, with the engine base and the client bake (MvpPlan.md, M1 tasks 2 and 4), once their libraries held code to test. `Client` and `Earthrise` join when M3 and M4 need them. A project joins the solution when the milestone that first uses it starts, never earlier.
 3. **Output goes to `$(SolutionDir)$(Platform)\$(Configuration)\`** for every project: libraries, executables and test DLLs.

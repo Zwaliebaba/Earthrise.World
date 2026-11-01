@@ -251,6 +251,7 @@ The owner settled what M1's remaining tasks needed and no document gave (MvpPlan
 6. **Models get contact shading baked per instance on the CPU:** a placed model's corner values are worked out against the world when it moves or the world under it changes, and go in its own records, as world chunks' do (ADR-006, *Left open*).
 7. **Collapse debris tumbles, then rests.** Its pieces fall with the collapse for about 1.5 s, turning, as oriented voxels, and then lie on the rubble at their final angles for good, so a breach keeps its ragged look. They are seeded by the collapse's id, so every client shows the same (RendererLook.md, checks 3 and 6).
 8. **The 0.5 m world for ADR-006's comparison is the test scene with each 1 m voxel split into eight,** so the two columns differ only in voxel size.
+9. **The test world is built in Simulation,** so the renderer spike and `SimulationBench` measure the same town. Simulation takes its templates through a lookup and never reads client content. Until the server bake writes the templates (M2), both executables hand it Content's, so `SimulationBench` depends on Content until then ([ADR-010](ADR/ADR-010-solution-and-build-layout.md), amended).
 
 ## Pillars (Decided)
 

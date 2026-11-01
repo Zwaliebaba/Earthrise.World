@@ -87,7 +87,7 @@ constexpr std::uint32_t WARM_UP_FRAMES = PATH_FRAMES_PER_SECOND;
 // publication a second, half a second into it.
 constexpr std::uint32_t LATENCY_INTERVAL_FRAMES = PATH_FRAMES_PER_SECOND;
 constexpr std::uint32_t LATENCY_OFFSET_FRAMES = PATH_FRAMES_PER_SECOND / 2;
-static_assert(PATH_FRAMES_PER_SECOND == Spike::SceneEdits::FRAMES_PER_SECOND, "the path and the scene's edits step together");
+static_assert(PATH_FRAMES_PER_SECOND == Simulation::TestWorldEdits::FRAMES_PER_SECOND, "the path and the scene's edits step together");
 
 // The GPU timer's spans.
 constexpr std::uint32_t VOXEL_PASS_SPAN = 0;
@@ -346,7 +346,7 @@ int Run(const Options& _options)
   Simulation::ChunkStore store;
   const Spike::TestScene scene = Spike::BuildTestScene(store, SCENE_SEED);
   std::vector<Protocol::ChunkSnapshot> published = store.Publish();
-  Spike::SceneEdits edits(store, SCENE_SEED);
+  Simulation::TestWorldEdits edits(store, scene.world, SCENE_SEED);
   std::vector<Spike::ModelPlacement> placements;
   // The frame the scene's edits and walkers are at: the path's in a measured run, else counted from
   // the start.
@@ -435,7 +435,7 @@ int Run(const Options& _options)
     // The scene's scripted edits: the quarrying, and the collapse (task 9). The client sees them in
     // this frame, from what the store publishes (ADR-002, decision 3).
     const auto editStart = std::chrono::steady_clock::now();
-    if (edits.Apply(store, sceneFrame) > 0)
+    if (!edits.Apply(store, sceneFrame).empty())
     {
       std::vector<Protocol::ChunkSnapshot> changed = store.Publish();
       published.insert(published.end(), changed.begin(), changed.end());
@@ -592,10 +592,10 @@ int Run(const Options& _options)
                                L"stepped at {} a second",
                                PATH_SIDE_METERS, DEFAULT_VIEW_HEIGHT_METERS, Engine::CameraPath::LEG_COUNT, PATH_LEG_FRAMES,
                                PATH_FRAMES_PER_SECOND),
-           .edits =
-             std::format(L"quarrying {} voxels a second, the west curtain's northern section collapsing at frame {}, {} units walking "
-                         L"2 m circles at 1.4 m/s; latency timed on one publication a second",
-                         Spike::SceneEdits::QUARRY_VOXELS_PER_SECOND, Spike::SceneEdits::COLLAPSE_FRAME, scene.walkers.size()),
+           .edits = std::format(
+             L"quarrying {} voxels a second, the west curtain's northern section collapsing at frame {}, {} units walking "
+             L"2 m circles at 1.4 m/s; latency timed on one publication a second",
+             Simulation::TestWorldEdits::QUARRY_VOXELS_PER_SECOND, Simulation::TestWorldEdits::COLLAPSE_FRAME, scene.walkers.size()),
            .firstMeasuredFrame = WARM_UP_FRAMES});
         MessageBoxW(window.Handle(), results.c_str(), TITLE, MB_ICONINFORMATION | MB_OK);
         return 0;
