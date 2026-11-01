@@ -21,5 +21,8 @@
     <ClCompile Include="ChunkTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="CommandTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

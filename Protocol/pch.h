@@ -6,3 +6,4 @@
 #include <memory>
 #include <span>
 #include <stdexcept>
+#include <variant>
