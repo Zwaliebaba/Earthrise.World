@@ -368,7 +368,8 @@ public:
 // Client/HudModel.h — Hud.md §10, the part M3 builds. Plain fields, built each frame from the Session.
 struct HudResource { std::string key; std::string value; bool warn; };
 struct HudObjective { std::string title; std::string detail; bool detailOff; }; // detailOff: in off text, as FIRE while the trebuchet reloads (E4)
-struct HudMode { std::string command; std::string banner; }; // empty command when none
+struct HudModeButton { HudControl control; std::string label; };
+struct HudMode { std::string command; std::string banner; std::vector<HudModeButton> buttons; }; // empty command when none; the buttons follow the banner's text: CANCEL · ESC for FIRE, OPEN · O and SHUT · S for the lab's question (G1)
 struct HudAlert { std::string text; std::string sub; std::optional<Protocol::VoxelPosition> location; bool urgent; double expiresSeconds; };
 struct HudModel
 {
