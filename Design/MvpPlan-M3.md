@@ -91,7 +91,7 @@ struct SectionIntegrity { EntityId structure; };
 struct TileReach { NavigationClass navigationClass; VoxelPosition startCellVoxels; std::int32_t tileX; std::int32_t tileZ; };
 using Query = std::variant<AimCheck, SectionIntegrity, TileReach>;
 struct QueryRequest { std::uint32_t id; Query query; };
-inline constexpr std::uint16_t QUERY_RECORD_VERSION = 1;
+inline constexpr std::uint16_t QUERY_RECORD_VERSION = 2; // 2 from F3, which gives the tile reach reading its surfaces
 void Encode(const QueryRequest& _request, Core::ByteWriter& _writer);
 [[nodiscard]] QueryRequest DecodeQueryRequest(Core::ByteReader& _reader); // throws as DecodeCommand does
 
@@ -130,6 +130,7 @@ struct TileReachReading
   std::int32_t tileZ;
   std::array<std::uint8_t, 128> usable;  // bit z * 32 + x: the class can enter the cell
   std::array<std::uint8_t, 128> reached; // and can reach it from the start
+  std::array<std::int16_t, 1024> surfaceVoxels; // cell z * 32 + x: the height of the cell a unit stands in, navigation's own, or NO_SURFACE_VOXELS, -1 (F3)
 };
 using Reading = std::variant<AimReading, IntegrityReading, TileReachReading>;
 struct Answer { std::uint32_t queryId; std::uint32_t tick; Reading reading; };
