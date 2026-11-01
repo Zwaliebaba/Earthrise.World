@@ -36,6 +36,12 @@ constexpr std::uint8_t FIELD_B = 14;
 constexpr std::uint8_t ROAD = 15;
 constexpr std::uint8_t OPENING = 20;
 
+// The breach's middle along the west curtain, and the stretch in front of it the ditch leaves undug,
+// 9 m, so the attackers' approach reads (the render-fix package, item 6).
+constexpr std::int32_t BREACH_Z_VOXELS = 61;
+constexpr std::int32_t UNDUG_HALF_VOXELS = 4;
+// What the breach's id is mixed from: it came down before the scene's first frame.
+constexpr std::uint64_t BREACH_SALT = 0xb4ea0c4ULL;
 // The section of the west curtain that collapses: the one just north of the breach, at the scene's
 // lower z.
 constexpr std::int32_t COLLAPSE_X_VOXELS = 58;
@@ -181,6 +187,12 @@ public:
     }
   }
 
+  /// The world's voxel that a scene voxel is.
+  [[nodiscard]] Protocol::VoxelPosition WorldPosition(std::int32_t _x, std::int32_t _y, std::int32_t _z) const noexcept
+  {
+    return {.xVoxels = _x + m_originX, .yVoxels = _y, .zVoxels = WorldZ(_z)};
+  }
+
   [[nodiscard]] std::uint8_t At(std::int32_t _x, std::int32_t _y, std::int32_t _z) const
   {
     const std::int32_t x = _x + m_originX;
@@ -291,6 +303,54 @@ struct SiteOrigin
   std::int32_t zVoxels;
 };
 
+/// The highest, or the lowest, of each column and its eight neighbours, within the world's edge, for
+/// a surface of _edge by _edge columns, x fastest.
+std::vector<std::int32_t> AcrossNeighbors(const std::vector<std::int32_t>& _tops, std::int32_t _edge, bool _highest)
+{
+  const auto at = [_edge](std::int32_t _x, std::int32_t _z)
+  { return static_cast<std::size_t>(_z) * static_cast<std::size_t>(_edge) + static_cast<std::size_t>(_x); };
+  const auto pick = [_highest](std::int32_t _a, std::int32_t _b) { return _highest ? std::max(_a, _b) : std::min(_a, _b); };
+  // Along x, then along z: the square is the two in turn.
+  std::vector<std::int32_t> alongX(_tops.size());
+  for (std::int32_t z = 0; z < _edge; ++z)
+  {
+    for (std::int32_t x = 0; x < _edge; ++x)
+    {
+      std::int32_t value = _tops[at(x, z)];
+      value = x > 0 ? pick(value, _tops[at(x - 1, z)]) : value;
+      value = x + 1 < _edge ? pick(value, _tops[at(x + 1, z)]) : value;
+      alongX[at(x, z)] = value;
+    }
+  }
+  std::vector<std::int32_t> square(_tops.size());
+  for (std::int32_t z = 0; z < _edge; ++z)
+  {
+    for (std::int32_t x = 0; x < _edge; ++x)
+    {
+      std::int32_t value = alongX[at(x, z)];
+      value = z > 0 ? pick(value, alongX[at(x, z - 1)]) : value;
+      value = z + 1 < _edge ? pick(value, alongX[at(x, z + 1)]) : value;
+      square[at(x, z)] = value;
+    }
+  }
+  return square;
+}
+
+/// Calms a surface of _edge by _edge columns, x fastest, by an opening and then a closing over 3 by
+/// 3 columns. The opening lowers every bump and ridge narrower than 3 m, the closing raises every
+/// pit and notch narrower than 3 m, and a slope whose steps rise one way passes through both, so
+/// the river's banks and the plateau's edge keep their shape, their contours only smoothed. That
+/// takes out the lone bumps and the short dashes that rounding the noise leaves on open ground (the
+/// render-fix package, item 8). Each filter runs once, so there is nothing to converge. On the
+/// 128 m scene no column is left standing above or below both its neighbours along x or z, on any
+/// of ten seeds tried; in the 512 m world a handful in its 262,144 columns are, where the closing
+/// fills notches on both sides of one, and a second round leaves them as they are.
+void CalmSurface(std::vector<std::int32_t>& _tops, std::int32_t _edge)
+{
+  _tops = AcrossNeighbors(AcrossNeighbors(_tops, _edge, false), _edge, true); // the opening
+  _tops = AcrossNeighbors(AcrossNeighbors(_tops, _edge, true), _edge, false); // the closing
+}
+
 /// The ground over the whole world: a gentle field, cut by the v5 scene's river, in layers of
 /// bedrock, rock, earth and grass, and raised to the v5 scene's plateau under the castle of each of
 /// _sites. Fills the world's surface.
@@ -330,6 +390,7 @@ void BuildGround(ChunkStore& _store, TestWorld& _world, std::uint64_t _seed, std
       }
     }
   }
+  // The river's valley, then the surface in whole voxels, calmed.
   _world.surfaceVoxels.clear();
   _world.surfaceVoxels.reserve(heights.size());
   for (std::int32_t worldZ = 0; worldZ < edge; ++worldZ)
@@ -344,11 +405,23 @@ void BuildGround(ChunkStore& _store, TestWorld& _world, std::uint64_t _seed, std
       {
         height = std::min(height, std::max(2 * ONE, 2 * ONE + (fromRiver - 4 * ONE) * 11 / 10));
       }
-      const std::int32_t top = Round(height);
-      _world.surfaceVoxels.push_back(top);
-
+      _world.surfaceVoxels.push_back(Round(height));
+    }
+  }
+  CalmSurface(_world.surfaceVoxels, edge);
+  // Its layers: bedrock, rock, earth and grass, and the river's water.
+  for (std::int32_t worldZ = 0; worldZ < edge; ++worldZ)
+  {
+    for (std::int32_t worldX = 0; worldX < edge; ++worldX)
+    {
+      const std::int32_t x = worldX - _world.sceneXVoxels;
+      const std::int32_t z = SCENE - 1 - (worldZ - _world.sceneZVoxels);
+      const std::int32_t top = _world.surfaceVoxels[column(worldX, worldZ)];
+      const std::int64_t fromRiver = std::abs(x * ONE - RiverX(z));
+      // At least a voxel of earth under the grass, which lies only on earth (the render-fix package,
+      // item 5).
       const std::int32_t earth =
-        std::max(1, Round(ONE + Fbm(Scaled(x, 80), Scaled(z, 80), 5, _seed) * 5 - (x > CASTLE_X_VOXELS ? 2 * ONE : 0)));
+        std::max(2, Round(ONE + Fbm(Scaled(x, 80), Scaled(z, 80), 5, _seed) * 5 - (x > CASTLE_X_VOXELS ? 2 * ONE : 0)));
       const std::int32_t bedrock = 1 + Round(Fbm(Scaled(x, 50), Scaled(z, 50), 9, _seed) * 3);
       for (std::int32_t y = 0; y < top; ++y)
       {
@@ -366,6 +439,47 @@ void BuildGround(ChunkStore& _store, TestWorld& _world, std::uint64_t _seed, std
   }
 }
 
+/// The quarry's pit in the scene, both edges included: under the castle's south wall, as in v5.
+constexpr std::int32_t PIT_WEST_VOXELS = 61;
+constexpr std::int32_t PIT_EAST_VOXELS = 88;
+constexpr std::int32_t PIT_NORTH_VOXELS = 85;
+constexpr std::int32_t PIT_SOUTH_VOXELS = 102;
+// Its terraces: 2 m wide and 2 m deep, from a top floor 2 m below the plateau down to its bottom.
+constexpr std::int32_t PIT_TOP_FLOOR_VOXELS = 13;
+constexpr std::int32_t PIT_STEP_VOXELS = 2;
+constexpr std::int32_t PIT_STEPS = 4;
+constexpr std::int32_t PIT_BOTTOM_VOXELS = PIT_TOP_FLOOR_VOXELS - PIT_STEPS * PIT_STEP_VOXELS;
+// How far the scripted quarrying grows the pit, in three stages that together hold its minute: through
+// the stone body on every side but the castle's; south past the stone into the earth, between the
+// ditch's line and the quarry yard; and last towards the castle, to a meter short of its south towers.
+constexpr std::int32_t PIT_BODY_GROWTH_VOXELS = 16;
+constexpr std::int32_t PIT_EARTH_WEST_VOXELS = 57;
+constexpr std::int32_t PIT_EARTH_EAST_VOXELS = 90;
+constexpr std::int32_t PIT_EARTH_SOUTH_VOXELS = 125;
+constexpr std::int32_t PIT_CASTLE_GROWTH_VOXELS = 4;
+
+/// How far the pit has grown on each side, in voxels.
+struct PitGrowth
+{
+  std::int32_t west;
+  std::int32_t east;
+  std::int32_t south;
+  std::int32_t north;
+};
+
+/// The lowest empty voxel of a pit's column: its terrace's floor, with the pit grown as given, or
+/// HEIGHT outside it.
+constexpr std::int32_t PitFloor(std::int32_t _x, std::int32_t _z, const PitGrowth& _growth = {}) noexcept
+{
+  const std::int32_t inset = std::min({_x - (PIT_WEST_VOXELS - _growth.west), PIT_EAST_VOXELS + _growth.east - _x,
+                                       _z - (PIT_NORTH_VOXELS - _growth.north), PIT_SOUTH_VOXELS + _growth.south - _z});
+  if (inset < 0)
+  {
+    return HEIGHT;
+  }
+  return PIT_TOP_FLOOR_VOXELS - std::min(inset / PIT_STEP_VOXELS, PIT_STEPS) * PIT_STEP_VOXELS;
+}
+
 /// The body of building stone under the ground south of the castle, and whether a column of it is
 /// within the body: the quarry's stone and where it is dug.
 bool InQuarryBody(std::int32_t _x, std::int32_t _z) noexcept
@@ -373,8 +487,11 @@ bool InQuarryBody(std::int32_t _x, std::int32_t _z) noexcept
   return Length((_x - 74) * ONE * 2 / 3, (_z - 93) * ONE) <= 17 * ONE;
 }
 
-/// The terraced quarry: a body of building stone under the ground south of the castle, a pit cut in
-/// steps of 2 m with a ramp down its north side, and the quarry yard beside it.
+/// The terraced quarry, the moat under the castle's south wall: a body of building stone under the
+/// ground, a pit cut in steps of 2 m to a floor of common rock, and the quarry yard beside it. (The
+/// v5 scene's ramp down the pit's north side never rises above the terrace it is cut in, so it is
+/// left out.) The body's middle shows its stone; around it the stone lies under
+/// earth and grass, and grass lies only on earth (the render-fix package, item 5).
 void BuildQuarry(const Site& _site, const TemplateLookup& _templates, std::uint64_t _seed)
 {
   for (std::int32_t z = 76; z < 118; ++z)
@@ -386,24 +503,29 @@ void BuildQuarry(const Site& _site, const TemplateLookup& _templates, std::uint6
       {
         continue;
       }
-      const std::int32_t top = _site.Height(x, z) - (reach < 8 * ONE ? 0 : 1);
+      const std::int32_t ground = _site.Height(x, z);
+      const bool covered = reach >= 8 * ONE;
+      const std::int32_t top = ground - (covered ? 2 : 0);
       for (std::int32_t y = 3; y < top; ++y)
       {
         _site.Set(x, y, z, BUILDING_STONE);
       }
+      if (covered)
+      {
+        _site.Set(x, ground - 2, z, EARTH); // under the grass the generator laid
+      }
     }
   }
-  for (std::int32_t z = 85; z < 103; ++z)
+  for (std::int32_t z = PIT_NORTH_VOXELS; z <= PIT_SOUTH_VOXELS; ++z)
   {
-    for (std::int32_t x = 61; x < 89; ++x)
+    for (std::int32_t x = PIT_WEST_VOXELS; x <= PIT_EAST_VOXELS; ++x)
     {
-      const std::int32_t inset = std::min({x - 61, 88 - x, z - 85, 102 - z});
-      std::int32_t floor = 13 - std::min(inset / 2, 4) * 2;
-      if (z < 87 && x >= 63)
-      {
-        floor = std::max(floor, 13 - std::min(8, (x - 63) / 2)); // the ramp
-      }
+      const std::int32_t floor = PitFloor(x, z);
       _site.Box(x, x, floor, HEIGHT - 1, z, z, 0);
+      if (floor == PIT_BOTTOM_VOXELS)
+      {
+        _site.Set(x, floor - 1, z, COMMON_ROCK);
+      }
     }
   }
   // The quarry yard, T8, beside the pit, facing it. The template wins over the v5 scene's loose
@@ -458,13 +580,15 @@ void BuildRoadAndFields(const Site& _site, std::uint64_t _seed)
   }
 }
 
-/// The ditch and its rampart before the west wall, open where the breach's approach crosses them.
-/// The rampart is fresh, so bare earth: only the generator places grass (RendererLook.md).
+/// The ditch and its rampart before the west wall, left undug for 9 m in front of the breach: the
+/// stretch of deep earth where the attackers struck. The ditch is 5 m wide and 2 m deep in 1 m
+/// steps, and the rampart 2 m high. The rampart is fresh, so bare earth: only the generator places
+/// grass (RendererLook.md).
 void BuildDitchAndRampart(const Site& _site)
 {
   for (std::int32_t z = 34; z < 89; ++z)
   {
-    if (z >= 54 && z <= 68)
+    if (std::abs(z - BREACH_Z_VOXELS) <= UNDUG_HALF_VOXELS)
     {
       continue;
     }
@@ -534,19 +658,42 @@ void BuildCastle(const Site& _site, const TemplateLookup& _templates)
   BuildCottage(_site, 70, 70, 5, 4);
 }
 
-/// The breach in the west wall, widening as it rises, its craters, and the rubble ramp at its foot.
-void BuildBreach(const Site& _site, std::uint64_t _seed)
+/// The breach in the west wall, which stands from the start (the render-fix package, item 4): a
+/// ragged notch through the section's whole thickness, at least 4 m wide where it stops 1 m above
+/// the ground and widening as it rises; the engines' craters; and a ramp of stone rubble from beyond
+/// the ditch's line up through the notch into the bailey. What it brought down and the rubble it
+/// left go into _record when it is given. The rubble is all rubble of stone: the masonry some of it
+/// shows is the renderer's pick of colour (RendererLook.md §3).
+void BuildBreach(const Site& _site, std::uint64_t _seed, CollapseRecord* _record)
 {
-  for (std::int32_t y = G - 1; y <= G + 8; ++y)
+  const auto bringDown = [&_site, _record](std::int32_t _x, std::int32_t _y, std::int32_t _z)
+  {
+    const std::uint8_t index = _site.At(_x, _y, _z);
+    if (index == 0)
+    {
+      return;
+    }
+    if (_record != nullptr)
+    {
+      _record->fallen.push_back({.position = _site.WorldPosition(_x, _y, _z), .paletteIndex = index});
+    }
+    _site.Set(_x, _y, _z, 0);
+  };
+  constexpr std::int32_t NOTCH_FLOOR_VOXELS = G + 1; // the wall's first meter stands
+  for (std::int32_t y = NOTCH_FLOOR_VOXELS; y <= G + 8; ++y)
   {
     for (std::int32_t z = 50; z < 72; ++z)
     {
-      // Its half-width: 1.5 m at the foot, 0.62 m more each meter up, and a ragged edge.
+      // Its half-width: 2.5 m at the foot, 0.62 m more each meter up, and an edge ragged by up to a
+      // voxel either way, so it is never narrower than 4 m.
       const std::int64_t halfWidth =
-        3 * ONE / 2 + std::max(0, y - G) * ONE * 62 / 100 + (Fbm(Scaled(z, 500), Scaled(y, 500), 77, _seed) - ONE / 2) * 12 / 10;
-      if (std::abs((2 * z + 1) * ONE / 2 - 61 * ONE) < halfWidth)
+        5 * ONE / 2 + (y - NOTCH_FLOOR_VOXELS) * ONE * 62 / 100 + (Fbm(Scaled(z, 500), Scaled(y, 500), 77, _seed) - ONE / 2) * 12 / 10;
+      if (std::abs((2 * z + 1) * ONE / 2 - BREACH_Z_VOXELS * ONE) < halfWidth)
       {
-        _site.Box(58, 60, y, y, z, z, 0);
+        for (std::int32_t x = 58; x <= 60; ++x)
+        {
+          bringDown(x, y, z);
+        }
       }
     }
   }
@@ -576,19 +723,20 @@ void BuildBreach(const Site& _site, std::uint64_t _seed)
           const auto vz = static_cast<std::int32_t>(z);
           if (dx * dx + dy * dy + dz * dz < crater.radius * crater.radius && _site.At(vx, vy, vz) == MASONRY)
           {
-            _site.Set(vx, vy, vz, 0);
+            bringDown(vx, vy, vz);
           }
         }
       }
     }
   }
-  // The rubble ramp: up to 3 m high in an ellipse 17 m by 11 m about the breach's foot, mostly stone
-  // rubble with blocks of masonry in it.
+  // The rubble ramp: up to 3 m high in an ellipse 17 m by 11 m about the breach's foot, over the
+  // standing meter of wall.
   for (std::int32_t z = 52; z < 70; ++z)
   {
     for (std::int32_t x = 48; x < 68; ++x)
     {
-      const std::int64_t reach = Length(((2 * x + 1) * ONE / 2 - 59 * ONE) * 2 / 17, ((2 * z + 1) * ONE / 2 - 61 * ONE) * 10 / 56);
+      const std::int64_t reach =
+        Length(((2 * x + 1) * ONE / 2 - 59 * ONE) * 2 / 17, ((2 * z + 1) * ONE / 2 - BREACH_Z_VOXELS * ONE) * 10 / 56);
       if (reach >= ONE)
       {
         continue;
@@ -600,7 +748,11 @@ void BuildBreach(const Site& _site, std::uint64_t _seed)
       {
         if (_site.At(x, ground + k, z) == 0)
         {
-          _site.Set(x, ground + k, z, Hash(x, z * 7 + k, 52, _seed) < ONE * 12 / 100 ? MASONRY : STONE_RUBBLE);
+          _site.Set(x, ground + k, z, STONE_RUBBLE);
+          if (_record != nullptr)
+          {
+            _record->rubble.push_back(_site.WorldPosition(x, ground + k, z));
+          }
         }
       }
     }
@@ -766,7 +918,9 @@ TestWorld BuildTestWorld(ChunkStore& _store, std::int32_t _edgeVoxels, std::uint
                   .sceneXVoxels = (_edgeVoxels - SCENE) / 2,
                   .sceneZVoxels = (_edgeVoxels - SCENE) / 2,
                   .surfaceVoxels = {},
-                  .editedVoxels = 0};
+                  .editedVoxels = 0,
+                  .breach = {},
+                  .breachId = Mix(_seed ^ Mix(BREACH_SALT))};
   const std::array<SiteOrigin, 1> scene{{{.xVoxels = world.sceneXVoxels, .zVoxels = world.sceneZVoxels}}};
   BuildGround(_store, world, _seed, scene);
   std::uint64_t generated = 0;
@@ -776,7 +930,7 @@ TestWorld BuildTestWorld(ChunkStore& _store, std::int32_t _edgeVoxels, std::uint
   BuildRoadAndFields(generator, _seed);
   BuildDitchAndRampart(edits);
   BuildCastle(edits, _templates);
-  BuildBreach(edits, _seed);
+  BuildBreach(edits, _seed, &world.breach);
   BuildForest(generator, _edgeVoxels, world.sceneXVoxels, world.sceneZVoxels, _seed);
   return world;
 }
@@ -803,7 +957,9 @@ TestWorld BuildSeasonWorld(ChunkStore& _store, std::int32_t _edgeVoxels, std::in
                   .sceneXVoxels = (spacingX - SCENE) / 2,
                   .sceneZVoxels = (spacingZ - SCENE - SECOND_SITE_VOXELS) / 2,
                   .surfaceVoxels = {},
-                  .editedVoxels = 0};
+                  .editedVoxels = 0,
+                  .breach = {},
+                  .breachId = Mix(_seed ^ Mix(BREACH_SALT))};
   // The lord builds twice over: a second castle a little way off, as a holding grows. Each stands on
   // a plateau the generator raised, as the scene's castle does, so its footprints are level already.
   std::vector<SiteOrigin> sites;
@@ -827,7 +983,7 @@ TestWorld BuildSeasonWorld(ChunkStore& _store, std::int32_t _edgeVoxels, std::in
     const std::size_t holding = index / 2;
     if (index % 2 == 0 && holding < BREACHED_HOLDINGS)
     {
-      BuildBreach(lord, _seed + holding);
+      BuildBreach(lord, _seed + holding, nullptr);
     }
   }
   return world;
@@ -898,31 +1054,73 @@ TestWorldEdits::TestWorldEdits(const ChunkStore& _store, const TestWorld& _world
     m_sceneZVoxels(_world.sceneZVoxels),
     m_collapseId(Mix(_seed ^ Mix(COLLAPSE_FRAME)))
 {
-  // The quarry's columns: the stone body south of the castle, clear of the castle's south towers
-  // and of the quarry yard, in world coordinates.
-  for (std::int32_t z = 82; z < 118; ++z)
+  // The quarry's columns: the stone body south of the castle, and the earth south of it between the
+  // ditch's line and the quarry yard, clear of the yard and short of the castle's south towers.
+  struct Column
+  {
+    std::int32_t sceneX;
+    std::int32_t sceneZ;
+    Protocol::VoxelPosition top; // the world's voxel at its highest solid voxel
+  };
+  std::vector<Column> columns;
+  for (std::int32_t z = PIT_NORTH_VOXELS - PIT_CASTLE_GROWTH_VOXELS; z <= PIT_EARTH_SOUTH_VOXELS; ++z)
   {
     for (std::int32_t x = 46; x < 104; ++x)
     {
-      if (!InQuarryBody(x, z) || (x >= 91 && z >= 87 && z <= 95))
+      const bool earth = x >= PIT_EARTH_WEST_VOXELS && x <= PIT_EARTH_EAST_VOXELS && z > PIT_SOUTH_VOXELS;
+      if (!(InQuarryBody(x, z) || earth) || (x >= 91 && z >= 87 && z <= 95))
       {
         continue;
       }
       const std::int32_t worldX = _world.WorldXVoxels(x);
       const std::int32_t worldZ = _world.WorldZVoxels(z);
-      m_quarry.push_back({.xVoxels = worldX, .zVoxels = worldZ, .topVoxels = TopSolidAtOrBelow(_store, worldX, worldZ, HEIGHT - 1)});
+      columns.push_back({.sceneX = x,
+                         .sceneZ = z,
+                         .top = {.xVoxels = worldX, .yVoxels = TopSolidAtOrBelow(_store, worldX, worldZ, HEIGHT - 1), .zVoxels = worldZ}});
     }
   }
-  // A seeded order, which breaks ties between columns of equal height, so each layer goes in a
-  // scatter rather than a sweep. The order is of coordinates within the scene's square, so it is the
-  // same wherever the scene stands.
-  std::ranges::sort(m_quarry, {},
-                    [this, _seed](const Column& _column)
-                    {
-                      const auto x = static_cast<std::uint64_t>(_column.xVoxels - m_sceneXVoxels);
-                      const auto z = static_cast<std::uint32_t>(_column.zVoxels - m_sceneZVoxels);
-                      return Mix(_seed ^ Mix((x << 32) | z));
-                    });
+  // Nearest the pit first, then in a seeded order of coordinates within the scene's square, so it is
+  // the same wherever the scene stands.
+  const auto fromPit = [](const Column& _column)
+  {
+    return std::max({PIT_WEST_VOXELS - _column.sceneX, _column.sceneX - PIT_EAST_VOXELS, PIT_NORTH_VOXELS - _column.sceneZ,
+                     _column.sceneZ - PIT_SOUTH_VOXELS, 0});
+  };
+  const auto tieBreak = [_seed](const Column& _column)
+  {
+    return Mix(_seed ^ Mix((static_cast<std::uint64_t>(static_cast<std::uint32_t>(_column.sceneX)) << 32) |
+                           static_cast<std::uint32_t>(_column.sceneZ)));
+  };
+  std::ranges::sort(columns, [&fromPit, &tieBreak](const Column& _a, const Column& _b)
+                    { return fromPit(_a) != fromPit(_b) ? fromPit(_a) < fromPit(_b) : tieBreak(_a) < tieBreak(_b); });
+  // Each step grows the pit a meter and cuts its terraces back with it, each column from its top
+  // down, before the next step, so the quarry stays terraced at every frame.
+  const auto cut = [this, &_store, &columns](const PitGrowth& _growth)
+  {
+    for (Column& column : columns)
+    {
+      for (const std::int32_t floor = PitFloor(column.sceneX, column.sceneZ, _growth); column.top.yVoxels >= floor; --column.top.yVoxels)
+      {
+        if (_store.At(column.top) != 0)
+        {
+          m_digs.push_back(column.top);
+        }
+      }
+    }
+  };
+  constexpr std::int32_t BODY = PIT_BODY_GROWTH_VOXELS;
+  for (std::int32_t growth = 1; growth <= BODY; ++growth)
+  {
+    cut({.west = growth, .east = growth, .south = growth, .north = 0});
+  }
+  for (std::int32_t south = BODY + 1; south <= PIT_EARTH_SOUTH_VOXELS - PIT_SOUTH_VOXELS; ++south)
+  {
+    cut({.west = BODY, .east = BODY, .south = south, .north = 0});
+  }
+  for (std::int32_t north = 1; north <= PIT_CASTLE_GROWTH_VOXELS; ++north)
+  {
+    cut({.west = BODY, .east = BODY, .south = PIT_EARTH_SOUTH_VOXELS - PIT_SOUTH_VOXELS, .north = north});
+  }
 }
 
 std::vector<Protocol::VoxelPosition> TestWorldEdits::Apply(ChunkStore& _store, std::uint32_t _frame)
@@ -946,19 +1144,12 @@ std::vector<Protocol::VoxelPosition> TestWorldEdits::Apply(ChunkStore& _store, s
 
 void TestWorldEdits::Quarry(ChunkStore& _store, std::uint32_t _voxels, std::vector<Protocol::VoxelPosition>& _changed)
 {
-  // The quarry works down from its highest ground: each voxel dug is the top of the highest column,
-  // so the rim comes down to the terraces and the pit widens.
-  for (std::uint32_t dug = 0; dug < _voxels; ++dug)
+  // The quarry digs in the order its constructor set, until its benches are all cut.
+  for (std::uint32_t dug = 0; dug < _voxels && m_nextDig < m_digs.size(); ++dug)
   {
-    const auto highest = std::ranges::max_element(m_quarry, {}, &Column::topVoxels); // the first of equals
-    if (highest == m_quarry.end() || highest->topVoxels < QUARRY_FLOOR_VOXELS)
-    {
-      break;
-    }
-    const Protocol::VoxelPosition voxel{.xVoxels = highest->xVoxels, .yVoxels = highest->topVoxels, .zVoxels = highest->zVoxels};
+    const Protocol::VoxelPosition voxel = m_digs[m_nextDig++];
     _store.Set(voxel, 0);
     _changed.push_back(voxel);
-    highest->topVoxels = TopSolidAtOrBelow(_store, highest->xVoxels, highest->zVoxels, highest->topVoxels - 1);
   }
 }
 
