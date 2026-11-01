@@ -64,5 +64,5 @@ The owner also plans the Surface Pro, whose integrated GPU the spike measures, a
 
 - Redrawing the world templates natively at 1 m. Today's are automatic conversions from 0.5 m, to be redrawn before the M4 Siege castle is final.
 - Crater radius and depth for each weapon and material, in 1 m voxels.
-- The method for model contact shading.
+- ~~The method for model contact shading.~~ Settled 2026-11-01 (GameDesign.md, *M1's open values*): baked per instance on the CPU.
 - Platforms beyond the Windows PC.
