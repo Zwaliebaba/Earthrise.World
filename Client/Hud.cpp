@@ -221,26 +221,47 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, float _uiSca
     }
   }
 
-  // The mode banner, centred under the top bar, with its text in accent and CANCEL · ESC.
+  // The mode banner, centred under the top bar: its text in accent and its buttons after it, or under it, centred,
+  // when one row would not fit the screen.
   if (!_model.mode.command.empty())
   {
     const std::int32_t control = paint.Pixels(CONTROL_HEIGHT_LOGICAL_PIXELS);
     const std::int32_t paddingY = paint.Pixels(BANNER_PADDING_Y_LOGICAL_PIXELS);
     const std::int32_t paddingLeft = paint.Pixels(BANNER_PADDING_LEFT_LOGICAL_PIXELS);
+    const std::int32_t paddingRight = paint.Pixels(BANNER_PADDING_RIGHT_LOGICAL_PIXELS);
+    const std::int32_t gap = paint.Pixels(BANNER_GAP_LOGICAL_PIXELS);
     const std::int32_t textWidth = paint.Width(_model.mode.banner);
-    const std::int32_t cancelWidth = paint.Width(CANCEL_ESC) + (2 * paint.Pixels(CANCEL_PADDING_LOGICAL_PIXELS));
-    const std::int32_t bannerWidth = (2 * border) + paddingLeft + textWidth + paint.Pixels(BANNER_GAP_LOGICAL_PIXELS) + cancelWidth +
-                                     paint.Pixels(BANNER_PADDING_RIGHT_LOGICAL_PIXELS);
+    std::vector<std::int32_t> buttonWidths;
+    std::int32_t buttonsWidth = 0;
+    for (const HudModeButton& button : _model.mode.buttons)
+    {
+      buttonWidths.push_back(paint.Width(button.label) + (2 * paint.Pixels(CANCEL_PADDING_LOGICAL_PIXELS)));
+      buttonsWidth += buttonWidths.back() + (buttonWidths.size() > 1 ? gap : 0);
+    }
+    const bool hasButtons = !buttonWidths.empty();
+    const std::int32_t chrome = (2 * border) + paddingLeft + paddingRight;
+    const std::int32_t oneRow = textWidth + (hasButtons ? gap + buttonsWidth : 0);
+    const bool stacked = hasButtons && chrome + oneRow > width - (2 * paint.Pixels(ALERTS_LEFT_LOGICAL_PIXELS));
+    const std::int32_t contentWidth = stacked ? std::max(textWidth, buttonsWidth) : oneRow;
+    const std::int32_t rowsHeight = stacked ? (2 * control) + paddingY : control;
+    const std::int32_t bannerWidth = chrome + contentWidth;
     const PixelRect banner{(width - bannerWidth) / 2, paint.Pixels(BANNER_TOP_LOGICAL_PIXELS), bannerWidth,
-                           (2 * border) + (2 * paddingY) + control};
+                           (2 * border) + (2 * paddingY) + rowsHeight};
     const PixelRect inside = paint.Box(banner, ACCENT_SRGB, PANEL_SRGB, PANEL_ALPHA);
     m_panels.push_back(banner);
-    const std::int32_t controlTop = inside.yPixels + paddingY;
-    paint.Text(_model.mode.banner, inside.xPixels + paddingLeft, paint.CenteredCellTop(controlTop, control), ACCENT_SRGB, inside);
-    const PixelRect cancel{inside.xPixels + paddingLeft + textWidth + paint.Pixels(BANNER_GAP_LOGICAL_PIXELS), controlTop, cancelWidth,
-                           control};
-    paint.Button(cancel, CANCEL_ESC);
-    m_targets.push_back({.control = HudControl::Cancel, .alert = 0, .rect = cancel});
+    const std::int32_t textTop = inside.yPixels + paddingY;
+    const std::int32_t contentLeft = inside.xPixels + paddingLeft;
+    paint.Text(_model.mode.banner, contentLeft + (stacked ? (contentWidth - textWidth) / 2 : 0), paint.CenteredCellTop(textTop, control),
+               ACCENT_SRGB, inside);
+    std::int32_t x = stacked ? contentLeft + ((contentWidth - buttonsWidth) / 2) : contentLeft + textWidth + gap;
+    const std::int32_t buttonsTop = stacked ? textTop + control + paddingY : textTop;
+    for (std::size_t index = 0; index < buttonWidths.size(); ++index)
+    {
+      const PixelRect button{x, buttonsTop, buttonWidths.at(index), control};
+      paint.Button(button, _model.mode.buttons.at(index).label);
+      m_targets.push_back({.control = _model.mode.buttons.at(index).control, .alert = 0, .rect = button});
+      x += buttonWidths.at(index) + gap;
+    }
   }
 
   // The alerts, newest first, down the left: the text in accent, or bad when urgent, a second line in sub, and JUMP

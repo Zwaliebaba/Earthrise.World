@@ -5,6 +5,7 @@
 #include "HudAlerts.h"
 #include "HudModel.h"
 #include "Strings.h"
+#include "UiScale.h"
 
 #include <limits>
 
@@ -39,7 +40,9 @@ Client::HudModel WidestModel()
   constexpr std::uint32_t LONGEST_TICK = ((59 * 60) + 59) * 20; // 59:59
   return {.resources = Client::BreachResources(LONGEST_TICK, 99),
           .objective = {.title = std::string(Client::BREACH_OBJECTIVE_TITLE), .detail = std::string(Client::BREACH_OBJECTIVE_DETAIL)},
-          .mode = {.command = "FIRE", .banner = std::string(Client::FIRE_BANNER)},
+          .mode = {.command = "FIRE",
+                   .banner = std::string(Client::FIRE_BANNER),
+                   .buttons = {{.control = Client::HudControl::Cancel, .label = std::string(Client::CANCEL_ESC)}}},
           .alerts = {Alert("W2 WILL FALL IN 10 S", "", true), Alert("W2 HAS FALLEN", "THE BREACH IS OPEN", true),
                      Alert("HIT W2", "REPAIR LOCKED 10 S", false)},
           .selectedEngine = Protocol::NO_ENTITY,
@@ -189,6 +192,53 @@ public:
               Assert::IsFalse(text.cell.Overlaps(target.rect));
             }
           }
+        }
+      }
+    }
+  }
+
+  TEST_METHOD(StacksTheQuestionsButtonsUnderItWhereOneRowWouldNotFit)
+  {
+    // The lab's question with its two answers (M3-G1): one row at 1920 px and a UI scale of 1, two at 1280 px and 2,
+    // and at every size every string inside its element, nothing over anything, and the banner on screen.
+    Client::HudModel model = WidestModel();
+    model.alerts.clear();
+    model.mode = {.command = "QUESTION",
+                  .banner = std::format(Client::QUESTION_BANNER, 5),
+                  .buttons = {{.control = Client::HudControl::AnswerOpen, .label = std::string(Client::OPEN_BUTTON)},
+                              {.control = Client::HudControl::AnswerShut, .label = std::string(Client::SHUT_BUTTON)}}};
+    for (const float scale : SCALES)
+    {
+      for (const std::uint32_t width : WIDTHS_PIXELS)
+      {
+        Client::Hud hud;
+        std::vector<Client::ScreenQuad> quads;
+        hud.Build(model, width, scale, quads);
+        const std::span<const Client::HudTarget> targets = hud.Targets();
+        const auto open = std::ranges::find(targets, Client::HudControl::AnswerOpen, &Client::HudTarget::control);
+        const auto shut = std::ranges::find(targets, Client::HudControl::AnswerShut, &Client::HudTarget::control);
+        Assert::IsTrue(open != targets.end() && shut != targets.end());
+        Assert::IsTrue(open->rect.xPixels >= 0 && shut->rect.xPixels + shut->rect.widthPixels <= static_cast<std::int32_t>(width));
+        Assert::IsFalse(open->rect.Overlaps(shut->rect));
+        const std::span<const Client::HudText> texts = hud.Texts();
+        const Client::PixelRect screen{0, 0, static_cast<std::int32_t>(width), 1080};
+        for (std::size_t index = 0; index < texts.size(); ++index)
+        {
+          Assert::IsTrue(texts[index].cell.Inside(texts[index].element));
+          Assert::IsTrue(texts[index].element.Inside(screen));
+          for (std::size_t other = index + 1; other < texts.size(); ++other)
+          {
+            Assert::IsFalse(texts[index].cell.Overlaps(texts[other].cell));
+          }
+        }
+        const bool stacked = open->rect.yPixels > Client::ScaledPixels(56.0F + 8.0F, scale);
+        if (width == 1920 && scale == 1.0F)
+        {
+          Assert::IsFalse(stacked);
+        }
+        if (width == 1280 && scale == 2.0F)
+        {
+          Assert::IsTrue(stacked);
         }
       }
     }

@@ -35,14 +35,14 @@ void Camera::Steer(const Engine::KeyboardInput& _keyboard, const Engine::Pointer
   }
   const bool zoomIn = _keyboard.WasPressed(VK_OEM_PLUS) || _keyboard.WasPressed(VK_ADD);
   const bool zoomOut = _keyboard.WasPressed(VK_OEM_MINUS) || _keyboard.WasPressed(VK_SUBTRACT);
-  m_camera.Zoom(_pointer.WheelNotches() + (zoomIn ? 1.0F : 0.0F) - (zoomOut ? 1.0F : 0.0F));
+  Zoom(_pointer.WheelNotches() + (zoomIn ? 1.0F : 0.0F) - (zoomOut ? 1.0F : 0.0F));
   if (_keyboard.WasPressed(VK_OEM_4) || _keyboard.WasPressed(VK_PRIOR))
   {
-    m_camera.Rotate(-1);
+    Turn(-1);
   }
   if (_keyboard.WasPressed(VK_OEM_6) || _keyboard.WasPressed(VK_NEXT))
   {
-    m_camera.Rotate(1);
+    Turn(1);
   }
   m_camera.Update(_seconds);
 }
@@ -50,11 +50,18 @@ void Camera::Steer(const Engine::KeyboardInput& _keyboard, const Engine::Pointer
 void Camera::Turn(std::int32_t _quarterTurns) noexcept
 {
   m_camera.Rotate(_quarterTurns);
+  m_turns += _quarterTurns < 0 ? -_quarterTurns : _quarterTurns;
 }
 
 void Camera::Zoom(float _notches) noexcept
 {
   m_camera.Zoom(_notches);
+  m_notches += std::abs(_notches);
+}
+
+std::pair<std::int32_t, float> Camera::TakeMoves() noexcept
+{
+  return {std::exchange(m_turns, 0), std::exchange(m_notches, 0.0F)};
 }
 
 void Camera::LookAt(const DirectX::XMFLOAT3& _targetMeters) noexcept

@@ -76,6 +76,20 @@ inline constexpr std::string_view FALLS = "FALLS";
 /// The passability view's alert (Hud.md §10; M3-F3): the lab's target is W2.
 inline constexpr std::string_view BREACH_OPEN_ALERT = "BREACH OPEN AT W2";
 
+// The breach lab (M3-G1; GameDesign.md, M3's values, item 2): its banners, its answers and its objective.
+inline constexpr std::string_view FREE_FIRE_BANNER = "FREE FIRE · {}:{:02} LEFT";
+inline constexpr std::string_view WATCH_BANNER = "WATCH";
+inline constexpr std::string_view QUESTION_BANNER = "WILL W2 BE OPEN TO FOOT AFTER {} SHOTS AT THE MARK?";
+inline constexpr std::string_view QUESTION_ONE_SHOT_BANNER = "WILL W2 BE OPEN TO FOOT AFTER 1 SHOT AT THE MARK?";
+inline constexpr std::string_view OPEN_BUTTON = "OPEN · O";
+inline constexpr std::string_view SHUT_BUTTON = "SHUT · H"; // not S, which pans (Hud.md §7)
+inline constexpr std::string_view RESULT_OPEN_BANNER = "W2 IS OPEN · SPACE FOR THE NEXT";
+inline constexpr std::string_view RESULT_SHUT_BANNER = "W2 IS SHUT · SPACE FOR THE NEXT";
+inline constexpr std::string_view FINISHED_BANNER = "THE LAB IS DONE · THANK YOU";
+inline constexpr std::string_view PRACTICE_OBJECTIVE = "PRACTICE";
+inline constexpr std::string_view ITEM_OBJECTIVE = "ITEM {} OF {}";
+inline constexpr std::string_view FINISHED_OBJECTIVE = "DONE";
+
 /// Every string above, for the glyph coverage test.
 inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      TIME_KEY,
@@ -124,6 +138,18 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      GROUND_ROCK,
                                                                      GROUND_BEDROCK,
                                                                      FALLS,
-                                                                     BREACH_OPEN_ALERT});
+                                                                     BREACH_OPEN_ALERT,
+                                                                     FREE_FIRE_BANNER,
+                                                                     WATCH_BANNER,
+                                                                     QUESTION_BANNER,
+                                                                     QUESTION_ONE_SHOT_BANNER,
+                                                                     OPEN_BUTTON,
+                                                                     SHUT_BUTTON,
+                                                                     RESULT_OPEN_BANNER,
+                                                                     RESULT_SHUT_BANNER,
+                                                                     FINISHED_BANNER,
+                                                                     PRACTICE_OBJECTIVE,
+                                                                     ITEM_OBJECTIVE,
+                                                                     FINISHED_OBJECTIVE});
 
 } // namespace Client

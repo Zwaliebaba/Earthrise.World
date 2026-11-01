@@ -86,7 +86,9 @@ HudMode FireMode::Mode() const
   {
     return {};
   }
-  return {.command = std::string(FIRE_COMMAND), .banner = std::string(FIRE_BANNER)};
+  return {.command = std::string(FIRE_COMMAND),
+          .banner = std::string(FIRE_BANNER),
+          .buttons = {{.control = HudControl::Cancel, .label = std::string(CANCEL_ESC)}}};
 }
 
 bool FireMode::Ready(const Protocol::EngineView& _engine) noexcept

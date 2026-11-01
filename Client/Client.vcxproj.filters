@@ -31,6 +31,9 @@
     <Filter Include="Views">
       <UniqueIdentifier>{C8D20524-785A-50C8-A4E2-CA5AA774CEF8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Lab">
+      <UniqueIdentifier>{B850AB04-44FA-50ED-9854-EF658A3CBE04}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -158,6 +161,12 @@
     </ClInclude>
     <ClCompile Include="Overlays.cpp">
       <Filter>Views</Filter>
+    </ClCompile>
+    <ClInclude Include="LabModel.h">
+      <Filter>Lab</Filter>
+    </ClInclude>
+    <ClCompile Include="LabModel.cpp">
+      <Filter>Lab</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

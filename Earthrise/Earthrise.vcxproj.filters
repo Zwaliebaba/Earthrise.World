@@ -7,6 +7,9 @@
     <Filter Include="Program">
       <UniqueIdentifier>{B4BA81FB-0E4E-555C-841C-CFFD4B373C48}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Lab">
+      <UniqueIdentifier>{D937BF0B-4848-5397-9C8A-56BF703BD2F3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -20,6 +23,15 @@
     </Manifest>
     <ClCompile Include="Earthrise.cpp">
       <Filter>Program</Filter>
+    </ClCompile>
+    <ClInclude Include="Scenario.h">
+      <Filter>Lab</Filter>
+    </ClInclude>
+    <ClInclude Include="Lab.h">
+      <Filter>Lab</Filter>
+    </ClInclude>
+    <ClCompile Include="Lab.cpp">
+      <Filter>Lab</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

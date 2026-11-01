@@ -51,6 +51,7 @@
     <ClCompile Include="WorldPickerTests.cpp" />
     <ClCompile Include="FireModeTests.cpp" />
     <ClCompile Include="OverlaysTests.cpp" />
+    <ClCompile Include="LabTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

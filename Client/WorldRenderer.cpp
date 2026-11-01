@@ -234,6 +234,12 @@ WorldRenderer::WorldRenderer(ID3D12Device* _device, ID3D12CommandQueue* _queue, 
                                                      SHADOW_MARGIN_METERS));
 }
 
+void WorldRenderer::ResetWorld()
+{
+  m_worldView.Forget();
+  m_worldChanged = true;
+}
+
 void WorldRenderer::Resize(std::uint32_t _widthPixels, std::uint32_t _heightPixels)
 {
   m_sceneColor.Resize(_widthPixels, _heightPixels);

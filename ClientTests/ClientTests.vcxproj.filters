@@ -42,5 +42,8 @@
     <ClCompile Include="OverlaysTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="LabTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

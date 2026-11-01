@@ -73,6 +73,10 @@ public:
   WorldRenderer(ID3D12Device* _device, ID3D12CommandQueue* _queue, const Desc& _desc, std::uint32_t _widthPixels,
                 std::uint32_t _heightPixels);
 
+  /// Forgets the world drawn so far, for a fresh one such as the lab's next item. The caller first makes sure the GPU
+  /// no longer reads it (a flush).
+  void ResetWorld();
+
   /// Remakes the scene's targets at a new size. The caller first makes sure the GPU no longer uses them (a flush).
   void Resize(std::uint32_t _widthPixels, std::uint32_t _heightPixels);
 

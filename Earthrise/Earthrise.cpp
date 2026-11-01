@@ -8,16 +8,17 @@
 #include "Command.h"
 #include "CommandQueue.h"
 #include "Debris.h"
+#include "FireMode.h"
+#include "FireTally.h"
 #include "FrameRing.h"
 #include "FrameTimer.h"
 #include "GpuDevice.h"
 #include "Hash.h"
-#include "FireMode.h"
-#include "FireTally.h"
 #include "Hud.h"
 #include "HudAlerts.h"
 #include "HudModel.h"
 #include "KeyboardInput.h"
+#include "Lab.h"
 #include "Look.h"
 #include "ModelPlacement.h"
 #include "Overlays.h"
@@ -37,6 +38,8 @@
 #include "WorldPicker.h"
 #include "WorldRenderer.h"
 
+#include <cctype>
+
 // Earthrise.World (ADR-020): the executable that joins the client and the simulation in one process. Each frame the
 // client's clock gives the ticks due; for each, the executable hands the simulation the session's command and query
 // bytes, ticks it, and hands the session back a copy of its state update, the chunks it published and its answers
@@ -45,6 +48,9 @@
 // In M3-C3 it runs the M2 breach run live on the breach lab's site (M3-B7): the trebuchet's five scripted shots, the
 // slot's warning and fall with its debris, and the squad walking through. From M3-E4 the player fires: select the
 // trebuchet, press F and right-click a target. `--script` plays the five scripted shots instead.
+//
+// `--lab <participant> [--seed n]` runs the breach lab (M3-G1, Lab.h) instead, and writes its log to Logs\ beside the
+// executable.
 //
 // It starts borderless over the whole monitor (ADR-011, decision 1), and Alt+Enter switches between that and a window.
 // `--windowed` starts it in a window. `--speed 10` runs the clock at ten times. `--ui-scale 1.5` sets the UI scale over
@@ -69,8 +75,10 @@ struct Options
 {
   bool windowed;
   double speed;
-  std::optional<float> uiScale; // --ui-scale, over the display's band
-  bool scripted;                // --script: the M2 run's shots, as in M3-C3
+  std::optional<float> uiScale;           // --ui-scale, over the display's band
+  bool scripted;                          // --script: the M2 run's shots, as in M3-C3
+  std::optional<std::string> participant; // --lab: the breach lab, for this participant (M3-G1)
+  std::uint64_t seed;                     // --seed, the lab's item order; by default the participant's hash
 };
 
 /// Whether the command line holds _flag as a word of its own.
@@ -131,6 +139,44 @@ double SpeedFrom(std::wstring_view _commandLine)
     throw std::invalid_argument(std::format("--speed takes a number above 0 and up to {}, and was given \"{}\".", MAX_SPEED, value));
   }
   return speed;
+}
+
+/// The participant after --lab, or nothing without it. Throws std::invalid_argument when --lab has none, or one that is
+/// not letters, digits, - and _, since it names the log's file.
+std::optional<std::string> ParticipantFrom(std::wstring_view _commandLine)
+{
+  if (!HasFlag(_commandLine, L"--lab") && _commandLine.find(L"--lab=") == std::wstring_view::npos)
+  {
+    return std::nullopt;
+  }
+  const std::string participant = OptionValue(_commandLine, L"--lab").value_or("");
+  const bool named =
+    !participant.empty() &&
+    std::ranges::all_of(participant, [](char _character)
+                        { return std::isalnum(static_cast<unsigned char>(_character)) != 0 || _character == '-' || _character == '_'; });
+  if (!named || participant.starts_with('-'))
+  {
+    throw std::invalid_argument("--lab needs a participant, of letters, digits, - and _, such as --lab P03");
+  }
+  return participant;
+}
+
+/// The lab's item order's seed: the number after --seed, or else the participant's hash, so that each participant's
+/// order is their own. Throws std::invalid_argument for a --seed that is not a whole number.
+std::uint64_t SeedFrom(std::wstring_view _commandLine, std::string_view _participant)
+{
+  const std::optional<std::string> given = OptionValue(_commandLine, L"--seed");
+  if (!given)
+  {
+    return Core::Fnv1a64(std::as_bytes(std::span(_participant.data(), _participant.size())));
+  }
+  std::uint64_t seed = 0;
+  const std::from_chars_result parsed = std::from_chars(given->data(), given->data() + given->size(), seed);
+  if (parsed.ec != std::errc{} || parsed.ptr != given->data() + given->size())
+  {
+    throw std::invalid_argument(std::format("--seed takes a whole number, and was given \"{}\".", *given));
+  }
+  return seed;
 }
 
 /// The folder the executable sits in: the build's output folder (ADR-010, decision 3).
@@ -391,20 +437,136 @@ DirectX::XMFLOAT3 FloorMiddle(const Protocol::VoxelPosition& _cell) noexcept
           static_cast<float>(_cell.zVoxels) + CELL_CENTER_METERS};
 }
 
+/// The M2 breach run, live (M3-C3 to F3): the squad's order from the run's script, and the shots from the player, or
+/// from the script with --script.
+class BreachScenario final : public Earthrise::Scenario
+{
+public:
+  BreachScenario(const Simulation::World::Desc& _desc, double _speed, bool _scripted)
+    : m_world(_desc),
+      m_run(Simulation::BuildBreachRun(m_world)),
+      m_speed(_speed),
+      m_scripted(_scripted)
+  {
+  }
+
+  [[nodiscard]] Simulation::World& World() override
+  {
+    return m_world;
+  }
+
+  [[nodiscard]] std::size_t Generation() const noexcept override
+  {
+    return 0;
+  }
+
+  [[nodiscard]] Protocol::VoxelPosition Goal() const noexcept override
+  {
+    return m_run.goalVoxels;
+  }
+
+  bool Tick(Client::Session& _session, double /* _seconds */) override
+  {
+    for (const std::vector<std::byte>& command : _session.TakeCommands())
+    {
+      m_world.Submit(PLAYER, command);
+    }
+    for (const std::vector<std::byte>& query : _session.TakeQueries())
+    {
+      m_world.Ask(PLAYER, query);
+    }
+    for (const Simulation::ScriptedCommand& scripted : m_run.script)
+    {
+      // The squad's order always; the shots only with --script, since the player fires (M3-E4).
+      if (scripted.tick == m_world.TickCount() && (m_scripted || !std::holds_alternative<Protocol::FireEngine>(scripted.command)))
+      {
+        Core::ByteWriter writer;
+        Protocol::Encode(scripted.command, writer);
+        m_world.Submit(scripted.player, writer.Bytes());
+      }
+    }
+    m_world.Tick();
+    return true;
+  }
+
+  void Frame(const Earthrise::ScenarioInput& /* _input */, Client::Session& /* _session */) override {}
+
+  [[nodiscard]] double Speed() const noexcept override
+  {
+    return m_speed;
+  }
+
+  [[nodiscard]] bool Paused() const noexcept override
+  {
+    return false;
+  }
+
+  [[nodiscard]] bool FireAllowed() const noexcept override
+  {
+    return true;
+  }
+
+  [[nodiscard]] bool PassabilityForced() const noexcept override
+  {
+    return false;
+  }
+
+  [[nodiscard]] bool TakesSpace() const noexcept override
+  {
+    return false;
+  }
+
+  [[nodiscard]] std::optional<Client::HudMode> Mode() const override
+  {
+    return std::nullopt;
+  }
+
+  [[nodiscard]] std::optional<Client::HudObjective> Objective() const override
+  {
+    return std::nullopt;
+  }
+
+  [[nodiscard]] std::vector<Client::OverlayBox> Marks(const Client::Session& /* _session */) const override
+  {
+    return {};
+  }
+
+private:
+  Simulation::World m_world;
+  Simulation::BreachRun m_run;
+  double m_speed;
+  bool m_scripted;
+};
+
+/// The client's side of one world: what it was told, and what it draws and asks from it. The lab replaces it with
+/// each item's world. It is made afresh and never moved: under MSVC's checked library a std::map's move may throw.
+struct Play
+{
+  Client::Session session;
+  Client::FireTally tally;
+  Presentation presentation;
+  Client::WorldPicker picker;
+  Client::Overlays views;
+  Client::FireMode fire;
+  Client::HudAlerts alerts;
+  Protocol::EntityId selected = Protocol::NO_ENTITY;
+  bool worldChanged = false; // the last frame took a changed chunk
+};
+
+/// Looking at W2, the target, from the default azimuth and view height (GameDesign.md, M3's values, item 14).
+Client::Camera DefaultCamera(const Protocol::VoxelPosition& _goal)
+{
+  return Client::Camera({static_cast<float>(_goal.xVoxels) + CELL_CENTER_METERS, static_cast<float>(Simulation::BreachRun::GROUND_VOXELS),
+                         static_cast<float>(Simulation::BreachRun::WALL_SOUTH_VOXELS)});
+}
+
 int Run(const Options& _options)
 {
   const std::filesystem::path executable = ExecutablePath();
   const std::uint64_t buildId = BuildIdOf(executable);
   const Simulation::ServerData serverData = LoadServerData(executable.parent_path());
-
-  // The simulation's side: the lab's site with the M2 breach run's script (M3-B7).
+  // The lab's site, the breach run's map and seeds (M3-B7).
   const Simulation::World::Desc desc = Simulation::LabDesc(serverData, buildId);
-  Simulation::World world(desc);
-  const Simulation::BreachRun run = Simulation::BuildBreachRun(world);
-  Client::Session session;
-  Client::TickClock clock;
-  Client::FireTally tally;
-  Presentation presentation;
 
   Engine::Window window({.title = TITLE, .clientWidthPixels = 1280, .clientHeightPixels = 720, .fullScreen = !_options.windowed});
   Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = false});
@@ -420,10 +582,29 @@ int Run(const Options& _options)
                                  swapChain.WidthPixels(), swapChain.HeightPixels());
   const FlushOnExit flushOnExit{device.DirectQueue()};
 
-  // Looking at W2, the target, from the default azimuth and view height (GameDesign.md, M3's values, item 14).
-  const Protocol::VoxelPosition goal = run.goalVoxels;
-  Client::Camera camera({static_cast<float>(goal.xVoxels) + CELL_CENTER_METERS, static_cast<float>(Simulation::BreachRun::GROUND_VOXELS),
-                         static_cast<float>(Simulation::BreachRun::WALL_SOUTH_VOXELS)});
+  // What runs: the breach lab with --lab (M3-G1), or the breach run live.
+  std::unique_ptr<Earthrise::Scenario> scenario;
+  if (_options.participant.has_value())
+  {
+    scenario = std::make_unique<Earthrise::Lab>(
+      desc, Earthrise::LabOptions{.participant = *_options.participant,
+                                  .seed = _options.seed,
+                                  .logFolder = executable.parent_path() / L"Logs",
+                                  .buildId = buildId,
+                                  .serverDataHash = serverData.Hash(),
+                                  .widthPixels = swapChain.WidthPixels(),
+                                  .heightPixels = swapChain.HeightPixels(),
+                                  .uiScale = _options.uiScale.value_or(Client::UiScaleForDpi(window.Dpi()))});
+  }
+  else
+  {
+    scenario = std::make_unique<BreachScenario>(desc, _options.speed, _options.scripted);
+  }
+
+  Client::TickClock clock;
+  std::unique_ptr<Play> play;                          // never null after the first frame's reset
+  std::size_t generation = scenario->Generation() + 1; // so that the first frame builds the play
+  Client::Camera camera = DefaultCamera(scenario->Goal());
   Engine::PointerInput pointer;
   Engine::KeyboardInput keyboard;
   Engine::FrameTimer timer;
@@ -431,16 +612,9 @@ int Run(const Options& _options)
   std::vector<Engine::OrientedVoxel> debris;
   std::vector<Client::ScreenQuad> interfaceQuads;
   Client::Hud hud;
-  Client::HudAlerts alerts;
-  Client::HudModel hudModel; // as the HUD was last built, which the clicks land on
-  Client::WorldPicker picker;
-  Protocol::EntityId selected = Protocol::NO_ENTITY;
-  Client::FireMode fire;
-  bool worldChanged = false; // the last frame took a changed chunk
-  Client::Overlays views;
-  bool integrityView = true;    // F1, on by default (Hud.md §7)
-  bool passabilityView = false; // F2
-  views.WatchBreach(run.goalVoxels);
+  Client::HudModel hudModel;                              // as the HUD was last built, which the clicks land on
+  bool integrityView = true;                              // F1, on by default (Hud.md §7)
+  bool passabilityView = false;                           // F2
   std::optional<DirectX::XMFLOAT4X4> drawnViewProjection; // the last frame's, which the clicks land on
   const std::array<float, 4> figuresColor = Client::LinearColor(Client::DIM_SRGB);
   std::int32_t lastXPixels = 0;
@@ -474,52 +648,64 @@ int Run(const Options& _options)
       swapChain.Resize(size.widthPixels, size.heightPixels);
       renderer.Resize(swapChain.WidthPixels(), swapChain.HeightPixels());
     }
+    // A fresh world, the lab's next item: the client forgets the old one, and the camera goes back to W2.
+    if (generation != scenario->Generation())
+    {
+      generation = scenario->Generation();
+      device.DirectQueue().Flush();
+      renderer.ResetWorld();
+      play = std::make_unique<Play>();
+      play->views.WatchBreach(scenario->Goal());
+      camera = DefaultCamera(scenario->Goal());
+      hudModel = {};
+      drawnViewProjection.reset();
+    }
+    Play& client = *play;
 
     swapChain.WaitForFrame();
     const double lapSeconds = std::min(timer.LapSeconds(), LONGEST_FRAME_SECONDS);
     seconds += lapSeconds;
 
     // The simulation's ticks: the session's bytes in, the world ticked, a copy of what it told back out.
-    const std::uint32_t ticks = clock.Advance(lapSeconds, _options.speed);
+    clock.SetPaused(scenario->Paused());
+    const std::uint32_t ticks = clock.Advance(lapSeconds, scenario->Speed());
     for (std::uint32_t tick = 0; tick < ticks; ++tick)
     {
-      for (const std::vector<std::byte>& command : session.TakeCommands())
+      if (!scenario->Tick(client.session, seconds))
       {
-        world.Submit(PLAYER, command);
+        break;
       }
-      for (const std::vector<std::byte>& query : session.TakeQueries())
-      {
-        world.Ask(PLAYER, query);
-      }
-      for (const Simulation::ScriptedCommand& scripted : run.script)
-      {
-        // The squad's order always; the shots only with --script, since the player fires (M3-E4).
-        if (scripted.tick == world.TickCount() && (_options.scripted || !std::holds_alternative<Protocol::FireEngine>(scripted.command)))
-        {
-          Core::ByteWriter writer;
-          Protocol::Encode(scripted.command, writer);
-          world.Submit(scripted.player, writer.Bytes());
-        }
-      }
-      world.Tick();
+      Simulation::World& world = scenario->World();
       const std::vector<Protocol::ChunkSnapshot> published = world.Publish();
       const std::vector<std::vector<std::byte>> answers = world.TakeAnswers();
-      session.Receive(world.State(), published, answers);
-      tally.Observe(session.State());
-      presentation.Update(session, static_cast<float>(seconds));
+      client.session.Receive(world.State(), published, answers);
+      client.tally.Observe(client.session.State());
+      client.presentation.Update(client.session, static_cast<float>(seconds));
+    }
+    // Answers given between ticks while the clock is paused, as the lab's question has them (M3-G1).
+    if (scenario->Paused())
+    {
+      Simulation::World& world = scenario->World();
+      const std::vector<std::vector<std::byte>> answers = world.TakeAnswers();
+      if (!answers.empty())
+      {
+        client.session.Receive(world.State(), {}, answers);
+      }
     }
 
-    // A left click on the HUD is the HUD's (M3-E2): the camera buttons turn and zoom, and JUMP, or Space for the
-    // newest alert with a place, looks at the alert's place. One on the world selects the engine whose footprint it
-    // lands on, or nothing, and Esc deselects (M3-E3).
+    // A left click on the HUD is the HUD's (M3-E2): the camera buttons turn and zoom, JUMP, or Space for the newest
+    // alert with a place, looks at the alert's place, and the lab's question takes its answer. One on the world
+    // selects the engine whose footprint it lands on, or nothing, and Esc deselects (M3-E3).
+    bool answerOpen = false;
+    bool answerShut = false;
     if (pointer.WasPressed(Engine::PointerInput::Button::Left))
     {
       const std::optional<Client::HudTarget> hit = hud.HitTest(pointer.XPixels(), pointer.YPixels());
-      if (!hit.has_value() && !hud.Covers(pointer.XPixels(), pointer.YPixels()) && drawnViewProjection.has_value() && !fire.Active())
+      if (!hit.has_value() && !hud.Covers(pointer.XPixels(), pointer.YPixels()) && drawnViewProjection.has_value() && !client.fire.Active())
       {
         const Engine::PickRay ray = Client::WorldPicker::RayThrough(*drawnViewProjection, pointer.XPixels(), pointer.YPixels(),
                                                                     swapChain.WidthPixels(), swapChain.HeightPixels());
-        selected = picker.Pick(ray, EngineFootprints(session, tally)).engine;
+        client.selected = client.picker.Pick(ray, EngineFootprints(client.session, client.tally)).engine;
       }
       if (hit.has_value())
       {
@@ -538,7 +724,7 @@ int Run(const Options& _options)
           camera.Zoom(1.0F);
           break;
         case Client::HudControl::Cancel:
-          fire.Cancel();
+          client.fire.Cancel();
           break;
         case Client::HudControl::Jump:
           if (hit->alert < hudModel.alerts.size() && hudModel.alerts.at(hit->alert).location.has_value())
@@ -546,43 +732,55 @@ int Run(const Options& _options)
             camera.LookAt(FloorMiddle(*hudModel.alerts.at(hit->alert).location));
           }
           break;
+        case Client::HudControl::AnswerOpen:
+          answerOpen = true;
+          break;
+        case Client::HudControl::AnswerShut:
+          answerShut = true;
+          break;
         }
       }
     }
     // The selection, while its engine is there.
-    const auto selectedEngine = std::ranges::find(session.State().engines, selected, &Protocol::EngineView::id);
-    const Protocol::EngineView* selectedView = selectedEngine != session.State().engines.end() ? &*selectedEngine : nullptr;
+    const auto selectedEngine = std::ranges::find(client.session.State().engines, client.selected, &Protocol::EngineView::id);
+    const Protocol::EngineView* selectedView = selectedEngine != client.session.State().engines.end() ? &*selectedEngine : nullptr;
     if (selectedView == nullptr)
     {
-      selected = Protocol::NO_ENTITY;
+      client.selected = Protocol::NO_ENTITY;
     }
-    // FIRE (M3-E4), from the world voxel under the pointer, off the HUD, while an engine is selected. Esc leaves the
-    // mode, and with none on deselects.
+    // FIRE (M3-E4), from the world voxel under the pointer, off the HUD, while an engine is selected and the scenario
+    // lets the player fire. Esc leaves the mode, and with none on deselects.
+    const bool fireAllowed = scenario->FireAllowed();
+    if (!fireAllowed && client.fire.Active())
+    {
+      client.fire.Cancel();
+    }
     const bool pointerOnHud = hud.Covers(pointer.XPixels(), pointer.YPixels());
     std::optional<Protocol::VoxelPosition> pointed;
     if (selectedView != nullptr && !pointerOnHud && drawnViewProjection.has_value())
     {
       const Engine::PickRay ray = Client::WorldPicker::RayThrough(*drawnViewProjection, pointer.XPixels(), pointer.YPixels(),
                                                                   swapChain.WidthPixels(), swapChain.HeightPixels());
-      const Client::WorldPick pick = picker.Pick(ray, {});
+      const Client::WorldPick pick = client.picker.Pick(ray, {});
       if (pick.voxel.has_value())
       {
         pointed = Protocol::VoxelPosition{pick.voxel->cell[0], pick.voxel->cell[1], pick.voxel->cell[2]};
       }
     }
-    const bool usedEscape = fire.Update({.fPressed = keyboard.WasPressed('F'),
-                                         .escapePressed = keyboard.WasPressed(VK_ESCAPE),
-                                         .rightClicked = pointer.WasPressed(Engine::PointerInput::Button::Right) && !pointerOnHud,
-                                         .shiftHeld = keyboard.IsDown(VK_SHIFT),
-                                         .pointedVoxels = pointed,
-                                         .worldChanged = worldChanged},
-                                        selectedView, session);
+    const bool usedEscape =
+      client.fire.Update({.fPressed = fireAllowed && keyboard.WasPressed('F'),
+                          .escapePressed = keyboard.WasPressed(VK_ESCAPE),
+                          .rightClicked = fireAllowed && pointer.WasPressed(Engine::PointerInput::Button::Right) && !pointerOnHud,
+                          .shiftHeld = keyboard.IsDown(VK_SHIFT),
+                          .pointedVoxels = pointed,
+                          .worldChanged = client.worldChanged},
+                         selectedView, client.session);
     if (keyboard.WasPressed(VK_ESCAPE) && !usedEscape)
     {
-      selected = Protocol::NO_ENTITY;
-      fire.Update({}, nullptr, session);
+      client.selected = Protocol::NO_ENTITY;
+      client.fire.Update({}, nullptr, client.session);
     }
-    window.ShowCrosshair(fire.Active());
+    window.ShowCrosshair(client.fire.Active());
     if (keyboard.WasPressed(VK_F1))
     {
       integrityView = !integrityView;
@@ -591,7 +789,8 @@ int Run(const Options& _options)
     {
       passabilityView = !passabilityView;
     }
-    if (keyboard.WasPressed(VK_SPACE))
+    const bool passabilityShown = passabilityView || scenario->PassabilityForced();
+    if (keyboard.WasPressed(VK_SPACE) && !scenario->TakesSpace())
     {
       const auto newest = std::ranges::find_if(hudModel.alerts, [](const Client::HudAlert& _alert) { return _alert.location.has_value(); });
       if (newest != hudModel.alerts.end())
@@ -604,7 +803,18 @@ int Run(const Options& _options)
                  static_cast<float>(lapSeconds));
     lastXPixels = pointer.XPixels();
     lastYPixels = pointer.YPixels();
-    presentation.Place(session, tally, clock.TickFraction(), placements, debris, static_cast<float>(seconds));
+    // The scenario's own keys: the lab's answers, O and H (not S, which pans), and Space for the next item.
+    const auto [quarterTurns, zoomNotches] = camera.TakeMoves();
+    scenario->Frame({.nowSeconds = seconds,
+                     .openPressed = answerOpen || keyboard.WasPressed('O'),
+                     .shutPressed = answerShut || keyboard.WasPressed('H'),
+                     .nextPressed = keyboard.WasPressed(VK_SPACE),
+                     .quarterTurns = quarterTurns,
+                     .zoomNotches = zoomNotches,
+                     .integrityOn = integrityView,
+                     .passabilityOn = passabilityShown},
+                    client.session);
+    client.presentation.Place(client.session, client.tally, clock.TickFraction(), placements, debris, static_cast<float>(seconds));
 
     const std::uint64_t completed = device.DirectQueue().CompletedValue();
     ring.Reclaim(completed);
@@ -618,54 +828,59 @@ int Run(const Options& _options)
     DirectX::XMFLOAT4X4 viewProjection{};
     DirectX::XMStoreFloat4x4(&viewProjection, camera.ViewProjection(aspect, swapChain.HeightPixels(), topBarPixels));
     // The chunks the frame takes: the world view's, the picker's, and the integrity view's asks (M3-F2).
-    const std::vector<Protocol::ChunkSnapshot> snapshots = session.TakeSnapshots();
-    picker.TakeSnapshots(snapshots);
-    worldChanged = !snapshots.empty();
-    views.Ask(session, snapshots, integrityView);
+    const std::vector<Protocol::ChunkSnapshot> snapshots = client.session.TakeSnapshots();
+    client.picker.TakeSnapshots(snapshots);
+    client.worldChanged = !snapshots.empty();
+    client.views.Ask(client.session, snapshots, integrityView);
     // The passability view's tiles, those the view shows on the lab's ground (M3-F3).
     const std::vector<Client::Tile> visibleTiles = Client::Overlays::VisibleTiles(
       viewProjection, swapChain.WidthPixels(), swapChain.HeightPixels(), static_cast<float>(Simulation::BreachRun::GROUND_VOXELS));
-    views.AskReach(session, snapshots, visibleTiles, PLAYER, passabilityView);
+    client.views.AskReach(client.session, snapshots, visibleTiles, PLAYER, passabilityShown);
     // The HUD, built from the session (M3-E2), and the frame's figures under it in the bottom-left corner, over the
     // integrity view's labels (M3-F2).
-    views.Update(session, seconds, alerts);
-    alerts.Expire(seconds);
-    // The objective line names the selection while there is one, with FIRE's key, or RELOADING in off text.
-    const bool ready = selectedView != nullptr && selected != Protocol::NO_ENTITY && Client::FireMode::Ready(*selectedView);
-    const Client::HudObjective objective =
-      selected != Protocol::NO_ENTITY
+    client.views.Update(client.session, seconds, client.alerts);
+    client.alerts.Expire(seconds);
+    // The objective line: the scenario's, or the selection while there is one, with FIRE's key, or RELOADING in off
+    // text, or the breach.
+    const bool ready = selectedView != nullptr && client.selected != Protocol::NO_ENTITY && Client::FireMode::Ready(*selectedView);
+    const Client::HudObjective objective = scenario->Objective().value_or(
+      client.selected != Protocol::NO_ENTITY
         ? Client::HudObjective{.title = std::string(Client::TREBUCHET_NAME),
                                .detail = std::string(ready ? Client::FIRE_READY_DETAIL : Client::RELOADING_DETAIL),
                                .detailOff = !ready}
         : Client::HudObjective{.title = std::string(Client::BREACH_OBJECTIVE_TITLE),
                                .detail = std::string(Client::BREACH_OBJECTIVE_DETAIL),
-                               .detailOff = false};
-    hudModel = {.resources = Client::BreachResources(session.State().tick, tally.Fired(PLAYER)),
+                               .detailOff = false});
+    // The banner: FIRE's while it is on, else the scenario's.
+    const Client::HudMode mode = client.fire.Active() ? client.fire.Mode() : scenario->Mode().value_or(client.fire.Mode());
+    hudModel = {.resources = Client::BreachResources(client.session.State().tick, client.tally.Fired(PLAYER)),
                 .objective = objective,
-                .mode = fire.Mode(),
-                .alerts = alerts.Shown(),
-                .selectedEngine = selected,
+                .mode = mode,
+                .alerts = client.alerts.Shown(),
+                .selectedEngine = client.selected,
                 .integrityView = integrityView,
-                .passabilityView = passabilityView};
+                .passabilityView = passabilityShown};
     interfaceQuads.clear();
     const std::uint32_t figuresScale = Client::TextLayout::PixelsPerFontPixel(Client::TextSize::Label, uiScale);
     const std::int32_t margin = Client::ScaledPixels(FIGURES_MARGIN_LOGICAL_PIXELS, uiScale);
-    Client::TextLayout::Lay(std::format(Client::FIGURES, renderer.VoxelPassMilliseconds(), session.State().tick, _options.speed), margin,
+    Client::TextLayout::Lay(std::format(Client::FIGURES, renderer.VoxelPassMilliseconds(), client.session.State().tick, scenario->Speed()),
+                            margin,
                             static_cast<std::int32_t>(swapChain.HeightPixels()) - margin -
                               static_cast<std::int32_t>(Client::TextLayout::CellPixels(figuresScale)),
                             figuresScale, figuresColor, interfaceQuads);
-    views.LayLabels(session, viewProjection, swapChain.WidthPixels(), swapChain.HeightPixels(),
-                    static_cast<std::int32_t>(std::lround(topBarPixels)), uiScale, integrityView, interfaceQuads);
+    client.views.LayLabels(client.session, viewProjection, swapChain.WidthPixels(), swapChain.HeightPixels(),
+                           static_cast<std::int32_t>(std::lround(topBarPixels)), uiScale, integrityView, interfaceQuads);
     hud.Build(hudModel, swapChain.WidthPixels(), uiScale, interfaceQuads);
-    const std::optional<Client::AttackCursor> cursor = fire.Cursor(session);
+    const std::optional<Client::AttackCursor> cursor = client.fire.Cursor(client.session);
     if (cursor.has_value() && !pointerOnHud)
     {
       hud.LayCursor(*cursor, pointer.XPixels(), pointer.YPixels(), uiScale, interfaceQuads);
     }
-    // The world overlays (ADR-021): the views, then FIRE's strike mark.
-    std::vector<Client::OverlayLayer> overlays = views.Layers(session, seconds, integrityView);
-    overlays.push_back(views.PassabilityLayer(session, passabilityView));
-    overlays.push_back({.alpha = Client::STRIKE_MARK_ALPHA, .boxes = fire.StrikeMark(session)});
+    // The world overlays (ADR-021): the views, then FIRE's strike mark and the scenario's marks.
+    std::vector<Client::OverlayLayer> overlays = client.views.Layers(client.session, seconds, integrityView);
+    overlays.push_back(client.views.PassabilityLayer(client.session, passabilityShown));
+    overlays.push_back({.alpha = Client::STRIKE_MARK_ALPHA, .boxes = client.fire.StrikeMark(client.session)});
+    overlays.push_back({.alpha = Client::STRIKE_MARK_ALPHA, .boxes = scenario->Marks(client.session)});
     Client::WorldRenderer::Frame frame{.commandList = commandList,
                                        .slot = slot,
                                        .ring = &ring,
@@ -695,8 +910,8 @@ int Run(const Options& _options)
     {
       const std::wstring title = std::format(
         L"{} | {} | {:.2f} ms a frame, voxel pass {:.2f} ms on the GPU | tick {} at {}x | {} voxels | view {:.0f} m, azimuth {:.0f}", TITLE,
-        device.AdapterName(), 1000.0 * titleSeconds / titleFrames, renderer.VoxelPassMilliseconds(), session.State().tick, _options.speed,
-        renderer.RecordsDrawn(), camera.ViewHeightMeters(), DirectX::XMConvertToDegrees(camera.AzimuthRadians()));
+        device.AdapterName(), 1000.0 * titleSeconds / titleFrames, renderer.VoxelPassMilliseconds(), client.session.State().tick,
+        scenario->Speed(), renderer.RecordsDrawn(), camera.ViewHeightMeters(), DirectX::XMConvertToDegrees(camera.AzimuthRadians()));
       SetWindowTextW(window.Handle(), title.c_str());
       titleSeconds = 0.0;
       titleFrames = 0;
@@ -715,10 +930,13 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
   {
     const std::wstring_view commandLine = _commandLine != nullptr ? _commandLine : L"";
     const std::optional<std::string> uiScale = OptionValue(commandLine, L"--ui-scale");
+    const std::optional<std::string> participant = ParticipantFrom(commandLine);
     return Run({.windowed = HasFlag(commandLine, L"--windowed"),
                 .speed = SpeedFrom(commandLine),
                 .uiScale = uiScale ? std::optional<float>(Client::UiScaleFromOption(*uiScale)) : std::nullopt,
-                .scripted = HasFlag(commandLine, L"--script")});
+                .scripted = HasFlag(commandLine, L"--script"),
+                .participant = participant,
+                .seed = SeedFrom(commandLine, participant.value_or(""))});
   }
   catch (const winrt::hresult_error& error)
   {

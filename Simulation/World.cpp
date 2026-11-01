@@ -124,7 +124,7 @@ void World::Tick()
   SettleUnits();
   CheckRules();
   PublishState();
-  AnswerQueries();
+  AnswerQueries(m_tick);
   const std::span<const Protocol::VoxelPosition> edits = m_voxels.TickEdits();
   m_lastTickEdits.assign(edits.begin(), edits.end());
   // The edits after step 5, steps 6 and 7's, wait for the next tick's search.
@@ -1242,7 +1242,13 @@ Protocol::CollapseView World::ViewOf(const Collapse& _collapse) const
           .fallen = _collapse.fallen};
 }
 
-void World::AnswerQueries()
+void World::AnswerBetweenTicks()
+{
+  // The state is the end of the last tick ticked, m_tick - 1, or the world as built before any.
+  AnswerQueries(m_tick == 0 ? 0 : m_tick - 1);
+}
+
+void World::AnswerQueries(std::uint32_t _tick)
 {
   // Step 12: the queries, oldest first, on the tick's state, within queryWorkPerTick units of work
   // (ADR-009, decision 5; ADR-020, decision 6). A query that does not fit what is left waits for the
@@ -1270,7 +1276,7 @@ void World::AnswerQueries()
       break;
     }
     Core::ByteWriter writer;
-    Protocol::Encode(Protocol::Answer{.queryId = request.id, .tick = m_tick, .reading = Answer(asked.player, request.query)}, writer);
+    Protocol::Encode(Protocol::Answer{.queryId = request.id, .tick = _tick, .reading = Answer(asked.player, request.query)}, writer);
     m_answers.push_back(writer.TakeBytes());
     left -= work;
     m_pendingQueries.pop_front();

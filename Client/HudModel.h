@@ -28,10 +28,31 @@ struct HudObjective
   bool detailOff = false; // the detail in off text: FIRE while the trebuchet reloads (M3-E4)
 };
 
+/// What a click on the HUD does.
+enum class HudControl : std::uint8_t
+{
+  TurnLeft,
+  TurnRight,
+  ZoomOut,
+  ZoomIn,
+  Cancel,     // the mode banner's CANCEL · ESC
+  Jump,       // an alert's JUMP
+  AnswerOpen, // the lab's question's OPEN · O (M3-G1)
+  AnswerShut  // and its SHUT · S
+};
+
+/// A button that follows the mode banner's text.
+struct HudModeButton
+{
+  HudControl control;
+  std::string label;
+};
+
 struct HudMode
 {
-  std::string command; // empty when no targeting mode is on
+  std::string command; // empty when no mode is on
   std::string banner;
+  std::vector<HudModeButton> buttons; // CANCEL · ESC for FIRE, OPEN · O and SHUT · S for the lab's question
 };
 
 struct HudAlert

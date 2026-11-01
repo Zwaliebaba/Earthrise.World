@@ -27,17 +27,6 @@ struct PixelRect
   [[nodiscard]] bool Overlaps(const PixelRect& _other) const noexcept;
 };
 
-/// What a click on the HUD does.
-enum class HudControl : std::uint8_t
-{
-  TurnLeft,
-  TurnRight,
-  ZoomOut,
-  ZoomIn,
-  Cancel, // the mode banner's CANCEL · ESC
-  Jump    // an alert's JUMP
-};
-
 /// A control's hit target.
 struct HudTarget
 {

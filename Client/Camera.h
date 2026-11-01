@@ -7,6 +7,7 @@
 #include "PointerInput.h"
 
 #include <cstdint>
+#include <utility>
 
 namespace Client
 {
@@ -33,6 +34,10 @@ public:
   /// Looks at _targetMeters from where the camera stands now: JUMP, and Space, put an alert's place in the middle.
   void LookAt(const DirectX::XMFLOAT3& _targetMeters) noexcept;
 
+  /// The quarter turns and the zoom notches, either way, since the last call, by keys, wheel or buttons: what the lab
+  /// logs of the camera while a question is up (M3-G1).
+  [[nodiscard]] std::pair<std::int32_t, float> TakeMoves() noexcept;
+
   /// The view-projection for a target _aspect wide over high and _heightPixels high, whose top _topBarPixels the top bar
   /// covers.
   [[nodiscard]] DirectX::XMMATRIX ViewProjection(float _aspect, std::uint32_t _heightPixels, float _topBarPixels) const noexcept;
@@ -42,6 +47,8 @@ public:
 
 private:
   Engine::OrthographicCamera m_camera;
+  std::int32_t m_turns = 0;
+  float m_notches = 0.0F;
 };
 
 } // namespace Client
