@@ -51,6 +51,10 @@ struct Squad
   Protocol::VoxelPosition goalVoxels;      // where it was last ordered, when hasGoal
   std::vector<PathSearch::CellIndex> path; // its last search's path, from where it stood to the goal
   bool shortOfGoal;                        // the goal was out of its class's reach
+  /// The cells its figures walk in single file (M2-F5): from where its rearmost figure stands, through
+  /// the cells of the figures ahead of it, to the end of its path. Each figure stops as many cells
+  /// short of the end as it stands behind the first.
+  std::vector<PathSearch::CellIndex> trail;
 };
 
 /// One figure of a squad.
@@ -62,6 +66,8 @@ struct Unit
   Protocol::EntityId squad;
   FixedPosition position;             // the middle of its feet
   Protocol::VoxelPosition cellVoxels; // the cell it stands in
+  std::uint32_t trailStep;            // the cell of its squad's trail it stands in, or steps toward
+  std::int64_t stepEffort;            // how far into that step, in Fixed's raw meters times the ground's factor; 0 when it stands
 };
 
 enum class EngineKind : std::uint8_t
@@ -253,8 +259,20 @@ private:
   /// Whether a shot that reached _point has left the world.
   [[nodiscard]] bool OutsideWorld(const FixedPosition& _point) const noexcept;
 
-  /// Asks for a squad's search from where its first unit stands to its goal, replacing any it has.
+  /// Asks for a squad's search from where its first unit stands, or the cell it is stepping into, to
+  /// its goal, replacing any it has.
   void RequestSearch(Squad& _squad);
+  /// Lays a squad's trail along its new path (M2-F5).
+  void FormTrail(Squad& _squad);
+  /// Walks a figure along its squad's trail for one tick, at its class's speed (ADR-015, decision 6).
+  void Walk(Unit& _unit, const Squad& _squad, std::size_t _place, bool _holding);
+  /// Sets a figure's position and cell from where it is on its squad's trail.
+  void Place(Unit& _unit, const Squad& _squad) const;
+  /// The effort a step between two trail cells takes a class: its length in Fixed's raw meters, times
+  /// the factor of the ground it lands on.
+  [[nodiscard]] std::int64_t StepEffort(PathSearch::CellIndex _from, PathSearch::CellIndex _to, NavigationClass _class) const;
+  /// Whether a class may step between two trail cells now: the same cell, or a neighbour along a link.
+  [[nodiscard]] bool Linked(PathSearch::CellIndex _from, PathSearch::CellIndex _to, NavigationClass _class) const;
 
   Desc m_desc;
   VoxelWorld m_voxels;

@@ -73,7 +73,6 @@ std::uint32_t PathSearch::Advance(const NavigationGrid& _grid, std::uint32_t _bu
     const auto x = static_cast<std::int32_t>(cell % m_widthCells);
     const auto z = static_cast<std::int32_t>(cell / m_widthCells);
     const std::uint8_t links = _grid.Links(x, z, m_class);
-    const NavigationGrid::ClassRule& rule = _grid.Class(m_class);
     for (std::size_t direction = 0; direction < NavigationGrid::NEIGHBORS.size(); ++direction)
     {
       if ((links & (1U << direction)) == 0)
@@ -84,10 +83,7 @@ std::uint32_t PathSearch::Advance(const NavigationGrid& _grid, std::uint32_t _bu
       const std::int32_t toX = x + dx;
       const std::int32_t toZ = z + dz;
       const CellIndex next = std::int64_t{toZ} * m_widthCells + toX;
-      const NavigationGrid::Ground ground = _grid.GroundAt(toX, toZ);
-      const std::int64_t factor = ground == NavigationGrid::Ground::Rubble ? rule.rubbleFactor
-                                  : ground == NavigationGrid::Ground::Ford ? rule.fordFactor
-                                                                           : 1;
+      const std::int64_t factor = _grid.Factor(toX, toZ, m_class);
       const std::int64_t cost = node.cost + (dx != 0 && dz != 0 ? DIAGONAL_COST : STRAIGHT_COST) * factor;
       const auto found = m_nodes.find(next);
       if (found == m_nodes.end())

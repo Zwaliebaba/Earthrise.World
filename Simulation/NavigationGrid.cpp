@@ -230,6 +230,21 @@ const NavigationGrid::ClassRule& NavigationGrid::Class(NavigationClass _class) c
   return m_classes[static_cast<std::size_t>(_class)];
 }
 
+std::int32_t NavigationGrid::Factor(std::int32_t _x, std::int32_t _z, NavigationClass _class) const
+{
+  const ClassRule& rule = Class(_class);
+  switch (GroundAt(_x, _z))
+  {
+  case Ground::Rubble:
+    return rule.rubbleFactor;
+  case Ground::Ford:
+    return rule.fordFactor;
+  case Ground::Plain:
+    break;
+  }
+  return 1;
+}
+
 void NavigationGrid::UpdateReach()
 {
   if (m_reachCurrent)

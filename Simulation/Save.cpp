@@ -99,6 +99,11 @@ void WriteRecord(Core::ByteWriter& _writer, const Squad& _squad)
     _writer.WriteI64(cell);
   }
   _writer.WriteU8(_squad.shortOfGoal ? std::uint8_t{1} : std::uint8_t{0});
+  _writer.WriteU32(static_cast<std::uint32_t>(_squad.trail.size()));
+  for (const PathSearch::CellIndex cell : _squad.trail)
+  {
+    _writer.WriteI64(cell);
+  }
 }
 
 Squad ReadSquad(Core::ByteReader& _reader)
@@ -110,7 +115,8 @@ Squad ReadSquad(Core::ByteReader& _reader)
               .hasGoal = ReadBool(_reader),
               .goalVoxels = ReadPosition(_reader),
               .path = {},
-              .shortOfGoal = false};
+              .shortOfGoal = false,
+              .trail = {}};
   const std::uint32_t units = _reader.ReadU32();
   for (std::uint32_t number = 0; number < units; ++number)
   {
@@ -122,6 +128,11 @@ Squad ReadSquad(Core::ByteReader& _reader)
     squad.path.push_back(_reader.ReadI64());
   }
   squad.shortOfGoal = ReadBool(_reader);
+  const std::uint32_t trail = _reader.ReadU32();
+  for (std::uint32_t step = 0; step < trail; ++step)
+  {
+    squad.trail.push_back(_reader.ReadI64());
+  }
   return squad;
 }
 
@@ -133,6 +144,8 @@ void WriteRecord(Core::ByteWriter& _writer, const Unit& _unit)
   _writer.WriteU64(_unit.squad);
   WriteFixedPosition(_writer, _unit.position);
   WritePosition(_writer, _unit.cellVoxels);
+  _writer.WriteU32(_unit.trailStep);
+  _writer.WriteI64(_unit.stepEffort);
 }
 
 Unit ReadUnit(Core::ByteReader& _reader)
@@ -142,7 +155,9 @@ Unit ReadUnit(Core::ByteReader& _reader)
           .navigationClass = ReadEnum(_reader, NavigationClass::Machines, "navigation class"),
           .squad = _reader.ReadU64(),
           .position = ReadFixedPosition(_reader),
-          .cellVoxels = ReadPosition(_reader)};
+          .cellVoxels = ReadPosition(_reader),
+          .trailStep = _reader.ReadU32(),
+          .stepEffort = _reader.ReadI64()};
 }
 
 void WriteRecord(Core::ByteWriter& _writer, const SiegeEngine& _engine)

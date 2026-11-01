@@ -31,8 +31,9 @@
 
     A breach rebuilds tiles on most of its ticks, and every squad short of its goal searches again after each, so the cost that matters is the one after an edit, and per-tile components are the cheaper, by about 24 times. An unreachable goal no longer floods its class's region: the search goes straight for the nearest reachable cell (`ReachTests`).
   - **Searching again** follows decision 5, with one addition the code forced: a search not yet done when tiles are rebuilt starts again, asked for in the tick of the rebuild, since the cells it has closed may have changed under it. A search that runs past a tick therefore finishes only once the ground holds still for as many ticks as it needs, which G2's timing of the breach run shows.
+  - **Movement** (M2-F5) follows decision 6 in single file. A squad's figures walk one trail: the cells of the figures behind the lead, the rearmost first, then the path, which starts at the lead's cell; a new path replaces what lay ahead of the lead and keeps what lies behind. Each figure stops as many cells short of the trail's end as it stands behind the lead. A step costs its length, 1 m or floor(√2 × 65,536) raw for a diagonal, times the factor of the ground it lands on, and a figure spends its class's speed on steps each tick, carrying what is left into the next. It lies between the two cells' middles in proportion to what it has spent, stands in the cell it left until halfway, and stands at that cell's height. A figure starts a step only along a link open to its class at that moment, and while its squad has a search not done it finishes the step it is in and starts no other, so the search's start, the cell the lead was stepping into, is still the lead's when the path arrives. 14 m of open ground takes 201 ticks at 4,587 raw a tick, foot's 0.07 m floored, and 401 on rubble (arithmetic on the format; `MovementTests` checks both). Only foot has a speed in `RULE` (GameDesign.md, *M2's values*, item 10); cavalry and machines search, but their figures stand until the owner gives theirs.
 
-It fixes the model and leaves the search algorithm to the navigation orders, which choose it by measurement ([MvpPlan-M2.md](../MvpPlan-M2.md), phase F). M2-F1 implements the classes, M2-F3 the search and M2-F4 reach; movement follows in phase F.
+It fixes the model and leaves the search algorithm to the navigation orders, which choose it by measurement ([MvpPlan-M2.md](../MvpPlan-M2.md), phase F). M2-F1 implements the classes, M2-F3 the search, M2-F4 reach and M2-F5 movement; the drop step follows in phase F.
 
 ## Context
 
@@ -124,6 +125,7 @@ It fixes the model and leaves the search algorithm to the navigation orders, whi
 
 - ~~**The search algorithm** and **how reach is answered** without searching the map~~: closed by M2-F3 (A\* over cells) and M2-F4 (per-tile components), above.
 - **A tile-level graph for the search** (Botea, Müller and Schaeffer, *Near optimal hierarchical path-finding*, 2004), if cross-map searches run too far past the budget. M2-F4's components are the first half of one: they answer reach, and the search does not yet use them.
+- **Cavalry's and machines' speeds,** which the design does not give (M2-F5). Until it does, their figures do not move.
 - **Flow fields for many units** with one goal.
 - **Formations and separation,** scheduled in M4 with its own done-when ([MvpPlan.md](../MvpPlan.md), M4). An ADR records how figures keep apart when it is built. Like the rest of movement, it stays inside navigation: nothing pushes a unit (ADR-004, decision 6).
 - **The trebuchet's packed width,** once its packed model is drawn.

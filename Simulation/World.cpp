@@ -3,6 +3,7 @@
 #include "World.h"
 
 #include "Generator.h"
+#include "IntegerMath.h"
 
 namespace Simulation
 {
@@ -177,11 +178,15 @@ void World::RequestSearch(Squad& _squad)
   {
     return;
   }
-  const Protocol::VoxelPosition from = m_units.at(_squad.units.front()).cellVoxels;
+  const Unit& lead = m_units.at(_squad.units.front());
   const std::int32_t width = m_navigation.WidthCells();
   const std::int32_t goalX = std::clamp(_squad.goalVoxels.xVoxels, 0, width - 1);
   const std::int32_t goalZ = std::clamp(_squad.goalVoxels.zVoxels, 0, m_navigation.DepthCells() - 1);
-  const PathSearch::CellIndex start = std::int64_t{from.zVoxels} * width + from.xVoxels;
+  // From the trail cell the lead stands in or is stepping into, which its squad holds to until the
+  // path arrives; or, before the squad has a trail, from the lead's own cell.
+  const PathSearch::CellIndex start = lead.trailStep < _squad.trail.size()
+                                        ? _squad.trail[lead.trailStep]
+                                        : std::int64_t{lead.cellVoxels.zVoxels} * width + lead.cellVoxels.xVoxels;
   const PathSearch::CellIndex goal = std::int64_t{goalZ} * width + goalX;
   // Reach is known without searching the map (M2-F4): the search goes for the goal, or for the
   // reachable cell nearest it when the goal is out of reach.
@@ -210,14 +215,19 @@ Protocol::EntityId World::AddSquad(std::uint8_t _owner, NavigationClass _class, 
               .hasGoal = false,
               .goalVoxels = {},
               .path = {},
-              .shortOfGoal = false};
+              .shortOfGoal = false,
+              .trail = {}};
   for (const Protocol::VoxelPosition& cell : _cellsVoxels)
   {
     const Protocol::EntityId unitId = NewEntityId();
-    m_units.emplace(
-      unitId,
-      Unit{
-        .id = unitId, .owner = _owner, .navigationClass = _class, .squad = squadId, .position = CellFloorMiddle(cell), .cellVoxels = cell});
+    m_units.emplace(unitId, Unit{.id = unitId,
+                                 .owner = _owner,
+                                 .navigationClass = _class,
+                                 .squad = squadId,
+                                 .position = CellFloorMiddle(cell),
+                                 .cellVoxels = cell,
+                                 .trailStep = 0,
+                                 .stepEffort = 0});
     squad.units.push_back(unitId);
   }
   m_squads.emplace(squadId, std::move(squad));
@@ -336,9 +346,181 @@ void World::MoveUnits()
     {
       squad->second.path = search.Path();
       squad->second.shortOfGoal = search.ShortOfGoal();
+      FormTrail(squad->second);
     }
     m_searches.erase(m_searches.begin());
   }
+  // Then each squad's figures walk its trail, in squad-id order and each squad's own (ADR-015,
+  // decision 6). A squad whose search is not done holds: its figures finish the step they are in and
+  // start no other, so the search's start, the cell its lead was stepping into, is still the lead's
+  // when the path arrives.
+  for (auto& [id, squad] : m_squads)
+  {
+    if (squad.trail.empty())
+    {
+      continue;
+    }
+    const bool holding = std::ranges::any_of(m_searches, [id](const auto& _search) { return _search.first.second == id; });
+    for (std::size_t place = 0; place < squad.units.size(); ++place)
+    {
+      Walk(m_units.at(squad.units[place]), squad, place, holding);
+    }
+    // The cells behind every figure are walked: the trail keeps only the one a figure is stepping
+    // from.
+    std::size_t behind = squad.trail.size();
+    for (const Protocol::EntityId unitId : squad.units)
+    {
+      const Unit& unit = m_units.at(unitId);
+      behind = std::min<std::size_t>(behind, unit.stepEffort > 0 ? unit.trailStep - 1 : unit.trailStep);
+    }
+    if (behind > 0 && behind < squad.trail.size())
+    {
+      squad.trail.erase(squad.trail.begin(), squad.trail.begin() + static_cast<std::ptrdiff_t>(behind));
+      for (const Protocol::EntityId unitId : squad.units)
+      {
+        m_units.at(unitId).trailStep -= static_cast<std::uint32_t>(behind);
+      }
+    }
+  }
+}
+
+void World::FormTrail(Squad& _squad)
+{
+  const std::vector<PathSearch::CellIndex>& path = _squad.path;
+  if (path.empty() || _squad.units.empty())
+  {
+    return;
+  }
+  const std::uint32_t leadStep = m_units.at(_squad.units.front()).trailStep;
+  const bool fileBehindLead =
+    std::ranges::all_of(_squad.units, [&](Protocol::EntityId _unit) { return m_units.at(_unit).trailStep <= leadStep; });
+  if (leadStep < _squad.trail.size() && _squad.trail[leadStep] == path.front() && fileBehindLead)
+  {
+    // The path starts where the lead stands or is stepping: the trail behind it stays, and the path
+    // takes the place of what lay ahead.
+    _squad.trail.resize(std::size_t{leadStep} + 1);
+    _squad.trail.insert(_squad.trail.end(), path.begin() + 1, path.end());
+    return;
+  }
+  // The file forms behind the lead: the figures' own cells, the rearmost first, then the path, which
+  // starts at the lead's. Each figure stands at its own cell.
+  const std::int32_t width = m_navigation.WidthCells();
+  std::vector<PathSearch::CellIndex> trail;
+  trail.reserve(_squad.units.size() + path.size());
+  for (std::size_t place = _squad.units.size() - 1; place > 0; --place)
+  {
+    const Protocol::VoxelPosition cell = m_units.at(_squad.units[place]).cellVoxels;
+    trail.push_back(std::int64_t{cell.zVoxels} * width + cell.xVoxels);
+  }
+  trail.insert(trail.end(), path.begin(), path.end());
+  for (std::size_t place = 0; place < _squad.units.size(); ++place)
+  {
+    Unit& unit = m_units.at(_squad.units[place]);
+    unit.trailStep = static_cast<std::uint32_t>(_squad.units.size() - 1 - place);
+    unit.stepEffort = 0;
+  }
+  _squad.trail = std::move(trail);
+}
+
+void World::Walk(Unit& _unit, const Squad& _squad, std::size_t _place, bool _holding)
+{
+  // Only foot has a speed in RULE (GameDesign.md, M2's values, item 10); cavalry and machines stand
+  // until the owner gives theirs.
+  const std::int64_t speed = _unit.navigationClass == NavigationClass::Foot ? Data().Tuning().footSpeedMetersPerTick.Raw() : 0;
+  const std::vector<PathSearch::CellIndex>& trail = _squad.trail;
+  if (speed <= 0 || _unit.trailStep >= trail.size())
+  {
+    return;
+  }
+  // The figure _place behind the lead stops that many cells short of the trail's end.
+  const std::size_t end = trail.size() - 1 - std::min(_place, trail.size() - 1);
+  std::int64_t budget = speed;
+  while (budget > 0)
+  {
+    if (_unit.stepEffort == 0)
+    {
+      // It stands at a cell: it steps on only while its squad is not holding, it has not reached its
+      // place in the file, and the step is still open to its class.
+      if (_holding || _unit.trailStep >= end || !Linked(trail[_unit.trailStep], trail[_unit.trailStep + 1], _unit.navigationClass))
+      {
+        break;
+      }
+      ++_unit.trailStep;
+    }
+    const std::int64_t need = StepEffort(trail[_unit.trailStep - 1], trail[_unit.trailStep], _unit.navigationClass);
+    const std::int64_t spent = std::min(budget, need - _unit.stepEffort);
+    _unit.stepEffort += spent;
+    budget -= spent;
+    if (_unit.stepEffort >= need)
+    {
+      _unit.stepEffort = 0;
+    }
+  }
+  Place(_unit, _squad);
+}
+
+void World::Place(Unit& _unit, const Squad& _squad) const
+{
+  const std::int32_t width = m_navigation.WidthCells();
+  const std::vector<PathSearch::CellIndex>& trail = _squad.trail;
+  const PathSearch::CellIndex to = trail[_unit.trailStep];
+  const PathSearch::CellIndex from = _unit.stepEffort > 0 ? trail[_unit.trailStep - 1] : to;
+  const std::int64_t need = _unit.stepEffort > 0 ? StepEffort(from, to, _unit.navigationClass) : 1;
+  // Between the two cells' middles in proportion to the effort spent. It stands in the cell it left
+  // until it is halfway, and at that cell's height (ADR-015, decision 6).
+  const auto along = [&_unit, need](std::int64_t _fromCell, std::int64_t _toCell)
+  {
+    const std::int64_t half = Core::Fixed::ONE_RAW / 2;
+    const std::int64_t start = _fromCell * Core::Fixed::ONE_RAW + half;
+    const std::int64_t finish = _toCell * Core::Fixed::ONE_RAW + half;
+    return Core::Fixed::FromRaw(static_cast<std::int32_t>(start + Core::FloorDivide((finish - start) * _unit.stepEffort, need)));
+  };
+  const PathSearch::CellIndex cell = 2 * _unit.stepEffort < need ? from : to;
+  const auto cellX = static_cast<std::int32_t>(cell % width);
+  const auto cellZ = static_cast<std::int32_t>(cell / width);
+  const std::int16_t height = m_navigation.WalkableHeight(cellX, cellZ);
+  const std::int32_t heightVoxels = height == NavigationGrid::NOT_WALKABLE ? _unit.cellVoxels.yVoxels : height;
+  _unit.cellVoxels = {.xVoxels = cellX, .yVoxels = heightVoxels, .zVoxels = cellZ};
+  _unit.position = {.xMeters = along(from % width, to % width),
+                    .yMeters = Core::Fixed::FromWhole(heightVoxels),
+                    .zMeters = along(from / width, to / width)};
+}
+
+std::int64_t World::StepEffort(PathSearch::CellIndex _from, PathSearch::CellIndex _to, NavigationClass _class) const
+{
+  // A diagonal step is sqrt(2) m: floor(sqrt(2) * 65536), in Fixed's raw meters.
+  constexpr std::int64_t DIAGONAL_RAW = 92681;
+  constexpr std::int64_t TWO_SQUARED_METERS_RAW = std::int64_t{2} * Core::Fixed::ONE_RAW * Core::Fixed::ONE_RAW;
+  static_assert(DIAGONAL_RAW * DIAGONAL_RAW <= TWO_SQUARED_METERS_RAW && (DIAGONAL_RAW + 1) * (DIAGONAL_RAW + 1) > TWO_SQUARED_METERS_RAW);
+  if (_from == _to)
+  {
+    return 0;
+  }
+  const std::int32_t width = m_navigation.WidthCells();
+  const bool diagonal = _from % width != _to % width && _from / width != _to / width;
+  const std::int64_t length = diagonal ? DIAGONAL_RAW : Core::Fixed::ONE_RAW;
+  return length * m_navigation.Factor(static_cast<std::int32_t>(_to % width), static_cast<std::int32_t>(_to / width), _class);
+}
+
+bool World::Linked(PathSearch::CellIndex _from, PathSearch::CellIndex _to, NavigationClass _class) const
+{
+  if (_from == _to)
+  {
+    return true;
+  }
+  const std::int32_t width = m_navigation.WidthCells();
+  const auto fromX = static_cast<std::int32_t>(_from % width);
+  const auto fromZ = static_cast<std::int32_t>(_from / width);
+  const std::int32_t dx = static_cast<std::int32_t>(_to % width) - fromX;
+  const std::int32_t dz = static_cast<std::int32_t>(_to / width) - fromZ;
+  for (std::size_t direction = 0; direction < NavigationGrid::NEIGHBORS.size(); ++direction)
+  {
+    if (NavigationGrid::NEIGHBORS.at(direction)[0] == dx && NavigationGrid::NEIGHBORS.at(direction)[1] == dz)
+    {
+      return (m_navigation.Links(fromX, fromZ, _class) & (1U << direction)) != 0;
+    }
+  }
+  return false;
 }
 
 void World::AdvanceShots()
@@ -706,8 +888,10 @@ void World::RebuildNavigation()
       continue;
     }
     const bool searching = std::ranges::any_of(m_searches, [id](const auto& _search) { return _search.first.second == id; });
+    // What is left to walk: the trail once the squad has one, else the path.
+    const std::vector<PathSearch::CellIndex>& ahead = squad.trail.empty() ? squad.path : squad.trail;
     const bool crosses =
-      std::ranges::any_of(squad.path,
+      std::ranges::any_of(ahead,
                           [&rebuilt, width](PathSearch::CellIndex _cell)
                           {
                             return rebuilt.contains({static_cast<std::int32_t>(_cell % width) / NavigationGrid::TILE_EDGE_CELLS,

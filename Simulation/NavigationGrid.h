@@ -131,6 +131,9 @@ public:
 
   [[nodiscard]] const ClassRule& Class(NavigationClass _class) const noexcept;
 
+  /// How much a cell's ground slows a class, and costs its search: rubble's factor or a ford's, else 1.
+  [[nodiscard]] std::int32_t Factor(std::int32_t _x, std::int32_t _z, NavigationClass _class) const;
+
   /// Brings each class's reach up to date with the rebuilds since it was last brought up to date
   /// (M2-F4): it labels again, in each tile whose links or clearance changed, the tile's components,
   /// the sets of its cells the class's links join without leaving it. Components in neighbouring
