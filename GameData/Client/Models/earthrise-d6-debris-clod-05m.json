@@ -1,0 +1,30 @@
+{
+ "id": "D6",
+ "name": "Debris: clod",
+ "voxelSize": 0.5,
+ "size": {
+  "x": 2,
+  "y": 1,
+  "z": 1
+ },
+ "axes": "y up, +z front, layers[y][z][x]",
+ "derivedFrom": "MVP runtime assets package (2026-11-01)",
+ "silhouetteCue": "2 voxels, earth",
+ "legend": {
+  "s": {
+   "material": 26,
+   "name": "earth rubble",
+   "hex": "#7d6044"
+  },
+  "b": {
+   "material": 2,
+   "name": "earth",
+   "hex": "#8a6a48"
+  }
+ },
+ "layers": [
+  [
+   "sb"
+  ]
+ ]
+}

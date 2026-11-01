@@ -1,6 +1,6 @@
 # ADR-006 — The world and the simulation use 1 m voxels; models use 0.5 m
 
-**Status:** Proposed, 2026-10-31. The owner adopted it as the design baseline the same day ([GameDesign.md](../GameDesign.md)). This ADR is accepted after M3: the M1 renderer spike filled in the measurements below on 2026-11-01, and the M3 breach lab reads predictions on the 1 m world. It comes from the owner's second asset package, whose draft is kept unchanged in [Reference/SiegePrototypeV2/](../Reference/SiegePrototypeV2/). It supersedes the earlier choice of 0.5 m for everything ([RendererLook.md](../RendererLook.md), first version).
+**Status:** Proposed, 2026-10-31. The owner adopted it as the design baseline the same day ([GameDesign.md](../GameDesign.md)). This ADR is accepted after M3: the M1 renderer spike filled in the measurements below on 2026-11-01, and the M3 breach lab reads predictions on the 1 m world. It comes from the owner's second asset package, whose draft is kept unchanged in [Reference/SiegePrototypeV2/](../Reference/SiegePrototypeV2/). It supersedes the earlier choice of 0.5 m for everything ([RendererLook.md](../RendererLook.md), first version). **Amended 2026-11-01** with the owner's MVP assets v3 package: decision 2 gets its one exception, the arrow, a line model ([ADR-018](ADR-018-line-models-and-the-line-pass.md), Proposed).
 
 ## Context
 
@@ -25,7 +25,8 @@ The owner also plans the Surface Pro, whose integrated GPU the spike measures, a
    - A model is drawn through ADR-001's pipeline at its entity's position.
    - It is rotated in 90° steps, so its voxels stay axis-aligned. Debris is the exception: it tumbles as oriented voxels and rests at its final angles (GameDesign.md, M1's open values, item 7; ADR-011, amended).
    - It is never written into the world grid.
-   - Moving parts, such as the trebuchet's arm, switch between baked poses.
+   - Moving parts, such as the trebuchet's arm, switch between baked poses: the trebuchet's are S3 released, S3c cocked and S3p packed ([MvpAssets.md](../MvpAssets.md)).
+   - **One exception** (the owner's MVP assets v3 package, 2026-11-01; [ADR-018](ADR-018-line-models-and-the-line-pass.md)): the arrow is a line model, not voxels. A 0.5 m voxel is wider than an arrow is long, so no voxel arrow reads as one at any zoom. It is drawn as coloured segments along its axis, its width fixed in screen pixels, turned freely along its velocity, pitch included. Nothing else is: every other model is voxels, turned in 90° steps.
 3. **Walls are 2 m thick, and thick walls 3 m.** A building still costs exactly its volume, so a standard section of 8 × 2 × 6 m costs 96 m³ and a thick one costs half as much again.
 4. **Models see the world, but the world ignores models.** A model's corner shading counts a neighbour as solid if either the model voxel or the world voxel containing it is set. That contact shading keeps units from floating. The world's shading never samples models.
 5. **Collapse debris is cosmetic.** The simulation's result is 1 m rubble. The client scatters 0.5 m model debris over it, deterministic from the collapse's id, and that debris never blocks a path or a shot ([ADR-004](ADR-004-rule-based-destruction.md), decision 7).

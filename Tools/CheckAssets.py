@@ -1,7 +1,8 @@
 """Checks the voxel content under GameData/ (ADR-005, ADR-006, ADR-008).
 
 It prints one line per problem, naming the file and the reason, then a summary line, and exits 1 if it found any.
-A layer file is any .json under GameData/ with `layers` and a `legend`; the font's glyph file is not one.
+A layer file is any .json under GameData/ with `layers` and a `legend`; the font's glyph file is not one. A line
+model is any .json under GameData/Client/Lines/ (ADR-018).
 Positions are (x, y, z) in the layer file's grid: y up, +z the front.
 
 What it checks, and how each rule is read against the files:
@@ -51,6 +52,11 @@ What it checks, and how each rule is read against the files:
 11. Nothing under GameData/Client/ reaches the server's bake (ADR-008, decision 2). The server bake,
    `Tools/BakeContent.py --server`, runs twice: in this tree, and in a temporary copy holding only Tools/ and
    GameData/Server/. The two files must be the same bytes, so the server's data cannot have read a client file.
+12. A line model (ADR-018) has an id that is an identifier, a name, a positive `drawnLengthMetres` in whole millimetres,
+   its dot rule, `dotBelowPixels` and `dotWidthPixels`, each a whole number of pixels from 1, and `segments` that run
+   contiguously from 0 to the drawn length, each with a `color` that is `#rrggbb` or `faction` and a `widthPixels` of at
+   least 1. The bake reads line models with this check's code, so a problem here stops the bake too. Check 8 covers
+   their manifest entries, and a layer file in Client/Lines/ is a problem: voxel models go in Client/Models/.
 
 Usage:
   python3 Tools/CheckAssets.py              the repository this script sits in
@@ -80,6 +86,10 @@ NO_PART = "."
 CRITICAL = "1"
 FOUNDATION = "2"
 STOCK = "3"
+
+# An id names a C++ array in the generated header, so it is an identifier: T1, U5, S3, X2. A pose's id ends in a
+# lower-case letter, S3c, which the array's name spells in upper case, so no two ids may differ only in case.
+ASSET_ID = re.compile(r"[A-Z][A-Za-z0-9]*")
 
 DECORATION = "inherit"
 MODEL_ONLY = "modelOnly"
@@ -442,7 +452,7 @@ def CheckListedShape(_report, _manifestPath, _id, _whose, _listed, _asset):
                                    f"but {_asset.path.name} occupies {box}")
 
 
-def CheckManifest(_report, _root, _manifest, _assets):
+def CheckManifest(_report, _root, _manifest, _assets, _lineModels):
   """Check 8. Returns {listed path: its manifest entry}, for checks 4 and 7."""
   manifestPath = _root / "GameData" / "Manifest.json"
   listed = {}
@@ -464,7 +474,126 @@ def CheckManifest(_report, _root, _manifest, _assets):
   for relative, asset in _assets.items():
     if relative not in listed:
       _report.Problem(asset.path, "is a layer file that Manifest.json does not list")
+  for relative, model in _lineModels.items():
+    if relative not in listed:
+      _report.Problem(model.path, "is a line model that Manifest.json does not list")
   return listed
+
+
+# ── Check 12, line models ───────────────────────────────────────────────────────────────────────
+
+LINES_FOLDER = "Client/Lines"
+HEX_COLOR = re.compile(r"#[0-9a-fA-F]{6}")
+FACTION_COLOR = "faction"
+DOT_FIELDS = ("dotBelowPixels", "dotWidthPixels")
+
+
+class LineModel:
+  """A line model, read (ADR-018): what the bake writes of it. Its segments are (from mm, to mm, sRGB or None for the
+  side's faction colour, width in pixels, tapers), from its tail along its axis."""
+
+  def __init__(self, _path, _data, _id, _name, _drawnLengthMillimeters, _dotBelowPixels, _dotWidthPixels, _segments):
+    self.path = _path
+    self.source = _path.name
+    self.data = _data
+    self.id = _id
+    self.name = _name
+    self.drawnLengthMillimeters = _drawnLengthMillimeters
+    self.dotBelowPixels = _dotBelowPixels
+    self.dotWidthPixels = _dotWidthPixels
+    self.segments = _segments
+
+
+def IsLineModel(_data):
+  return isinstance(_data, dict) and "segments" in _data and "drawnLengthMetres" in _data
+
+
+def Millimeters(_value):
+  """A length in metres as a whole number of millimetres from 0, or None when it is not one."""
+  if isinstance(_value, bool) or not isinstance(_value, (int, float)):
+    return None
+  exact = Fraction(str(_value)) * 1000
+  return int(exact) if exact.denominator == 1 and exact >= 0 else None
+
+
+def WholePixels(_value):
+  return isinstance(_value, int) and not isinstance(_value, bool) and _value >= 1
+
+
+def ReadLineModel(_report, _path, _data):
+  """Check 12 over one file. Returns the LineModel, or None after reporting everything wrong with it."""
+  before = len(_report.problems)
+  assetId, name = _data.get("id"), _data.get("name")
+  if not isinstance(assetId, str) or not ASSET_ID.fullmatch(assetId):
+    _report.Problem(_path, f"its id {assetId!r} is not an identifier such as X2")
+  if not isinstance(name, str) or not name:
+    _report.Problem(_path, "has no name")
+  drawn = Millimeters(_data.get("drawnLengthMetres"))
+  if not drawn:
+    _report.Problem(_path, f"its drawnLengthMetres {_data.get('drawnLengthMetres')!r} is not a positive whole number of "
+                           "millimetres (ADR-018)")
+  dots = []
+  for key in DOT_FIELDS:
+    value = _data.get(key)
+    if not WholePixels(value):
+      _report.Problem(_path, f"its {key} {value!r} is not a whole number of pixels from 1 (ADR-018)")
+    dots.append(value)
+  segments = _data.get("segments")
+  if not isinstance(segments, list) or not segments or not all(isinstance(segment, dict) for segment in segments):
+    _report.Problem(_path, "has no segments, or one that is not an object (ADR-018)")
+    segments = []
+  read, reached = [], 0
+  for number, segment in enumerate(segments, 1):
+    label = f"segment {number} ({segment.get('name')})"
+    if not isinstance(segment.get("name"), str) or not segment.get("name"):
+      _report.Problem(_path, f"segment {number} has no name")
+    start, end = Millimeters(segment.get("fromMetres")), Millimeters(segment.get("toMetres"))
+    if start is None or end is None or start >= end:
+      _report.Problem(_path, f"{label} runs from {segment.get('fromMetres')!r} to {segment.get('toMetres')!r} m, which is not "
+                             "a span of whole millimetres that ends after it starts (ADR-018)")
+    elif start != reached:
+      where = "its tail at 0" if number == 1 else f"segment {number - 1}'s end at {reached} mm"
+      _report.Problem(_path, f"its segments are not contiguous from 0 to drawnLengthMetres: {label} starts at {start} mm, "
+                             f"not at {where} (ADR-018)")
+    if end is not None:
+      reached = end
+    color = segment.get("color")
+    if color == FACTION_COLOR:
+      srgb = None
+    elif isinstance(color, str) and HEX_COLOR.fullmatch(color):
+      srgb = int(color[1:], 16)
+    else:
+      _report.Problem(_path, f"{label} has the colour {color!r}, which is neither #rrggbb nor {FACTION_COLOR} (ADR-018)")
+      srgb = 0
+    width = segment.get("widthPixels")
+    if not WholePixels(width):
+      _report.Problem(_path, f"{label} has a widthPixels of {width!r}, which is not a whole number of pixels from 1 (ADR-018)")
+    tapers = segment.get("tapers", False)
+    if not isinstance(tapers, bool):
+      _report.Problem(_path, f"{label} has a tapers of {tapers!r}, not true or false (ADR-018)")
+    read.append((start, end, srgb, width, tapers))
+  if segments and drawn and reached != drawn:
+    _report.Problem(_path, f"its segments end at {reached} mm, not at its drawn length of {drawn} mm (ADR-018)")
+  if len(_report.problems) > before:
+    return None
+  return LineModel(_path, _data, assetId, name, drawn, dots[0], dots[1], read)
+
+
+def ReadLineModels(_report, _root):
+  """{path relative to GameData/: LineModel} for every line model under GameData/Client/Lines/ that reads clean."""
+  models = {}
+  for path in sorted((_root / "GameData" / LINES_FOLDER).glob("*.json")):
+    data = ReadJson(_report, path)
+    if data is None:
+      continue
+    if IsLayerFile(data) or not IsLineModel(data):
+      _report.Problem(path, f"is not a line model: {LINES_FOLDER}/ holds line models, each with segments and a "
+                            "drawnLengthMetres, and voxel models go in Client/Models/ (ADR-018)")
+      continue
+    model = ReadLineModel(_report, path, data)
+    if model is not None:
+      models[path.relative_to(_root / "GameData").as_posix()] = model
+  return models
 
 
 # ── Check 9, the client bake ────────────────────────────────────────────────────────────────────
@@ -583,13 +712,14 @@ def CheckServerBake(_report, _root):
 
 
 def Check(_root):
-  """Runs every check over the tree at _root. Returns (report, assets, how many files the client bake wrote)."""
+  """Runs every check over the tree at _root. Returns (report, assets, how many files the client bake wrote, line models)."""
   report = Report(_root)
   palette, behaviors = ReadPalette(report, _root)
   assets = ReadAssets(report, _root, palette)
+  lineModels = ReadLineModels(report, _root)
   manifestPath = _root / "GameData" / "Manifest.json"
   manifest = ReadJson(report, manifestPath) or {}
-  entries = CheckManifest(report, _root, manifest, assets)
+  entries = CheckManifest(report, _root, manifest, assets, lineModels)
   for relative, asset in assets.items():
     CheckGrid(report, asset, palette)
     if not IsTemplate(relative):
@@ -609,21 +739,21 @@ def Check(_root):
   outputs = CheckClientBake(report, _root, behaviors)
   ReadRules(report, _root)
   CheckServerBake(report, _root)
-  return report, assets, outputs
+  return report, assets, outputs, lineModels
 
 
 def Main(_arguments):
   parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
   parser.add_argument("--root", type=Path, default=ROOT, help="the repository root (default: this script's)")
   arguments = parser.parse_args(_arguments)
-  report, assets, outputs = Check(arguments.root.resolve())
+  report, assets, outputs, lineModels = Check(arguments.root.resolve())
   for problem in report.problems:
     print(problem)
   if report.problems:
     print(f"CheckAssets: {Plural(len(report.problems), 'problem')}")
     return 1
   templates = sum(1 for relative in assets if IsTemplate(relative))
-  print(f"CheckAssets: OK, {len(assets)} layer files, {templates} of them templates, "
+  print(f"CheckAssets: OK, {len(assets)} layer files, {templates} of them templates, {Plural(len(lineModels), 'line model')}, "
         f"and {Plural(outputs, 'file')} from the client bake")
   return 0
 

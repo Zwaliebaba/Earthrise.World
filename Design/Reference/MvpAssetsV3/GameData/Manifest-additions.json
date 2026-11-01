@@ -1,0 +1,214 @@
+{
+  "note": "Merge into GameData/Manifest.json. Paths are relative to GameData/.",
+  "debrisByRubble": {
+    "stone rubble (8)": [
+      "D1",
+      "D2",
+      "D3"
+    ],
+    "rock rubble (28)": [
+      "D1",
+      "D2",
+      "D3"
+    ],
+    "timber rubble (25)": [
+      "D4",
+      "D5"
+    ],
+    "earth rubble (26)": [
+      "D6"
+    ]
+  },
+  "assets": [
+    {
+      "id": "S3c",
+      "name": "Trebuchet, cocked",
+      "kind": "model",
+      "grid": "models",
+      "file": "Client/Models/earthrise-s3c-trebuchet-cocked-05m.json",
+      "size": {
+        "x": 34,
+        "y": 20,
+        "z": 9
+      },
+      "voxelCount": 213,
+      "silhouetteCue": "Arm low behind, weight high",
+      "poseOf": "S3",
+      "pose": "cocked"
+    },
+    {
+      "id": "S3p",
+      "name": "Trebuchet, packed",
+      "kind": "model",
+      "grid": "models",
+      "file": "Client/Models/earthrise-s3p-trebuchet-packed-05m.json",
+      "size": {
+        "x": 16,
+        "y": 7,
+        "z": 7
+      },
+      "voxelCount": 237,
+      "silhouetteCue": "Wagon: four 2 m wheels, faction trim",
+      "poseOf": "S3",
+      "pose": "packed"
+    },
+    {
+      "id": "X1",
+      "name": "Trebuchet shot",
+      "kind": "model",
+      "grid": "models",
+      "file": "Client/Models/earthrise-x1-trebuchet-shot-05m.json",
+      "size": {
+        "x": 2,
+        "y": 2,
+        "z": 2
+      },
+      "voxelCount": 8,
+      "silhouetteCue": "Raw-stone cube, 2 × 2 × 2"
+    },
+    {
+      "id": "X2",
+      "name": "Arrow",
+      "kind": "line model",
+      "grid": "none",
+      "file": "Client/Lines/earthrise-x2-arrow.json",
+      "size": null,
+      "voxelCount": 0,
+      "silhouetteCue": "Thin line, iron head, faction fletching"
+    },
+    {
+      "id": "G1",
+      "name": "Gatehouse gate, raised",
+      "kind": "model",
+      "grid": "models",
+      "file": "Client/Models/earthrise-g1-gatehouse-gate-raised-05m.json",
+      "size": {
+        "x": 6,
+        "y": 1,
+        "z": 1
+      },
+      "voxelCount": 6,
+      "silhouetteCue": "Iron-tipped lip, 3 m wide",
+      "attach": {
+        "template": "T5",
+        "localOffsetMetres": {
+          "x": 3,
+          "y": 3.5,
+          "z": 6
+        },
+        "state": "open"
+      }
+    },
+    {
+      "id": "G2",
+      "name": "Palisade gate, open",
+      "kind": "model",
+      "grid": "models",
+      "file": "Client/Models/earthrise-g2-palisade-gate-open-05m.json",
+      "size": {
+        "x": 8,
+        "y": 6,
+        "z": 3
+      },
+      "voxelCount": 36,
+      "silhouetteCue": "Two leaves square to the line",
+      "attach": {
+        "template": "T7",
+        "localOffsetMetres": {
+          "x": 2,
+          "y": 0,
+          "z": 0
+        },
+        "state": "open"
+      }
+    },
+    {
+      "id": "D1",
+      "name": "Debris: stone block",
+      "kind": "model",
+      "grid": "models",
+      "file": "Client/Models/earthrise-d1-debris-stone-block-05m.json",
+      "size": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "voxelCount": 1,
+      "silhouetteCue": "1 voxel, dressed stone"
+    },
+    {
+      "id": "D2",
+      "name": "Debris: stone pair",
+      "kind": "model",
+      "grid": "models",
+      "file": "Client/Models/earthrise-d2-debris-stone-pair-05m.json",
+      "size": {
+        "x": 2,
+        "y": 1,
+        "z": 1
+      },
+      "voxelCount": 2,
+      "silhouetteCue": "2 voxels"
+    },
+    {
+      "id": "D3",
+      "name": "Debris: stone corner",
+      "kind": "model",
+      "grid": "models",
+      "file": "Client/Models/earthrise-d3-debris-stone-corner-05m.json",
+      "size": {
+        "x": 2,
+        "y": 2,
+        "z": 1
+      },
+      "voxelCount": 3,
+      "silhouetteCue": "3 voxels, L-shape"
+    },
+    {
+      "id": "D4",
+      "name": "Debris: beam",
+      "kind": "model",
+      "grid": "models",
+      "file": "Client/Models/earthrise-d4-debris-beam-05m.json",
+      "size": {
+        "x": 1,
+        "y": 1,
+        "z": 3
+      },
+      "voxelCount": 3,
+      "silhouetteCue": "1.5 m timber"
+    },
+    {
+      "id": "D5",
+      "name": "Debris: splinters",
+      "kind": "model",
+      "grid": "models",
+      "file": "Client/Models/earthrise-d5-debris-splinters-05m.json",
+      "size": {
+        "x": 2,
+        "y": 2,
+        "z": 2
+      },
+      "voxelCount": 3,
+      "silhouetteCue": "3 voxels, diagonal"
+    },
+    {
+      "id": "D6",
+      "name": "Debris: clod",
+      "kind": "model",
+      "grid": "models",
+      "file": "Client/Models/earthrise-d6-debris-clod-05m.json",
+      "size": {
+        "x": 2,
+        "y": 1,
+        "z": 1
+      },
+      "voxelCount": 2,
+      "silhouetteCue": "2 voxels, earth"
+    },
+    {
+      "id": "S3",
+      "change": "existing entry: add \"pose\": \"released\"; file unchanged"
+    }
+  ]
+}

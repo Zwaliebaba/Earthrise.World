@@ -11,9 +11,11 @@ namespace ContentTests
 namespace
 {
 
-// What GameData/Manifest.json lists: nine templates, and eight models, one figure for each unit type and two engines.
+// What GameData/Manifest.json lists: nine templates, and twenty-one models: six pieces of debris, two open gates, two
+// placeholders, the ram, the sapper, the trebuchet's three poses, one figure for each unit type, and the shot.
 constexpr std::array<std::string_view, 9> TEMPLATE_IDS = {"T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9"};
-constexpr std::array<std::string_view, 10> MODEL_IDS = {"P1", "P2", "S1", "S2", "S3", "U1", "U2", "U3", "U4", "U5"};
+constexpr std::array<std::string_view, 21> MODEL_IDS = {"D1", "D2", "D3",  "D4",  "D5", "D6", "G1", "G2", "P1", "P2", "S1",
+                                                        "S2", "S3", "S3c", "S3p", "U1", "U2", "U3", "U4", "U5", "X1"};
 
 constexpr std::uint32_t WORLD_VOXEL_EDGE_MILLIMETERS = 1000; // ADR-006
 constexpr std::uint32_t MODEL_VOXEL_EDGE_MILLIMETERS = 500;
@@ -148,6 +150,31 @@ public:
     Assert::IsNotNull(spearman);
     Assert::IsTrue(spearman->name == "Spearman");
     Assert::IsTrue(Content::FindModel("T2") == nullptr);
+  }
+
+  // ADR-018: the arrow is the one model that is not voxels. Its segments run contiguously from its tail to its drawn
+  // length, each at least a pixel wide, with its fletching in the side's faction colour and its head tapering.
+  TEST_METHOD(HoldsTheArrowAsALineModel)
+  {
+    Assert::AreEqual(std::size_t{1}, Content::LineModels().size());
+    const Content::LineModelView* arrow = Content::FindLineModel("X2");
+    Assert::IsNotNull(arrow);
+    Assert::IsTrue(arrow->name == "Arrow");
+    Assert::AreEqual(std::uint32_t{1000}, arrow->drawnLengthMillimeters);
+    Assert::AreEqual(std::size_t{3}, arrow->segments.size());
+    std::uint32_t reachedMillimeters = 0;
+    for (const Content::LineSegmentView& segment : arrow->segments)
+    {
+      Assert::AreEqual(reachedMillimeters, segment.fromMillimeters);
+      Assert::IsTrue(segment.toMillimeters > segment.fromMillimeters);
+      Assert::IsTrue(segment.widthPixels >= 1);
+      reachedMillimeters = segment.toMillimeters;
+    }
+    Assert::AreEqual(arrow->drawnLengthMillimeters, reachedMillimeters);
+    Assert::IsTrue(arrow->segments.front().factionColor);
+    Assert::IsTrue(arrow->segments.back().tapers);
+    Assert::IsTrue(Content::FindLineModel("S3") == nullptr);
+    Assert::IsTrue(Content::FindModel("X2") == nullptr);
   }
 
   TEST_METHOD(RefusesAPositionOutsideTheGrid)

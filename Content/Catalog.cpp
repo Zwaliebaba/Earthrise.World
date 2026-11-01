@@ -2,6 +2,7 @@
 
 #include "Catalog.h"
 
+#include "LineModelTable.h"
 #include "ModelTable.h"
 #include "TemplateTable.h"
 
@@ -29,6 +30,11 @@ std::span<const ModelView> Models() noexcept
   return Generated::MODELS;
 }
 
+std::span<const LineModelView> LineModels() noexcept
+{
+  return Generated::LINE_MODELS;
+}
+
 const TemplateView* FindTemplate(std::string_view _id) noexcept
 {
   return FindById(Templates(), _id);
@@ -37,6 +43,11 @@ const TemplateView* FindTemplate(std::string_view _id) noexcept
 const ModelView* FindModel(std::string_view _id) noexcept
 {
   return FindById(Models(), _id);
+}
+
+const LineModelView* FindLineModel(std::string_view _id) noexcept
+{
+  return FindById(LineModels(), _id);
 }
 
 } // namespace Content

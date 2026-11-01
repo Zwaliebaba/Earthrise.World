@@ -132,7 +132,7 @@ The edges run one way:
 | Text rendering | M3 | [ADR-019](ADR/ADR-019-text-and-the-interface-pass.md), Proposed: Earthrise Mason's bitmaps baked into `Content`, an atlas built at startup, one interface pass drawing quads into the back buffer at display resolution, text only at whole multiples of a font pixel |
 | The in-process client | M3 | [ADR-020](ADR/ADR-020-the-in-process-client.md), Proposed: `Client` and `Earthrise` join; two queues of bytes and one copy of the whole visible state a tick; a fixed-step clock with the lab's fast-forward and no interpolation; three queries budgeted in units of work in `RULE` |
 | The readability views | M3 | [ADR-021](ADR/ADR-021-world-overlays.md), Proposed: translucent voxel boxes through the voxel pass's overlay pipeline, depth-tested against the scene, with labels through the interface pass; every reading from the simulation |
-| How units are drawn | M1 | Units are 0.5 m models ([MvpAssets.md](MvpAssets.md)), axis-aligned and rotated in 90° steps. Engine poses are baked; debris is oriented voxels. |
+| How units are drawn | M1 | Units are 0.5 m models ([MvpAssets.md](MvpAssets.md)), axis-aligned and rotated in 90° steps. Engine poses are baked; debris is oriented voxels. Arrows are line models, turned freely along their velocity ([ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md), Proposed). |
 
 ### One simulation tick, in order
 
@@ -470,7 +470,7 @@ M3 is carried out as 24 work orders in seven phases, written out in [MvpPlan-M3.
 
 **Build:**
 - **formations and separation** (ADR-015, decision 6): how a squad's figures arrange about its path and keep apart, in fixed point inside the deterministic tick, so that no two figures stand in the same place and a breach passes figures at a limited rate. Until M4, figures may pass through each other. How they keep apart is recorded in an ADR when it is built;
-- units, stats and combat, physical shots for arrows and bolts (the trebuchet's shot and craters come from M2), the ram's blows and craters, hits on units, elevation, garrisons and the gatehouse's passage attack;
+- units, stats and combat, physical shots for arrows and bolts (the trebuchet's shot and craters come from M2; arrows draw as line models, [ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md)), the ram's blows and craters, hits on units, elevation, garrisons and the gatehouse's passage attack;
 - drawing units and buildings;
 - fog with the visibility filter and last-seen land;
 - the world templates T1–T7 redrawn natively at 1 m, and the Siege castle built from them (the shared-hash check of ADR-008, decision 5, is `Earthrise`'s from M3, ADR-020);

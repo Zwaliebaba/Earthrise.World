@@ -3,6 +3,10 @@
  "name": "Trebuchet",
  "voxelSize": 0.5,
  "kind": "separate model (0.5 m, drawn over the world)",
+ "pose": {
+  "of": "S3",
+  "pose": "released"
+ },
  "size": {
   "x": 26,
   "y": 28,

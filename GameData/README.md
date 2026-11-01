@@ -7,10 +7,11 @@ The game's content sources, split by who reads them ([ADR-008](../Design/ADR/ADR
 | `Server/Templates/` | T1–T9, the buildings | 1 m | The simulation; the client gets their shape, colours and cost from the bake |
 | `Server/Palette.json` | Material index → colour, jitter, jitter cell, AO set, grid, behaviour; server-side, whether it is ground and the rubble it leaves; for 29–31, the decoration whose look it has with its host's behaviour | | The simulation (behaviours, ground, rubble); the client gets the colours from the bake |
 | `Server/Rules.json` | The tuning values the simulation decides by, each a decimal string named with its unit: spans, the collapse's warning, gravity, the shot and its craters, loose material, the navigation classes | | The simulation, converted into its units by the bake |
-| `Client/Models/` | One figure for each unit type (U1–U5, S2), the ram (S1), the trebuchet (S3), and the placeholder mantlet (P1) and banner (P2) drawn for the renderer spike | 0.5 m | The client |
+| `Client/Models/` | One figure for each unit type (U1–U5, S2), the ram (S1), the trebuchet's three poses (S3 released, S3c cocked, S3p packed), its shot (X1), the open gates (G1, G2), six pieces of collapse debris (D1–D6), and the placeholder mantlet (P1) and banner (P2) drawn for the renderer spike | 0.5 m | The client |
+| `Client/Lines/` | Line models ([ADR-018](../Design/ADR/ADR-018-line-models-and-the-line-pass.md)): the arrow (X2), the one model that is not voxels, as coloured segments along its axis with their widths in screen pixels, a drawn length and a dot rule | None | The client |
 | `Client/Fonts/` | Earthrise Mason: `EarthriseMason-glyphs.json`, the source | | The client ([Design/Hud.md](../Design/Hud.md) §9) |
 | `Illustrations/` | Squads (U2–U5, S2) and six laborers at 0.5 m; earthworks (E1, E2) and material samples (M1, M2) at 1 m | Both | Nobody: documentation and tests |
-| `Manifest.json` | Every asset: id, kind, grid, files, size, voxel count, counted cost, critical part, known issues. Paths are relative to this folder | | The asset check |
+| `Manifest.json` | Every asset: id, kind, grid, files, size, voxel count, counted cost, critical part, known issues; a pose's placement and a gate model's attachment; and `debrisByRubble`, which debris the client scatters over which rubble. Paths are relative to this folder | | The asset check |
 
 ## Working with assets
 
@@ -48,5 +49,15 @@ These files come from the owner's second package, kept unchanged in [`Design/Ref
 - **The package's `.vox` copies were dropped** when the `.json` became the only committed source (ADR-008). `Tools/ExportVox.py` reproduces their voxels; the package keeps the originals.
 - **The legend names inside the asset files are left unchanged.** For example, they still say "dressed stone". The palette's name is the one that counts.
 - **The package's integration command** (`commands/integrate-look-v2.md`) was not installed into `.claude/commands/`. It is kept with the package as a record of what was asked.
+
+**The runtime states**, S3c, S3p, X1, X2, G1, G2 and D1–D6, come from the owner's third package, kept unchanged in [`Design/Reference/MvpAssetsV3/`](../Design/Reference/MvpAssetsV3/) (2026-11-01). On the way in:
+
+- **The eleven voxel models were copied as delivered.** Their manifest entries take this manifest's field style, with the occupied box as `sizeVoxels` and the voxels recounted; the package's `Manifest-additions.json` stays with the package.
+- **S3 is the released pose,** and its file and entry say so: the package found that the existing drawing has its counterweight down and its arm up, as just after a throw.
+- **An id may end in a lower-case pose letter,** S3c and S3p, which the bake spells upper case in the generated array's name; two ids differing only in case are refused.
+- **Earth (2) and building stone (4) are marked `both`,** because D6 and X1 draw in them, as opening (20) was marked for S1's wheels.
+- **The arrow's fields were renamed** to the schema the bake reads, `color`, `widthPixels` and `segments`, in a new folder, `Client/Lines/` ([ADR-018](../Design/ADR/ADR-018-line-models-and-the-line-pass.md)). The file as delivered is kept with the package.
+- **The package's placement offsets are in the layer files' frames.** The bake trims each grid to its voxels and mirrors x (ADR-005, decision 2; ADR-017), so each pose's `placement` and each gate model's `attach` records what the offset becomes after both; the package's "S3 and S3c swap with no offset" does not survive the bake.
+- **The package's `PROMPT.md` was not installed** as a command; it stays with the package as a record of what was asked. Its client steps, the line pass, the poses in the client, the projectiles, the gate state and the debris, are not done ([MvpAssets.md](../Design/MvpAssets.md), *Poses, projectiles, gates and debris*).
 
 **The font** comes from the owner's HUD package, kept unchanged in [`Design/Reference/HudPrototype/`](../Design/Reference/HudPrototype/). Only `EarthriseMason-glyphs.json` and its three atlases were copied, unchanged; the atlases are previews and now live in `Design/Previews/`. The glyph rows in the JSON are the source; the package's `earthrise-font.js` and `.otf` stay with the package as its own editing tools. On import, the JSON and the JavaScript agreed glyph for glyph, and each atlas matched the rows pixel for pixel. The package's `integrate-hud.md` command was not installed either.

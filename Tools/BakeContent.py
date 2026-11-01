@@ -2,7 +2,8 @@
 
 The client half writes C++ headers into the build's intermediate folder, where the Content library compiles them
 in: the palette's look (colours, jitter and shade sets), the client view of every template in
-GameData/Server/Templates/, every model in GameData/Client/Models/, and the shared hash. The server half writes
+GameData/Server/Templates/, every model in GameData/Client/Models/, every line model in GameData/Client/Lines/ (ADR-018)
+and the shared hash. The server half writes
 <outputdir>\\ServerData\\ServerData.bin, which the simulation reads (see *The server's file* below).
 
 A template's decorations reach the world as their host (GameDesign.md, M2's values, item 7). Each decoration voxel,
@@ -30,7 +31,9 @@ little-endian, nothing is padded, and the fields come in this order:
      length of its name, then the name's UTF-8 bytes; u32 its width, height and depth in voxels and its voxel
      edge in millimetres; u32 its stone and its timber in m3; then its width x height x depth u8 palette indices,
      in table order.
-Models are client content, not shared, so the hash does not cover them. Content/SharedHash.h states the same
+Models and line models are client content, not shared, so the hash does not cover them. A line model's table carries its
+drawn length and dot rule and, for each segment, its span in millimetres, its sRGB colour or that it takes the side's
+faction colour, its width in pixels and whether it tapers (ADR-018), read by Tools/CheckAssets.py's own code (its check 12). Content/SharedHash.h states the same
 encoding, and ContentTests recomputes the hash from the compiled tables, so the two halves cannot drift.
 
 Generated headers are build output: never committed, never edited, and not linted (they sit in a Generated/ folder,
@@ -76,6 +79,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PALETTE = ROOT / "GameData" / "Server" / "Palette.json"
 TEMPLATES = ROOT / "GameData" / "Server" / "Templates"
 MODELS = ROOT / "GameData" / "Client" / "Models"
+LINES = ROOT / "GameData" / "Client" / "Lines"
 PALETTE_ENTRIES = 256
 
 # Core::FNV_OFFSET_BASIS and Core::FNV_PRIME (Core/Hash.h). ContentTests fails if these ever differ.
@@ -83,8 +87,9 @@ FNV_OFFSET_BASIS = 0xCBF29CE484222325
 FNV_PRIME = 0x100000001B3
 MASK_64 = (1 << 64) - 1
 
-# An id names a C++ array in the generated header, so it is an identifier: T1, U5, S3.
-ID = re.compile(r"[A-Z][A-Z0-9]*")
+# An id names a C++ array in the generated header, so it is an identifier: T1, U5, S3. A pose's id ends in a lower-case
+# letter, S3c, which the array's name spells in upper case, so no two ids may differ only in case (CheckIdsDiffer).
+ID = CheckAssets.ASSET_ID
 
 
 class View:
@@ -240,10 +245,37 @@ def ReadViews(_report, _folder, _palette, _isTemplate):
   """Every layer file's view in _folder, in ascending id."""
   views = [ReadView(_report, path, _palette, _isTemplate) for path in sorted(_folder.glob("*.json"))]
   views = sorted((view for view in views if view is not None), key=lambda view: view.id)
-  for first, second in zip(views, views[1:]):
-    if first.id == second.id:
-      _report.Problem(_folder / second.source, f"has the id {second.id}, as {first.source} does")
+  CheckIdsDiffer(_report, _folder, views)
   return views
+
+
+def CheckIdsDiffer(_report, _folder, _items):
+  """Reports two of _items, each with an id and a source, whose ids are the same or differ only in case."""
+  seen = {}
+  for item in _items:
+    first = seen.setdefault(item.id.upper(), item)
+    if first is not item:
+      alike = "the id" if first.id == item.id else "an id differing only in case from"
+      _report.Problem(_folder / item.source, f"has {alike} {first.id}, as {first.source} does")
+
+
+def ReadLineModels(_report, _folder):
+  """Every line model in _folder, in ascending id (ADR-018), read and checked by the asset check's own code, so the bake
+  and the check cannot disagree on what one is."""
+  models = []
+  for path in sorted(_folder.glob("*.json")):
+    data = CheckAssets.ReadJson(_report, path)
+    if data is None:
+      continue
+    if not CheckAssets.IsLineModel(data):
+      _report.Problem(path, "is not a line model: it has no segments or no drawnLengthMetres (ADR-018)")
+      continue
+    model = CheckAssets.ReadLineModel(_report, path, data)
+    if model is not None:
+      models.append(model)
+  models.sort(key=lambda model: model.id)
+  CheckIdsDiffer(_report, _folder, models)
+  return models
 
 
 # ── The shared hash ─────────────────────────────────────────────────────────────────────────────
@@ -356,11 +388,33 @@ def ModelHeader(_models):
           "// which declares ModelView.\n\n")
   entries = []
   for view in _models:
-    name = f"MODEL_{view.id}_INDICES"
+    name = f"MODEL_{view.id.upper()}_INDICES"
     body += IndicesArray(name, view)
     entries.append(f"  {{.id = {CppString(view.id)}, .name = {CppString(view.name)}, {Grid(name, view)}}},")
   body += f"inline constexpr std::array<ModelView, {len(_models)}> MODELS = {{{{\n" + "\n".join(entries) + "\n}};\n\n"
   return Header("GameData/Client/Models/", ["array", "cstdint"], body)
+
+
+def LineModelHeader(_models):
+  body = ("// Each line model, in ascending id (ADR-018). Content/Catalog.cpp includes this after Catalog.h, which declares\n"
+          "// LineModelView and LineSegmentView.\n\n")
+  entries = []
+  for model in _models:
+    name = f"LINE_MODEL_{model.id.upper()}_SEGMENTS"
+    rows = []
+    for start, end, srgb, width, tapers in model.segments:
+      rows.append(f"  {{.fromMillimeters = {start}, .toMillimeters = {end}, .colorSrgb = 0x{srgb or 0:06x}u, "
+                  f".factionColor = {'true' if srgb is None else 'false'}, .widthPixels = {width}, "
+                  f".tapers = {'true' if tapers else 'false'}}},")
+    body += (f"// {model.id}, {model.name}, from {model.source}: {CheckAssets.Plural(len(model.segments), 'segment')} over "
+             f"{model.drawnLengthMillimeters} mm.\n"
+             f"inline constexpr std::array<LineSegmentView, {len(model.segments)}> {name} = {{{{\n" + "\n".join(rows) + "\n}};\n\n")
+    entries.append(f"  {{.id = {CppString(model.id)}, .name = {CppString(model.name)}, "
+                   f".drawnLengthMillimeters = {model.drawnLengthMillimeters}, .dotBelowPixels = {model.dotBelowPixels}, "
+                   f".dotWidthPixels = {model.dotWidthPixels}, .segments = {{{name}}}}},")
+  body += f"inline constexpr std::array<LineModelView, {len(_models)}> LINE_MODELS = {{{{\n" + "\n".join(entries) + "\n}};\n\n"
+  return Header("GameData/Client/Lines/", ["array", "cstdint"], body)
+
 
 
 def SharedHashHeader(_hash):
@@ -500,6 +554,7 @@ def Main(_arguments):
   templates = ReadViews(report, TEMPLATES, palette, True)
   # Only the client half reads GameData/Client/ (ADR-008, decision 2; the asset check's check 11).
   models = ReadViews(report, MODELS, palette, False) if arguments.client is not None else []
+  lineModels = ReadLineModels(report, LINES) if arguments.client is not None else []
   sharedHash = Fnv1a64(SharedEncoding(colors, present, templates))
   serverFile = BakeServer(report, palette, templates, sharedHash) if arguments.server is not None else None
   if report.problems:
@@ -513,6 +568,7 @@ def Main(_arguments):
       "PaletteTable.h": PaletteHeader(look),
       "TemplateTable.h": TemplateHeader(templates),
       "ModelTable.h": ModelHeader(models),
+      "LineModelTable.h": LineModelHeader(lineModels),
       "SharedHashValue.h": SharedHashHeader(sharedHash),
     }
     arguments.client.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,30 @@
+{
+ "id": "X1",
+ "name": "Trebuchet shot",
+ "voxelSize": 0.5,
+ "size": {
+  "x": 2,
+  "y": 2,
+  "z": 2
+ },
+ "axes": "y up, +z front, layers[y][z][x]",
+ "derivedFrom": "MVP runtime assets package (2026-11-01)",
+ "silhouetteCue": "Raw-stone cube, 2 × 2 × 2",
+ "legend": {
+  "d": {
+   "material": 4,
+   "name": "building stone",
+   "hex": "#ddd2b9"
+  }
+ },
+ "layers": [
+  [
+   "dd",
+   "dd"
+  ],
+  [
+   "dd",
+   "dd"
+  ]
+ ]
+}

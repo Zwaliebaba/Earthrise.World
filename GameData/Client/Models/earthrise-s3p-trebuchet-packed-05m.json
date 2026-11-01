@@ -1,0 +1,120 @@
+{
+ "id": "S3p",
+ "name": "Trebuchet, packed",
+ "voxelSize": 0.5,
+ "size": {
+  "x": 16,
+  "y": 7,
+  "z": 7
+ },
+ "axes": "y up, +z front, layers[y][z][x]",
+ "derivedFrom": "MVP runtime assets package (2026-11-01)",
+ "silhouetteCue": "Wagon: four 2 m wheels, faction trim",
+ "pose": {
+  "of": "S3",
+  "pose": "packed",
+  "placement": "own origin; offset (+4, 0, +0.5) m from the engine origin"
+ },
+ "legend": {
+  "g": {
+   "material": 7,
+   "name": "timber",
+   "hex": "#7a5534"
+  },
+  "m": {
+   "material": 20,
+   "name": "opening",
+   "hex": "#2e2a27"
+  },
+  "j": {
+   "material": 16,
+   "name": "faction",
+   "hex": "#b23a2e"
+  },
+  "n": {
+   "material": 21,
+   "name": "counterweight",
+   "hex": "#5b5650"
+  },
+  "t": {
+   "material": 27,
+   "name": "leather",
+   "hex": "#6e5a3e"
+  },
+  "p": {
+   "material": 23,
+   "name": "cloth",
+   "hex": "#3d3530"
+  },
+  "k": {
+   "material": 18,
+   "name": "iron",
+   "hex": "#9aa0a6"
+  }
+ },
+ "layers": [
+  [
+   "..gg......gg....",
+   "................",
+   "................",
+   "................",
+   "................",
+   "................",
+   "..gg......gg...."
+  ],
+  [
+   ".gmmg....gmmg...",
+   "................",
+   "................",
+   "................",
+   "................",
+   "................",
+   ".gmmg....gmmg..."
+  ],
+  [
+   ".gmmg....gmmg...",
+   "gggggggggggggg..",
+   "gggggggggggggg..",
+   "gggggggggggggggg",
+   "gggggggggggggg..",
+   "gggggggggggggg..",
+   ".gmmg....gmmg..."
+  ],
+  [
+   "..gg......gg....",
+   "jggggggggggggj..",
+   ".nnnn...........",
+   ".nnnn...........",
+   ".nnnn...........",
+   "jggggggggggggj..",
+   "..gg......gg...."
+  ],
+  [
+   "................",
+   ".......g.ttttt..",
+   ".nnnn........j..",
+   ".nnnn........j..",
+   ".nnnn........j..",
+   ".......g.ttttt..",
+   "................"
+  ],
+  [
+   "................",
+   ".......g........",
+   ".nnnn....ttttt..",
+   ".nnnn....ttttt.p",
+   ".nnnn....ttttt..",
+   ".......g........",
+   "................"
+  ],
+  [
+   "................",
+   ".......k........",
+   ".......k........",
+   "gggggggggggggggg",
+   ".......k........",
+   ".......k........",
+   "................"
+  ]
+ ]
+}
