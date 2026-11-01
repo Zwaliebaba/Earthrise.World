@@ -126,7 +126,10 @@ public:
     {
       for (const Protocol::VoxelPosition& voxel : edits)
       {
-        const bool inPiece = std::ranges::find(run.collapse.piece, voxel) != run.collapse.piece.end();
+        // By a comparison rather than std::ranges::find, whose vectorized path in MSVC's library
+        // clang cannot compile for a 12-byte position.
+        const bool inPiece =
+          std::ranges::any_of(run.collapse.piece, [&voxel](const Protocol::VoxelPosition& _part) { return _part == voxel; });
         const bool inStrip = std::ranges::any_of(run.collapse.plan.strip, [&voxel](const Protocol::VoxelPosition& _column)
                                                  { return _column.xVoxels == voxel.xVoxels && _column.zVoxels == voxel.zVoxels; });
         Assert::IsTrue(inPiece || inStrip);
