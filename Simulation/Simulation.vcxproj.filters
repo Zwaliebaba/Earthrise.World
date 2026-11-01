@@ -147,5 +147,11 @@
     <ClCompile Include="Integrity.cpp">
       <Filter>Destruction</Filter>
     </ClCompile>
+    <ClInclude Include="BreachLab.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="BreachLab.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

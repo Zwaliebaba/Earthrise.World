@@ -76,6 +76,8 @@
     <ClCompile Include="BreachRun.cpp" />
     <ClInclude Include="Integrity.h" />
     <ClCompile Include="Integrity.cpp" />
+    <ClInclude Include="BreachLab.h" />
+    <ClCompile Include="BreachLab.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

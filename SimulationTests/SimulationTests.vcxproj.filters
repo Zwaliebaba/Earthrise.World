@@ -114,5 +114,8 @@
     <ClCompile Include="TileReachTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="BreachLabTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

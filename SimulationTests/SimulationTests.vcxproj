@@ -75,6 +75,7 @@
     <ClCompile Include="AimCheckTests.cpp" />
     <ClCompile Include="IntegrityTests.cpp" />
     <ClCompile Include="TileReachTests.cpp" />
+    <ClCompile Include="BreachLabTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

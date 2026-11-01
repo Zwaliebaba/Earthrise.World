@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include "BreachLab.h"
 #include "BreachRun.h"
 #include "ChunkStore.h"
 #include "Generator.h"
@@ -7,6 +8,7 @@
 #include "Integrity.h"
 #include "NavigationGrid.h"
 #include "PathSearch.h"
+#include "Save.h"
 #include "ServerData.h"
 #include "SupportSearch.h"
 #include "TestWorld.h"
@@ -500,6 +502,52 @@ int RunIntegrity(const std::filesystem::path& _executable)
   return 0;
 }
 
+/// Every lab item headless (M3-B7): each on a fresh copy of the lab's site, its prior shots, then its
+/// asked shots, each tick timed. Prints the item's id, its key, the world's ticks at the end, its state
+/// hash and its slowest tick of play, every tick but tick 0, which takes in the site's own edits.
+int RunLabItems(const std::filesystem::path& _executable)
+{
+  const std::uint64_t buildId = BuildIdOf(_executable);
+  const Simulation::ServerData data = Simulation::ServerData::Load(_executable.parent_path() / "ServerData" / "ServerData.bin");
+  const Simulation::World::Desc desc = Simulation::LabDesc(data, buildId);
+  Simulation::World site(desc);
+  const Simulation::LabSetup setup = Simulation::BuildLabSite(site);
+  std::println("The breach lab's items, build id {:016x}, item set {:016x}", buildId, Simulation::LabItemsHash());
+  bool timedOut = false;
+  for (const Simulation::LabItem& item : Simulation::LabItems())
+  {
+    Simulation::World world = site;
+    double slowest = 0.0;
+    std::uint32_t slowestTick = 0;
+    const auto play = [&](std::span<const Protocol::VoxelPosition> _aims)
+    {
+      Simulation::LabShots shots(setup, _aims);
+      for (bool done = false; !done;)
+      {
+        const std::uint32_t tick = world.TickCount();
+        const Clock::time_point start = Clock::now();
+        done = shots.Advance(world);
+        const double milliseconds = MillisecondsSince(start);
+        if (tick > 0 && milliseconds > slowest)
+        {
+          slowest = milliseconds;
+          slowestTick = tick;
+        }
+      }
+      return shots.TimedOut();
+    };
+    const std::vector<Protocol::VoxelPosition> asked(item.shotsAsked, item.markVoxels);
+    const bool priorTimedOut = play(item.priorAimVoxels);
+    const bool askedTimedOut = play(asked);
+    const bool itemTimedOut = priorTimedOut || askedTimedOut;
+    timedOut = timedOut || itemTimedOut;
+    std::println("{}: {}{}, {} ticks, state hash {:016x}, slowest tick {} at {:.3f} ms", item.id,
+                 Simulation::CourtyardOpen(world, setup) ? "OPEN" : "SHUT", itemTimedOut ? " (TIMED OUT)" : "", world.TickCount(),
+                 Simulation::StateHash(world), slowestTick, slowest);
+  }
+  return timedOut ? 2 : 0;
+}
+
 int Run(const std::filesystem::path& _executable)
 {
   std::println("SimulationBench: the renderer spike's question 6, at 1 m and at 0.5 m (ADR-006). Times are this machine's.");
@@ -552,7 +600,8 @@ int wmain(int _argumentCount, wchar_t** _arguments)
     }
     const std::filesystem::path executable = std::filesystem::absolute(_arguments[0]);
     // SimulationBench --breach-run [file.csv] times the breach run (M2-G2), --integrity the integrity
-    // reading on it (M3-B5); without either, the M1 measurements and the navigation's run.
+    // reading on it (M3-B5), --lab-items the breach lab's items (M3-B7); without any, the M1
+    // measurements and the navigation's run.
     const std::span<wchar_t*> arguments(_arguments, static_cast<std::size_t>(_argumentCount));
     if (arguments.size() >= 2 && std::wstring_view(arguments[1]) == L"--breach-run")
     {
@@ -561,6 +610,10 @@ int wmain(int _argumentCount, wchar_t** _arguments)
     if (arguments.size() >= 2 && std::wstring_view(arguments[1]) == L"--integrity")
     {
       return RunIntegrity(executable);
+    }
+    if (arguments.size() >= 2 && std::wstring_view(arguments[1]) == L"--lab-items")
+    {
+      return RunLabItems(executable);
     }
     return Run(executable);
   }
