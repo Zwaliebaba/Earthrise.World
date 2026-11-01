@@ -171,6 +171,8 @@ BROKEN = {
                                            "a project the solution does not name"),
   "source outside any project": (lambda r: Write(r, "Loose.cpp", "int x;\n"), "source outside any project"),
   "a project missing from the registry": (lambda r: Edit(r, ".clang-tidy", "(Sample|", "("), "does not name Sample"),
+  "a library referencing a test suite": (lambda r: Edit(r, PROJECT, SETTING, "  <ItemGroup>\n    <ProjectReference Include=\"..\\SampleTests\\SampleTests.vcxproj\" />\n  </ItemGroup>\n" + SETTING),
+                                         "references SampleTests, a test suite"),
   "an unanchored registry": (lambda r: Edit(r, ".clang-tidy", "'(^|[/\\\\])(", "'("), "anchored"),
 }
 
@@ -193,6 +195,18 @@ class CheckProjectFilesTests(unittest.TestCase):
   def test_the_repository_passes(self):
     report, _ = CheckProjectFiles.Check(ROOT)
     self.assertEqual(report.errors, [])
+
+  def test_the_layering_table_names_every_project_of_the_repository(self):
+    _, projects = CheckProjectFiles.Check(ROOT)
+    self.assertTrue(projects)
+    for project in projects:
+      self.assertIsNotNone(CheckProjectFiles.Allowed(project.name), f"{project.name} has no row in the layering table")
+
+  def test_the_layering_table_keeps_the_client_off_the_simulation(self):
+    self.assertNotIn("Simulation", CheckProjectFiles.Allowed("Client"))
+    self.assertEqual({"Client", "Core", "Engine", "Protocol", "Content"}, CheckProjectFiles.Allowed("ClientTests"))
+    self.assertNotIn("Engine", CheckProjectFiles.Allowed("Simulation"))
+    self.assertEqual({"Core", "Engine", "Protocol", "Content", "Simulation", "Client"}, CheckProjectFiles.Allowed("Earthrise"))
 
   def test_each_broken_fixture_fails_for_its_reason(self):
     for name, (breakIt, expected) in BROKEN.items():

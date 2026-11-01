@@ -1,6 +1,6 @@
 # ADR-010 — The solution and build layout
 
-**Status:** Accepted, 2026-10-31, by the owner. It is the solution-layout ADR that [MvpPlan.md](../MvpPlan.md) schedules for M1's first commit, and that AGENTS.md §2 requires when the first project is created. It settles the engineering items the MVP readiness review lists under C ([Review/MvpReadiness-2026-10-31.md](../Review/MvpReadiness-2026-10-31.md)). The renderer's own first choices are in [ADR-011](ADR-011-renderer-first-choices.md). Decision 2 is amended by [ADR-020](ADR-020-the-in-process-client.md), to which the owner gave the go-ahead on 2026-11-01: `Client` and `Earthrise` both join in M3, `RendererSpike` references `Client`, and `Build/CheckProjectFiles.py` holds the table of which project may reference which. Order M3-C1 writes it into decision 2 when it marks ADR-020 Accepted.
+**Status:** Accepted, 2026-10-31, by the owner. It is the solution-layout ADR that [MvpPlan.md](../MvpPlan.md) schedules for M1's first commit, and that AGENTS.md §2 requires when the first project is created. It settles the engineering items the MVP readiness review lists under C ([Review/MvpReadiness-2026-10-31.md](../Review/MvpReadiness-2026-10-31.md)). The renderer's own first choices are in [ADR-011](ADR-011-renderer-first-choices.md). Decision 2 is amended by [ADR-020](ADR-020-the-in-process-client.md), Accepted 2026-11-01 by order M3-C1, which wrote the amendment into decisions 2 and 9.
 
 ## Context
 
@@ -39,7 +39,9 @@
 
    `SimulationBench` gained Content during M1 (amended 2026-11-01, by the owner, GameDesign.md, *M1's open values*, item 9). The test world it measures is built in Simulation from templates handed in through `Simulation::TemplateLookup`, and until the server bake wrote the templates the bench handed in Content's. Simulation itself never depends on Content. **The edge went in M2** (amended again 2026-11-01, by order M2-B6): the bench is a `wmain` that reads `ServerData\ServerData.bin` from beside its own executable, found from its first argument, and hands in `ServerData::Templates()` ([ADR-016](ADR-016-server-data-format.md)).
 
-   `EngineTests` and `ContentTests` joined during M1, with the engine base and the client bake (MvpPlan.md, M1 tasks 2 and 4), once their libraries held code to test. `Client` and `Earthrise` join when M3 and M4 need them. A project joins the solution when the milestone that first uses it starts, never earlier.
+   `EngineTests` and `ContentTests` joined during M1, with the engine base and the client bake (MvpPlan.md, M1 tasks 2 and 4), once their libraries held code to test. A project joins the solution when the milestone that first uses it starts, never earlier.
+
+   **`Client`, `ClientTests` and `Earthrise` joined in M3** (amended 2026-11-01, by [ADR-020](ADR-020-the-in-process-client.md), decision 1, and order M3-C1), where the text above had them join when M3 and M4 need them. `Client` is a static library on Core, Engine, Protocol and Content, never Simulation; `ClientTests` is its CppUnitTest DLL; `Earthrise` is the Windows executable on every library. `RendererSpike` gains Client in M3-C2, when the world view moves there. The edges are a table in `Build/CheckProjectFiles.py` (decision 9).
 3. **Output goes to `$(SolutionDir)$(Platform)\$(Configuration)\`** for every project: libraries, executables and test DLLs.
    - This is CI's test path, and it is the `<outputdir>` of [ADR-008](ADR-008-server-and-client-game-data.md). `ServerData\` and `GameData\` sit inside it.
    - Intermediate files go to `$(SolutionDir)$(Platform)\$(Configuration)\Intermediate\$(ProjectName)\`.
@@ -79,7 +81,8 @@
    - Debug and Release, and x64 and ARM64, differ only as AGENTS.md §3 allows;
    - the `.clang-tidy` registry names exactly the solution's projects;
    - every file is registered in the `.vcxproj` and its `.filters`;
-   - R2, R7 and R11 hold, folders are flat, and shaders are named as §2 says.
+   - R2, R7 and R11 hold, folders are flat, and shaders are named as §2 says;
+   - each project references and includes only what the layering table lets it, from MvpPlan.md's *Solution layout*, and nothing references or includes a test suite (amended 2026-11-01, by ADR-020, decision 1).
 
    `Build/Fixtures/` holds a small correct project, `Build/TestCheckers.py` makes each broken variant from it in code, and the checker's own test is that it passes the first and fails each of the others for the right reason. Run on an empty tree, the checker would prove nothing.
 
