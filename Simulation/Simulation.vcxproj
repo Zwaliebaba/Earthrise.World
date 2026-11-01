@@ -41,6 +41,12 @@
     </ClCompile>
     <ClInclude Include="ChunkStore.h" />
     <ClCompile Include="ChunkStore.cpp" />
+    <ClInclude Include="MaterialRules.h" />
+    <ClCompile Include="MaterialRules.cpp" />
+    <ClInclude Include="SupportSearch.h" />
+    <ClCompile Include="SupportSearch.cpp" />
+    <ClInclude Include="NavigationGrid.h" />
+    <ClCompile Include="NavigationGrid.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

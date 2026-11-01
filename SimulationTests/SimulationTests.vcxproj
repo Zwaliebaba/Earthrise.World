@@ -43,6 +43,8 @@
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="ChunkStoreTests.cpp" />
+    <ClCompile Include="SupportSearchTests.cpp" />
+    <ClCompile Include="NavigationGridTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
