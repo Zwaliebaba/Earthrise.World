@@ -7,6 +7,19 @@
   - **A ford is the one voxel of water a surface may stand in,** as M1's surface rule already allows; a class wades it when its ford depth is at least 1, which every class's is.
   - **Ground is rubble** when the voxel under the surface is rubble of either kind.
   - **The margin** an edit's tiles widen by is the longest climb run plus the widest class's clearance less one: a cell's clearance reads the square it is the corner of, and a link reads the run beyond the cells whose clearance changed. That is 5 cells for the MVP's classes (M2-F2; F1 had it as the larger of the two, before clearance existed).
+  - **The search** (M2-F3, `Simulation/PathSearch.h`) is A\* over cells. A step costs 10 straight and 14 diagonally, times the factor of the ground it lands on for the class; the heuristic is the octile distance in the same integers, which never overestimates since no factor is below 1; ties go by f, then h, then cell index. A goal out of reach gives the reachable cell nearest it by octile distance, ties to the lower index. Searches run in step 3, before units move, served in the order of the tick they were asked for in, then squad id, within `pathNodesPerTick` nodes a tick (Proposed at 4,096 until M2-G2 measures it); one the budget cuts short goes on next tick and is saved with its open and closed cells. A `MoveSquad` asks for its squad's search from where its first unit stands.
+  - **Its figures** on the generated MVP map (seed `0x5eed2026`), measured on 2026-11-01 in the Linux container with clang 18 at -O2, by the same code `SimulationBench` runs; the benchmark machine's figures are the owner's run of the bench (M2-G2):
+
+    | What | Nodes | Time |
+    |---|---|---|
+    | Every tile, with its classes, clearance and links | | 209 ms |
+    | One tile | | 1.3 ms |
+    | Foot, corner to corner, (8, 8) to (504, 504) | 33,077 | 39 ms |
+    | Foot, the other diagonal | 32,815 | 34 ms |
+    | Cavalry, corner to corner | 85,646, short of the goal | 106 ms |
+    | Machines, corner to corner | 838, short of the goal | 0.6 ms |
+
+    A cross-map search takes about 8 ticks at the Proposed budget. Cavalry and machines cannot cross the generated map: the river's valley sides are steeper than 1 m in 2 cells, so they cannot reach its fords, and machines' 3 m clearance and 1-in-3 climb leave them little of the relief. That is a question for the generator's maps (M2-D3), which the owner judges.
   - **Clearance** (M2-F2) is built square by square, adding a row and a column each step, up to the widest class's width, 3; a class enters a cell whose clearance is at least its width, and its links open only between such cells.
 
 It fixes the model and leaves the search algorithm to the navigation orders, which choose it by measurement ([MvpPlan-M2.md](../MvpPlan-M2.md), phase F). M2-F1 implements the classes; the search and movement follow in phase F.

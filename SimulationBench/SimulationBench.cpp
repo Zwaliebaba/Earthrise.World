@@ -1,8 +1,10 @@
 #include "pch.h"
 
 #include "ChunkStore.h"
+#include "Generator.h"
 #include "Hash.h"
 #include "NavigationGrid.h"
+#include "PathSearch.h"
 #include "ServerData.h"
 #include "SupportSearch.h"
 #include "TestWorld.h"
@@ -205,6 +207,60 @@ void Measure(std::string_view _name, Simulation::ChunkStore& _store, const Simul
                halfTile.slowestMilliseconds);
 }
 
+/// Cross-map path searches on the generated MVP map, for each class (M2-F3; ADR-015, decision 5):
+/// the nodes each expands, its time and its path, corner to corner both ways.
+void MeasureSearches(const Simulation::ServerData& _data)
+{
+  const Simulation::Generator generator({.worldSeed = SEED,
+                                         .resourceSeed = SEED + 1,
+                                         .widthVoxels = Simulation::Generator::MAP_WIDTH_VOXELS,
+                                         .heightVoxels = Simulation::Generator::MAP_HEIGHT_VOXELS,
+                                         .depthVoxels = Simulation::Generator::MAP_DEPTH_VOXELS});
+  Simulation::ChunkStore store;
+  for (std::int32_t y = 0; y < generator.HeightChunks(); ++y)
+  {
+    for (std::int32_t z = 0; z < generator.DepthChunks(); ++z)
+    {
+      for (std::int32_t x = 0; x < generator.WidthChunks(); ++x)
+      {
+        const auto chunk = std::make_unique<Protocol::Chunk>();
+        generator.GenerateChunk({.xChunks = x, .yChunks = y, .zChunks = z}, *chunk);
+        store.SetChunk({.xChunks = x, .yChunks = y, .zChunks = z}, *chunk);
+      }
+    }
+  }
+  const std::int32_t width = Simulation::Generator::MAP_WIDTH_VOXELS;
+  Simulation::NavigationGrid grid({.widthCells = width,
+                                   .depthCells = Simulation::Generator::MAP_DEPTH_VOXELS,
+                                   .heightVoxels = Simulation::Generator::MAP_HEIGHT_VOXELS,
+                                   .climbVoxels = 1,
+                                   .rules = &_data.Tuning()},
+                                  _data.Materials());
+  const Clock::time_point rebuildStart = Clock::now();
+  grid.RebuildAll(store);
+  std::println("The generated MVP map: every navigation tile, with its classes and clearance, in {:.0f} ms",
+               MillisecondsSince(rebuildStart));
+  constexpr std::int32_t CORNER = 8;
+  const std::array<std::pair<std::int64_t, std::int64_t>, 2> trips = {
+    {{std::int64_t{CORNER} * width + CORNER, std::int64_t{width - CORNER} * width + (width - CORNER)},
+     {std::int64_t{width - CORNER} * width + CORNER, std::int64_t{CORNER} * width + (width - CORNER)}}};
+  for (const auto& [navigationClass, name] :
+       {std::pair{Simulation::NavigationClass::Foot, "foot"}, std::pair{Simulation::NavigationClass::Cavalry, "cavalry"},
+        std::pair{Simulation::NavigationClass::Machines, "machines"}})
+  {
+    for (const auto& [from, to] : trips)
+    {
+      Simulation::PathSearch search(1, navigationClass, from, to, width);
+      const Clock::time_point start = Clock::now();
+      static_cast<void>(search.Advance(grid, UINT32_MAX));
+      const double milliseconds = MillisecondsSince(start);
+      std::println("  {} from ({}, {}) to ({}, {}): {} nodes in {:.1f} ms, {} cells{}", name, from % width, from / width, to % width,
+                   to / width, search.NodesExpanded(), milliseconds, search.Path().size(),
+                   search.ShortOfGoal() ? ", short of the goal" : "");
+    }
+  }
+}
+
 int Run(const std::filesystem::path& _executable)
 {
   std::println("SimulationBench: the renderer spike's question 6, at 1 m and at 0.5 m (ADR-006). Times are this machine's.");
@@ -223,6 +279,7 @@ int Run(const std::filesystem::path& _executable)
     const Simulation::TestWorld world = Simulation::BuildSeasonWorld(store, SEASON_WORLD_VOXELS, SEASON_HOLDINGS, SEED, data.Templates());
     Measure("The season world (2 km, 32 holdings)", store, world, MillisecondsSince(start), data);
   }
+  MeasureSearches(data);
   return 0;
 }
 

@@ -24,8 +24,9 @@ namespace Simulation
 //      next tick, then each as its u8 player, u32 length and bytes, in arrival order; u32 the edits
 //      the last tick made after its step 5, then each voxel, in edit order; and u32 the edits made
 //      between ticks since, then each voxel, in first-edit order, which the next step 5 searches with
-//      them; and u32 the columns waiting for slump, then each column index, z * width + x, as an i64,
-//      in rising order.
+//      them; u32 the columns waiting for slump, then each column index, z * width + x, as an i64,
+//      in rising order; and u32 the path searches still running, then each as the u32 tick it was
+//      asked for in, its u64 squad and the search as PathSearch::Write gives it, in that order.
 // Navigation tiles, chunk hashes and anything else computed from the voxels are not saved: a load
 // rebuilds them.
 

@@ -15,8 +15,27 @@ FixedPosition CellFloorMiddle(Protocol::VoxelPosition _cellVoxels)
           .zMeters = Core::Fixed::FromWhole(_cellVoxels.zVoxels) + half};
 }
 
+namespace
+{
+
+NavigationGrid::Desc NavigationDesc(const World::Desc& _desc)
+{
+  if (_desc.serverData == nullptr)
+  {
+    throw std::invalid_argument("a world needs server data");
+  }
+  return {.widthCells = _desc.widthChunks * Protocol::CHUNK_EDGE_VOXELS,
+          .depthCells = _desc.depthChunks * Protocol::CHUNK_EDGE_VOXELS,
+          .heightVoxels = _desc.heightChunks * Protocol::CHUNK_EDGE_VOXELS,
+          .climbVoxels = 1,
+          .rules = &_desc.serverData->Tuning()};
+}
+
+} // namespace
+
 World::World(const Desc& _desc)
-  : m_desc(_desc)
+  : m_desc(_desc),
+    m_navigation(NavigationDesc(_desc), _desc.serverData->Materials())
 {
   if (m_desc.serverData == nullptr || !m_desc.generate || !m_desc.surfaceVoxels || m_desc.widthChunks <= 0 || m_desc.heightChunks <= 0 ||
       m_desc.depthChunks <= 0)
@@ -37,6 +56,7 @@ World::World(const Desc& _desc)
       }
     }
   }
+  m_navigation.RebuildAll(m_voxels.Store());
 }
 
 void World::Submit(std::uint8_t _player, std::span<const std::byte> _command)
@@ -138,6 +158,32 @@ std::span<const ShotHit> World::LastTickHits() const noexcept
   return m_tickHits;
 }
 
+const NavigationGrid& World::Navigation() const noexcept
+{
+  return m_navigation;
+}
+
+const std::map<std::pair<std::uint32_t, Protocol::EntityId>, PathSearch>& World::Searches() const noexcept
+{
+  return m_searches;
+}
+
+void World::RequestSearch(Squad& _squad)
+{
+  std::erase_if(m_searches, [&_squad](const auto& _search) { return _search.first.second == _squad.id; });
+  if (_squad.units.empty() || !_squad.hasGoal)
+  {
+    return;
+  }
+  const Protocol::VoxelPosition from = m_units.at(_squad.units.front()).cellVoxels;
+  const std::int32_t width = m_navigation.WidthCells();
+  const std::int32_t goalX = std::clamp(_squad.goalVoxels.xVoxels, 0, width - 1);
+  const std::int32_t goalZ = std::clamp(_squad.goalVoxels.zVoxels, 0, m_navigation.DepthCells() - 1);
+  m_searches.emplace(std::pair{m_tick, _squad.id},
+                     PathSearch(_squad.id, _squad.navigationClass, std::int64_t{from.zVoxels} * width + from.xVoxels,
+                                std::int64_t{goalZ} * width + goalX, width));
+}
+
 std::span<const CrushEvent> World::LastTickCrushes() const noexcept
 {
   return m_tickCrushes;
@@ -151,7 +197,14 @@ std::span<const Protocol::VoxelPosition> World::LastTickEdits() const noexcept
 Protocol::EntityId World::AddSquad(std::uint8_t _owner, NavigationClass _class, std::span<const Protocol::VoxelPosition> _cellsVoxels)
 {
   const Protocol::EntityId squadId = NewEntityId();
-  Squad squad{.id = squadId, .owner = _owner, .navigationClass = _class, .units = {}, .hasGoal = false, .goalVoxels = {}};
+  Squad squad{.id = squadId,
+              .owner = _owner,
+              .navigationClass = _class,
+              .units = {},
+              .hasGoal = false,
+              .goalVoxels = {},
+              .path = {},
+              .shortOfGoal = false};
   for (const Protocol::VoxelPosition& cell : _cellsVoxels)
   {
     const Protocol::EntityId unitId = NewEntityId();
@@ -185,6 +238,7 @@ void World::RemoveSquad(Protocol::EntityId _squad)
   {
     m_units.erase(unit);
   }
+  std::erase_if(m_searches, [_squad](const auto& _search) { return _search.first.second == _squad; });
   m_squads.erase(found);
 }
 
@@ -216,6 +270,7 @@ void World::Apply(std::uint8_t _player, const Protocol::Command& _command)
     {
       squad->second.hasGoal = true;
       squad->second.goalVoxels = move->goalVoxels;
+      RequestSearch(squad->second);
     }
   }
   else if (const auto* fire = std::get_if<Protocol::FireEngine>(&_command))
@@ -258,7 +313,26 @@ void World::AdvanceJobs()
 
 void World::MoveUnits()
 {
-  // Step 3: searches for the squads that need a path, then movement along paths (M2-F3, F5).
+  // Step 3: the searches, served in the order they were asked for, then squad id, within
+  // pathNodesPerTick nodes; one the budget cuts short goes on next tick (M2-F3; ADR-015, decision
+  // 5). Then movement along paths (M2-F5).
+  auto budget = static_cast<std::uint32_t>(std::max(0, Data().Tuning().pathNodesPerTick));
+  while (budget > 0 && !m_searches.empty())
+  {
+    PathSearch& search = m_searches.begin()->second;
+    budget -= search.Advance(m_navigation, budget);
+    if (!search.Done())
+    {
+      break;
+    }
+    const auto squad = m_squads.find(search.Squad());
+    if (squad != m_squads.end())
+    {
+      squad->second.path = search.Path();
+      squad->second.shortOfGoal = search.ShortOfGoal();
+    }
+    m_searches.erase(m_searches.begin());
+  }
 }
 
 void World::AdvanceShots()
@@ -604,7 +678,11 @@ std::optional<std::pair<std::int32_t, std::int32_t>> World::Slump(std::int32_t _
 
 void World::RebuildNavigation()
 {
-  // Step 8: every navigation tile the tick's edits touched (M2-F1 to F4).
+  // Step 8: every navigation tile the tick's edits touched, none deferred (ADR-015, decision 4).
+  for (const auto& [tileX, tileZ] : m_navigation.TilesTouchedBy(m_voxels.TickEdits()))
+  {
+    m_navigation.RebuildTile(m_voxels.Store(), tileX, tileZ);
+  }
 }
 
 void World::SettleUnits()

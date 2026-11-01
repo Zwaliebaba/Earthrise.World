@@ -22,7 +22,7 @@ std::int32_t TileOf(std::int32_t _cell) noexcept
 
 NavigationGrid::NavigationGrid(const Desc& _desc, const MaterialRules& _materials)
   : m_desc(_desc),
-    m_materials(_materials)
+    m_materials(&_materials)
 {
   if (m_desc.widthCells <= 0 || m_desc.depthCells <= 0 || m_desc.widthCells % TILE_EDGE_CELLS != 0 ||
       m_desc.depthCells % TILE_EDGE_CELLS != 0 || m_desc.heightVoxels < 2)
@@ -251,8 +251,26 @@ void NavigationGrid::RebuildCell(const ChunkStore& _store, std::int32_t _x, std:
   // lower may be water (a ford). A structure is never ground, so the top of a wall is not walkable,
   // while a gate's passage under its arch is, and the space under a rock overhang is not the
   // column's surface, because the rock's top is higher (GameDesign.md, *A breach is a path*).
-  const auto rule = [&](std::int32_t _y) -> const MaterialRule&
-  { return m_materials[_y >= m_desc.heightVoxels ? 0 : _store.At({.xVoxels = _x, .yVoxels = _y, .zVoxels = _z})]; };
+  // The column's palette indices, read a chunk at a time rather than a voxel at a time.
+  m_column.assign(static_cast<std::size_t>(m_desc.heightVoxels) + 1, Protocol::Chunk::EMPTY);
+  const Protocol::VoxelPosition inside = Protocol::PositionInChunk({.xVoxels = _x, .yVoxels = 0, .zVoxels = _z});
+  const Protocol::ChunkCoordinate base = Protocol::ChunkContaining({.xVoxels = _x, .yVoxels = 0, .zVoxels = _z});
+  for (std::int32_t chunkY = 0; chunkY * Protocol::CHUNK_EDGE_VOXELS < m_desc.heightVoxels; ++chunkY)
+  {
+    const Protocol::Chunk* chunk =
+      _store.Find(Protocol::PackChunkKey({.xChunks = base.xChunks, .yChunks = chunkY, .zChunks = base.zChunks}));
+    if (chunk == nullptr)
+    {
+      continue;
+    }
+    for (std::int32_t y = 0; y < Protocol::CHUNK_EDGE_VOXELS && chunkY * Protocol::CHUNK_EDGE_VOXELS + y < m_desc.heightVoxels; ++y)
+    {
+      const std::int32_t height = chunkY * Protocol::CHUNK_EDGE_VOXELS + y;
+      m_column[static_cast<std::size_t>(height)] = chunk->At(inside.xVoxels, y, inside.zVoxels);
+    }
+  }
+  const auto rule = [this](std::int32_t _y) -> const MaterialRule&
+  { return (*m_materials)[_y >= m_desc.heightVoxels ? Protocol::Chunk::EMPTY : m_column[static_cast<std::size_t>(_y)]]; };
   const std::size_t at = Index(_x, _z);
   m_heights[at] = NOT_WALKABLE;
   m_headroom[at] = 0;
@@ -367,26 +385,62 @@ void NavigationGrid::RebuildClearance(std::int32_t _minX, std::int32_t _minZ, st
 
 void NavigationGrid::RebuildLinks(std::int32_t _minX, std::int32_t _minZ, std::int32_t _maxX, std::int32_t _maxZ)
 {
+  const std::int32_t lowX = std::max(0, _minX);
+  const std::int32_t lowZ = std::max(0, _minZ);
+  const std::int32_t highX = std::min(m_desc.widthCells - 1, _maxX);
+  const std::int32_t highZ = std::min(m_desc.depthCells - 1, _maxZ);
+  if (lowX > highX || lowZ > highZ)
+  {
+    return;
+  }
+  // The straight links first, over the region and a ring about it, so each diagonal's corner checks
+  // read them rather than work them out again.
+  const std::int32_t ringLowX = lowX - 1;
+  const std::int32_t ringLowZ = lowZ - 1;
+  const std::int32_t ringWidth = highX - lowX + 3;
+  const std::int32_t ringDepth = highZ - lowZ + 3;
+  const auto ringIndex = [&](std::int32_t _x, std::int32_t _z)
+  { return static_cast<std::size_t>(_z - ringLowZ) * static_cast<std::size_t>(ringWidth) + static_cast<std::size_t>(_x - ringLowX); };
   for (std::size_t navigationClass = 0; navigationClass < NAVIGATION_CLASS_COUNT; ++navigationClass)
   {
     const ClassRule& rule = m_classes.at(navigationClass);
-    std::vector<std::uint8_t>& classLinks = m_links.at(navigationClass);
-    for (std::int32_t z = std::max(0, _minZ); z <= std::min(m_desc.depthCells - 1, _maxZ); ++z)
+    m_straight.assign(static_cast<std::size_t>(ringWidth) * static_cast<std::size_t>(ringDepth), 0);
+    for (std::int32_t z = ringLowZ; z < ringLowZ + ringDepth; ++z)
     {
-      for (std::int32_t x = std::max(0, _minX); x <= std::min(m_desc.widthCells - 1, _maxX); ++x)
+      for (std::int32_t x = ringLowX; x < ringLowX + ringWidth; ++x)
       {
-        std::uint8_t links = 0;
-        for (std::size_t direction = 0; direction < NEIGHBORS.size(); ++direction)
+        if (!Inside(x, z))
+        {
+          continue;
+        }
+        std::uint8_t straight = 0;
+        for (std::size_t direction = 0; direction < NEIGHBORS.size(); direction += 2)
+        {
+          if (StraightOpen(x, z, NEIGHBORS.at(direction)[0], NEIGHBORS.at(direction)[1], rule, navigationClass))
+          {
+            straight = static_cast<std::uint8_t>(straight | (1U << direction));
+          }
+        }
+        m_straight[ringIndex(x, z)] = straight;
+      }
+    }
+    const auto straightOpen = [&](std::int32_t _x, std::int32_t _z, std::uint32_t _bit)
+    { return Inside(_x, _z) && (m_straight[ringIndex(_x, _z)] & _bit) != 0; };
+    std::vector<std::uint8_t>& classLinks = m_links.at(navigationClass);
+    for (std::int32_t z = lowZ; z <= highZ; ++z)
+    {
+      for (std::int32_t x = lowX; x <= highX; ++x)
+      {
+        std::uint8_t links = m_straight[ringIndex(x, z)];
+        for (std::size_t direction = 1; direction < NEIGHBORS.size(); direction += 2)
         {
           const auto [dx, dz] = NEIGHBORS.at(direction);
-          bool linked = StraightOpen(x, z, dx, dz, rule, navigationClass);
-          if (linked && dx != 0 && dz != 0)
-          {
-            // No cutting a corner: the four straight steps around the diagonal must be open too.
-            linked = StraightOpen(x, z, dx, 0, rule, navigationClass) && StraightOpen(x, z, 0, dz, rule, navigationClass) &&
-                     StraightOpen(x + dx, z, 0, dz, rule, navigationClass) && StraightOpen(x, z + dz, dx, 0, rule, navigationClass);
-          }
-          if (linked)
+          // No cutting a corner: the four straight steps around the diagonal must be open too.
+          const std::uint32_t alongX = dx > 0 ? East : West;
+          const std::uint32_t alongZ = dz > 0 ? North : South;
+          const bool corners =
+            straightOpen(x, z, alongX) && straightOpen(x, z, alongZ) && straightOpen(x + dx, z, alongZ) && straightOpen(x, z + dz, alongX);
+          if (corners && StraightOpen(x, z, dx, dz, rule, navigationClass))
           {
             links = static_cast<std::uint8_t>(links | (1U << direction));
           }

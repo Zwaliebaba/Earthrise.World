@@ -40,6 +40,7 @@
   "machinesFordDepthMeters": "1",
   "machinesRubbleFactor": "2",
   "machinesFordFactor": "2",
-  "slumpVoxelsPerTick": "256"
+  "slumpVoxelsPerTick": "256",
+  "pathNodesPerTick": "4096"
  }
 }

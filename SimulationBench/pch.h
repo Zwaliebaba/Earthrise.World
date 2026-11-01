@@ -11,6 +11,7 @@
 #include <fstream>
 #include <functional>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <print>
 #include <ranges>

@@ -8,6 +8,7 @@
 #include "Fixed.h"
 #include "FixedPosition.h"
 #include "NavigationGrid.h"
+#include "PathSearch.h"
 #include "ServerData.h"
 #include "Shot.h"
 #include "VoxelWorld.h"
@@ -47,7 +48,9 @@ struct Squad
   NavigationClass navigationClass;
   std::vector<Protocol::EntityId> units; // in id order
   bool hasGoal;
-  Protocol::VoxelPosition goalVoxels; // where it was last ordered, when hasGoal
+  Protocol::VoxelPosition goalVoxels;      // where it was last ordered, when hasGoal
+  std::vector<PathSearch::CellIndex> path; // its last search's path, from where it stood to the goal
+  bool shortOfGoal;                        // the goal was out of its class's reach
 };
 
 /// One figure of a squad.
@@ -188,6 +191,13 @@ public:
   /// Where the last tick's shots struck, in shot-id order.
   [[nodiscard]] std::span<const ShotHit> LastTickHits() const noexcept;
 
+  /// Where units can walk, rebuilt in step 8 from the tick's edits (ADR-015).
+  [[nodiscard]] const NavigationGrid& Navigation() const noexcept;
+
+  /// The searches still running, in the order they are served: the tick they were asked for in,
+  /// then squad id (M2-F3).
+  [[nodiscard]] const std::map<std::pair<std::uint32_t, Protocol::EntityId>, PathSearch>& Searches() const noexcept;
+
   /// The units the last tick's collapses and falls hit, in the order it hit them.
   [[nodiscard]] std::span<const CrushEvent> LastTickCrushes() const noexcept;
 
@@ -243,8 +253,13 @@ private:
   /// Whether a shot that reached _point has left the world.
   [[nodiscard]] bool OutsideWorld(const FixedPosition& _point) const noexcept;
 
+  /// Asks for a squad's search from where its first unit stands to its goal, replacing any it has.
+  void RequestSearch(Squad& _squad);
+
   Desc m_desc;
   VoxelWorld m_voxels;
+  NavigationGrid m_navigation;
+  std::map<std::pair<std::uint32_t, Protocol::EntityId>, PathSearch> m_searches;
   std::uint32_t m_tick = 0;
   Protocol::EntityId m_nextEntityId = 1;
   std::vector<SubmittedCommand> m_pendingCommands;

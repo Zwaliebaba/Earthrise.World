@@ -93,6 +93,12 @@ void WriteRecord(Core::ByteWriter& _writer, const Squad& _squad)
   {
     _writer.WriteU64(unit);
   }
+  _writer.WriteU32(static_cast<std::uint32_t>(_squad.path.size()));
+  for (const PathSearch::CellIndex cell : _squad.path)
+  {
+    _writer.WriteI64(cell);
+  }
+  _writer.WriteU8(_squad.shortOfGoal ? std::uint8_t{1} : std::uint8_t{0});
 }
 
 Squad ReadSquad(Core::ByteReader& _reader)
@@ -102,12 +108,20 @@ Squad ReadSquad(Core::ByteReader& _reader)
               .navigationClass = ReadEnum(_reader, NavigationClass::Machines, "navigation class"),
               .units = {},
               .hasGoal = ReadBool(_reader),
-              .goalVoxels = ReadPosition(_reader)};
+              .goalVoxels = ReadPosition(_reader),
+              .path = {},
+              .shortOfGoal = false};
   const std::uint32_t units = _reader.ReadU32();
   for (std::uint32_t number = 0; number < units; ++number)
   {
     squad.units.push_back(_reader.ReadU64());
   }
+  const std::uint32_t path = _reader.ReadU32();
+  for (std::uint32_t step = 0; step < path; ++step)
+  {
+    squad.path.push_back(_reader.ReadI64());
+  }
+  squad.shortOfGoal = ReadBool(_reader);
   return squad;
 }
 
@@ -318,7 +332,8 @@ void WriteEntities(Core::ByteWriter& _writer, const World& _world)
 
 void WritePendingWork(Core::ByteWriter& _writer, std::span<const SubmittedCommand> _commands,
                       std::span<const Protocol::VoxelPosition> _unsearched, std::span<const Protocol::VoxelPosition> _betweenTicks,
-                      const std::set<std::int64_t>& _slumpQueue)
+                      const std::set<std::int64_t>& _slumpQueue,
+                      const std::map<std::pair<std::uint32_t, Protocol::EntityId>, PathSearch>& _searches)
 {
   _writer.WriteU32(static_cast<std::uint32_t>(_commands.size()));
   for (const SubmittedCommand& command : _commands)
@@ -333,6 +348,13 @@ void WritePendingWork(Core::ByteWriter& _writer, std::span<const SubmittedComman
   for (const std::int64_t column : _slumpQueue)
   {
     _writer.WriteI64(column);
+  }
+  _writer.WriteU32(static_cast<std::uint32_t>(_searches.size()));
+  for (const auto& [key, search] : _searches)
+  {
+    _writer.WriteU32(key.first);
+    _writer.WriteU64(key.second);
+    search.Write(_writer);
   }
 }
 
@@ -373,7 +395,8 @@ std::vector<std::byte> WriteSave(const World& _world)
   }
 
   WriteEntities(writer, _world);
-  WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits(), _world.m_slumpQueue);
+  WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits(), _world.m_slumpQueue,
+                   _world.m_searches);
   return writer.TakeBytes();
 }
 
@@ -425,6 +448,8 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
       ApplyChunkEdits(reader, *chunk);
       world.m_voxels.RestoreChunk(coordinate, *chunk);
     }
+    // Navigation is computed from the voxels, so it is rebuilt rather than saved (ADR-014, decision 4).
+    world.m_navigation.RebuildAll(world.m_voxels.Store());
 
     const std::uint32_t entities = reader.ReadU32();
     for (std::uint32_t number = 0; number < entities; ++number)
@@ -496,6 +521,13 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
     {
       world.m_slumpQueue.insert(reader.ReadI64());
     }
+    const std::uint32_t searches = reader.ReadU32();
+    for (std::uint32_t number = 0; number < searches; ++number)
+    {
+      const std::uint32_t tick = reader.ReadU32();
+      const Protocol::EntityId squad = reader.ReadU64();
+      world.m_searches.emplace(std::pair{tick, squad}, PathSearch::Read(reader));
+    }
     if (!reader.AtEnd())
     {
       Refuse("it holds bytes after its last section");
@@ -518,7 +550,8 @@ std::uint64_t StateHash(const World& _world)
   writer.WriteU32(_world.m_tick);
   writer.WriteU64(_world.m_nextEntityId);
   WriteEntities(writer, _world);
-  WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits(), _world.m_slumpQueue);
+  WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits(), _world.m_slumpQueue,
+                   _world.m_searches);
   return Core::Fnv1a64(writer.Bytes(), _world.m_voxels.VoxelHash());
 }
 

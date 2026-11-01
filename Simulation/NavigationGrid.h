@@ -155,7 +155,7 @@ private:
   [[nodiscard]] std::size_t Index(std::int32_t _x, std::int32_t _z) const noexcept;
 
   Desc m_desc;
-  const MaterialRules& m_materials;
+  const MaterialRules* m_materials;
   std::array<ClassRule, NAVIGATION_CLASS_COUNT> m_classes{};
   std::int32_t m_margin = 1;
   std::int32_t m_clearanceReach = 0; // the widest class's width, less one
@@ -166,6 +166,9 @@ private:
   std::vector<Ground> m_ground;
   std::array<std::vector<std::uint8_t>, NAVIGATION_CLASS_COUNT> m_links;
   std::array<std::vector<std::uint8_t>, NAVIGATION_CLASS_COUNT> m_clearance;
+  // Scratch space for a rebuild, kept between rebuilds so they do not allocate.
+  std::vector<std::uint8_t> m_column;
+  std::vector<std::uint8_t> m_straight;
 };
 
 } // namespace Simulation

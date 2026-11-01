@@ -132,5 +132,11 @@
     <ClCompile Include="CollapsePlan.cpp">
       <Filter>Destruction</Filter>
     </ClCompile>
+    <ClInclude Include="PathSearch.h">
+      <Filter>Navigation</Filter>
+    </ClInclude>
+    <ClCompile Include="PathSearch.cpp">
+      <Filter>Navigation</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
