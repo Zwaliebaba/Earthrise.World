@@ -565,7 +565,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 - **Waits on:** B8, C3 and D1, and input 9.
 - **Read first:** ADR-019, decisions 2, 4 and 5; Hud.md §2 and §9; *Contracts*, `Client`.
 - **Changes:** `Client::FontAtlas` (the 160 × 80 texture from `Content::Glyphs`, uploaded once), `Client::TextLayout` (measure and lay out at a whole-pixel scale), `Client::UiScale` (the DPI bands, and `--ui-scale`), `Client::Strings` (every string the HUD can draw, as `inline constexpr std::string_view`s), in the filter `Text`; `WorldRenderer` gains the interface pass after the upscale; `Earthrise` draws the title's figures as text in the top-left corner, as a first use.
-- **Tests:** **`TextLayoutTests`:** `W2` at scale 2 is 22 px wide (5 + 1 + 5 at 2 px, less the last advance's gap as the layout defines it); a string's quads land on whole pixels; the UI scale at 96, 120, 144 and 192 DPI is 1, 1, 1.5 and 2; **`StringsTests`:** every code point of every string in `Client/Strings.h` has a glyph.
+- **Tests:** **`TextLayoutTests`:** `W2` at scale 2 is 22 px wide (5 + 1 + 5 at 2 px, less the last advance's gap as the layout defines it); a string's quads land on whole pixels; the UI scale at 96, 119, 120, 144, 168 and 192 DPI is 1, 1, 1.5, 1.5, 2 and 2, since 120 DPI is 125 % and 168 DPI is 175 %; **`StringsTests`:** every code point of every string in `Client/Strings.h` has a glyph.
 - **Owner runs:** none of its own; E2's covers it.
 
 ### M3-E2 — The top bar, the mode banner, the camera buttons and the alerts
