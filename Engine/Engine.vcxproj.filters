@@ -147,5 +147,26 @@
     <ClCompile Include="KeyboardInput.cpp">
       <Filter>Input</Filter>
     </ClCompile>
+    <ClInclude Include="ColorTarget.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="ColorTarget.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClInclude Include="UpscalePass.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="UpscalePass.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <FXCompile Include="Shader\UpscaleVS.hlsl">
+      <Filter>Shader</Filter>
+    </FXCompile>
+    <FXCompile Include="Shader\UpscalePS.hlsl">
+      <Filter>Shader</Filter>
+    </FXCompile>
+    <None Include="Shader\UpscaleCommon.hlsli">
+      <Filter>Shader</Filter>
+    </None>
   </ItemGroup>
 </Project>
