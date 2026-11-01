@@ -24,7 +24,7 @@
 #include <utility>
 #include <vector>
 
-namespace Spike
+namespace RendererSpike
 {
 
 /// The palette entry fords are drawn in: water one world voxel deep over a solid floor draws
@@ -129,4 +129,4 @@ private:
   std::vector<std::pair<std::uint64_t, std::unique_ptr<Engine::StaticBuffer>>> m_retired; // fence, buffer
 };
 
-} // namespace Spike
+} // namespace RendererSpike

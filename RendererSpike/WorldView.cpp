@@ -7,7 +7,7 @@
 #include "Palette.h"
 #include "VoxelGridView.h"
 
-namespace Spike
+namespace RendererSpike
 {
 
 namespace
@@ -593,4 +593,4 @@ std::uint64_t WorldView::RecordsDrawn() const noexcept
   return total;
 }
 
-} // namespace Spike
+} // namespace RendererSpike
