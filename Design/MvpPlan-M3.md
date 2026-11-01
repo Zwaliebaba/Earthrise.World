@@ -178,9 +178,15 @@ public:
 std::int32_t queryWorkPerTick; // units of work step 12 spends: an aim check 1, a tile's reach 1, a section's integrity 8
 
 // Simulation/Shot.h gains:
-/// The first solid voxel a shot on _arc meets, tick by tick through the grid as the shot flies, or
-/// nothing when it leaves the world. The aim check and the shot's own flight share it.
-[[nodiscard]] std::optional<Protocol::VoxelPosition> TraceShot(const ShotArc& _arc, const VoxelWorld& _world, std::int32_t _heightVoxels);
+/// One tick of a shot's flight: the first solid voxel the step from _ticksFlown crosses, if any, and,
+/// missing, whether it has left a world _widthVoxels by _depthVoxels, below the ground or past an edge.
+struct ShotStep { std::optional<Protocol::VoxelPosition> hit; bool left; };
+[[nodiscard]] ShotStep StepShot(const ShotArc& _arc, std::uint32_t _ticksFlown, const VoxelWorld& _world, std::int32_t _widthVoxels,
+                                std::int32_t _depthVoxels);
+/// The first solid voxel a shot on _arc meets, stepping as the shot flies, or nothing when it leaves
+/// the world. The aim check and the shot's own flight share StepShot, so they cannot disagree.
+[[nodiscard]] std::optional<Protocol::VoxelPosition> TraceShot(const ShotArc& _arc, const VoxelWorld& _world, std::int32_t _widthVoxels,
+                                                               std::int32_t _depthVoxels);
 
 // Simulation/Integrity.h — B5. Pure: reads the world, changes nothing, same inputs same reading.
 [[nodiscard]] Protocol::IntegrityReading ReadIntegrity(const World& _world, Protocol::EntityId _structure); // throws std::out_of_range for an unknown structure
