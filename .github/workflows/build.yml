@@ -35,11 +35,11 @@ name: Build
 #
 # ── Why the toolchain is not pinned to an image ────────────────────────────────────────────
 #
-# PlatformToolset is pinned in the project files. The runner image is not: it is whatever GitHub
-# ships, and a wrong image pin trades a floating toolchain for a build that does not run at all.
-# Instead the first step of each job PRINTS what it got -- image, VS, MSBuild, clang-tidy,
-# clang-format -- so a pin can be taken from evidence the day one is wanted, and so "it broke and
-# nothing changed" has somewhere to look.
+# PlatformToolset is pinned in Build/Earthrise.props, which every project imports (ADR-010). The
+# runner image is not: it is whatever GitHub ships, and a wrong image pin trades a floating
+# toolchain for a build that does not run at all. Instead the first step of each job PRINTS what
+# it got -- image, VS, MSBuild, clang-tidy, clang-format -- so a pin can be taken from evidence
+# the day one is wanted, and so "it broke and nothing changed" has somewhere to look.
 
 on:
   push:
@@ -151,7 +151,7 @@ jobs:
         shell: pwsh
         run: python Build\CheckProjectFiles.py
 
-      # /warnaserror covers MSBuild's own warnings; /WX for the compiler is set in the projects.
+      # /warnaserror covers MSBuild's own warnings; /WX for the compiler is set in Build/Earthrise.props.
       - name: Build
         shell: pwsh
         run: |
