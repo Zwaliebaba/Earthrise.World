@@ -17,12 +17,29 @@ namespace
 
 constexpr std::uint64_t SEED = 0x5eed2026ULL;
 constexpr std::int32_t SCENE = Simulation::TestWorld::SCENE_EDGE_VOXELS;
+constexpr std::int32_t TOP = Simulation::TestWorld::HEIGHT_VOXELS - 1;
+constexpr std::int32_t GROUND = Simulation::TestWorld::CASTLE_GROUND_VOXELS;
+constexpr std::uint8_t GRASS = 1;
+constexpr std::uint8_t EARTH = 2;
 constexpr std::uint8_t MASONRY = 6;
+constexpr std::uint8_t STONE_RUBBLE = 8;
 
 std::optional<Simulation::TemplateShape> OneVoxel(std::string_view /*_id*/)
 {
   static constexpr std::array<std::uint8_t, 1> VOXELS = {MASONRY};
   return Simulation::TemplateShape{.widthVoxels = 1, .heightVoxels = 1, .depthVoxels = 1, .indices = VOXELS};
+}
+
+/// Every template as one voxel but T3, the wall, which is its own size: 8 m long, 7 m high and 2 m
+/// thick, all masonry, so that the west curtain stands to be breached.
+std::optional<Simulation::TemplateShape> Walls(std::string_view _id)
+{
+  static const std::vector<std::uint8_t> WALL(std::size_t{8} * 7 * 2, MASONRY);
+  if (_id == "T3")
+  {
+    return Simulation::TemplateShape{.widthVoxels = 8, .heightVoxels = 7, .depthVoxels = 2, .indices = WALL};
+  }
+  return OneVoxel(_id);
 }
 
 std::optional<Simulation::TemplateShape> NoTemplates(std::string_view /*_id*/)
@@ -98,6 +115,125 @@ public:
     for (const auto& [scene, expected] : {std::pair{0U, 2U}, std::pair{1U, 1U}, std::pair{2U, 0U}, std::pair{3U, 3U}})
     {
       Assert::AreEqual(expected, Simulation::TestWorld::WorldQuarterTurns(scene));
+    }
+  }
+
+  TEST_METHOD(OpensTheBreachFromTheStart)
+  {
+    // The render-fix package, item 4: a notch through the west curtain's whole thickness, at least
+    // 4 m wide where its first meter stands, with a ramp of stone rubble through it.
+    Simulation::ChunkStore store;
+    const Simulation::TestWorld world = Simulation::BuildTestWorld(store, SCENE, SEED, Walls);
+    for (const std::int32_t z : {59, 60, 61, 62})
+    {
+      for (const std::int32_t x : {58, 59})
+      {
+        const std::int32_t worldX = world.WorldXVoxels(x);
+        const std::int32_t worldZ = world.WorldZVoxels(z);
+        Assert::AreEqual(MASONRY, store.At({.xVoxels = worldX, .yVoxels = GROUND, .zVoxels = worldZ}));
+        Assert::AreEqual(std::uint8_t{0}, store.At({.xVoxels = worldX, .yVoxels = GROUND + 4, .zVoxels = worldZ}));
+      }
+    }
+    Assert::IsFalse(world.breach.fallen.empty());
+    Assert::IsTrue(
+      std::ranges::all_of(world.breach.fallen, [](const Simulation::FallenVoxel& _fell) { return _fell.paletteIndex == MASONRY; }));
+    Assert::IsFalse(world.breach.rubble.empty());
+    Assert::IsTrue(std::ranges::all_of(world.breach.rubble,
+                                       [&store](const Protocol::VoxelPosition& _voxel) { return store.At(_voxel) == STONE_RUBBLE; }));
+    const Simulation::TestWorldEdits edits(store, world, SEED);
+    Assert::AreNotEqual(edits.CollapseId(), world.breachId);
+  }
+
+  TEST_METHOD(LeavesTheDitchUndugBeforeTheBreach)
+  {
+    // The render-fix package, item 6: the ditch is 2 m deep and the rampart 2 m high, but neither is
+    // dug in the 9 m before the breach.
+    Simulation::ChunkStore store;
+    const Simulation::TestWorld world = Simulation::BuildTestWorld(store, SCENE, SEED, OneVoxel);
+    // The ditch's middle is at x 50 and its edge at x 48, short of the breach's rubble ramp; the
+    // rampart's crest is at x 54.
+    const auto top = [&](std::int32_t _x, std::int32_t _z)
+    { return Simulation::TopSolidAtOrBelow(store, world.WorldXVoxels(_x), world.WorldZVoxels(_z), TOP); };
+    const auto surface = [&](std::int32_t _x, std::int32_t _z) { return world.SurfaceAt(world.WorldXVoxels(_x), world.WorldZVoxels(_z)); };
+    for (const std::int32_t z : {57, 61, 65})
+    {
+      Assert::AreEqual(surface(50, z) - 1, top(50, z));
+      Assert::AreEqual(surface(48, z) - 1, top(48, z));
+    }
+    for (const std::int32_t z : {40, 70, 80})
+    {
+      Assert::AreEqual(surface(50, z) - 3, top(50, z));
+      Assert::AreEqual(surface(48, z) - 2, top(48, z));
+      Assert::AreEqual(surface(54, z) + 1, top(54, z));
+    }
+  }
+
+  TEST_METHOD(WorksTheQuarryForTheWholeMinute)
+  {
+    // 94 voxels a second for the measured path's 60 s, and none from the meter before the castle's
+    // south towers, at the scene's z of 80.
+    Simulation::ChunkStore store;
+    const Simulation::TestWorld world = Simulation::BuildTestWorld(store, SCENE, SEED, OneVoxel);
+    std::vector<std::int32_t> towersFoot;
+    for (std::int32_t x = 46; x < 104; ++x)
+    {
+      towersFoot.push_back(Simulation::TopSolidAtOrBelow(store, world.WorldXVoxels(x), world.WorldZVoxels(80), TOP));
+    }
+    Simulation::TestWorldEdits edits(store, world, SEED);
+    std::size_t changed = 0;
+    for (std::uint32_t frame = 0; frame < Simulation::TestWorldEdits::LAST_FRAME; ++frame)
+    {
+      changed += edits.Apply(store, frame).size();
+    }
+    const std::size_t collapse = edits.Fallen().size() + edits.Rubble().size();
+    constexpr std::size_t MINUTE = std::size_t{Simulation::TestWorldEdits::QUARRY_VOXELS_PER_SECOND} * 60;
+    Assert::AreEqual(MINUTE, changed - collapse);
+    for (std::int32_t x = 46; x < 104; ++x)
+    {
+      Assert::AreEqual(towersFoot[static_cast<std::size_t>(x - 46)],
+                       Simulation::TopSolidAtOrBelow(store, world.WorldXVoxels(x), world.WorldZVoxels(80), TOP));
+    }
+  }
+
+  TEST_METHOD(LaysGrassOnlyOnEarth)
+  {
+    // The render-fix package, item 5: grass is the top of earth, never of stone, and the quarry's rim
+    // keeps it so. Below 5 m bedrock may rise to meet it.
+    Simulation::ChunkStore store;
+    const Simulation::TestWorld world = Simulation::BuildTestWorld(store, SCENE, SEED, OneVoxel);
+    for (std::int32_t y = 5; y <= TOP; ++y)
+    {
+      for (std::int32_t z = 0; z < world.edgeVoxels; ++z)
+      {
+        for (std::int32_t x = 0; x < world.edgeVoxels; ++x)
+        {
+          if (store.At({.xVoxels = x, .yVoxels = y, .zVoxels = z}) == GRASS)
+          {
+            Assert::AreEqual(EARTH, store.At({.xVoxels = x, .yVoxels = y - 1, .zVoxels = z}));
+          }
+        }
+      }
+    }
+  }
+
+  TEST_METHOD(CalmsTheGround)
+  {
+    // The render-fix package, item 8: no lone bump or pit, and no 1 m ridge or trench, so no column
+    // stands above or below both its neighbours along x or along z.
+    Simulation::ChunkStore store;
+    const Simulation::TestWorld world = Simulation::BuildTestWorld(store, SCENE, SEED, OneVoxel);
+    for (std::int32_t z = 1; z + 1 < world.edgeVoxels; ++z)
+    {
+      for (std::int32_t x = 1; x + 1 < world.edgeVoxels; ++x)
+      {
+        const std::int32_t height = world.SurfaceAt(x, z);
+        for (const auto& [before, after] : {std::pair{world.SurfaceAt(x - 1, z), world.SurfaceAt(x + 1, z)},
+                                            std::pair{world.SurfaceAt(x, z - 1), world.SurfaceAt(x, z + 1)}})
+        {
+          Assert::IsFalse(height > before && height > after);
+          Assert::IsFalse(height < before && height < after);
+        }
+      }
     }
   }
 

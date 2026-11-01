@@ -36,6 +36,21 @@ struct TemplateShape
 /// client content (the owner's choice of 2026-11-01; ADR-010, amended).
 using TemplateLookup = std::function<std::optional<TemplateShape>(std::string_view)>;
 
+/// A voxel a collapse brought down, and what it was: what the client scatters the collapse's debris
+/// from (RendererLook.md §1).
+struct FallenVoxel
+{
+  Protocol::VoxelPosition position;
+  std::uint8_t paletteIndex;
+};
+
+/// What a collapse did: the voxels that fell, with what they were, and the rubble they became.
+struct CollapseRecord
+{
+  std::vector<FallenVoxel> fallen;
+  std::vector<Protocol::VoxelPosition> rubble;
+};
+
 /// The M1 stand-in for the generator, which is M2's: the v5 test scene's world (MvpPlan.md, M1
 /// task 9) on a seeded integer height field, for the renderer spike at 128 m and for SimulationBench
 /// at 512 m, the MVP map's size, with the v5 scene's square at its middle (GameDesign.md, M1's
@@ -68,6 +83,11 @@ struct TestWorld
   std::int32_t sceneZVoxels;
   std::vector<std::int32_t> surfaceVoxels; // the generated surface at each column, before templates and digs
   std::uint64_t editedVoxels;              // voxels that differ from the generated ground: what templates and digs changed
+  /// The scene's breach, which stands from the start: the wall it brought down and the rubble ramp
+  /// it left, from which the client scatters its debris (the render-fix package, item 4).
+  CollapseRecord breach;
+  /// The breach's id, from the seed: what its debris is seeded by, as a collapse's is.
+  std::uint64_t breachId;
 
   /// The generated surface at a column, clamped to the world's edge: what the support search's
   /// anchor depth is counted from.
@@ -112,18 +132,12 @@ void SplitToHalfMeters(const ChunkStore& _oneMeter, std::int32_t _minXVoxels, st
 /// it now holds.
 void SplitChanges(const ChunkStore& _oneMeter, std::span<const Protocol::VoxelPosition> _changed, ChunkStore& _halfMeter);
 
-/// A voxel a collapse brought down, and what it was: what the client scatters the collapse's debris
-/// from (RendererLook.md §1).
-struct FallenVoxel
-{
-  Protocol::VoxelPosition position;
-  std::uint8_t paletteIndex;
-};
-
 /// The test world's scripted edits, stepped by frame at 60 a second for the measured path's 60 s,
 /// then stopped (GameDesign.md, *Starting the MVP*, item 3): quarrying at the four-faction peak the
 /// Skirmish tempo implies, and the section of the west curtain just north of the breach collapsing
-/// at 10 s into a heap of rubble at its foot.
+/// at 10 s into a heap of rubble at its foot. The quarry is worked by growing its terraced pit a
+/// meter at a time, through the stone body, then south into the earth, then towards the castle, so
+/// it reads as a quarry at every frame (the render-fix package, item 5).
 class TestWorldEdits
 {
 public:
@@ -133,18 +147,12 @@ public:
   static constexpr std::uint32_t COLLAPSE_FRAME = 10 * FRAMES_PER_SECOND;
   static constexpr std::uint32_t LAST_FRAME = 60 * FRAMES_PER_SECOND;
 
-  /// Reads the quarry's surface from _store, which BuildTestWorld has filled as _world.
+  /// Reads the quarry's stone from _store, which BuildTestWorld has filled as _world, and orders
+  /// what it digs.
   TestWorldEdits(const ChunkStore& _store, const TestWorld& _world, std::uint64_t _seed);
 
   /// Makes frame _frame's edits in _store, and returns the voxels it changed.
   std::vector<Protocol::VoxelPosition> Apply(ChunkStore& _store, std::uint32_t _frame);
-
-  /// What a collapse did: the voxels that fell, with what they were, and the rubble they became.
-  struct CollapseRecord
-  {
-    std::vector<FallenVoxel> fallen;
-    std::vector<Protocol::VoxelPosition> rubble;
-  };
 
   /// The collapse alone, as the bench's breach: the section's voxels that fall and the rubble they
   /// become, all as changed voxels. What it did goes into _record when it is given.
@@ -161,18 +169,12 @@ public:
   [[nodiscard]] std::uint64_t CollapseId() const noexcept;
 
 private:
-  struct Column
-  {
-    std::int32_t xVoxels;
-    std::int32_t zVoxels;
-    std::int32_t topVoxels; // the height of its highest solid voxel
-  };
-
   void Quarry(ChunkStore& _store, std::uint32_t _voxels, std::vector<Protocol::VoxelPosition>& _changed);
 
   std::int32_t m_sceneXVoxels;
   std::int32_t m_sceneZVoxels;
-  std::vector<Column> m_quarry; // in the seeded order that breaks ties between equal heights
+  std::vector<Protocol::VoxelPosition> m_digs; // the quarry's voxels, in the order they are dug
+  std::size_t m_nextDig = 0;
   CollapseRecord m_collapse;
   std::uint64_t m_collapseId;
 };

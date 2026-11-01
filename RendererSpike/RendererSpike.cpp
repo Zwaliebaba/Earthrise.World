@@ -55,6 +55,9 @@ namespace
 
 constexpr const wchar_t* TITLE = L"Earthrise.World: renderer spike";
 constexpr std::uint64_t SCENE_SEED = 0x5eed2026ULL;
+// When the scene's breach fell, in the scene's seconds: long enough before its first frame that the
+// breach's debris is at rest from the start.
+constexpr float BREACH_FELL_SECONDS = -10.0F;
 constexpr std::uint64_t UPLOAD_RING_BYTES = std::uint64_t{32} * 1024 * 1024;
 
 // The Golden preset (RendererLook.md §6): its clear colour #d6ccba in linear values, because the
@@ -526,7 +529,19 @@ int Run(const Options& _options)
   Simulation::ChunkStore& shownStore = _options.halfMeterWorld ? halfMeterStore : store;
   std::vector<Protocol::ChunkSnapshot> published = shownStore.Publish();
   Simulation::TestWorldEdits edits(store, scene.world, SCENE_SEED);
-  // The collapse's debris, scattered when it falls and drawn every frame after (RendererLook.md §1).
+  // Debris comes to rest on the world's top, as the 1 m simulation has it after a collapse.
+  const Spike::Debris::RestingTop restingTop = [&store](float _xMeters, float _zMeters)
+  {
+    const auto top =
+      Simulation::TopSolidAtOrBelow(store, static_cast<std::int32_t>(std::floor(_xMeters)), static_cast<std::int32_t>(std::floor(_zMeters)),
+                                    Simulation::TestWorld::HEIGHT_VOXELS - 1);
+    return static_cast<float>(top + 1);
+  };
+  // The breach's debris, at rest from the first frame, because the breach came down before the
+  // scene begins (the render-fix package, item 4); and the collapse's, scattered when it falls.
+  // Both are drawn every frame (RendererLook.md §1).
+  Spike::Debris breachDebris;
+  breachDebris.Scatter(scene.world.breachId, scene.world.breach.fallen, scene.world.breach.rubble, restingTop, BREACH_FELL_SECONDS);
   Spike::Debris debris;
   std::vector<Engine::OrientedVoxel> debrisVoxels;
   // The sun's view over the whole world, its height included, for both shadow maps.
@@ -630,19 +645,10 @@ int Run(const Options& _options)
     const float sceneSeconds = static_cast<float>(sceneFrame) / static_cast<float>(Simulation::TestWorldEdits::FRAMES_PER_SECOND);
     if (sceneFrame == Simulation::TestWorldEdits::COLLAPSE_FRAME && !edits.Fallen().empty())
     {
-      // Its debris comes to rest on the world's top, as the 1 m simulation has it after the collapse.
-      debris.Scatter(
-        edits.CollapseId(), edits.Fallen(), edits.Rubble(),
-        [&store](float _xMeters, float _zMeters)
-        {
-          const auto top =
-            Simulation::TopSolidAtOrBelow(store, static_cast<std::int32_t>(std::floor(_xMeters)),
-                                          static_cast<std::int32_t>(std::floor(_zMeters)), Simulation::TestWorld::HEIGHT_VOXELS - 1);
-          return static_cast<float>(top + 1);
-        },
-        sceneSeconds);
+      debris.Scatter(edits.CollapseId(), edits.Fallen(), edits.Rubble(), restingTop, sceneSeconds);
     }
     debrisVoxels.clear();
+    breachDebris.Pose(sceneSeconds, debrisVoxels);
     debris.Pose(sceneSeconds, debrisVoxels);
     if (!changedVoxels.empty())
     {
