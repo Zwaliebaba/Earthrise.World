@@ -27,6 +27,18 @@ float Hash01(std::int64_t _x, std::int64_t _z, std::uint64_t _salt, std::uint64_
   return static_cast<float>(Core::KeyedDraw(_seed, _salt, key) & 0xffffU) / 65536.0F;
 }
 
+/// The world's point that a point in the scene's meters is: TestWorld's mirror of a voxel, taken to
+/// a point in float on the client's side, as the simulation holds none (ADR-013, ADR-017).
+float WorldXMeters(const Simulation::TestWorld& _world, float _sceneXMeters) noexcept
+{
+  return static_cast<float>(_world.WorldXVoxels(0)) + _sceneXMeters;
+}
+
+float WorldZMeters(const Simulation::TestWorld& _world, float _sceneZMeters) noexcept
+{
+  return static_cast<float>(_world.WorldZVoxels(0) + 1) - _sceneZMeters;
+}
+
 const Content::ModelView& Model(std::string_view _id)
 {
   const Content::ModelView* found = Content::FindModel(_id);
@@ -87,8 +99,8 @@ void Scatter(const Simulation::ChunkStore& _store, const Simulation::TestWorld& 
       _group.xMeters + (Hash01(attempt, static_cast<std::int64_t>(_group.salt), 71, _seed) - 0.5F) * 2.0F * _group.xRadiusMeters;
     const float sceneZ =
       _group.zMeters + (Hash01(attempt, static_cast<std::int64_t>(_group.salt), 72, _seed) - 0.5F) * 2.0F * _group.zRadiusMeters;
-    const float x = _world.WorldXMeters(sceneX);
-    const float z = _world.WorldZMeters(sceneZ);
+    const float x = WorldXMeters(_world, sceneX);
+    const float z = WorldZMeters(_world, sceneZ);
     if (std::ranges::any_of(_taken, [x, z](const std::pair<float, float>& _other)
                             { return std::hypot(_other.first - x, _other.second - z) < 1.1F; }))
     {
@@ -142,8 +154,8 @@ ModelPlacement Stand(const Simulation::ChunkStore& _store, const Simulation::Tes
                      float _zMeters, std::uint32_t _quarterTurns, std::uint8_t _sideColorIndex)
 {
   const auto [width, depth] = Footprint(Model(_id), _quarterTurns);
-  const float x = _world.WorldXMeters(_xMeters);
-  const float z = _world.WorldZMeters(_zMeters + depth); // the mirror makes its far edge the near one
+  const float x = WorldXMeters(_world, _xMeters);
+  const float z = WorldZMeters(_world, _zMeters + depth); // the mirror makes its far edge the near one
   return {.modelId = _id,
           .xMeters = x,
           .yMeters = GroundUnder(_store, x, z, width, depth),
@@ -181,8 +193,8 @@ TestScene BuildTestScene(Simulation::ChunkStore& _store, std::uint64_t _seed)
                   .centerYMeters = static_cast<float>(Simulation::TestWorld::CASTLE_GROUND_VOXELS + 3),
                   .centerZMeters = 0.0F};
   scene.walkers = BuildUnits(_store, scene.world, _seed);
-  scene.centerXMeters = scene.world.CastleXMeters();
-  scene.centerZMeters = scene.world.CastleZMeters();
+  scene.centerXMeters = static_cast<float>(scene.world.CastleXVoxels());
+  scene.centerZMeters = static_cast<float>(scene.world.CastleZVoxels());
   // The scene's places below are the prototype's, in its frame; Stand takes them to the world's.
   // The two trebuchets west of the ditch, their counterweights to the east as in the v5 scene.
   scene.fixedModels.push_back(Stand(_store, scene.world, "S3", 28.0F, 49.0F, 0, 0));

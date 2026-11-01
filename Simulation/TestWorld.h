@@ -65,12 +65,11 @@ struct TestWorld
   static constexpr std::int32_t SCENE_EDGE_VOXELS = 128;
   static constexpr std::int32_t CASTLE_GROUND_VOXELS = 15;
 
-  /// The world's voxel that a scene voxel is.
+  /// The world's voxel that a scene voxel is. A point in the scene's meters goes the same way: its x
+  /// is WorldXVoxels(0) plus its own, and its z is WorldZVoxels(0) + 1 less its own, which the spike
+  /// works out in float on its own side, as the simulation holds none (ADR-013).
   [[nodiscard]] std::int32_t WorldXVoxels(std::int32_t _sceneXVoxels) const noexcept;
   [[nodiscard]] std::int32_t WorldZVoxels(std::int32_t _sceneZVoxels) const noexcept;
-  /// The world's point that a point in the scene's meters is.
-  [[nodiscard]] float WorldXMeters(float _sceneXMeters) const noexcept;
-  [[nodiscard]] float WorldZMeters(float _sceneZMeters) const noexcept;
   /// The world's quarter turns, clockwise seen from above, for a turn the scene states: the mirror
   /// takes a front facing the scene's +z, south, to the world's -z, and reverses the sense of a turn.
   [[nodiscard]] static constexpr std::uint32_t WorldQuarterTurns(std::uint32_t _sceneQuarterTurns) noexcept
@@ -93,9 +92,9 @@ struct TestWorld
   /// anchor depth is counted from.
   [[nodiscard]] std::int32_t SurfaceAt(std::int32_t _x, std::int32_t _z) const;
 
-  /// The middle of the castle, where the spike's camera looks, in meters.
-  [[nodiscard]] float CastleXMeters() const noexcept;
-  [[nodiscard]] float CastleZMeters() const noexcept;
+  /// The middle of the castle, where the spike's camera looks: the world's voxel there.
+  [[nodiscard]] std::int32_t CastleXVoxels() const noexcept;
+  [[nodiscard]] std::int32_t CastleZVoxels() const noexcept;
 };
 
 /// Builds the v5 scene's world into _store: the ground, the quarry, the road and fields, the ditch

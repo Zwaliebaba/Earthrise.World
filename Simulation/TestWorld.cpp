@@ -2,6 +2,7 @@
 
 #include "TestWorld.h"
 
+#include "IntegerMath.h"
 #include "SplitMix64.h"
 
 namespace Simulation
@@ -112,29 +113,10 @@ constexpr std::int32_t Round(std::int64_t _fixed) noexcept
   return static_cast<std::int32_t>((_fixed + ONE / 2) >> 16);
 }
 
-std::int64_t IntegerSqrt(std::int64_t _value) noexcept
-{
-  if (_value <= 0)
-  {
-    return 0;
-  }
-  // A float guess, corrected to the exact integer root, so the result does not depend on the FPU.
-  auto root = static_cast<std::int64_t>(std::sqrt(static_cast<double>(_value)));
-  while (root * root > _value)
-  {
-    --root;
-  }
-  while ((root + 1) * (root + 1) <= _value)
-  {
-    ++root;
-  }
-  return root;
-}
-
-/// The length of a fixed-point vector, in fixed point.
+/// The length of a fixed-point vector, in fixed point: the exact floor of its root (ADR-013).
 std::int64_t Length(std::int64_t _x, std::int64_t _z) noexcept
 {
-  return IntegerSqrt(_x * _x + _z * _z);
+  return Core::IntegerSquareRoot(static_cast<std::uint64_t>(_x * _x + _z * _z));
 }
 
 /// The river's middle at row _z of the v5 scene: its gentle curve, with a triangle wave of the
@@ -874,16 +856,6 @@ std::int32_t TestWorld::WorldZVoxels(std::int32_t _sceneZVoxels) const noexcept
   return sceneZVoxels + SCENE - 1 - _sceneZVoxels;
 }
 
-float TestWorld::WorldXMeters(float _sceneXMeters) const noexcept
-{
-  return static_cast<float>(sceneXVoxels) + _sceneXMeters;
-}
-
-float TestWorld::WorldZMeters(float _sceneZMeters) const noexcept
-{
-  return static_cast<float>(sceneZVoxels + SCENE) - _sceneZMeters;
-}
-
 std::int32_t TestWorld::SurfaceAt(std::int32_t _x, std::int32_t _z) const
 {
   const std::int32_t x = std::clamp(_x, 0, edgeVoxels - 1);
@@ -891,14 +863,14 @@ std::int32_t TestWorld::SurfaceAt(std::int32_t _x, std::int32_t _z) const
   return surfaceVoxels[static_cast<std::size_t>(z) * static_cast<std::size_t>(edgeVoxels) + static_cast<std::size_t>(x)];
 }
 
-float TestWorld::CastleXMeters() const noexcept
+std::int32_t TestWorld::CastleXVoxels() const noexcept
 {
-  return static_cast<float>(WorldXVoxels(CASTLE_X_VOXELS));
+  return WorldXVoxels(CASTLE_X_VOXELS);
 }
 
-float TestWorld::CastleZMeters() const noexcept
+std::int32_t TestWorld::CastleZVoxels() const noexcept
 {
-  return static_cast<float>(WorldZVoxels(CASTLE_Z_VOXELS));
+  return WorldZVoxels(CASTLE_Z_VOXELS);
 }
 
 TestWorld BuildTestWorld(ChunkStore& _store, std::int32_t _edgeVoxels, std::uint64_t _seed, const TemplateLookup& _templates)
@@ -1204,7 +1176,9 @@ std::vector<Protocol::VoxelPosition> TestWorldEdits::Collapse(ChunkStore& _store
     {
       const std::int64_t dx = 10 * (sectionX - x) - 5;
       const std::int64_t dz = std::max<std::int64_t>(0, std::abs(10 * z + 5 - 10 * (sectionZ + 4)) - 40);
-      heap.push_back({.x = x, .z = z, .tenthsFromWall = static_cast<std::int32_t>(IntegerSqrt(dx * dx + dz * dz))});
+      heap.push_back({.x = x,
+                      .z = z,
+                      .tenthsFromWall = static_cast<std::int32_t>(Core::IntegerSquareRoot(static_cast<std::uint64_t>(dx * dx + dz * dz)))});
     }
   }
   std::ranges::sort(heap, {}, &HeapColumn::tenthsFromWall);

@@ -12,6 +12,7 @@ ADR-010 decision 9 adds:
 - R2 (no affixes on type names), R7 (file names), R11 (one spelling per family);
 - Windows headers stay out of Core, Protocol, Content and Simulation (ADR-007), and only
   Engine/framework.h defines the Windows macros (AGENTS.md §4);
+- float and double stay out of the code of Simulation and Protocol (ADR-013, decision 3);
 - .clang-tidy's header filter names exactly the solution's projects, anchored (ADR-010).
 
 Usage:
@@ -93,6 +94,8 @@ ALLOWED_PLATFORM = {("ClCompile", "AdditionalOptions")}
 WINDOWS_MACROS = {"NOMINMAX", "WIN32_LEAN_AND_MEAN", "NOMCX", "NOSERVICE", "NOHELP"}
 MACRO_OWNER = Path("Engine") / "framework.h"
 WINDOWS_FREE_PROJECTS = {"Core", "Protocol", "Content", "Simulation"}  # ADR-007, decision 3
+FLOAT_FREE_PROJECTS = {"Simulation", "Protocol"}  # ADR-013, decision 3
+FLOATING_POINT = re.compile(r"\b(float|double)\b")
 WINDOWS_INCLUDE = re.compile(r'#\s*include\s*[<"](windows\.h|d3d12[^>"]*|dxgi[^>"]*|winrt/[^>"]*|framework\.h)[>"]', re.I)
 
 # ── What a project file may hold (ADR-010, decision 4) ──────────────────────────────────────
@@ -495,6 +498,9 @@ def CheckSources(_report, _root, _project):
     if _project.name in WINDOWS_FREE_PROJECTS:
       for match in WINDOWS_INCLUDE.finditer(code):
         _report.Error(file, f"{_project.name} includes {match.group(1)}; Windows and Direct3D stay in Engine (ADR-007)")
+    if _project.name in FLOAT_FREE_PROJECTS:
+      for word in sorted(set(FLOATING_POINT.findall(code))):
+        _report.Error(file, f"{_project.name} uses {word}; the simulation holds no floating point (ADR-013)")
     if file.relative_to(_root) != MACRO_OWNER:
       for macro in WINDOWS_MACROS:
         if re.search(r"#\s*define\s+" + macro + r"\b", code):

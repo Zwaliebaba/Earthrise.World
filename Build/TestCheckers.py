@@ -161,6 +161,10 @@ BROKEN = {
   "Windows in a Windows-free project": (lambda r: (Rename(r, "Sample", "Core"),
                                                     Edit(r, "Core/VoxelRecord.cpp", '#include "pch.h"', '#include "pch.h"\n\n#include <windows.h>')),
                                         "Windows and Direct3D stay in Engine"),
+  "floating point in the simulation": (lambda r: (Rename(r, "Sample", "Simulation"),
+                                                   Edit(r, "Simulation/VoxelRecord.cpp", "return _xVoxels |",
+                                                        "return static_cast<std::uint32_t>(static_cast<double>(_xVoxels)) |")),
+                                       "Simulation uses double; the simulation holds no floating point (ADR-013)"),
   # The solution and the registry.
   "a second solution": (lambda r: Write(r, "Other.sln", ""), "more than one solution"),
   "a project the solution does not name": (lambda r: shutil.copytree(r / "Sample", r / "Stray") and (r / "Stray/Sample.vcxproj").rename(r / "Stray/Stray.vcxproj"),
