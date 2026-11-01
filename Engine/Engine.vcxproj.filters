@@ -210,6 +210,9 @@
     <None Include="Shader\UpscaleCommon.hlsli">
       <Filter>Shader</Filter>
     </None>
+    <FXCompile Include="Shader\VoxelOverlayPS.hlsl">
+      <Filter>Shader</Filter>
+    </FXCompile>
     <FXCompile Include="Shader\InterfaceVS.hlsl">
       <Filter>Shader</Filter>
     </FXCompile>

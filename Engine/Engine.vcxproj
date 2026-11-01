@@ -116,6 +116,9 @@
       <ShaderType>Pixel</ShaderType>
     </FXCompile>
     <None Include="Shader\UpscaleCommon.hlsli" />
+    <FXCompile Include="Shader\VoxelOverlayPS.hlsl">
+      <ShaderType>Pixel</ShaderType>
+    </FXCompile>
     <FXCompile Include="Shader\InterfaceVS.hlsl">
       <ShaderType>Vertex</ShaderType>
     </FXCompile>

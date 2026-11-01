@@ -100,6 +100,12 @@ public:
   void BeginOrientedShadow(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _sunFrameConstants,
                            D3D12_GPU_VIRTUAL_ADDRESS _palette) const;
 
+  /// Binds the overlay pipeline (ADR-021, decision 1): records drawn flat in their palette colour at _alpha, blended
+  /// over the scene, tested against its depth with GREATER_EQUAL and writing none. Draw then draws batches as after
+  /// Begin. A record's lightness offset still applies, so an overlay's records carry none.
+  void BeginOverlay(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _frameConstants, D3D12_GPU_VIRTUAL_ADDRESS _palette,
+                    float _alpha) const;
+
   /// Draws _voxelCount OrientedVoxels at _voxels, in world space, through whichever oriented
   /// pipeline was last begun.
   void DrawOriented(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _voxels, std::uint32_t _voxelCount) const;
@@ -124,6 +130,7 @@ private:
   winrt::com_ptr<ID3D12PipelineState> m_shadowPipelineState;
   winrt::com_ptr<ID3D12PipelineState> m_orientedPipelineState;
   winrt::com_ptr<ID3D12PipelineState> m_orientedShadowPipelineState;
+  winrt::com_ptr<ID3D12PipelineState> m_overlayPipelineState;
   DescriptorHeap m_shadowViews;
   DescriptorHeap::Handle m_shadowTable{};
 };

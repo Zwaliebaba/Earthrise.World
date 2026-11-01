@@ -5,6 +5,7 @@
 #include "CompiledShader/OrientedShadowPS.h"
 #include "CompiledShader/OrientedVoxelPS.h"
 #include "CompiledShader/OrientedVoxelVS.h"
+#include "CompiledShader/VoxelOverlayPS.h"
 #include "CompiledShader/VoxelPS.h"
 #include "CompiledShader/VoxelShadowPS.h"
 #include "CompiledShader/VoxelVS.h"
@@ -24,6 +25,7 @@ enum RootParameter : UINT
   RootBatch,   // b2, root constants
   RootRecords, // t0, a root SRV
   RootShadows, // t1 and t2, the static and the dynamic shadow map, a descriptor table
+  RootOverlay, // b3, the overlay's alpha, one root constant
   RootCount
 };
 
@@ -57,6 +59,9 @@ winrt::com_ptr<ID3D12RootSignature> MakeRootSignature(ID3D12Device* _device)
   parameters[RootShadows].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
   parameters[RootShadows].DescriptorTable = {.NumDescriptorRanges = 1, .pDescriptorRanges = &shadowRange};
   parameters[RootShadows].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+  parameters[RootOverlay].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+  parameters[RootOverlay].Constants = {.ShaderRegister = 3, .RegisterSpace = 0, .Num32BitValues = 1};
+  parameters[RootOverlay].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
   // Percentage-closer filtering: each tap compares 2 x 2 texels and blends them. Under reversed Z a
   // hit is lit when it is at or nearer the sun than what the map holds, and beyond the map, where
@@ -177,6 +182,24 @@ VoxelPass::VoxelPass(ID3D12Device* _device, const Desc& _desc)
   orientedShadowDesc.PS = {.pShaderBytecode = g_OrientedShadowPS, .BytecodeLength = sizeof(g_OrientedShadowPS)};
   winrt::check_hresult(_device->CreateGraphicsPipelineState(&orientedShadowDesc, IID_PPV_ARGS(m_orientedShadowPipelineState.put())));
 
+  // The overlay (ADR-021, decision 1): the same quads and ray-box test, each hit drawn flat at the caller's alpha, blended
+  // over the scene, tested against its depth and writing none, so a box on a world voxel draws exactly over its faces.
+  constexpr D3D12_RENDER_TARGET_BLEND_DESC BLENDED_TARGET{.BlendEnable = TRUE,
+                                                          .LogicOpEnable = FALSE,
+                                                          .SrcBlend = D3D12_BLEND_SRC_ALPHA,
+                                                          .DestBlend = D3D12_BLEND_INV_SRC_ALPHA,
+                                                          .BlendOp = D3D12_BLEND_OP_ADD,
+                                                          .SrcBlendAlpha = D3D12_BLEND_ONE,
+                                                          .DestBlendAlpha = D3D12_BLEND_INV_SRC_ALPHA,
+                                                          .BlendOpAlpha = D3D12_BLEND_OP_ADD,
+                                                          .LogicOp = D3D12_LOGIC_OP_NOOP,
+                                                          .RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL};
+  D3D12_GRAPHICS_PIPELINE_STATE_DESC overlayDesc = desc;
+  overlayDesc.PS = {.pShaderBytecode = g_VoxelOverlayPS, .BytecodeLength = sizeof(g_VoxelOverlayPS)};
+  overlayDesc.BlendState.RenderTarget[0] = BLENDED_TARGET;
+  overlayDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+  winrt::check_hresult(_device->CreateGraphicsPipelineState(&overlayDesc, IID_PPV_ARGS(m_overlayPipelineState.put())));
+
   // Until it is given shadow maps, the pass reads null views; FrameConstants::shadowParameters
   // turns the lookup off, but the table is bound for every draw all the same.
   m_shadowTable = m_shadowViews.Allocate(SHADOW_MAPS);
@@ -221,6 +244,13 @@ void VoxelPass::BeginOrientedShadow(ID3D12GraphicsCommandList* _commandList, D3D
   Bind(_commandList, m_orientedShadowPipelineState.get(), _sunFrameConstants, _palette);
 }
 
+void VoxelPass::BeginOverlay(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _frameConstants,
+                             D3D12_GPU_VIRTUAL_ADDRESS _palette, float _alpha) const
+{
+  Bind(_commandList, m_overlayPipelineState.get(), _frameConstants, _palette);
+  _commandList->SetGraphicsRoot32BitConstant(RootOverlay, std::bit_cast<std::uint32_t>(_alpha), 0);
+}
+
 void VoxelPass::DrawOriented(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _voxels, std::uint32_t _voxelCount) const
 {
   if (_voxelCount == 0)
@@ -245,6 +275,8 @@ void VoxelPass::Bind(ID3D12GraphicsCommandList* _commandList, ID3D12PipelineStat
   _commandList->SetGraphicsRootConstantBufferView(RootFrame, _frameConstants);
   _commandList->SetGraphicsRootConstantBufferView(RootPalette, _palette);
   _commandList->SetGraphicsRootDescriptorTable(RootShadows, m_shadowTable.gpu);
+  // Only the overlay reads its alpha, but every root parameter is set before a draw.
+  _commandList->SetGraphicsRoot32BitConstant(RootOverlay, 0, 0);
 }
 
 void VoxelPass::Draw(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _records, std::uint32_t _recordCount,
