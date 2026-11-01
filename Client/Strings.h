@@ -73,6 +73,9 @@ inline constexpr std::string_view GROUND_ROCK = "rock";
 inline constexpr std::string_view GROUND_BEDROCK = "bedrock";
 inline constexpr std::string_view FALLS = "FALLS";
 
+/// The passability view's alert (Hud.md §10; M3-F3): the lab's target is W2.
+inline constexpr std::string_view BREACH_OPEN_ALERT = "BREACH OPEN AT W2";
+
 /// Every string above, for the glyph coverage test.
 inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      TIME_KEY,
@@ -120,6 +123,7 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      GROUND_EARTH,
                                                                      GROUND_ROCK,
                                                                      GROUND_BEDROCK,
-                                                                     FALLS});
+                                                                     FALLS,
+                                                                     BREACH_OPEN_ALERT});
 
 } // namespace Client

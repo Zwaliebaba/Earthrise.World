@@ -1320,7 +1320,8 @@ Protocol::TileReachReading World::TileReachReadingFor(const Protocol::TileReach&
   // The tile's reach from the start cell, from the components step 8 brought up to date (M3-B6). A
   // tile or a start off the grid reads empty, as a structure the world no longer holds does: the
   // client asks about what is on its screen.
-  Protocol::TileReachReading reading{.tileX = _reach.tileX, .tileZ = _reach.tileZ, .usable = {}, .reached = {}};
+  Protocol::TileReachReading reading{.tileX = _reach.tileX, .tileZ = _reach.tileZ, .usable = {}, .reached = {}, .surfaceVoxels = {}};
+  reading.surfaceVoxels.fill(Protocol::NO_SURFACE_VOXELS);
   const std::int32_t width = m_navigation.WidthCells();
   const Protocol::VoxelPosition start = _reach.startCellVoxels;
   const bool inside = start.xVoxels >= 0 && start.zVoxels >= 0 && start.xVoxels < width && start.zVoxels < m_navigation.DepthCells() &&
@@ -1342,6 +1343,18 @@ Protocol::TileReachReading World::TileReachReadingFor(const Protocol::TileReach&
     if (reach.reached.test(bit))
     {
       reading.reached.at(bit / 8) |= mask;
+    }
+  }
+  // Each column's surface, navigation's own, where the passability view draws the cell (M3-F3).
+  constexpr std::int32_t EDGE = NavigationGrid::TILE_EDGE_CELLS;
+  for (std::int32_t z = 0; z < EDGE; ++z)
+  {
+    for (std::int32_t x = 0; x < EDGE; ++x)
+    {
+      const std::int16_t height = m_navigation.WalkableHeight((_reach.tileX * EDGE) + x, (_reach.tileZ * EDGE) + z);
+      const std::int32_t cell = (z * EDGE) + x;
+      reading.surfaceVoxels.at(static_cast<std::size_t>(cell)) =
+        height == NavigationGrid::NOT_WALKABLE ? Protocol::NO_SURFACE_VOXELS : height;
     }
   }
   return reading;

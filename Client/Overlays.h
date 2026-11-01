@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <set>
 #include <span>
 #include <string>
@@ -40,8 +41,11 @@ struct PlacedLabel
   bool nameOnly; // its rows would have covered a nearer label
 };
 
+/// A navigation tile, 32 x 32 cells: one chunk column (ADR-015).
+using Tile = std::pair<std::int32_t, std::int32_t>;
+
 /// The readability views, built from what the session was told (ADR-021, decisions 3 and 4): the collapse preview and
-/// its alerts (M3-F1), and the integrity view (M3-F2). The views are boxes for the overlay pipeline and labels for the
+/// its alerts (M3-F1), the integrity view (M3-F2) and the passability view (M3-F3). The views are boxes for the overlay pipeline and labels for the
 /// interface pass; the alerts are the HUD's, and they are raised whether or not a view is on.
 class Overlays
 {
@@ -68,6 +72,27 @@ public:
                                      std::uint32_t _heightPixels, std::int32_t _topPixels, float _uiScale, bool _integrityView,
                                      std::vector<ScreenQuad>& _quads) const;
 
+  /// Watches _goalVoxels, the courtyard's middle: Update raises BREACH OPEN AT W2 once, the first time its cell reads
+  /// reached (M3-F3).
+  void WatchBreach(const Protocol::VoxelPosition& _goalVoxels);
+
+  /// Asks the reach of foot from _player's squad, from its first figure's cell (ADR-021, decision 3): while
+  /// _passabilityView is on, for each of _visible, when it comes on screen, when the view is turned on, when the start
+  /// moves and when a chunk in or beside it changes; and for the watched goal's tile the same way, whether or not the
+  /// view is on, for the alert.
+  void AskReach(Session& _session, std::span<const Protocol::ChunkSnapshot> _snapshots, std::span<const Tile> _visible,
+                std::uint8_t _player, bool _passabilityView);
+
+  /// The passability view while _passabilityView is on: for each visible tile's reading, each reached cell in good and
+  /// each cell foot could stand in but not reach in dim, as a box in the cell a unit stands in, at its surface.
+  [[nodiscard]] OverlayLayer PassabilityLayer(const Session& _session, bool _passabilityView) const;
+
+  /// The tiles the view shows: those its footprint on the ground at _groundMeters overlaps, from a target _widthPixels by
+  /// _heightPixels drawn with _viewProjection, at most the 36 nearest the footprint's middle. The default framing shows
+  /// 35.
+  [[nodiscard]] static std::vector<Tile> VisibleTiles(const DirectX::XMFLOAT4X4& _viewProjection, std::uint32_t _widthPixels,
+                                                      std::uint32_t _heightPixels, float _groundMeters);
+
   /// A collapse's countdown, in whole seconds rounded up, named for its structure, or A WALL when it has none.
   [[nodiscard]] static std::string WillFallText(const Protocol::StateUpdate& _state, const Protocol::CollapseView& _collapse);
   [[nodiscard]] static std::string HasFallenText(const Protocol::StateUpdate& _state, const Protocol::CollapseView& _collapse);
@@ -79,6 +104,12 @@ private:
   bool m_integrityAsked = false;                                                      // the view was on at the last Ask
   std::set<Protocol::EntityId> m_asked;                                               // structures asked about since
   std::map<Protocol::EntityId, std::pair<Protocol::EntityId, bool>> m_collapsePhases; // collapse: its structure, in warning
+  bool m_reachAsked = false;                                                          // the view was on at the last AskReach
+  std::optional<Protocol::VoxelPosition> m_reachStart;                                // the start the last asks were from
+  std::set<Tile> m_reachTiles;                                                        // tiles asked about from it
+  std::vector<Tile> m_visible;                                                        // as the last AskReach had them
+  std::optional<Protocol::VoxelPosition> m_breachGoal;
+  bool m_breachAnnounced = false;
 };
 
 } // namespace Client

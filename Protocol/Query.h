@@ -59,7 +59,8 @@ struct QueryRequest
 };
 
 /// The one record version each query and reading is written at. A new field is a new version.
-inline constexpr std::uint16_t QUERY_RECORD_VERSION = 1;
+/// 2 from M3-F3, which gave the tile reach reading its surfaces.
+inline constexpr std::uint16_t QUERY_RECORD_VERSION = 2;
 
 /// Hud.md §8's four readings of the attack cursor.
 enum class AimVerdict : std::uint8_t
@@ -119,7 +120,10 @@ struct IntegrityReading
   friend constexpr bool operator==(const IntegrityReading&, const IntegrityReading&) = default;
 };
 
-inline constexpr std::size_t TILE_REACH_BYTES = 128; // 32 x 32 cells, a bit each
+inline constexpr std::size_t TILE_REACH_CELLS = 1024; // 32 x 32
+inline constexpr std::size_t TILE_REACH_BYTES = 128;  // the cells, a bit each
+/// A column with no cell a unit stands in.
+inline constexpr std::int16_t NO_SURFACE_VOXELS = -1;
 
 struct TileReachReading
 {
@@ -127,6 +131,8 @@ struct TileReachReading
   std::int32_t tileZ;
   std::array<std::uint8_t, TILE_REACH_BYTES> usable;  // bit z * 32 + x: the class can enter the cell
   std::array<std::uint8_t, TILE_REACH_BYTES> reached; // and can reach it from the start
+  /// Cell z * 32 + x: the height of the cell a unit stands in, navigation's own surface, or NO_SURFACE_VOXELS.
+  std::array<std::int16_t, TILE_REACH_CELLS> surfaceVoxels;
 
   friend constexpr bool operator==(const TileReachReading&, const TileReachReading&) = default;
 };

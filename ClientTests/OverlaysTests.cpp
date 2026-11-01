@@ -4,6 +4,7 @@
 #include "ByteWriter.h"
 #include "HudAlerts.h"
 #include "Look.h"
+#include "OrthographicCamera.h"
 #include "Overlays.h"
 #include "Session.h"
 
@@ -116,6 +117,89 @@ DirectX::XMFLOAT4X4 FlatProjection()
 {
   constexpr float SCALE = 1.0F / 50.0F;
   return {SCALE, 0.0F, 0.0F, 0.0F, 0.0F, SCALE, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -1.0F, -1.0F, 0.5F, 1.0F};
+}
+
+constexpr std::uint8_t PLAYER = 1;
+constexpr Protocol::VoxelPosition GOAL{.xVoxels = 380, .yVoxels = 9, .zVoxels = 190}; // tile (11, 5), cell (28, 30)
+
+/// A state with the player's squad of one figure, standing at (380, 9, 170).
+Protocol::StateUpdate WithSquad()
+{
+  Protocol::StateUpdate state{};
+  state.tick = 10;
+  state.squads.push_back({.id = 3, .owner = PLAYER, .units = {4}, .hasGoal = false, .goalVoxels = {}, .shortOfGoal = false});
+  state.units.push_back({.id = 4,
+                         .squad = 3,
+                         .owner = PLAYER,
+                         .kind = Protocol::UnitKind::ManAtArms,
+                         .position = {},
+                         .cellVoxels = {.xVoxels = 380, .yVoxels = 9, .zVoxels = 170}});
+  return state;
+}
+
+/// The tiles the session asked the reach of, in order.
+std::vector<Client::Tile> AskedTiles(const std::vector<std::vector<std::byte>>& _queries)
+{
+  std::vector<Client::Tile> tiles;
+  for (const std::vector<std::byte>& bytes : _queries)
+  {
+    Core::ByteReader reader(bytes);
+    const Protocol::QueryRequest request = Protocol::DecodeQueryRequest(reader);
+    if (const auto* reach = std::get_if<Protocol::TileReach>(&request.query))
+    {
+      tiles.emplace_back(reach->tileX, reach->tileZ);
+    }
+  }
+  return tiles;
+}
+
+/// Answers every reach query the session asked with _reading, its tile set to the query's.
+void AnswerReach(Client::Session& _session, const Protocol::StateUpdate& _state, Protocol::TileReachReading _reading)
+{
+  std::vector<std::vector<std::byte>> answers;
+  for (const std::vector<std::byte>& bytes : _session.TakeQueries())
+  {
+    Core::ByteReader reader(bytes);
+    const Protocol::QueryRequest request = Protocol::DecodeQueryRequest(reader);
+    if (const auto* reach = std::get_if<Protocol::TileReach>(&request.query))
+    {
+      _reading.tileX = reach->tileX;
+      _reading.tileZ = reach->tileZ;
+      Core::ByteWriter writer;
+      Protocol::Encode(Protocol::Answer{.queryId = request.id, .tick = _state.tick, .reading = _reading}, writer);
+      answers.push_back(writer.TakeBytes());
+    }
+  }
+  _session.Receive(_state, {}, answers);
+}
+
+void SetBit(std::array<std::uint8_t, Protocol::TILE_REACH_BYTES>& _bits, std::int32_t _x, std::int32_t _z)
+{
+  const std::int32_t cell = (_z * 32) + _x;
+  const auto index = static_cast<std::size_t>(cell);
+  _bits.at(index / 8) = static_cast<std::uint8_t>(_bits.at(index / 8) | (1U << (index % 8)));
+}
+
+Protocol::TileReachReading NothingReached()
+{
+  Protocol::TileReachReading reading{.tileX = 0, .tileZ = 0, .usable = {}, .reached = {}, .surfaceVoxels = {}};
+  reading.surfaceVoxels.fill(Protocol::NO_SURFACE_VOXELS);
+  return reading;
+}
+
+/// The default framing at 1280 x 720, looking at _target.
+DirectX::XMFLOAT4X4 Framing(const DirectX::XMFLOAT3& _target)
+{
+  const Engine::OrthographicCamera camera({.elevationRadians = DirectX::XMConvertToRadians(Client::ELEVATION_DEGREES),
+                                           .azimuthRadians = DirectX::XMConvertToRadians(Client::AZIMUTH_DEGREES),
+                                           .viewHeightMeters = Client::DEFAULT_VIEW_HEIGHT_METERS,
+                                           .minViewHeightMeters = Client::MIN_VIEW_HEIGHT_METERS,
+                                           .maxViewHeightMeters = Client::MAX_VIEW_HEIGHT_METERS,
+                                           .rotationSeconds = 0.0F,
+                                           .targetMeters = _target});
+  DirectX::XMFLOAT4X4 viewProjection{};
+  DirectX::XMStoreFloat4x4(&viewProjection, camera.ViewProjection(1280.0F / 720.0F));
+  return viewProjection;
 }
 
 Protocol::StructureView Section(Protocol::EntityId _id, Protocol::VoxelPosition _origin, Protocol::VoxelPosition _extent)
@@ -384,6 +468,120 @@ public:
     Assert::AreEqual(std::size_t{0}, asking.TakeQueries().size());
     overlays.Ask(asking, {}, true);
     Assert::AreEqual(std::size_t{1}, asking.TakeQueries().size());
+  }
+
+  TEST_METHOD(DrawsReachedCellsInGoodAndTheRestOfTheUsableInDimAtTheirSurfaces)
+  {
+    const Protocol::StateUpdate state = WithSquad();
+    Client::Session session;
+    Tell(session, state);
+    Client::Overlays overlays;
+    const std::array<Client::Tile, 1> visible = {{{11, 5}}};
+    overlays.AskReach(session, {}, visible, PLAYER, true);
+    // 12 usable cells along row 3, at heights 9 and 10, of which the first 5 are reached.
+    Protocol::TileReachReading reading = NothingReached();
+    for (std::int32_t x = 0; x < 12; ++x)
+    {
+      SetBit(reading.usable, x, 3);
+      const std::int32_t cell = (3 * 32) + x;
+      reading.surfaceVoxels.at(static_cast<std::size_t>(cell)) = static_cast<std::int16_t>(9 + (x % 2));
+      if (x < 5)
+      {
+        SetBit(reading.reached, x, 3);
+      }
+    }
+    AnswerReach(session, state, reading);
+    const Client::OverlayLayer layer = overlays.PassabilityLayer(session, true);
+    Assert::AreEqual(std::size_t{12}, layer.boxes.size());
+    Assert::AreEqual(std::ptrdiff_t{5}, std::ranges::count(layer.boxes, Client::OVERLAY_GOOD_INDEX, &Client::OverlayBox::paletteIndex));
+    Assert::AreEqual(std::ptrdiff_t{7}, std::ranges::count(layer.boxes, Client::OVERLAY_DIM_INDEX, &Client::OverlayBox::paletteIndex));
+    for (const Client::OverlayBox& box : layer.boxes)
+    {
+      const std::int32_t x = box.cellVoxels.xVoxels - (11 * 32);
+      Assert::AreEqual(9 + (x % 2), box.cellVoxels.yVoxels);
+      Assert::AreEqual((5 * 32) + 3, box.cellVoxels.zVoxels);
+    }
+    Assert::IsTrue(overlays.PassabilityLayer(session, false).boxes.empty());
+  }
+
+  TEST_METHOD(RaisesTheBreachAlertOnceOnTheFirstUpdateThatReachesTheGoal)
+  {
+    const Protocol::StateUpdate state = WithSquad();
+    Client::Session session;
+    Tell(session, state);
+    Client::Overlays overlays;
+    Client::HudAlerts alerts;
+    overlays.WatchBreach(GOAL);
+    // With the view off it still asks the goal's tile, and only that.
+    overlays.AskReach(session, {}, {}, PLAYER, false);
+    const std::vector<std::vector<std::byte>> asked = session.TakeQueries();
+    Assert::IsTrue(AskedTiles(asked) == std::vector<Client::Tile>{{11, 5}});
+    AnswerReach(session, state, NothingReached());
+    overlays.Update(session, 1.0, alerts);
+    Assert::AreEqual(std::size_t{0}, alerts.Shown().size());
+
+    // The courtyard's middle reads reached: the alert, once.
+    const std::array<Protocol::ChunkSnapshot, 1> breached = {
+      Protocol::ChunkSnapshot{.coordinate = {11, 0, 5}, .version = 3, .voxels = std::make_shared<const Protocol::Chunk>()}};
+    overlays.AskReach(session, breached, {}, PLAYER, false);
+    Protocol::TileReachReading open = NothingReached();
+    SetBit(open.usable, GOAL.xVoxels - (11 * 32), GOAL.zVoxels - (5 * 32));
+    SetBit(open.reached, GOAL.xVoxels - (11 * 32), GOAL.zVoxels - (5 * 32));
+    AnswerReach(session, state, open);
+    overlays.Update(session, 2.0, alerts);
+    overlays.Update(session, 2.1, alerts);
+    Assert::AreEqual(std::size_t{1}, alerts.Shown().size());
+    const Client::HudAlert alert = alerts.Shown().front();
+    Assert::AreEqual(std::string("BREACH OPEN AT W2"), alert.text);
+    Assert::IsFalse(alert.urgent);
+    Assert::IsTrue(alert.location == std::optional<Protocol::VoxelPosition>(GOAL));
+  }
+
+  TEST_METHOD(AsksNoTileOffScreen)
+  {
+    // The default framing on W2's foot covers the tiles around (11, 5), and none far off.
+    const std::vector<Client::Tile> visible = Client::Overlays::VisibleTiles(Framing({380.5F, 9.0F, 180.0F}), 1280, 720, 9.0F);
+    Assert::IsTrue(std::ranges::find(visible, Client::Tile{11, 5}) != visible.end());
+    for (const Client::Tile& far : {Client::Tile{0, 0}, Client::Tile{20, 20}, Client::Tile{11, 12}})
+    {
+      Assert::IsTrue(std::ranges::find(visible, far) == visible.end());
+    }
+    Assert::AreEqual(std::size_t{35}, visible.size());
+    // Zoomed out the farthest, at most 36, around the middle.
+    const Engine::OrthographicCamera far({.elevationRadians = DirectX::XMConvertToRadians(Client::ELEVATION_DEGREES),
+                                          .azimuthRadians = DirectX::XMConvertToRadians(Client::AZIMUTH_DEGREES),
+                                          .viewHeightMeters = Client::MAX_VIEW_HEIGHT_METERS,
+                                          .minViewHeightMeters = Client::MIN_VIEW_HEIGHT_METERS,
+                                          .maxViewHeightMeters = Client::MAX_VIEW_HEIGHT_METERS,
+                                          .rotationSeconds = 0.0F,
+                                          .targetMeters = {380.5F, 9.0F, 180.0F}});
+    DirectX::XMFLOAT4X4 farProjection{};
+    DirectX::XMStoreFloat4x4(&farProjection, far.ViewProjection(1280.0F / 720.0F));
+    const std::vector<Client::Tile> wide = Client::Overlays::VisibleTiles(farProjection, 1280, 720, 9.0F);
+    Assert::AreEqual(std::size_t{36}, wide.size());
+    Assert::IsTrue(std::ranges::find(wide, Client::Tile{11, 5}) != wide.end());
+
+    const Protocol::StateUpdate state = WithSquad();
+    Client::Session session;
+    Tell(session, state);
+    Client::Overlays overlays;
+    overlays.AskReach(session, {}, visible, PLAYER, true);
+    const std::vector<Client::Tile> asked = AskedTiles(session.TakeQueries());
+    Assert::AreEqual(visible.size(), asked.size());
+    for (const Client::Tile& tile : asked)
+    {
+      Assert::IsTrue(std::ranges::find(visible, tile) != visible.end());
+    }
+    // Nothing again until the camera moves to new tiles, and then only those.
+    overlays.AskReach(session, {}, visible, PLAYER, true);
+    Assert::AreEqual(std::size_t{0}, session.TakeQueries().size());
+    const std::vector<Client::Tile> moved = Client::Overlays::VisibleTiles(Framing({444.5F, 9.0F, 180.0F}), 1280, 720, 9.0F);
+    overlays.AskReach(session, {}, moved, PLAYER, true);
+    for (const Client::Tile& tile : AskedTiles(session.TakeQueries()))
+    {
+      Assert::IsTrue(std::ranges::find(visible, tile) == visible.end());
+      Assert::IsTrue(std::ranges::find(moved, tile) != moved.end());
+    }
   }
 
   TEST_METHOD(NamesACollapseWithNoStructureAWall)

@@ -438,7 +438,9 @@ int Run(const Options& _options)
   Client::FireMode fire;
   bool worldChanged = false; // the last frame took a changed chunk
   Client::Overlays views;
-  bool integrityView = true;                              // F1, on by default (Hud.md §7)
+  bool integrityView = true;    // F1, on by default (Hud.md §7)
+  bool passabilityView = false; // F2
+  views.WatchBreach(run.goalVoxels);
   std::optional<DirectX::XMFLOAT4X4> drawnViewProjection; // the last frame's, which the clicks land on
   const std::array<float, 4> figuresColor = Client::LinearColor(Client::DIM_SRGB);
   std::int32_t lastXPixels = 0;
@@ -585,6 +587,10 @@ int Run(const Options& _options)
     {
       integrityView = !integrityView;
     }
+    if (keyboard.WasPressed(VK_F2))
+    {
+      passabilityView = !passabilityView;
+    }
     if (keyboard.WasPressed(VK_SPACE))
     {
       const auto newest = std::ranges::find_if(hudModel.alerts, [](const Client::HudAlert& _alert) { return _alert.location.has_value(); });
@@ -616,6 +622,10 @@ int Run(const Options& _options)
     picker.TakeSnapshots(snapshots);
     worldChanged = !snapshots.empty();
     views.Ask(session, snapshots, integrityView);
+    // The passability view's tiles, those the view shows on the lab's ground (M3-F3).
+    const std::vector<Client::Tile> visibleTiles = Client::Overlays::VisibleTiles(
+      viewProjection, swapChain.WidthPixels(), swapChain.HeightPixels(), static_cast<float>(Simulation::BreachRun::GROUND_VOXELS));
+    views.AskReach(session, snapshots, visibleTiles, PLAYER, passabilityView);
     // The HUD, built from the session (M3-E2), and the frame's figures under it in the bottom-left corner, over the
     // integrity view's labels (M3-F2).
     views.Update(session, seconds, alerts);
@@ -636,7 +646,7 @@ int Run(const Options& _options)
                 .alerts = alerts.Shown(),
                 .selectedEngine = selected,
                 .integrityView = integrityView,
-                .passabilityView = false};
+                .passabilityView = passabilityView};
     interfaceQuads.clear();
     const std::uint32_t figuresScale = Client::TextLayout::PixelsPerFontPixel(Client::TextSize::Label, uiScale);
     const std::int32_t margin = Client::ScaledPixels(FIGURES_MARGIN_LOGICAL_PIXELS, uiScale);
@@ -654,6 +664,7 @@ int Run(const Options& _options)
     }
     // The world overlays (ADR-021): the views, then FIRE's strike mark.
     std::vector<Client::OverlayLayer> overlays = views.Layers(session, seconds, integrityView);
+    overlays.push_back(views.PassabilityLayer(session, passabilityView));
     overlays.push_back({.alpha = Client::STRIKE_MARK_ALPHA, .boxes = fire.StrikeMark(session)});
     Client::WorldRenderer::Frame frame{.commandList = commandList,
                                        .slot = slot,

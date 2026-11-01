@@ -169,6 +169,10 @@ void Encode(const Answer& _answer, Core::ByteWriter& _writer)
     _writer.WriteI32(reach->tileZ);
     WriteBits(reach->usable, _writer);
     WriteBits(reach->reached, _writer);
+    for (const std::int16_t surface : reach->surfaceVoxels)
+    {
+      _writer.WriteU16(static_cast<std::uint16_t>(surface));
+    }
   }
 }
 
@@ -212,6 +216,10 @@ Answer DecodeAnswer(Core::ByteReader& _reader)
   reach.tileZ = _reader.ReadI32();
   reach.usable = ReadBits(_reader);
   reach.reached = ReadBits(_reader);
+  for (std::int16_t& surface : reach.surfaceVoxels)
+  {
+    surface = static_cast<std::int16_t>(_reader.ReadU16());
+  }
   return {.queryId = queryId, .tick = tick, .reading = reach};
 }
 
