@@ -4,10 +4,11 @@
 
 #include "Catalog.h"
 #include "ChunkCoordinate.h"
+#include "Look.h"
 #include "Palette.h"
 #include "VoxelGridView.h"
 
-namespace RendererSpike
+namespace Client
 {
 
 namespace
@@ -593,4 +594,4 @@ std::uint64_t WorldView::RecordsDrawn() const noexcept
   return total;
 }
 
-} // namespace RendererSpike
+} // namespace Client

@@ -31,7 +31,7 @@
   <Import Project="$(MSBuildThisFileDirectory)..\Build\Earthrise.props" />
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)Core;$(SolutionDir)Engine;$(SolutionDir)Protocol;$(SolutionDir)Content;$(SolutionDir)Simulation;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Core;$(SolutionDir)Engine;$(SolutionDir)Protocol;$(SolutionDir)Content;$(SolutionDir)Simulation;$(SolutionDir)Client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -46,10 +46,6 @@
     <ClCompile Include="RendererSpike.cpp" />
     <ClInclude Include="SceneScript.h" />
     <ClCompile Include="SceneScript.cpp" />
-    <ClInclude Include="WorldView.h" />
-    <ClCompile Include="WorldView.cpp" />
-    <ClInclude Include="Debris.h" />
-    <ClCompile Include="Debris.cpp" />
     <ClInclude Include="Measurement.h" />
     <ClCompile Include="Measurement.cpp" />
   </ItemGroup>
@@ -68,6 +64,9 @@
     </ProjectReference>
     <ProjectReference Include="..\Simulation\Simulation.vcxproj">
       <Project>{D9C86E98-FC2C-536F-8658-B2EA71C141A1}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\Client\Client.vcxproj">
+      <Project>{3D1D28E5-6373-5E83-B46F-5A9C2D793B06}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -39,6 +39,12 @@
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
+    <ClInclude Include="ModelPlacement.h" />
+    <ClInclude Include="WorldView.h" />
+    <ClCompile Include="WorldView.cpp" />
+    <ClInclude Include="Debris.h" />
+    <ClCompile Include="Debris.cpp" />
+    <ClInclude Include="Look.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

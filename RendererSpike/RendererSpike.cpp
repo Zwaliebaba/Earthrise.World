@@ -69,39 +69,8 @@ constexpr std::uint64_t SCENE_SEED = 0x5eed2026ULL;
 constexpr float BREACH_FELL_SECONDS = -10.0F;
 constexpr std::uint64_t UPLOAD_RING_BYTES = std::uint64_t{32} * 1024 * 1024;
 
-// The Golden preset (RendererLook.md §6): its clear colour #d6ccba in linear values, because the
-// view that is cleared is sRGB and encodes on write, its sun direction, towards the light, and its
-// lights. The direction is the prototype's (-90, 75, 55) with z negated, because the prototype's
-// +z is south and the world's is north (ADR-017): the sun stands to the south-west. The
-// intensities are three.js r160's physical ones: r160 divides its Lambert term by pi and no longer
-// scales its lights by pi (WebGLRenderer.useLegacyLights is false), so they are divided by pi
-// here, as RendererLook.md expected.
-constexpr std::array<float, 4> CLEAR_COLOR = {0.6724F, 0.6038F, 0.4910F, 1.0F};
-constexpr std::array<float, 3> SUN_TOWARDS = {-90.0F, 75.0F, -55.0F};
-constexpr std::uint32_t SUN_SRGB = 0xffd8a6;
-constexpr float SUN_INTENSITY = 2.7F;
-constexpr std::uint32_t SKY_SRGB = 0xd4dbe6;
-constexpr std::uint32_t GROUND_SRGB = 0x5a4a38;
-constexpr float HEMISPHERE_INTENSITY = 1.0F;
+// The Golden preset's lights are divided by pi (Client/Look.h).
 constexpr float PI = 3.14159265F;
-constexpr std::uint8_t WATER_INDEX = 9;
-
-// The sun's shadow maps (ADR-011, decision 9; RendererLook.md §6): the world's, drawn when it
-// changes, and the models', drawn each frame, both over the whole world with a margin. Over the
-// 128 m scene a static-map texel is about 5 cm. Under the Golden sun, 35 degrees up, ground's depth
-// in the sun's view changes by about 1.4 texels' worth a texel, so the filter's 1.5-texel reach spans
-// about 10 cm of depth. A hit is moved 10 cm out along its normal before it reads the maps, which
-// puts it 17 cm above the ground along the sun's ray, and its depth gets no further bias. These are
-// first values, tuned against check 11 (ADR-011, *Left open*).
-constexpr std::uint32_t STATIC_SHADOW_TEXELS = 4096;
-constexpr std::uint32_t DYNAMIC_SHADOW_TEXELS = 2048;
-constexpr float SHADOW_MARGIN_METERS = 2.0F;
-constexpr float SHADOW_NORMAL_OFFSET_METERS = 0.1F;
-constexpr float SHADOW_DEPTH_BIAS = 0.0F;
-
-// A model voxel's edge (RendererLook.md §1), for how large one is on screen: units are drawn as
-// impostors once it is smaller than about 3 px (§7).
-constexpr float MODEL_VOXEL_METERS = 0.5F;
 
 // The scene's target: 8 bits a channel through an sRGB view, as the back buffer, because the output
 // is sRGB with no tone mapping (RendererLook.md). The upscale reads it through the same view.
@@ -277,15 +246,15 @@ std::array<DirectX::XMFLOAT4, Engine::VoxelPass::PALETTE_ENTRIES> LinearPalette(
     colors[index] = {channel(16), channel(8), channel(0), 1.0F};
   }
   // The two sides' faction colours, in entries beyond the materials'.
-  for (const auto& [index, srgb] : {std::pair{RendererSpike::ATTACKER_COLOR_INDEX, RendererSpike::ATTACKER_COLOR_SRGB},
-                                    std::pair{RendererSpike::DEFENDER_COLOR_INDEX, RendererSpike::DEFENDER_COLOR_SRGB}})
+  for (const auto& [index, srgb] : {std::pair{Client::ATTACKER_COLOR_INDEX, Client::ATTACKER_COLOR_SRGB},
+                                    std::pair{Client::DEFENDER_COLOR_INDEX, Client::DEFENDER_COLOR_SRGB}})
   {
     const std::uint32_t side = srgb;
     const auto channel = [side](int _shift) { return SrgbToLinear(static_cast<float>((side >> _shift) & 0xffU) / 255.0F); };
     colors[index] = {channel(16), channel(8), channel(0), 1.0F};
   }
   // Fords: water one world voxel deep, drawn lighter (RendererLook.md §3).
-  colors[RendererSpike::FORD_COLOR_INDEX] = ScaledLightness(colors[WATER_INDEX], RendererSpike::FORD_LIGHTNESS_SCALE);
+  colors[Client::FORD_COLOR_INDEX] = ScaledLightness(colors[Client::WATER_INDEX], Client::FORD_LIGHTNESS_SCALE);
   return colors;
 }
 
@@ -420,7 +389,7 @@ Simulation::ServerData LoadServerData()
 
 DirectX::XMVECTOR SunTowards() noexcept
 {
-  return DirectX::XMVector3Normalize(DirectX::XMVectorSet(SUN_TOWARDS[0], SUN_TOWARDS[1], SUN_TOWARDS[2], 0.0F));
+  return DirectX::XMVector3Normalize(DirectX::XMVectorSet(Client::SUN_TOWARDS[0], Client::SUN_TOWARDS[1], Client::SUN_TOWARDS[2], 0.0F));
 }
 
 /// The sun's frame for a shadow map _edgeTexels across: its view-projection, the ray away from the
@@ -452,11 +421,12 @@ Engine::VoxelPass::FrameConstants MakeFrame(const Engine::OrthographicCamera& _c
   frame.viewportPixels = {width, height, 1.0F / width, 1.0F / height};
   DirectX::XMStoreFloat4(&frame.lightDirection, SunTowards());
   frame.shadowViewProjection = _sunViewProjection;
-  frame.shadowParameters = {SHADOW_NORMAL_OFFSET_METERS, SHADOW_DEPTH_BIAS, 1.0F / static_cast<float>(STATIC_SHADOW_TEXELS),
-                            1.0F / static_cast<float>(DYNAMIC_SHADOW_TEXELS)};
-  frame.sunRadiance = Radiance(SUN_SRGB, SUN_INTENSITY);
-  frame.skyRadiance = Radiance(SKY_SRGB, HEMISPHERE_INTENSITY);
-  frame.groundRadiance = Radiance(GROUND_SRGB, HEMISPHERE_INTENSITY);
+  frame.shadowParameters = {Client::SHADOW_NORMAL_OFFSET_METERS, Client::SHADOW_DEPTH_BIAS,
+                            1.0F / static_cast<float>(Client::STATIC_SHADOW_TEXELS),
+                            1.0F / static_cast<float>(Client::DYNAMIC_SHADOW_TEXELS)};
+  frame.sunRadiance = Radiance(Client::SUN_SRGB, Client::SUN_INTENSITY);
+  frame.skyRadiance = Radiance(Client::SKY_SRGB, Client::HEMISPHERE_INTENSITY);
+  frame.groundRadiance = Radiance(Client::GROUND_SRGB, Client::HEMISPHERE_INTENSITY);
   // The record's shade-table bit is Content's corner-shade set: 0 structure, 1 terrain.
   for (const Content::CornerShadeSet set : {Content::CornerShadeSet::Structure, Content::CornerShadeSet::Terrain})
   {
@@ -539,6 +509,19 @@ template <typename T> D3D12_GPU_VIRTUAL_ADDRESS UploadConstants(Engine::UploadRi
   return allocation->gpuAddress;
 }
 
+/// A collapse's landing as the debris reads it (M3-C2): the rubble cells the scene recorded, each with the store's index
+/// there.
+std::vector<Protocol::PlacedVoxel> Landing(const Simulation::ChunkStore& _store, std::span<const Protocol::VoxelPosition> _rubble)
+{
+  std::vector<Protocol::PlacedVoxel> landing;
+  landing.reserve(_rubble.size());
+  for (const Protocol::VoxelPosition cell : _rubble)
+  {
+    landing.push_back({.position = cell, .paletteIndex = _store.At(cell)});
+  }
+  return landing;
+}
+
 /// Copies _values into the ring for this frame, for a root shader-resource view; 0 for none.
 template <typename T> D3D12_GPU_VIRTUAL_ADDRESS UploadArray(Engine::UploadRing& _ring, std::span<const T> _values)
 {
@@ -565,21 +548,21 @@ int Run(const Options& _options)
   // The scene draws at the render scale, and its depth with it (ADR-011, decision 3).
   const Engine::Window::Size firstRenderSize =
     RenderSize(_options, {.widthPixels = swapChain.WidthPixels(), .heightPixels = swapChain.HeightPixels()});
-  Engine::ColorTarget sceneColor(device.Device(), {.format = SCENE_FORMAT, .clearColor = CLEAR_COLOR}, firstRenderSize.widthPixels,
+  Engine::ColorTarget sceneColor(device.Device(), {.format = SCENE_FORMAT, .clearColor = Client::CLEAR_COLOR}, firstRenderSize.widthPixels,
                                  firstRenderSize.heightPixels);
   Engine::DepthTarget depth(device.Device(), sceneColor.WidthPixels(), sceneColor.HeightPixels());
   Engine::FrameRing frames(device.Device(), device.DirectQueue());
   Engine::UploadRing ring(device.Device(), UPLOAD_RING_BYTES);
   Engine::VoxelPass pass(device.Device(), {.colorFormat = SCENE_FORMAT, .depthFormat = Engine::DepthTarget::FORMAT});
-  Engine::ShadowMap staticShadow(device.Device(), STATIC_SHADOW_TEXELS);
-  Engine::ShadowMap dynamicShadow(device.Device(), DYNAMIC_SHADOW_TEXELS);
+  Engine::ShadowMap staticShadow(device.Device(), Client::STATIC_SHADOW_TEXELS);
+  Engine::ShadowMap dynamicShadow(device.Device(), Client::DYNAMIC_SHADOW_TEXELS);
   pass.SetShadowMaps(staticShadow.Texture(), dynamicShadow.Texture());
   Engine::UpscalePass upscale(device.Device(), {.targetFormat = Engine::SwapChain::VIEW_FORMAT});
   upscale.SetSource(sceneColor.Texture());
   const Engine::GpuTimer gpuTimer(device.Device(), device.DirectQueue().Queue(),
                                   {.slotCount = Engine::FrameRing::FRAMES_IN_FLIGHT, .spanCount = SPAN_COUNT});
   const float worldVoxelMeters = _options.halfMeterWorld ? 0.5F : 1.0F;
-  RendererSpike::WorldView worldView(device.Device(), worldVoxelMeters);
+  Client::WorldView worldView(device.Device(), worldVoxelMeters);
   const FlushOnExit flushOnExit{device.DirectQueue()};
 
   // The simulation's side: the scene goes into the chunk store, and the client draws only from what
@@ -609,19 +592,12 @@ int Run(const Options& _options)
   {
     edits.emplace(store, scene.world, SCENE_SEED);
   }
-  // Debris comes to rest on the world's top, as the 1 m simulation has it after a collapse.
-  const RendererSpike::Debris::RestingTop restingTop = [&store, worldHeightVoxels](float _xMeters, float _zMeters)
-  {
-    const auto top = Simulation::TopSolidAtOrBelow(store, static_cast<std::int32_t>(std::floor(_xMeters)),
-                                                   static_cast<std::int32_t>(std::floor(_zMeters)), worldHeightVoxels - 1);
-    return static_cast<float>(top + 1);
-  };
   // The breach's debris, at rest from the first frame, because the breach came down before the
   // scene begins (the render-fix package, item 4); and the collapse's, scattered when it falls.
   // Both are drawn every frame (RendererLook.md §1).
-  RendererSpike::Debris breachDebris;
-  breachDebris.Scatter(scene.world.breachId, scene.world.breach.fallen, scene.world.breach.rubble, restingTop, BREACH_FELL_SECONDS);
-  RendererSpike::Debris debris;
+  Client::Debris breachDebris;
+  breachDebris.Scatter(scene.world.breachId, scene.world.breach.fallen, Landing(store, scene.world.breach.rubble), BREACH_FELL_SECONDS);
+  Client::Debris debris;
   std::vector<Engine::OrientedVoxel> debrisVoxels;
   // The sun's view over the whole world, its height included, for both shadow maps.
   const auto worldEdgeMeters = static_cast<float>(scene.world.edgeVoxels);
@@ -629,8 +605,8 @@ int Run(const Options& _options)
   DirectX::XMStoreFloat4x4(&sunViewProjection, Engine::SunViewProjection(
                                                  SunTowards(), DirectX::XMFLOAT3{0.0F, 0.0F, 0.0F},
                                                  DirectX::XMFLOAT3{worldEdgeMeters, static_cast<float>(worldHeightVoxels), worldEdgeMeters},
-                                                 SHADOW_MARGIN_METERS));
-  std::vector<RendererSpike::ModelPlacement> placements;
+                                                 Client::SHADOW_MARGIN_METERS));
+  std::vector<Client::ModelPlacement> placements;
   // The frame the scene's edits and walkers are at: the path's in a measured run, else counted from
   // the start.
   std::uint32_t sceneFrame = 0;
@@ -724,7 +700,7 @@ int Run(const Options& _options)
     const float sceneSeconds = static_cast<float>(sceneFrame) / static_cast<float>(Simulation::TestWorldEdits::FRAMES_PER_SECOND);
     if (edits && sceneFrame == Simulation::TestWorldEdits::COLLAPSE_FRAME && !edits->Fallen().empty())
     {
-      debris.Scatter(edits->CollapseId(), edits->Fallen(), edits->Rubble(), restingTop, sceneSeconds);
+      debris.Scatter(edits->CollapseId(), edits->Fallen(), Landing(store, edits->Rubble()), sceneSeconds);
     }
     debrisVoxels.clear();
     breachDebris.Pose(sceneSeconds, debrisVoxels);
@@ -776,7 +752,7 @@ int Run(const Options& _options)
     // with their neighbours' (GameDesign.md, the renderer spike's question 5).
     const double rebuildMilliseconds =
       editTime.count() + std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - rebuildStart).count();
-    const float modelVoxelPixels = MODEL_VOXEL_METERS * static_cast<float>(sceneColor.HeightPixels()) / camera.ViewHeightMeters();
+    const float modelVoxelPixels = Client::MODEL_VOXEL_METERS * static_cast<float>(sceneColor.HeightPixels()) / camera.ViewHeightMeters();
     worldView.PlaceModels(ring, placements, modelVoxelPixels);
     const float displayAspect = static_cast<float>(swapChain.WidthPixels()) / static_cast<float>(swapChain.HeightPixels());
     const D3D12_GPU_VIRTUAL_ADDRESS frameConstants =
@@ -788,7 +764,7 @@ int Run(const Options& _options)
     gpuTimer.Begin(commandList, slot, STATIC_SHADOW_SPAN);
     if (worldChanged || !staticShadow.Readable())
     {
-      const D3D12_GPU_VIRTUAL_ADDRESS staticSunFrame = UploadConstants(ring, MakeSunFrame(sunViewProjection, STATIC_SHADOW_TEXELS));
+      const D3D12_GPU_VIRTUAL_ADDRESS staticSunFrame = UploadConstants(ring, MakeSunFrame(sunViewProjection, Client::STATIC_SHADOW_TEXELS));
       staticShadow.BeginDrawing(commandList);
       pass.BeginShadow(commandList, staticSunFrame, paletteConstants);
       worldView.DrawChunks(commandList, pass);
@@ -796,7 +772,7 @@ int Run(const Options& _options)
     }
     gpuTimer.End(commandList, slot, STATIC_SHADOW_SPAN);
     gpuTimer.Begin(commandList, slot, DYNAMIC_SHADOW_SPAN);
-    const D3D12_GPU_VIRTUAL_ADDRESS dynamicSunFrame = UploadConstants(ring, MakeSunFrame(sunViewProjection, DYNAMIC_SHADOW_TEXELS));
+    const D3D12_GPU_VIRTUAL_ADDRESS dynamicSunFrame = UploadConstants(ring, MakeSunFrame(sunViewProjection, Client::DYNAMIC_SHADOW_TEXELS));
     dynamicShadow.BeginDrawing(commandList);
     pass.BeginShadow(commandList, dynamicSunFrame, paletteConstants);
     worldView.DrawModels(commandList, pass);

@@ -4,6 +4,12 @@
     <Filter Include="Build">
       <UniqueIdentifier>{C806FA2C-EC87-5C2F-B3B7-74AAD8B14AEC}</UniqueIdentifier>
     </Filter>
+    <Filter Include="World">
+      <UniqueIdentifier>{2925F9CE-7821-537A-866E-3C97928AF87E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Look">
+      <UniqueIdentifier>{15E82C97-5C22-5C2C-BF05-36FF26498CA0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -12,5 +18,23 @@
     <ClCompile Include="pch.cpp">
       <Filter>Build</Filter>
     </ClCompile>
+    <ClInclude Include="ModelPlacement.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClInclude Include="WorldView.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="WorldView.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
+    <ClInclude Include="Debris.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="Debris.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
+    <ClInclude Include="Look.h">
+      <Filter>Look</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

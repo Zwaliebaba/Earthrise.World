@@ -10,9 +10,6 @@
     <Filter Include="Scene">
       <UniqueIdentifier>{D89DDBB5-9B30-5B0F-A941-94C4B921E772}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Rendering">
-      <UniqueIdentifier>{FA6AD17C-6058-58E0-9FD8-9397B638616F}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Measurement">
       <UniqueIdentifier>{26F174E0-DAEF-59BB-8AD8-33B11514BC91}</UniqueIdentifier>
     </Filter>
@@ -35,18 +32,6 @@
     </ClInclude>
     <ClCompile Include="SceneScript.cpp">
       <Filter>Scene</Filter>
-    </ClCompile>
-    <ClInclude Include="WorldView.h">
-      <Filter>Rendering</Filter>
-    </ClInclude>
-    <ClCompile Include="WorldView.cpp">
-      <Filter>Rendering</Filter>
-    </ClCompile>
-    <ClInclude Include="Debris.h">
-      <Filter>Rendering</Filter>
-    </ClInclude>
-    <ClCompile Include="Debris.cpp">
-      <Filter>Rendering</Filter>
     </ClCompile>
     <ClInclude Include="Measurement.h">
       <Filter>Measurement</Filter>
