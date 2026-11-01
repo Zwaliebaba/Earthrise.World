@@ -169,6 +169,9 @@ public:
   void Ask(std::uint8_t _player, std::span<const std::byte> _query);
   /// The answers produced since the last call, encoded, in the order answered.
   [[nodiscard]] std::vector<std::vector<std::byte>> TakeAnswers();
+  /// Step 12 alone, between ticks, within one tick's budget, on the world as it stands, changing nothing else: for a
+  /// client whose clock is paused, the lab's question (G1). Its answers carry the last tick ticked.
+  void AnswerBetweenTicks();
   /// Nothing in flight: no shot, no collapse, no slump or search pending, no edit unsearched, and
   /// every unit standing still. What the lab's fast-forward stops on (M3-B7).
   [[nodiscard]] bool Quiet() const noexcept;
