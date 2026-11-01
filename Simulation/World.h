@@ -103,6 +103,9 @@ struct Collapse
   Piece piece;                // its voxels as the support search found them, in y, then z, then x order
   CollapsePlan plan;          // fixed when it starts
   std::uint32_t ticksElapsed; // step 6s since it started: the warning, then the fall
+  /// The units it has hit, in id order: each takes its damage once, whether it stood in the strip
+  /// when the piece left or its cell was filled later (M2-F6; ADR-015, decision 7).
+  std::vector<Protocol::EntityId> struck;
 };
 
 /// A unit hit by a collapse or a fall: what M4 turns into damage.
@@ -262,6 +265,8 @@ private:
   /// Asks for a squad's search from where its first unit stands, or the cell it is stepping into, to
   /// its goal, replacing any it has.
   void RequestSearch(Squad& _squad);
+  /// Hits a unit with a collapse, unless that collapse has hit it already.
+  void Strike(Collapse& _collapse, Protocol::EntityId _unit);
   /// Lays a squad's trail along its new path (M2-F5).
   void FormTrail(Squad& _squad);
   /// Walks a figure along its squad's trail for one tick, at its class's speed (ADR-015, decision 6).

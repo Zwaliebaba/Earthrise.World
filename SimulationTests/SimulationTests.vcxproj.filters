@@ -90,5 +90,8 @@
     <ClCompile Include="MovementTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="DropTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

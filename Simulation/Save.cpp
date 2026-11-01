@@ -256,11 +256,16 @@ void WriteRecord(Core::ByteWriter& _writer, const Collapse& _collapse)
   }
   WritePositions(_writer, plan.strip);
   _writer.WriteU32(_collapse.ticksElapsed);
+  _writer.WriteU32(static_cast<std::uint32_t>(_collapse.struck.size()));
+  for (const Protocol::EntityId unit : _collapse.struck)
+  {
+    _writer.WriteU64(unit);
+  }
 }
 
 Collapse ReadCollapse(Core::ByteReader& _reader)
 {
-  Collapse collapse{.id = _reader.ReadU64(), .piece = ReadPositions(_reader), .plan = {}, .ticksElapsed = 0};
+  Collapse collapse{.id = _reader.ReadU64(), .piece = ReadPositions(_reader), .plan = {}, .ticksElapsed = 0, .struck = {}};
   CollapsePlan& plan = collapse.plan;
   plan.direction = ReadEnum(_reader, FallDirection::West, "fall direction");
   plan.warningTicks = _reader.ReadU32();
@@ -274,6 +279,11 @@ Collapse ReadCollapse(Core::ByteReader& _reader)
   }
   plan.strip = ReadPositions(_reader);
   collapse.ticksElapsed = _reader.ReadU32();
+  const std::uint32_t struck = _reader.ReadU32();
+  for (std::uint32_t number = 0; number < struck; ++number)
+  {
+    collapse.struck.push_back(_reader.ReadU64());
+  }
   return collapse;
 }
 

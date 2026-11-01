@@ -612,7 +612,7 @@ void World::SearchSupport()
     }
     const Protocol::EntityId id = NewEntityId();
     CollapsePlan plan = PlanCollapse(piece, edits, m_voxels, Data());
-    m_collapses.emplace(id, Collapse{.id = id, .piece = std::move(piece), .plan = std::move(plan), .ticksElapsed = 0});
+    m_collapses.emplace(id, Collapse{.id = id, .piece = std::move(piece), .plan = std::move(plan), .ticksElapsed = 0, .struck = {}});
   }
 }
 
@@ -657,7 +657,7 @@ bool World::Fall(Collapse& _collapse)
     {
       if (strip.contains({unit.cellVoxels.xVoxels, unit.cellVoxels.zVoxels}))
       {
-        m_tickCrushes.push_back({.unit = unitId, .collapse = _collapse.id, .dropVoxels = 0});
+        Strike(_collapse, unitId);
       }
     }
   }
@@ -666,12 +666,36 @@ bool World::Fall(Collapse& _collapse)
   const std::uint64_t fallTicks = std::max<std::uint32_t>(plan.fallTicks, 1);
   const std::uint64_t from = total * std::min<std::uint64_t>(fallTick - 1, fallTicks) / fallTicks;
   const std::uint64_t to = total * std::min<std::uint64_t>(fallTick, fallTicks) / fallTicks;
+  std::map<std::pair<std::int32_t, std::int32_t>, std::int32_t> filled; // column, highest voxel landed
   for (std::uint64_t index = from; index < to; ++index)
   {
     const PlacedVoxel& placed = plan.landing[static_cast<std::size_t>(index)];
     m_voxels.Edit(placed.position, placed.paletteIndex);
+    const auto [entry, added] = filled.emplace(std::pair{placed.position.xVoxels, placed.position.zVoxels}, placed.position.yVoxels);
+    entry->second = std::max(entry->second, placed.position.yVoxels);
+  }
+  // A unit whose cell the landing reaches is hit too, if the piece's leaving did not hit it already;
+  // step 9 lifts it (ADR-015, decision 7).
+  for (const auto& [unitId, unit] : m_units)
+  {
+    const auto column = filled.find({unit.cellVoxels.xVoxels, unit.cellVoxels.zVoxels});
+    if (column != filled.end() && column->second >= unit.cellVoxels.yVoxels)
+    {
+      Strike(_collapse, unitId);
+    }
   }
   return fallTick >= fallTicks;
+}
+
+void World::Strike(Collapse& _collapse, Protocol::EntityId _unit)
+{
+  const auto at = std::ranges::lower_bound(_collapse.struck, _unit);
+  if (at != _collapse.struck.end() && *at == _unit)
+  {
+    return;
+  }
+  _collapse.struck.insert(at, _unit);
+  m_tickCrushes.push_back({.unit = _unit, .collapse = _collapse.id, .dropVoxels = 0});
 }
 
 void World::SettleLoose()
@@ -906,7 +930,62 @@ void World::RebuildNavigation()
 
 void World::SettleUnits()
 {
-  // Step 9: units whose cells changed drop, rise or move (M2-F6).
+  // Step 9: units whose cells changed drop, rise or move, in unit-id order (M2-F6; ADR-015, decision
+  // 7). A drop over 3 m, three of the 1 m world's voxels, raises a crush event carrying it.
+  constexpr std::int32_t CRUSHING_DROP_VOXELS = 3;
+  const std::int32_t width = m_navigation.WidthCells();
+  std::set<Protocol::EntityId> displaced;
+  for (auto& [id, unit] : m_units)
+  {
+    const std::int32_t x = unit.cellVoxels.xVoxels;
+    const std::int32_t z = unit.cellVoxels.zVoxels;
+    const std::int16_t height = m_navigation.WalkableHeight(x, z);
+    if (height == NavigationGrid::NOT_WALKABLE || !m_navigation.Usable(x, z, unit.navigationClass))
+    {
+      // No longer walkable: to the nearest cell its class can use, ties to the lower index. Its squad
+      // forms its file again from where its figures stand.
+      const std::int64_t nearest = m_navigation.NearestUsable(x, z, unit.navigationClass);
+      if (nearest < 0)
+      {
+        continue;
+      }
+      const auto nearestX = static_cast<std::int32_t>(nearest % width);
+      const auto nearestZ = static_cast<std::int32_t>(nearest / width);
+      unit.cellVoxels = {.xVoxels = nearestX, .yVoxels = m_navigation.WalkableHeight(nearestX, nearestZ), .zVoxels = nearestZ};
+      unit.position = CellFloorMiddle(unit.cellVoxels);
+      displaced.insert(unit.squad);
+      continue;
+    }
+    if (height == unit.cellVoxels.yVoxels)
+    {
+      continue;
+    }
+    // Ground gone, it drops; its cell filled, it is lifted, and the collapse that filled it has hit
+    // it in step 6.
+    if (unit.cellVoxels.yVoxels - height > CRUSHING_DROP_VOXELS)
+    {
+      m_tickCrushes.push_back({.unit = id, .collapse = Protocol::NO_ENTITY, .dropVoxels = unit.cellVoxels.yVoxels - height});
+    }
+    unit.cellVoxels.yVoxels = height;
+    unit.position.yMeters = Core::Fixed::FromWhole(height);
+  }
+  for (const Protocol::EntityId squadId : displaced)
+  {
+    const auto squad = m_squads.find(squadId);
+    if (squad == m_squads.end())
+    {
+      continue;
+    }
+    squad->second.trail.clear();
+    for (const Protocol::EntityId unitId : squad->second.units)
+    {
+      Unit& unit = m_units.at(unitId);
+      unit.trailStep = 0;
+      unit.stepEffort = 0;
+      unit.position = CellFloorMiddle(unit.cellVoxels);
+    }
+    RequestSearch(squad->second);
+  }
 }
 
 void World::CheckRules()

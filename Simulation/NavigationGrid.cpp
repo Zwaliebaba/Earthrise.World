@@ -465,6 +465,39 @@ std::int64_t NavigationGrid::NearestReachable(std::int64_t _start, std::int64_t 
   return best;
 }
 
+std::int64_t NavigationGrid::NearestUsable(std::int32_t _x, std::int32_t _z, NavigationClass _class) const
+{
+  // Squares widening about the cell: a cell r cells off is at least 10 r away by octile distance, so
+  // once that passes the best found, nothing farther out can beat it.
+  std::int64_t best = -1;
+  std::int64_t bestDistance = INT64_MAX;
+  const std::int32_t farthest = std::max(m_desc.widthCells, m_desc.depthCells);
+  for (std::int32_t radius = 0; radius <= farthest && std::int64_t{10} * radius <= bestDistance; ++radius)
+  {
+    for (std::int32_t z = _z - radius; z <= _z + radius; ++z)
+    {
+      const bool edgeRow = z == _z - radius || z == _z + radius;
+      for (std::int32_t x = _x - radius; x <= _x + radius; x += edgeRow ? 1 : std::max(1, 2 * radius))
+      {
+        if (!Usable(x, z, _class))
+        {
+          continue;
+        }
+        const std::int64_t dx = std::abs(x - _x);
+        const std::int64_t dz = std::abs(z - _z);
+        const std::int64_t distance = 10 * std::max(dx, dz) + 4 * std::min(dx, dz);
+        const std::int64_t cell = std::int64_t{z} * m_desc.widthCells + x;
+        if (distance < bestDistance || (distance == bestDistance && cell < best))
+        {
+          best = cell;
+          bestDistance = distance;
+        }
+      }
+    }
+  }
+  return best;
+}
+
 std::size_t NavigationGrid::Components(NavigationClass _class) const
 {
   return m_componentOffsets.at(static_cast<std::size_t>(_class)).back();

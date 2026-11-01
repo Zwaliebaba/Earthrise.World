@@ -147,6 +147,10 @@ public:
   /// changed the grid since UpdateReach.
   [[nodiscard]] std::int64_t NearestReachable(std::int64_t _start, std::int64_t _goal, NavigationClass _class) const;
 
+  /// The cell nearest (_x, _z) by octile distance that a class can enter, ties to the lower index, or
+  /// -1 when it can enter none (M2-F6; ADR-015, decision 7).
+  [[nodiscard]] std::int64_t NearestUsable(std::int32_t _x, std::int32_t _z, NavigationClass _class) const;
+
   /// How many components a class's tiles hold between them. Current after UpdateReach.
   [[nodiscard]] std::size_t Components(NavigationClass _class) const;
 
