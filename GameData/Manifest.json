@@ -18,7 +18,7 @@
  "spec": "Design/RendererLook.md",
  "note": "Re-pathed from the package (Design/Reference/SiegePrototypeV2/manifest.json). Paths are relative to GameData/. Template costs are recounted under ADR-005: decorations cost as the material they sit in. For models, costM3 is absent: models set no costs. The .json is the only committed source; Tools/ExportVox.py writes a .vox beside it for MagicaVoxel (ADR-008). The runtime states of 2026-11-01, S3c, S3p, X1, X2, G1, G2 and D1 to D6, come from the owner's MVP assets v3 package (Design/Reference/MvpAssetsV3/), with the manifest's own field style, sizes of the occupied box and recounted voxels.",
  "debrisByRubble": {
-  "note": "Which debris models the client scatters over each rubble index (ADR-006, decision 5), from the v3 package (Design/Reference/MvpAssetsV3/). The asset check does not read it, and nothing bakes it yet; the client's debris is still the spike's own pieces.",
+  "note": "Which debris models the client scatters over each rubble index (ADR-006, decision 5), from the v3 package (Design/Reference/MvpAssetsV3/). Check 14 of the asset check reads it, and the client bake bakes it into Content's DebrisTable.h, each tint as the palette index of that colour (M3-B8); the client draws from it in M3-C3.",
   "table": [
    {
     "rubbleIndex": 8,

@@ -9,9 +9,9 @@ The game's content sources, split by who reads them ([ADR-008](../Design/ADR/ADR
 | `Server/Rules.json` | The tuning values the simulation decides by, each a decimal string named with its unit: spans, the collapse's warning, gravity, the shot and its craters, loose material, the navigation classes | | The simulation, converted into its units by the bake |
 | `Client/Models/` | One figure for each unit type (U1–U5, S2), the ram (S1), the trebuchet's three poses (S3 released, S3c cocked, S3p packed), its shot (X1), the open gates (G1, G2), six pieces of collapse debris (D1–D6), and the placeholder mantlet (P1) and banner (P2) drawn for the renderer spike | 0.5 m | The client |
 | `Client/Lines/` | Line models ([ADR-018](../Design/ADR/ADR-018-line-models-and-the-line-pass.md)): the arrow (X2), the one model that is not voxels, as coloured segments along its axis with their widths in screen pixels, a drawn length and a dot rule | None | The client |
-| `Client/Fonts/` | Earthrise Mason: `EarthriseMason-glyphs.json`, the source | | The client ([Design/Hud.md](../Design/Hud.md) §9) |
+| `Client/Fonts/` | Earthrise Mason: `EarthriseMason-glyphs.json`, the source | | The client, which the bake gives its bitmaps ([Design/Hud.md](../Design/Hud.md) §9; [ADR-019](../Design/ADR/ADR-019-text-and-the-interface-pass.md), decision 1) |
 | `Illustrations/` | Squads (U2–U5, S2) and six laborers at 0.5 m; earthworks (E1, E2) and material samples (M1, M2) at 1 m | Both | Nobody: documentation and tests |
-| `Manifest.json` | Every asset: id, kind, grid, files, size, voxel count, counted cost, critical part, known issues; a pose's placement and a gate model's attachment; and `debrisByRubble`, which debris the client scatters over which rubble. Paths are relative to this folder | | The asset check |
+| `Manifest.json` | Every asset: id, kind, grid, files, size, voxel count, counted cost, critical part, known issues; a pose's placement and a gate model's attachment; and `debrisByRubble`, which debris the client scatters over which rubble. Paths are relative to this folder | | The asset check, and the client bake for `debrisByRubble` |
 
 ## Working with assets
 

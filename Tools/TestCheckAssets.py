@@ -36,6 +36,7 @@ M1_LAYER_FILE = "Illustrations/earthrise-m1-ground-strata-1m.json"
 SPEARMAN = "Client/Models/earthrise-u2-spearman-05m.json"
 ARCHER = "Client/Models/earthrise-u3-archer-05m.json"
 ARROW = "Client/Lines/earthrise-x2-arrow.json"
+FONT = "Client/Fonts/EarthriseMason-glyphs.json"
 MANIFEST = "Manifest.json"
 PALETTE = "Server/Palette.json"
 RULES = "Server/Rules.json"
@@ -157,6 +158,14 @@ def BadColor(_palette):
   next(m for m in _palette["materials"] if m["index"] == 1)["hex"] = "#zzzzzz"
 
 
+def GlyphOf(_font, _char):
+  return next(glyph for glyph in _font["glyphs"] if glyph["char"] == _char)
+
+
+def DebrisRow(_manifest, _rubbleIndex):
+  return next(row for row in _manifest["debrisByRubble"]["table"] if row["rubbleIndex"] == _rubbleIndex)
+
+
 def Legend(_char, _index):
   return lambda d: d["legend"][_char].update(material=_index)
 
@@ -257,6 +266,24 @@ BROKEN = {
                              "is a line model that Manifest.json does not list"),
   "a voxel model among the line models": (lambda r: shutil.copy(r / "GameData" / SPEARMAN, r / "GameData" / "Client" / "Lines" / "u2-05m.json"),
                                           "is not a line model: Client/Lines/ holds line models"),
+  # 13. The font.
+  "a glyph's row wider than the glyph": (lambda r: Change(r, FONT, lambda f: GlyphOf(f, "1")["rows"].__setitem__(0, "..#...")),
+                                         "has the row '..#...', which is not 5 wide, as its w says"),
+  "a glyph's row of another character": (lambda r: Change(r, FONT, lambda f: GlyphOf(f, "1")["rows"].__setitem__(0, "..X..")),
+                                         "has the row '..X..', which is not made of . and #"),
+  "a glyph below the cell": (lambda r: Change(r, FONT, lambda f: GlyphOf(f, "1").update(top=4)),
+                             "7 rows from its top 4 do not fit the 10-row cell"),
+  "a code point twice": (lambda r: Change(r, FONT, lambda f: GlyphOf(f, "2").update(code=49)), "is the second glyph for U+0031"),
+  "a symbol missing": (lambda r: Change(r, FONT, lambda f: f["glyphs"].remove(GlyphOf(f, "·"))), "lacks the symbol(s) ·"),
+  "an icon not marked as one": (lambda r: Change(r, FONT, lambda f: GlyphOf(f, "\ue018").update(icon=False)),
+                                "lacks the command icon(s) U+E018"),
+  # 14. The debris table.
+  "debris naming a model that does not exist": (lambda r: Change(r, MANIFEST, lambda m: DebrisRow(m, 26).update(debris=["D9"])),
+                                                "names the model 'D9', which is not in GameData/Client/Models/"),
+  "debris on an index that is no rubble": (lambda r: Change(r, MANIFEST, lambda m: DebrisRow(m, 26).update(rubbleIndex=6)),
+                                           "names index 6, which is not a palette index whose behaviour is a rubble"),
+  "a debris tint no palette entry has": (lambda r: Change(r, MANIFEST, lambda m: DebrisRow(m, 28).update(tint="#123456")),
+                                         "has the tint '#123456', which is not exactly one palette entry's colour"),
 }
 
 
