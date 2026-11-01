@@ -46,6 +46,7 @@ void World::Submit(std::uint8_t _player, std::span<const std::byte> _command)
 
 void World::Tick()
 {
+  m_tickCrushes.clear();
   ApplyCommands();
   AdvanceJobs();
   MoveUnits();
@@ -135,6 +136,11 @@ const std::map<Protocol::EntityId, Collapse>& World::Collapses() const noexcept
 std::span<const ShotHit> World::LastTickHits() const noexcept
 {
   return m_tickHits;
+}
+
+std::span<const CrushEvent> World::LastTickCrushes() const noexcept
+{
+  return m_tickCrushes;
 }
 
 std::span<const Protocol::VoxelPosition> World::LastTickEdits() const noexcept
@@ -350,11 +356,60 @@ void World::SearchSupport()
 
 void World::AdvanceCollapses()
 {
-  // Step 6: each collapse in id order counts its warning down; no voxel of a piece moves during it.
+  // Step 6: each collapse in id order counts its warning down, during which no voxel of its piece
+  // moves, then falls (M2-E4). Its edits are searched in the next tick's step 5, so a cascade starts
+  // a tick later (ADR-004, decision 3).
+  std::vector<Protocol::EntityId> ended;
   for (auto& [id, collapse] : m_collapses)
   {
     ++collapse.ticksElapsed;
+    if (collapse.ticksElapsed > collapse.plan.warningTicks && Fall(collapse))
+    {
+      ended.push_back(id);
+    }
   }
+  for (const Protocol::EntityId id : ended)
+  {
+    m_collapses.erase(id);
+  }
+}
+
+bool World::Fall(Collapse& _collapse)
+{
+  const CollapsePlan& plan = _collapse.plan;
+  const std::uint32_t fallTick = _collapse.ticksElapsed - plan.warningTicks; // from 1
+  if (fallTick == 1)
+  {
+    // The piece leaves the grid on the fall's first tick, and every unit standing in the strip is hit,
+    // once (items 5 and 8).
+    for (const Protocol::VoxelPosition& voxel : _collapse.piece)
+    {
+      m_voxels.Edit(voxel, Protocol::Chunk::EMPTY);
+    }
+    std::set<std::pair<std::int32_t, std::int32_t>> strip;
+    for (const Protocol::VoxelPosition& column : plan.strip)
+    {
+      strip.insert({column.xVoxels, column.zVoxels});
+    }
+    for (const auto& [unitId, unit] : m_units)
+    {
+      if (strip.contains({unit.cellVoxels.xVoxels, unit.cellVoxels.zVoxels}))
+      {
+        m_tickCrushes.push_back({.unit = unitId, .collapse = _collapse.id, .dropVoxels = 0});
+      }
+    }
+  }
+  // The landing arrives in equal parts over the fall's ticks, nearest the foot first.
+  const std::uint64_t total = plan.landing.size();
+  const std::uint64_t fallTicks = std::max<std::uint32_t>(plan.fallTicks, 1);
+  const std::uint64_t from = total * std::min<std::uint64_t>(fallTick - 1, fallTicks) / fallTicks;
+  const std::uint64_t to = total * std::min<std::uint64_t>(fallTick, fallTicks) / fallTicks;
+  for (std::uint64_t index = from; index < to; ++index)
+  {
+    const PlacedVoxel& placed = plan.landing[static_cast<std::size_t>(index)];
+    m_voxels.Edit(placed.position, placed.paletteIndex);
+  }
+  return fallTick >= fallTicks;
 }
 
 void World::SettleLoose()

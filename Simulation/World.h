@@ -101,6 +101,14 @@ struct Collapse
   std::uint32_t ticksElapsed; // step 6s since it started: the warning, then the fall
 };
 
+/// A unit hit by a collapse or a fall: what M4 turns into damage.
+struct CrushEvent
+{
+  Protocol::EntityId unit;
+  Protocol::EntityId collapse; // the collapse that hit it, or NO_ENTITY for a fall
+  std::int32_t dropVoxels;     // how far it fell, for a fall (M2-F6), or 0
+};
+
 /// Where a shot struck: the first solid voxel on its way, and the way it was going along its larger
 /// horizontal axis, ties to x, which is what "behind" means for its crater (M2-E2).
 struct ShotHit
@@ -185,6 +193,9 @@ public:
   /// Where the last tick's shots struck, in shot-id order.
   [[nodiscard]] std::span<const ShotHit> LastTickHits() const noexcept;
 
+  /// The units the last tick's collapses and falls hit, in the order it hit them.
+  [[nodiscard]] std::span<const CrushEvent> LastTickCrushes() const noexcept;
+
   /// The voxels the last tick edited, edits made before it between ticks included: its TickEdits as
   /// they stood at its end, each once, in first-edit order.
   [[nodiscard]] std::span<const Protocol::VoxelPosition> LastTickEdits() const noexcept;
@@ -221,6 +232,8 @@ private:
 
   void Apply(std::uint8_t _player, const Protocol::Command& _command);
   void Fire(std::uint8_t _player, const Protocol::FireEngine& _fire);
+  /// Runs one tick of a collapse's fall; returns whether it has ended.
+  [[nodiscard]] bool Fall(Collapse& _collapse);
   /// Whether a shot that reached _point has left the world.
   [[nodiscard]] bool OutsideWorld(const FixedPosition& _point) const noexcept;
 
@@ -236,6 +249,7 @@ private:
   std::map<Protocol::EntityId, Shot> m_shots;
   std::map<Protocol::EntityId, Collapse> m_collapses;
   std::vector<ShotHit> m_tickHits;
+  std::vector<CrushEvent> m_tickCrushes;
   // The edits made after the last step 5 in the tick before: its steps 6 and 7. The next step 5
   // searches them with its own tick's edits so far (MvpPlan.md, *One simulation tick*).
   std::vector<Protocol::VoxelPosition> m_unsearchedEdits;
