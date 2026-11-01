@@ -1,20 +1,20 @@
 <Solution>
   <Configurations>
-    <BuildType Name="Debug" />
-    <BuildType Name="Release" />
     <Platform Name="ARM64" />
     <Platform Name="x64" />
   </Configurations>
-  <Project Path="Core/Core.vcxproj" />
-  <Project Path="Engine/Engine.vcxproj" />
-  <Project Path="Protocol/Protocol.vcxproj" />
-  <Project Path="Content/Content.vcxproj" />
-  <Project Path="Simulation/Simulation.vcxproj" />
-  <Project Path="RendererSpike/RendererSpike.vcxproj" />
-  <Project Path="SimulationBench/SimulationBench.vcxproj" />
-  <Project Path="CoreTests/CoreTests.vcxproj" />
-  <Project Path="EngineTests/EngineTests.vcxproj" />
-  <Project Path="ProtocolTests/ProtocolTests.vcxproj" />
-  <Project Path="ContentTests/ContentTests.vcxproj" />
-  <Project Path="SimulationTests/SimulationTests.vcxproj" />
+  <Folder Name="/Tests/">
+    <Project Path="ContentTests/ContentTests.vcxproj" Id="54ad5bdc-ed04-50f3-840f-b653d8251502" />
+    <Project Path="CoreTests/CoreTests.vcxproj" Id="055b6481-0743-5038-a4fc-8bdbd28ec069" />
+    <Project Path="EngineTests/EngineTests.vcxproj" Id="dc956b9c-d5a3-509c-a73b-64f7536bb4b2" />
+    <Project Path="ProtocolTests/ProtocolTests.vcxproj" Id="17e5bffa-7941-527b-85cd-957ffe353de9" />
+    <Project Path="SimulationTests/SimulationTests.vcxproj" Id="4eba4671-ed63-52c4-82de-30e452675d9f" />
+  </Folder>
+  <Project Path="Content/Content.vcxproj" Id="e8120d3b-eed3-501f-bf4a-f241b23e38a0" />
+  <Project Path="Core/Core.vcxproj" Id="f55f6479-8894-56ea-bbbd-e1f4c2812b37" />
+  <Project Path="Engine/Engine.vcxproj" Id="638aab1b-ae02-520e-927c-1cddccacb4ac" />
+  <Project Path="Protocol/Protocol.vcxproj" Id="287cbec4-bb6b-5814-8635-28ed704782a0" />
+  <Project Path="RendererSpike/RendererSpike.vcxproj" Id="02c6fb36-d00e-54b9-a50d-965ea666e0d8" />
+  <Project Path="Simulation/Simulation.vcxproj" Id="d9c86e98-fc2c-536f-8658-b2ea71c141a1" />
+  <Project Path="SimulationBench/SimulationBench.vcxproj" Id="825fd88f-5bfb-52e9-86e4-9f97774b4057" />
 </Solution>

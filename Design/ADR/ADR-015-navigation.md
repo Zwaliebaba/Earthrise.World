@@ -66,7 +66,7 @@ It fixes the model and leaves the search algorithm to the navigation orders, whi
    - **Left to the navigation orders:** the search algorithm, and how reach is known without searching the map. Phase F chooses them on M2's measurements, and the commit that implements them records them here.
 6. **Units follow their squad's path, in fixed point.**
    - Figures and engines move between cell centres along links, at their class speed. Positions are `Core::Fixed` (ADR-013), and a figure stands at its cell's height.
-   - How figures arrange about the path, and how they keep apart, comes with combat in M4. Until then they may pass through each other.
+   - How figures arrange about the path, and how they keep apart, comes with combat in M4, which schedules it as *formations and separation* ([MvpPlan.md](../MvpPlan.md), M4). Until then they may pass through each other.
 7. **Units whose cells change are moved in one step, after the rebuild.** The step runs in unit-id order:
    - **Ground gone:** a unit whose cell's height fell drops to it. A drop over 3 m raises a crush event that carries the drop. The damage it does is M4's statistics.
    - **Cell filled:** a unit whose cell's height rose is lifted to the new surface, with the collapse's damage when a collapse filled it.
@@ -97,5 +97,5 @@ It fixes the model and leaves the search algorithm to the navigation orders, whi
 - **The search algorithm** and **how reach is answered** without searching the map, chosen by the navigation orders on M2's measurements.
 - **A tile-level graph** (Botea, Müller and Schaeffer, *Near optimal hierarchical path-finding*, 2004), if cross-map searches run too far past the budget.
 - **Flow fields for many units** with one goal.
-- **Formations and separation,** in M4.
+- **Formations and separation,** scheduled in M4 with its own done-when ([MvpPlan.md](../MvpPlan.md), M4). An ADR records how figures keep apart when it is built. Like the rest of movement, it stays inside navigation: nothing pushes a unit (ADR-004, decision 6).
 - **The trebuchet's packed width,** once its packed model is drawn.

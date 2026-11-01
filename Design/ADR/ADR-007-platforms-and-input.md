@@ -13,7 +13,7 @@ These facts bear on that:
 - **The owner's target Surface Pro runs a Snapdragon X, which is ARM64.** Until now AGENTS.md allowed x64 only and set `/arch:AVX2` for every project. Windows runs x64 code on ARM64 by emulation, at a cost in CPU time.
 - **Windows 11 requires Armv8.1 atomics (LSE) on ARM64** (Windows 11 minimum hardware requirements, processor section). Snapdragon X parts are on Windows 11 24H2's list of supported processors. MSVC targets ARM64 extensions with `/arch:armv8.x`, and features such as LSE with a `+lse` suffix (Microsoft Learn, `/arch` (ARM64)).
 - **Floating point is not bit-identical across the two architectures.** The CRT's math functions and DirectXMath's SIMD paths differ between x64 and ARM64. MSVC does not contract `a*b+c` into an FMA under `/fp:precise` unless `/fp:contract` is given, which has been the default since Visual Studio 2022 (Microsoft Learn, `/fp`). So the remaining differences come from libraries, not from contraction.
-- **The GPU pass mark is an RTX 3060-class GPU at 1920 × 1080** (GameDesign.md, *Renderer spike*). The Surface's GPU is integrated and shares memory bandwidth with the CPU, and its panel has more pixels than 1080p. How far it falls short has not been measured.
+- **The GPU pass mark is an RTX 3060-class GPU at 1920 × 1080** (GameDesign.md, *Renderer spike*). Amended 2026-11-01: the benchmark is the owner's RTX 3070 Ti Laptop GPU (GameDesign.md, *Closing M0 and M1*). The Surface's GPU is integrated and shares memory bandwidth with the CPU, and its panel has more pixels than 1080p. How far it falls short has not been measured.
 - **ADR-001's method is untested on mobile GPUs.** It shades every voxel quad with a ray-box test, discards the misses and writes depth. Mobile GPU designs bin geometry into tiles and remove hidden surfaces before shading; discarding and writing depth defeat that removal. ADR-001's cost on such a GPU is unknown until it is measured.
 - **Touch has no hover, and a fingertip is large.** At the default zoom a fingertip covers several units (RendererLook.md).
 - **Android has neither Direct3D 12 nor MSVC.** R12 makes graphics Direct3D 12, and R14 admits only the Windows SDK and the MSVC standard library.
@@ -41,7 +41,7 @@ These facts bear on that:
    - **The touch scheme** follows a positive MVP verdict.
    - **Android** has no date and is not a target. R12 and R14 stand. An Android port needs its own ADR reopening them, for a Vulkan backend, a toolchain other than MSVC, and HLSL compiled to SPIR-V.
 6. **The Surface Pro is measured from M1,** once one is available: the owner has none yet (GameDesign.md, 2026-10-31).
-   - The renderer spike runs natively on a Snapdragon X Surface Pro beside the RTX 3060-class machine, and records the voxel pass's cost on both.
+   - The renderer spike runs natively on a Snapdragon X Surface Pro beside the benchmark machine, and records the voxel pass's cost on both.
    - The Surface is measured at a reduced internal resolution, so the render resolution is separate from the display's from the start.
    - The owner sets the Surface's pass mark from those figures.
 
@@ -50,7 +50,7 @@ These facts bear on that:
 - **AGENTS.md changes:** two platforms (§3), the ARM64 floor and the corrected note on contraction (R16), what CI builds (§6), and the checklist (§7).
 - **CI builds Debug|x64 only** (amended 2026-10-31, by the owner; CI first cross-compiled Debug|ARM64 beside it). The test suites run on x64 in CI. Debug|ARM64 is built by hand before anyone claims it builds, and the suites are run on the Surface by hand before anyone claims something about ARM64 behaviour. `Build/CheckProjectFiles.py` still holds the two platforms to the same settings in CI, but code for one architecture only, which this ADR forecloses, is caught only by an ARM64 build.
 - **`Build/CheckProjectFiles.py`** checks that x64 and ARM64 agree on every setting outside decision 1's list, as it checks Debug against Release.
-- **The spike needs two machines:** a Snapdragon X Surface Pro as well as the RTX 3060-class one.
+- **The spike needs two machines:** a Snapdragon X Surface Pro as well as the benchmark machine, with its RTX 3070 Ti Laptop GPU.
 - **The renderer has a render resolution of its own** and scales to the display. AGENTS.md R12 leaves resolution and scaling to be decided when the renderer is built; this settles that the two resolutions are separate, not their values or the scaling method.
 
 ## What this forecloses

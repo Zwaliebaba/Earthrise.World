@@ -69,7 +69,7 @@ The [review](Review/GameDescription-2026-10-31.md) of the game description kept 
 
 ### 2026-10-31: the MVP's open questions
 
-1. **The spike's pass mark.** An RTX 3060-class GPU at 1920×1080 and 60 frames a second. A frame is 16.7 ms, of which the voxel pass may take 8 ms at the default zoom.
+1. **The spike's pass mark.** An RTX 3060-class GPU at 1920×1080 and 60 frames a second. A frame is 16.7 ms, of which the voxel pass may take 8 ms at the default zoom. (The benchmark became an RTX 3070 Ti Laptop GPU on 2026-11-01: *Closing M0 and M1*.)
 2. **The Trials' roster.** Each trial gives the player a fixed army of spearmen, archers, outriders and men-at-arms, with the ram, sappers and the trebuchet. The Trials need no unit training, provisions, iron or fields.
 3. **Content.** The MVP uses only art, fonts and sound made for the project or in the public domain, and no licensed assets.
 4. **The MVP ends at the verdict on the Trials.** Skirmish is built after it, under its own plan, once both pillars pass.
@@ -175,7 +175,7 @@ The owner settled the open items of the readiness review ([Review/MvpReadiness-2
    - The plan's estimates are rescaled from the real pace of the first milestones. (Since 2026-11-01 the plan forecasts calendar weeks and owner hours instead, *Planning M2*.)
 2. **MvpPlan.md is accepted through M2,** together with the renderer spike's six questions, its pass mark and the 1 m kill criterion. M3 to M7 stay Proposed until after M1.
 3. **How the pass mark is measured:**
-   - on a desktop RTX 3060 at 1920 × 1080;
+   - on a desktop RTX 3060 at 1920 × 1080 (on the owner's RTX 3070 Ti Laptop GPU instead, from 2026-11-01: *Closing M0 and M1*);
    - as the 95th percentile of the voxel pass's GPU time, shadow passes included;
    - over a scripted camera path at the default zoom through all four rotations;
    - with units moving and the scripted edits running.
@@ -192,7 +192,7 @@ The owner settled the open items of the readiness review ([Review/MvpReadiness-2
    - **Quarrying runs at 94 voxels a second,** the four-faction peak. The design review back-solved 28,000–94,000 edits a second at 10 cm for two to four factions (F-51), which is 28–94 at 1 m. If the pass mark holds at the peak, it holds for every smaller match.
    - **The wall collapse** is the 8 m T3 section of the west curtain just north of the breach, at 10 s into the 60 s path, while the camera is on the west side. Its stone falls as a heap of rubble at its foot.
    - **Units move:** each walks a circle 2 m across about its place in the v5 scene, at 1.4 m/s, seeded and stepped by frame like the path.
-4. **Hardware:** the owner has the RTX 3060-class machine but no Surface Pro yet. The Surface's measurement waits until one is available, and its pass mark stays open ([ADR-007](ADR/ADR-007-platforms-and-input.md)).
+4. **Hardware:** the owner has the RTX 3060-class machine but no Surface Pro yet. (That machine is the benchmark, an RTX 3070 Ti Laptop GPU: *Closing M0 and M1*.) The Surface's measurement waits until one is available, and its pass mark stays open ([ADR-007](ADR/ADR-007-platforms-and-input.md)).
 5. **The spike's scene takes its layout from the v5 scene,** which is already on the 1 m grid ([Reference/SiegePrototypeV2/](Reference/SiegePrototypeV2/)). A seeded scene script places it. The implementer draws placeholder models for what `GameData/` lacks (trees, cottages, mantlets, banners and stock stacks; in the event, trees and cottages became 1 m world voxels and the stock is T8's, [MvpAssets.md](MvpAssets.md)), and the owner may replace them with Claude Design versions.
 6. **Two exceptions to R14** (AGENTS.md): test projects use Visual Studio's native unit-test framework, which vstest runs and which never reaches the game, and build-time tools run on Python, which never ships.
 7. **The paper tests' open values** (the stone span, the anchor depth, the questions per prediction item, how a wave scores and picks, and the repair spreadsheet's pass mark) are picked by the implementer. Each is recorded as Proposed with its reason, and the owner confirms or changes them after the results.
@@ -253,11 +253,20 @@ The owner settled what M1's remaining tasks needed and no document gave (MvpPlan
 8. **The 0.5 m world for ADR-006's comparison is the test scene with each 1 m voxel split into eight,** so the two columns differ only in voxel size.
 9. **The test world is built in Simulation,** so the renderer spike and `SimulationBench` measure the same town. Simulation takes its templates through a lookup and never reads client content. Until the server bake writes the templates (M2), both executables hand it Content's, so `SimulationBench` depends on Content until then ([ADR-010](ADR/ADR-010-solution-and-build-layout.md), amended).
 
+### 2026-11-01: closing M0 and M1
+
+The owner closed M0 and M1 on the renderer spike's measurements ([Review/M1Report-2026-11-01.md](Review/M1Report-2026-11-01.md)).
+
+1. **The benchmark is the owner's laptop, with an NVIDIA GeForce RTX 3070 Ti Laptop GPU,** in place of a desktop RTX 3060. The pass mark is otherwise unchanged: the voxel pass, shadow passes included, inside 8 ms at 1920 × 1080 at the 95th percentile, measured as *Starting the MVP*, item 3, says. Every timing from here on, the M2 tick's included, is taken on that machine.
+2. **M0's breach-prediction gate is waived.** The paper test was built but never taken, and M0 closes without it. ADR-006's own reading of prediction accuracy, in the M3 breach lab, is unchanged.
+3. **RendererLook.md's acceptance checks pass on screen,** judged by the owner. Check 10, the pass mark, passes on the benchmark at 2.16 ms, so the kill criterion does not fire and ADR-001 stands. Question 4 calls for no lighting ADR.
+4. **M0 and M1 are closed.** The Surface's measurement still waits for a Surface (*Starting the MVP*, item 4). Nothing from M1 holds M2 back; M2's revision of 2026-11-01 and ADR-013 to ADR-016 are still Proposed.
+
 ### 2026-11-01: planning M2
 
 The owner settled how M2 is planned and when it starts ([MvpPlan.md](MvpPlan.md), M2).
 
-1. **No M2 code until M1 closes.** M2 starts once the pass mark is measured on the RTX 3060 machine, ADR-006's table is filled in, and M1 is signed off. Until then M2 is planned on paper only.
+1. **No M2 code until M1 closes.** M2 starts once the pass mark is measured on the benchmark machine, ADR-006's table is filled in, and M1 is signed off. Until then M2 is planned on paper only. (M1 closed the same day, *Closing M0 and M1*.)
 2. **Effort is not estimated, and there is no build budget.**
    - FTE-months and FTE-days are dropped from the plan.
    - The build budget is removed, with its cut order. What to cut, if scope must shrink, is the owner's call when it arises.
@@ -272,7 +281,7 @@ The owner settled how M2 is planned and when it starts ([MvpPlan.md](MvpPlan.md)
 The owner answered MvpPlan.md's thirteen M2 inputs, taking each proposal as written (work order M2-A1). Input 13 is the implementer's, measured in M2 and recorded here as Proposed when it is. The same day, after a check of the documents' consistency, the owner changed item 7 and settled items 14 to 16.
 
 1. **ADR-013 to ADR-016 have the go-ahead,** as written. Each is marked Accepted by the commit that first implements it. With ADR-014's go-ahead, a scenario is a baked source, not a save (decision 7), and the MVP's line on scenarios changed with it.
-2. **A tick takes at most 25 ms at the 95th percentile,** on one core of the RTX 3060 machine, measured in `SimulationBench` over the M2 breach run. That is half of a 50 ms tick.
+2. **A tick takes at most 25 ms at the 95th percentile,** on one core of the benchmark machine (*Closing M0 and M1*, item 1), measured in `SimulationBench` over the M2 breach run. That is half of a 50 ms tick.
 3. **The generator makes the MVP map** at 512 m × 512 m and 64 m high:
    - the relief and soil depths of M1's test ground, carried over the map;
    - bedrock depth varying, so that thin soil over rock and deep earth both occur;
@@ -438,12 +447,12 @@ The spike is the first code in the repository. It conforms to AGENTS.md like any
 
 1. **Voxel size.** It is decided: a 1 m world and simulation, with 0.5 m models ([ADR-006](ADR/ADR-006-voxel-sizes.md), [RendererLook.md](RendererLook.md)). The spike shows it at the default zoom, the closest and the farthest, and checks the look's acceptance tests on screen. It measures a 0.5 m world too, so that ADR-006 is decided on figures.
 2. **Camera.** It is decided: orthographic, 34° above the horizon, rotating in 90° steps, from about 12 m to about 260 m of view height. The spike checks it on a ditched wall and a terraced pit added to the scene, with units drawn as their 0.5 m models. It also checks that unit classes and sides can be told apart at the default zoom.
-3. **Cost.** GPU time at the default and the farthest zoom, measured on stated hardware: the RTX 3060-class machine, and natively on a Snapdragon X Surface Pro at a reduced internal resolution ([ADR-007](ADR/ADR-007-platforms-and-input.md)).
+3. **Cost.** GPU time at the default and the farthest zoom, measured on stated hardware: the benchmark machine, with an RTX 3070 Ti Laptop GPU, and natively on a Snapdragon X Surface Pro at a reduced internal resolution ([ADR-007](ADR/ADR-007-platforms-and-input.md)).
 4. **Look.** Whether shadow maps, baked corner shading and jittered colour reach RendererLook.md's acceptance checks. If they fall short, a lighting ADR follows: traced shadows and occlusion through a voxel occupancy volume, or DXR for secondary rays, which ADR-001 leaves room for.
 5. **Edits.** The scene runs quarrying at the peak rate the Skirmish tempo implies, back-solved from template volumes at 1 m, and one wall collapse. The spike measures the cost of rebuilding an edited chunk's render records, its neighbours' corner shading included. No world voxel falls below about 4 px anywhere in the zoom range, and units switch to impostors below 3 px. So ADR-001's stochastic pruning is not used, and the problem of finding a pruning key that survives edits does not arise.
 6. **Simulation cost** at 1 m, and at 0.5 m for comparison: memory for the MVP map, one support search on the test town after a breach, and one navigation tile rebuild. It measures the same on a synthetic, headless world of 2 km × 2 km that carries a season's edits and a dozen sieges at once.
 
-The pass mark is decided: an RTX 3060-class GPU at 1920×1080 and 60 frames a second, with the voxel pass inside 8 ms of the 16.7 ms frame at the default zoom. It is measured on a desktop RTX 3060 as the 95th percentile of the voxel pass's GPU time, shadow passes included, over a scripted camera path at the default zoom through all four rotations, with units moving and the scripted edits running. The Surface's pass mark is set from the spike's figures once a Surface is available.
+The pass mark is decided: the benchmark GPU, an RTX 3070 Ti Laptop GPU, at 1920×1080 and 60 frames a second, with the voxel pass inside 8 ms of the 16.7 ms frame at the default zoom. It was first set on an RTX 3060-class GPU; the owner made the laptop the benchmark on 2026-11-01 (*Closing M0 and M1*). It is measured on that GPU as the 95th percentile of the voxel pass's GPU time, shadow passes included, over a scripted camera path at the default zoom through all four rotations, with units moving and the scripted edits running. The Surface's pass mark is set from the spike's figures once a Surface is available.
 
 Its output is ADR-006's table of measurements, for the 1 m baseline and for a 0.5 m world, plus the same measurements on the Surface. If question 4 calls for one, a lighting ADR follows. The spike needs Windows and a Direct3D 12 GPU to build and run, and a Snapdragon X Surface Pro for its ARM64 figures.
 
