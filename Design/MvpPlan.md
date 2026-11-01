@@ -381,12 +381,12 @@ The plan credits what M1 already built: the chunk store, a first support search,
 |---|---|---|---|---|---|---|---|
 | Plan | 2026-11-01 | 2026-11-01 | #32 | 4 | 1 | | This plan, the work orders and ADR-013 to ADR-016, Proposed. Owner hours for the owner to log |
 | A | 2026-11-01 | 2026-11-01 | #32 | 1 | 1 | | The owner's 13 answers, in the plan's PR because they edit the files it adds. Owner hours for the owner to log |
-| B | | | | | | | |
-| C | | | | | | | |
-| D | | | | | | | |
-| E | | | | | | | |
-| F | | | | | | | |
-| G | | | | | | | |
+| B | 2026-11-01 | 2026-11-01 | #42 | 6 | 6 | | B1–B6. One draft PR for B to G by the owner's choice. Owner runs: the spike after B2, B4 and B6. Owner hours for the owner to log |
+| C | 2026-11-01 | 2026-11-01 | #42 | 6 | 6 | | C1–C5; C4 took two commits and two runs, its fix a commit of its own (clang-tidy 22, `bugprone-exception-escape`). Owner hours for the owner to log |
+| D | 2026-11-01 | 2026-11-01 | #42 | 4 | 4 | | D1–D3; D3 took two commits and two runs, its fix a commit of its own (clang-tidy 22, `bugprone-integer-division`). Owner runs: the spike with `--generated-map`. Owner hours for the owner to log |
+| E | 2026-11-01 | 2026-11-01 | #42 | 7 | 7 | | E1–E7. Owner hours for the owner to log |
+| F | 2026-11-01 | 2026-11-01 | #42 | 6 | 6 | | F1–F6. Cavalry and machines have no speed yet, and cannot cross the generated map (ADR-015). Owner hours for the owner to log |
+| G | 2026-11-01 | 2026-11-01 | #42 | 3 | 3 | | G1–G3; the report is [Review/M2-2026-11-01.md](Review/M2-2026-11-01.md). Owner runs: `SimulationBench --breach-run` on the benchmark machine. Owner hours for the owner to log |
 
 ### M3 — Breach lab
 
@@ -402,6 +402,11 @@ The plan credits what M1 already built: the chunk store, a first support search,
 Run it with six people (F-48).
 
 **Done when** the median prediction accuracy on items split evenly between open and shut reaches 0.65 or better. If it falls short, legibility is reworked before M4. That rework counts toward the one round the kill criterion allows (GameDesign.md, *Kill criteria*).
+
+**M3's forecast, from M2's pace** (written 2026-11-01, when M2's orders were done; a judgment, not a measurement):
+- **M2's pace.** Its 30 orders from B1 to G3 were implemented in one calendar day, in 32 commits and, by the time the report was written, as many CI runs; two orders needed a second run, both for a lint the container could not reach. The owner's hours are not yet logged, so the ratio of hours to forecast is still missing, as it was after M1.
+- **What does not carry over.** M2 was headless: every order could be built and tested in a container and confirmed by CI. M3 is a client, and AGENTS.md requires anything that draws or takes input to be run and looked at, which only the owner's Windows machine can do. Each order that draws needs an owner run, and the done-when needs six people (F-48).
+- **The forecast.** The code at M2's pace is days, not weeks. The calendar is set by the owner's runs, about one an order that draws, and by gathering six people for the test: **2 to 4 calendar weeks, and about 25 to 35 owner hours,** of which the six-person run and its preparation are about 10. The breach M2 found, one slot and a rubble ramp after five shots and 88 s (the [M2 report](Review/M2-2026-11-01.md)), is what M3's players will be asked to predict; if the owner judges it does not read as a breach, the rules change first, and that time is not in this forecast.
 
 ### M4 — Siege trial
 
