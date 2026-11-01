@@ -1,6 +1,6 @@
 # ADR-018 — Line models, and the instanced line pass that draws them
 
-**Status:** Proposed, 2026-11-01. It records the one decision the owner's MVP assets v3 package makes ([Reference/MvpAssetsV3/](../Reference/MvpAssetsV3/)): the arrow is not a voxel model. It binds nothing until the owner gives it the go-ahead (AGENTS.md §6), and the commit that first implements the pass marks it Accepted. What is already in the tree ahead of it is content and tooling that nothing draws yet: the arrow's file, its check, its bake and `Content::LineModelView` (decisions 1 and 2). It amends [ADR-006](ADR-006-voxel-sizes.md), decision 2, with its one exception, and adds a pass to the renderer, which AGENTS.md R12 makes an ADR.
+**Status:** Proposed, 2026-11-01. It records the one decision the owner's MVP assets v3 package makes ([Reference/MvpAssetsV3/](../Reference/MvpAssetsV3/)): the arrow is not a voxel model. The owner gave it the go-ahead on 2026-11-01, as written, with M4's plan (MvpPlan.md, M4, input 1; GameDesign.md, *M4's values*, item 1); order M4-G1, the commit that first implements the pass, marks it Accepted (AGENTS.md §6). What is already in the tree ahead of it is content and tooling that nothing draws yet: the arrow's file, its check, its bake and `Content::LineModelView` (decisions 1 and 2). It amends [ADR-006](ADR-006-voxel-sizes.md), decision 2, with its one exception, and adds a pass to the renderer, which AGENTS.md R12 makes an ADR.
 
 ## Context
 

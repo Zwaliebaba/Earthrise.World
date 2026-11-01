@@ -1,6 +1,6 @@
 # ADR-023 — Units and combat: statistics as server data, damage as integers, arrows as physical shots
 
-**Status:** Proposed, 2026-11-01, with the M4 plan ([MvpPlan.md](../MvpPlan.md), M4; [MvpPlan-M4.md](../MvpPlan-M4.md)). It records how M4's units fight: where their statistics live, how damage is worked out, how arrows fly, and how engines, collapses and falls hurt units. The numbers are the owner's inputs (MvpPlan.md, M4, inputs 6 to 9), Proposed for tuning in M5. It binds nothing until the owner gives it the go-ahead (input 1); order M4-C1, which first implements it, marks it Accepted (AGENTS.md §6).
+**Status:** Proposed, 2026-11-01, with the M4 plan ([MvpPlan.md](../MvpPlan.md), M4; [MvpPlan-M4.md](../MvpPlan-M4.md)). It records how M4's units fight: where their statistics live, how damage is worked out, how arrows fly, and how engines, collapses and falls hurt units. The numbers are the owner's inputs (MvpPlan.md, M4, inputs 6 to 9), Proposed for tuning in M5. The owner gave it the go-ahead on 2026-11-01, as written (MvpPlan.md, M4, input 1; GameDesign.md, *M4's values*, item 1). Order M4-C1, which first implements it, marks it Accepted (AGENTS.md §6).
 
 ## Context
 

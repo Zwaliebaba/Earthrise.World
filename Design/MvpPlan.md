@@ -7,8 +7,8 @@
 
 **M4's revision of 2026-11-01 is Proposed,** and is accepted when the owner merges its pull request. It covers:
 - M4's work orders and phases, in [MvpPlan-M4.md](MvpPlan-M4.md);
-- the owner inputs, twenty-seven, each with the implementer's proposal and none yet answered;
-- ADR-022 to ADR-028, Proposed, and the go-ahead for ADR-018, which has been Proposed since the v3 asset package.
+- the owner inputs, twenty-eight, each answered as proposed on 2026-11-01 (GameDesign.md, *M4's values*);
+- ADR-022 to ADR-028, Proposed, and ADR-018, Proposed since the v3 asset package, all with the owner's go-ahead.
 
 M0 to M2 were closed by the owner on 2026-11-01 (GameDesign.md, *Closing M0 and M1* and *Closing M2*); nothing from M3 on is implemented. [GameDesign.md](GameDesign.md) defines the MVP and governs where this plan differs from it. [AGENTS.md](../AGENTS.md) governs how the code is written.
 
@@ -484,10 +484,10 @@ M3 is carried out as 24 work orders in seven phases, written out in [MvpPlan-M3.
 
 ### M4 — Siege trial
 
-**When it starts.** M4's revision of 2026-11-01 is Proposed: it is accepted when the owner merges its pull request, and its 27 inputs below wait for the owner's answers (phase A, order M4-A1). It was written before any M3 code, against M3's contracts as [MvpPlan-M3.md](MvpPlan-M3.md) fixes them. **No M4 code is written until M3 closes** (input 2): M3's six-person reading may send the views back for the one round of legibility work the kill criterion allows (GameDesign.md, *Kill criteria*), and M3-G3's account of what M4 inherits corrects this plan's contracts before phase B. Like M3, M4 draws and takes input, so each order that does is run by the owner before its pull request merges (AGENTS.md §3).
+**When it starts.** M4's revision of 2026-11-01 is accepted when the owner merges its pull request, #49. The owner answered its 28 inputs below on 2026-11-01, taking every proposal (phase A, order M4-A1). It was written before any M3 code, against M3's contracts as [MvpPlan-M3.md](MvpPlan-M3.md) fixes them. **No M4 code is written until M3 closes** (input 2): M3's six-person reading may send the views back for the one round of legibility work the kill criterion allows (GameDesign.md, *Kill criteria*), and M3-G3's account of what M4 inherits corrects this plan's contracts before phase B. Like M3, M4 draws and takes input, so each order that does is run by the owner before its pull request merges (AGENTS.md §3).
 
 **Build** the trial the MVP's second hypothesis is tested in:
-- **T1–T7 redrawn natively at 1 m,** T5 with its gate at the inner end of its passage (GameDesign.md, *the paper tests' values*, item 14), and the **Siege castle** as a scenario, a baked source of seeds, structures, earthworks, players and armies ([ADR-026](ADR/ADR-026-scenarios-and-the-siege-trial.md); ADR-014, decision 7);
+- **T1–T7 redrawn natively at 1 m,** T5 with its gate at the inner end of its passage (GameDesign.md, *the paper tests' values*, item 14), and the **Siege castle** as a scenario, a baked source of seeds, structures, earthworks, players and armies ([ADR-026](ADR/ADR-026-scenarios-and-the-siege-trial.md); ADR-014, decision 7), and its mirror, with the weak section on the other flank, for M5's test of H2's clustering clause (input 28);
 - **units' statistics, structures' values and the trial's rules as server data,** tuned between playtests without a client build ([ADR-023](ADR/ADR-023-units-and-combat.md), [ADR-024](ADR/ADR-024-structures-at-work.md));
 - **formations and separation:** one figure a cell, ranks on open ground and single file through a gap, so that a breach passes figures at a limited rate ([ADR-022](ADR/ADR-022-formations-and-separation.md); ADR-015, decision 6);
 - **combat:** hit points and the three damage types, melee, arrows as physical shots with elevation steps, the trebuchet's shot against units and engines, its stone, deploying and packing, and the ram's blows and craters (ADR-023); arrows drawn as line models ([ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md));
@@ -498,16 +498,16 @@ M3 is carried out as 24 work orders in seven phases, written out in [MvpPlan-M3.
 - **the control:** health-bar structures behind one seam, chosen by the scenario ([ADR-028](ADR/ADR-028-the-control.md));
 - **drawing the war:** units, engines, gates, arrows, interpolation, silhouettes and fog;
 - **the rest of layout A** ([Hud.md](Hud.md)): the deck, selection, the command card and its modes, control groups, the minimap, the alerts, the repair lock, and every hover reading also reachable without hover (ADR-007);
-- **`Earthrise --siege [--control]`,** its log and replay, and a reader for the logs: breach points, shots, the stone each side spends, and the figures through each breach a minute. Predictions are M3's lab's (input 24).
+- **`Earthrise --siege [--control]`,** its log and replay, and a reader for the logs: breach points by role (the nearest section, the weak one, the gate or another), shots, the stone each side spends, the figures through each breach a minute, and whether each breach and each warning began under the deck or off screen and how long the player took to frame it (Hud.md §3). Predictions are M3's lab's (input 24).
 
 ### M4's phases (written 2026-11-01, before M3's code)
 
-M4 is carried out as 42 work orders in ten phases, written out in [MvpPlan-M4.md](MvpPlan-M4.md). Each order is one commit; phase A goes in the plan's pull request, and B to J in two draft pull requests, the simulation's and the client's (input 26). An order is a self-contained brief, as M2's and M3's were.
+M4 is carried out as 43 work orders in ten phases, written out in [MvpPlan-M4.md](MvpPlan-M4.md). Each order is one commit; phase A goes in the plan's pull request, and B to J in two draft pull requests, the simulation's and the client's (input 26). An order is a self-contained brief, as M2's and M3's were.
 
 | Phase | Orders | What lands | Needs first |
 |---|---|---|---|
-| A | 1 | The owner's decisions, written down | Inputs 1–27 below |
-| B | 5 | T1–T7 at 1 m; units', structures' and the trial's server data; the castle as a scenario; four icons | A, and M3 closed |
+| A | 1 | The owner's decisions, written down | Inputs 1–28 below |
+| B | 6 | T1–T7 at 1 m; units', structures' and the trial's server data; the castle as a scenario, and its mirror; four icons | A, and M3 closed |
 | C | 6 | Commands, players, hit points and damage; formations; melee and orders; arrows; the trebuchet against units and engines; the ram | B3 |
 | D | 6 | Working and ruin; gates; garrisons; the passage attack; repair and its lock; trenches | C1, B1, B3 |
 | E | 1 | Fog | C1, D |
@@ -516,15 +516,15 @@ M4 is carried out as 42 work orders in ten phases, written out in [MvpPlan-M4.md
 | H | 3 | Units, engines, gates, arrows, fog and silhouettes drawn | F5, G |
 | I | 7 | Layout A | H1 |
 | J | 5 | `Earthrise --siege`, its log and replay, the control's client, the measured run, the report | F, I |
-| | **42 orders, 3 pull requests** | | |
+| | **43 orders, 3 pull requests** | | |
 
 - **B1, B2 and B5 are content** and can land beside B3; **G needs only A.**
 - **The headless pull request, B to F, ends with a trial that plays itself** in CI and in `SimulationBench --siege`, both versions, before any HUD exists. That is the checkpoint at which the owner can stop and retune values in data before the client's half begins.
-- **The owner runs** fall after B2, B4, H1, H2, H3, I2, I3, I5, I6, J1, J3 and J4, with the playthroughs in J5. That is what sets M4's pace.
+- **The owner runs** fall after B2, B4, B6, H1, H2, H3, I2, I3, I5, I6, J1, J3 and J4, with the playthroughs in J5. That is what sets M4's pace.
 
-**The owner's inputs.** Each is a design value no document gives, or a choice the documents leave to M4, and AGENTS.md requires it written down before the code that rests on it. The implementer proposes each; the owner answers before phase B. Where a proposal takes up a value the paper tests left Proposed, it says so.
+**The owner's inputs.** Each is a design value no document gives, or a choice the documents leave to M4, and AGENTS.md requires it written down before the code that rests on it. The implementer proposed each, and the owner took every proposal on 2026-11-01. GameDesign.md, *M4's values*, records them, and input 27 stays the implementer's to measure. Where a proposal takes up a value the paper tests left Proposed, it says so.
 
-| # | Input | For orders | Proposed by the implementer, 2026-11-01 |
+| # | Input | For orders | Decided, 2026-11-01, each as the implementer proposed it |
 |---|---|---|---|
 | 1 | Give [ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md) and [ADR-022](ADR/ADR-022-formations-and-separation.md) to [ADR-028](ADR/ADR-028-the-control.md) the go-ahead, or change them, with the amendments they bring: ADR-004 (a second structure rule, for the control), ADR-014 (the replay's header names each seat's commander), ADR-015 (decision 6 carried out by ADR-022), ADR-016 (`UNIT`, `STRC` and `SCEN`), ADR-019 (the image atlas, and a ninth row of glyph cells for 131 glyphs), ADR-020 (the state update per player, interpolation) and ADR-021 (silhouettes, the fog's shade). Each is marked Accepted by the commit that first implements it (AGENTS.md §6) | B3, B4, C1, C2, D1, E1, F2, F4, G1–G3 | Go-ahead for all eight, as written |
 | 2 | **When M4 starts** | All from B | After M3 closes, with its verdict in and any round of legibility work done; M3-G3's inheritance corrects this plan's contracts first |
@@ -550,9 +550,10 @@ M4 is carried out as 42 work orders in ten phases, written out in [MvpPlan-M4.md
 | 22 | **The wall section's OPEN row** (Hud.md §5; ADR-021, *Left open*) | I6 | No percentage: there is no formula for one but the Hold rule test's 1 − T ÷ T₀, a trench search M6 builds for the waves. The row reads `OPEN yes` once the section is opened, and otherwise its weak reading against its fall, as `WEAK HOLE 3/5 M` or `WEAK GAP 2/5 M`, within 17 characters |
 | 23 | **The views across the castle** (ADR-021, *Left open*: labels for about thirty structures) | G2, H3, I6 | Full integrity labels for the eight sections on screen nearest its centre, name and weak line for the rest, names alone above 150 m of view height; the selected structure always full. Silhouettes for the player's units and visible enemies, in their faction colour at 0.5 alpha |
 | 24 | **Predictions for M5** (MvpPlan.md, M5; M4's build list had "predictions" logged) | J2 | M5 asks its prediction items through M3's lab, unchanged, after each participant's voxel trial: the instrument M3 validated, keyed by the simulation, comparable with M3's reading. Prompts inside the trial would need keys resolved on scratch copies of a world with an AI and the player's other units in it, which is a different and murkier question, and three more orders |
-| 25 | **The trial's flow and records** | H1, J1, J2 | A log and a replay per run in `Logs\`, committed under `Design/Review/SiegeTrial/` after playtests; no save or load offered to players; pause on Pause and F10, keys on no card; `--watch` runs the scripted attacker for the player and needs no participant |
-| 26 | **The pull requests** | All from B | Two draft pull requests: B to F, headless and confirmed by CI, and G to J, the client and the owner's runs. M2 and M3 used one for B to G by the owner's choice; at 41 orders after A, one would be hard to review and hides the checkpoint above |
-| 27 | **M4's work budgets:** the commanders' work a tick, and any budget combat needs | B3, F5, J4 | Set by the implementer from F5's measurements to fit M2's 25 ms, and recorded as Proposed until J4 measures them on the benchmark. Starting at 32 units a tick for the commanders |
+| 25 | **The trial's flow and records** | H1, J1, J2 | **Where breaches happen on screen** (Hud.md §3, "M4 measures it"): when a section opens or a collapse starts its warning, the log records whether the structure's centre was in the uncovered area, under the deck, under the top bar or off screen, with the share of its footprint the deck covered, and then the seconds of game time until the player first framed it in the uncovered area; the reader summarises both, so M5 can say whether players lose breaches under the deck. A log and a replay per run in `Logs\`, committed under `Design/Review/SiegeTrial/` after playtests; no save or load offered to players; pause on Pause and F10, keys on no card; `--watch` runs the scripted attacker for the player and needs no participant |
+| 26 | **The pull requests** | All from B | Two draft pull requests: B to F, headless and confirmed by CI, and G to J, the client and the owner's runs. M2 and M3 used one for B to G by the owner's choice; at 42 orders after A, one would be hard to review and hides the checkpoint above |
+| 27 | **M4's work budgets:** the commanders' work a tick, and any budget combat needs | B3, F5, J4 | **Proposed until J4 measures it.** Set by the implementer from F5's measurements to fit M2's 25 ms, and recorded as Proposed until J4 measures them on the benchmark. Starting at 32 units a tick for the commanders |
+| 28 | **A mirrored castle for H2's clustering clause** (GameDesign.md, *Hypotheses*: breach points that cluster at the nearest section or the gate "whatever the wall and the ground are like") | B6, F5, J1, J2 | With one castle whose weak section is always E3, eight to ten players cannot tell "chose the weak point for stated reasons" from "everyone goes east". **`SiegeMirror`**, the castle mirrored east to west about the site's centre line, puts the weak section on the west flank, W3, with everything else the same: the nearest section, the distances, the armies, the site, which is levelled and authored symmetric about that line. The templates are not mirrored, only placed (ADR-026, decision 1). In the mirror the client starts the camera at the south-east and mirrors the sun's azimuth, so neither layout's weak flank is the lit or near one by default. The log names both roles, so the reader reports breaches as nearest, weak, gate or other in either layout. How participants are assigned is M5's; the implementer's suggestion is the voxel version on one layout and the control on the other, counterbalanced |
 
 **Input 6's table** (Proposed; every number is a first value for M5 to tune):
 
@@ -574,11 +575,11 @@ M4 is carried out as 42 work orders in ten phases, written out in [MvpPlan-M4.md
 - **Separation can still jam.** The swap clears two figures head-on; three squads meeting in a 1 m gap can wait on each other until ADR-022's retry search moves one. C2's tests try it, and the breach log shows it in play.
 - **Thirty structures' labels may crowd the screen,** and ten were all M3 tried (input 23; I6's owner run).
 - **The control's hit points rest on `SiegeAttacker`'s shot patterns.** A player who aims better on the voxel version breaches faster than the calibration; that difference is the hypothesis, not a defect.
-- **Twelve owner runs and the playthroughs,** the most of any milestone, on 42 orders. The headless pull request's end is the place to stop and retune before the client's half.
+- **Thirteen owner runs and the playthroughs,** the most of any milestone, on 43 orders. The headless pull request's end is the place to stop and retune before the client's half.
 
 **Done when** all of the following hold:
 - **Headless, in CI:**
-  - in both versions, `SiegeAttacker` wins by storming against `SiegeDefender` inside the time limit; with no commands the attacker loses to the clock; with every unit spent it loses by the army; each run replays with every state hash equal, and saves at three ticks each continue identically for 1,000 ticks;
+  - in both versions, `SiegeAttacker` wins by storming against `SiegeDefender` inside the time limit, and in the voxel version on the mirrored castle too; with no commands the attacker loses to the clock; with every unit spent it loses by the army; each run replays with every state hash equal, and saves at three ticks each continue identically for 1,000 ticks;
   - two squads sent through a 1 m breach pass it with no two units in one cell on any tick, at a rate the trial's events record, and the run replays identically;
   - every command and query round-trips as bytes;
   - the line pass, the silhouettes, the column shade and the image atlas pass their render tests on WARP;
@@ -594,7 +595,8 @@ M4 is carried out as 42 work orders in ten phases, written out in [MvpPlan-M4.md
 
 | Phase | PR | Commits | Notes |
 |---|---|---|---|
-| Plan | | 1 | This revision, the work orders and ADR-022 to ADR-028, Proposed. |
+| Plan | #49 | 3 | This revision, the work orders and ADR-022 to ADR-028, Proposed; then the consistency review's corrections; then the deck's log rows and the mirrored castle (input 28), which M5 needs. |
+| A | #49 | 1 | The owner's 28 answers, every proposal taken; in the plan's PR because they edit the files it adds. |
 
 ### M5 — Siege playtest: the verdict on H2
 

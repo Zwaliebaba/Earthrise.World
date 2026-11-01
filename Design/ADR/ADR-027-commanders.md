@@ -1,6 +1,6 @@
 # ADR-027 — Commanders: the AI is a command source inside the simulation, seeing through its player's fog
 
-**Status:** Proposed, 2026-11-01, with the M4 plan ([MvpPlan.md](../MvpPlan.md), M4; [MvpPlan-M4.md](../MvpPlan-M4.md)). It records where the Siege defender's AI runs, what it may read, how its commands reach the tick, and how it replays. Its behaviours are the owner's input (MvpPlan.md, M4, input 18). It binds nothing until the owner gives it the go-ahead (input 1); order M4-F2, which first implements it, marks it Accepted (AGENTS.md §6).
+**Status:** Proposed, 2026-11-01, with the M4 plan ([MvpPlan.md](../MvpPlan.md), M4; [MvpPlan-M4.md](../MvpPlan-M4.md)). It records where the Siege defender's AI runs, what it may read, how its commands reach the tick, and how it replays. Its behaviours are the owner's input (MvpPlan.md, M4, input 18). The owner gave it the go-ahead on 2026-11-01, as written (MvpPlan.md, M4, input 1; GameDesign.md, *M4's values*, item 1). Order M4-F2, which first implements it, marks it Accepted (AGENTS.md §6).
 
 ## Context
 
