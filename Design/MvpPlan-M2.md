@@ -1,6 +1,6 @@
 # Earthrise.World — M2 work orders
 
-**Status:** Proposed, 2026-11-01, with [MvpPlan.md](MvpPlan.md)'s M2 revision. No order from phase B on starts before M1 closes (GameDesign.md, *Planning M2*); phase A is paper. "Input N" means MvpPlan.md, M2, input N. These orders carry out M2 as MvpPlan.md, M2, defines it, under [ADR-013](ADR/ADR-013-ticks-numbers-and-randomness.md) to [ADR-016](ADR/ADR-016-server-data-format.md). Where an order and those differ, they win, and the order is corrected.
+**Status:** Carried out, 2026-11-01, every order, and M2 closed the same day (GameDesign.md, *Closing M2*; the [M2 report](Review/M2-2026-11-01.md)). Proposed the same day with [MvpPlan.md](MvpPlan.md)'s M2 revision. No order from phase B on starts before M1 closes (GameDesign.md, *Planning M2*); phase A is paper. "Input N" means MvpPlan.md, M2, input N. These orders carry out M2 as MvpPlan.md, M2, defines it, under [ADR-013](ADR/ADR-013-ticks-numbers-and-randomness.md) to [ADR-016](ADR/ADR-016-server-data-format.md). Where an order and those differ, they win, and the order is corrected.
 
 **An order is one commit, and a phase is one pull request** (AGENTS.md §6). There are 31 orders in seven phases:
 
