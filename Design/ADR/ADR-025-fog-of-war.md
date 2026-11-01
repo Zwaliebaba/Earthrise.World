@@ -1,6 +1,6 @@
 # ADR-025 — Fog of war: visibility by radius, a filtered state, chunks sent when seen, and last-seen land
 
-**Status:** Proposed, 2026-11-01, with the M4 plan ([MvpPlan.md](../MvpPlan.md), M4; [MvpPlan-M4.md](../MvpPlan-M4.md)). It fills the seam [ADR-020](ADR-020-the-in-process-client.md), decision 3, leaves for M4, `World::PublishState(player)`, and decides how the client draws what it no longer sees, which [ADR-021](ADR-021-world-overlays.md), decision 6, leaves for M4. The radii are the owner's inputs (MvpPlan.md, M4, inputs 6 and 14). It binds nothing until the owner gives it the go-ahead (input 1); order M4-E1, which first implements it, marks it Accepted (AGENTS.md §6).
+**Status:** Proposed, 2026-11-01, with the M4 plan ([MvpPlan.md](../MvpPlan.md), M4; [MvpPlan-M4.md](../MvpPlan-M4.md)). It fills the seam [ADR-020](ADR-020-the-in-process-client.md), decision 3, leaves for M4, `World::PublishState(player)`, and decides how the client draws what it no longer sees, which [ADR-021](ADR-021-world-overlays.md), decision 6, leaves for M4. The radii are the owner's inputs (MvpPlan.md, M4, inputs 6 and 14). The owner gave it the go-ahead on 2026-11-01, as written (MvpPlan.md, M4, input 1; GameDesign.md, *M4's values*, item 1). Order M4-E1, which first implements it, marks it Accepted (AGENTS.md §6).
 
 ## Context
 

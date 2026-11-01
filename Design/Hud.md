@@ -27,13 +27,13 @@ The prototype has one tab for each situation it covers:
 | 5 | Siege control build | Attacker | As tab 1, with health-bar walls |
 
 **The control builds** differ from the voxel builds only where the control's rules differ (GameDesign.md, *MVP*); everything else is identical, and a test asserts it:
-- **Siege control:** health bars over wall sections, and HEALTH in place of PLATFORM on towers.
+- **Siege control:** health bars over wall sections, and HEALTH in place of the critical part's row on towers, the gatehouse and the keep (PLATFORM, GATE and TOWER; Decided 2026-11-01, GameDesign.md, *M4's values*, item 19).
 - **Hold control (Proposed):** laborers GATHER from resource nodes in place of the six designations, and the dig readouts give way to the node's remaining amount.
 
 ## 2. Units, scale and type
 
 - **Logical pixels.** The HUD is laid out in logical pixels, multiplied by a UI scale of 1, 1.5 or 2. No other factor is used.
-- **The scale follows the display's DPI (Decided).** Windows' display scaling picks the step: 100–124% gives 1, 125–174% gives 1.5, and 175% and above gives 2 (the bands Decided 2026-11-01, GameDesign.md, *M3's values*, item 9). A setting, `--ui-scale`, overrides it.
+- **The scale follows the display's DPI (Decided).** Windows' display scaling picks the step: 100–124% gives 1, 125–174% gives 1.5, and 175% and above gives 2 (the bands Decided 2026-11-01, GameDesign.md, *M3's values*, item 9). A setting, `--ui-scale`, overrides it. **The step is capped** at the largest that leaves the deck its 972 logical px: 1 at 1280 px wide and 1.5 at 1920 px, whatever the DPI (Decided 2026-11-01, GameDesign.md, *M4's values*, item 21).
 - **Type.** There is one face, Earthrise Mason (§9), in two sizes:
   - **labels and values** at 20 logical px, 2 screen px per font pixel at 1×, with a line height of 24;
   - **names, icons and big numbers** at 30 logical px, 3 screen px per font pixel at 1×, with a line height of 30.
@@ -67,7 +67,7 @@ All sizes are logical px. The deck is fixed to the bottom of the screen.
 | Top bar | Top, full width | Height 44 | Resources on the left, the objective and its progress in the centre, camera buttons ↺ ↻ − + on the right (36 × 36) |
 | Mode banner | Top 56, centred | Fits its text | Shown while a targeting mode is on, with CANCEL · ESC (44 high) |
 | Alerts | Left 8, top 110 | Up to 440 wide, up to 3 | Newest first, with JUMP (44 high) when the alert has a place |
-| Control groups | Left 212, bottom 212 | 5 × (120 × 40), plus SET (64 × 40) | A strip above the deck |
+| Control groups | Left 212, bottom 212 | 5 × (120 × 44), plus SET (64 × 44) | A strip above the deck; groups 6–9 by key alone (44 high, so the hit target holds: Decided 2026-11-01) |
 | Tooltip | Right 8, bottom 212 | 400 wide | Above the command card |
 | Readout | Right 416, bottom 212 | 340 wide | Placement and dig readouts |
 | **Deck** | Bottom, full width | Height 204, padding 8, gap 8 | Three columns |
@@ -77,7 +77,7 @@ All sizes are logical px. The deck is fixed to the bottom of the screen.
 
 **The HUD covers about a third of the screen's height** with the deck and top bar together. The game's central bet is reading breaches, so two rules follow:
 - **The camera frames the uncovered area** (Decided 2026-11-01, GameDesign.md, *M3's values*, item 14). Its default look-at point, and where JUMP and control-group centring put things, is the centre of the area above the deck and below the top bar, not the centre of the screen. M3 has the top bar alone, and M4 adds the deck.
-- **M4 measures it** (Proposed). The M5 playtest logs whether players lose breaches under the deck. If they do, the deck gets slimmer before the verdict.
+- **M4 measures it** (Decided 2026-11-01, GameDesign.md, *M4's values*, item 25). The Siege trial's log records, for each section that opens and each collapse that starts its warning, whether it was above the deck, under it, under the top bar or off screen, and how long the player took to frame it. The M5 playtest reads that to say whether players lose breaches under the deck. If they do, the deck gets slimmer before the verdict.
 
 ## 4. Layout B: corners, for touch (after the verdict)
 
@@ -85,7 +85,7 @@ The package's touch-first layout puts the minimap and camera buttons top right, 
 
 ## 5. Selection panel
 
-**The player selects squads** (GameDesign.md, 2026-10-31). Laborers are the exception: they are not in squads, and clicking one selects that laborer. Clicking any other figure selects its squad. The click is tested against the squad's footprint on the ground, not against a figure's voxels: a figure is 6–7 px wide at the default zoom (Proposed).
+**The player selects squads** (GameDesign.md, 2026-10-31). Laborers are the exception: they are not in squads, and clicking one selects that laborer. Clicking any other figure selects its squad. The click is tested against the squad's footprint on the ground, not against a figure's voxels: a figure is 6–7 px wide at the default zoom (Decided 2026-11-01, GameDesign.md, *M4's values*).
 
 - **Nothing selected:** NOTHING SELECTED, and three hint lines: CLICK A SQUAD, DRAG TO BOX-SELECT, 1–9 GROUPS. Each fits the panel's 340 px minimum.
 - **One squad, laborer, engine or structure:**
@@ -113,16 +113,16 @@ The package's touch-first layout puts the minimap and camera buttons top right, 
 | Tower | GARRISON n / 6 · PLATFORM 100% (control: HEALTH hp / max) · REPAIR Ready, or Locked · n s |
 | Gatehouse | GARRISON n / 6 · GATE 100% · REPAIR Ready, or Locked · n s |
 | Keep | TOWER 100% · GARRISON n / 6 · TO WIN Hold foot 2:00 |
-| Wall section | NAME W5 · OPEN 40% · REPAIR Ready, or Locked · n s |
+| Wall section | NAME W5 · OPEN yes, or WEAK HOLE 3/5 M · REPAIR Ready, or Locked · n s |
 
 - **While a squad moves,** its second row reads ORDER Moving.
-- **Figures and values are Simulation's.** The package's hit points (laborer 25, spearman 45, archer 30, men-at-arms 70, sapper 40, trebuchet 150), a shot's 6 m³ and a garrison of 6 are placeholders. The trebuchet's range is 12–50 m, decided for M2 (GameDesign.md, *M2's values*, item 12), in place of the package's 12–70 m. A shot's stone price is still open: Proposed at 1.5 m³ (GameDesign.md, *the paper tests' values*, item 17), in place of the package's 6 m³. The wall's OPEN reading is the integrity view's (GameDescription.md, *Readability*).
+- **Figures and values are Simulation's.** Their first values are GameDesign.md, *M4's values*, items 5, 6 and 10, server data for M5 to tune: the package's hit points stand (laborer 25, spearman 45, archer 30, men-at-arms 70, sapper 40, trebuchet 150), with the outrider at 60 and the ram at 300; a garrison is 6. The trebuchet's range is 12–50 m, decided for M2 (GameDesign.md, *M2's values*, item 12), in place of the package's 12–70 m. A shot costs 1.5 m³ (Decided 2026-11-01, GameDesign.md, *M4's values*, item 5), in place of the package's 6 m³. The wall's row is the integrity view's (GameDescription.md, *Readability*): `OPEN yes` once the section is opened, and otherwise its weak reading against its fall, such as `WEAK HOLE 3/5 M`, with no percentage (GameDesign.md, *M4's values*, item 22).
 
 ## 6. Minimap
 
 - **North-up.** It does not turn with the camera; the camera's quad shows which way the view faces.
 - **It shows only what the player knows.** The base is the client's last-seen land, and units appear only where the player can see them (GameDescription.md, fog of war). The client has nothing else to draw from (ADR-002, ADR-003), and the minimap must not ask for more.
-- **The base layer** is the top voxel's palette colour, shaded by height. It is built at the minimap's drawn size by reducing the 1 m columns, rather than scaling a 1 m texture to a size that does not divide it. It is rebuilt only when the world changes (Proposed).
+- **The base layer** is the top voxel's palette colour, shaded by height. It is built at the minimap's drawn size by reducing the 1 m columns, rather than scaling a 1 m texture to a size that does not divide it. It is rebuilt only when the world changes (Decided 2026-11-01, GameDesign.md, *M4's values*).
 - **The overlay,** redrawn every few frames:
   - squads as 3 px dots and structures as 7 px dots, in team colours, selected ones in #ffe2a8;
   - designations and blueprints as 1 px outlines;
@@ -292,7 +292,7 @@ minimap             { baseDirty, squadDots[], viewQuad, pings[] }
   - the prediction prompts.
 - **M4, the Siege trial:** the rest of layout A, built from the HUD model, and the control build's differences.
 - **M6, the Hold trial:** the laborer cards, the placement and dig readouts, and the Hold control's GATHER.
-- **Done when** layout A renders with no overlap and no clipped text at 1280 × 720 and 1920 × 1080, and at the Surface's own resolution and display scaling, at each scale step. Each command logs its source (hotkey or click) and time for the playtests.
+- **Done when** layout A renders with no overlap and no clipped text at 1280 × 720 and 1920 × 1080, and at the Surface's own resolution and display scaling, at each scale step the width allows (§2; GameDesign.md, *M4's values*, item 21). Each command logs its source (hotkey or click) and time for the playtests.
 
 ## What changed from the package
 
@@ -306,10 +306,10 @@ minimap             { baseDirty, squadDots[], viewQuad, pings[] }
   - **sizes:** cells 100–112 wide, so labels fit;
   - **readings:** BLOCKED for every ranged attack, the trebuchet included, as GameDescription.md requires; the archer's row, which the package gave as "+15% per 3 m" of range when height gives one band of range and +15% damage; GROUND from the resolver in place of the package's 1.2 m soil rule;
   - **where things live:** section names in the scenario rather than the template; F1 and F2 for the integrity and passability views.
-- **Still Proposed:** selecting by a squad's footprint; the deck's coverage; the minimap built at its drawn size; the Hold control's GATHER. The DPI bands, the camera's framing and the glyph coverage test were decided on 2026-11-01 (GameDesign.md, *M3's values*, items 1, 9 and 14).
+- **Still Proposed:** the Hold control's GATHER. The DPI bands, the camera's framing and the glyph coverage test were decided on 2026-11-01 (GameDesign.md, *M3's values*, items 1, 9 and 14), and selecting by a squad's footprint, the deck's coverage and the minimap built at its drawn size the same day (GameDesign.md, *M4's values*).
 - **The font's source** is the JSON in `GameData/Client/Fonts/`, not the package's JavaScript (§9).
 
 ## Open
 
-- The real figures behind the placeholders in §5.
+- Tuning the first values in §5, in M5's playtest.
 - The touch scheme: its gestures, layout B, and press-and-hold for the tooltip and the attack cursor (ADR-007).

@@ -1,6 +1,6 @@
 # ADR-024 — Structures at work: the built mask, critical parts, repair and its lock, gates and garrisons
 
-**Status:** Proposed, 2026-11-01, with the M4 plan ([MvpPlan.md](../MvpPlan.md), M4; [MvpPlan-M4.md](../MvpPlan-M4.md)). M3 makes structures entities with a template, an origin, a turn and a name (MvpPlan-M3.md, M3-B1). This records what a structure does in M4: whether it works, how it is repaired, how a gate opens and how a garrison fights. The numbers are the owner's inputs (MvpPlan.md, M4, inputs 10 to 13). It binds nothing until the owner gives it the go-ahead (input 1); order M4-D1, which first implements it, marks it Accepted (AGENTS.md §6).
+**Status:** Proposed, 2026-11-01, with the M4 plan ([MvpPlan.md](../MvpPlan.md), M4; [MvpPlan-M4.md](../MvpPlan-M4.md)). M3 makes structures entities with a template, an origin, a turn and a name (MvpPlan-M3.md, M3-B1). This records what a structure does in M4: whether it works, how it is repaired, how a gate opens and how a garrison fights. The numbers are the owner's inputs (MvpPlan.md, M4, inputs 10 to 13). The owner gave it the go-ahead on 2026-11-01, as written (MvpPlan.md, M4, input 1; GameDesign.md, *M4's values*, item 1). Order M4-D1, which first implements it, marks it Accepted (AGENTS.md §6).
 
 ## Context
 
