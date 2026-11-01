@@ -1,9 +1,14 @@
 # Earthrise.World — MVP implementation plan
 
-**Status:** Accepted by the owner for M0 to M2, 2026-10-31; M3 to M7 stay Proposed until after M1 (GameDesign.md, *Starting the MVP*). M2's revision of 2026-11-01 was accepted when the owner merged it (pull request #32). M3's revision of 2026-11-01 is accepted when the owner merges it (pull request #45; GameDesign.md, *Closing M2*, item 6). It covers:
+**Status:** Accepted by the owner for M0 to M2, 2026-10-31; M3 to M7 stay Proposed until after M1 (GameDesign.md, *Starting the MVP*). M2's revision of 2026-11-01 was accepted when the owner merged it (pull request #32). M3's revision of 2026-11-01 was accepted when the owner merged it (pull request #45; GameDesign.md, *Closing M2*, item 6). It covers:
 - M3's work orders and phases, in [MvpPlan-M3.md](MvpPlan-M3.md);
 - the owner inputs, seventeen, each answered as proposed on 2026-11-01: fifteen with the plan, and two after the v3 asset package (pull request #44) (GameDesign.md, *M3's values*);
 - ADR-019 to ADR-021, Proposed, with the owner's go-ahead.
+
+**M4's revision of 2026-11-01 is Proposed,** and is accepted when the owner merges its pull request. It covers:
+- M4's work orders and phases, in [MvpPlan-M4.md](MvpPlan-M4.md);
+- the owner inputs, twenty-seven, each with the implementer's proposal and none yet answered;
+- ADR-022 to ADR-028, Proposed, and the go-ahead for ADR-018, which has been Proposed since the v3 asset package.
 
 M0 to M2 were closed by the owner on 2026-11-01 (GameDesign.md, *Closing M0 and M1* and *Closing M2*); nothing from M3 on is implemented. [GameDesign.md](GameDesign.md) defines the MVP and governs where this plan differs from it. [AGENTS.md](../AGENTS.md) governs how the code is written.
 
@@ -133,23 +138,31 @@ The edges run one way:
 | The in-process client | M3 | [ADR-020](ADR/ADR-020-the-in-process-client.md), Proposed: `Client` and `Earthrise` join; two queues of bytes and one copy of the whole visible state a tick; a fixed-step clock with the lab's fast-forward and no interpolation; three queries budgeted in units of work in `RULE` |
 | The readability views | M3 | [ADR-021](ADR/ADR-021-world-overlays.md), Proposed: translucent voxel boxes through the voxel pass's overlay pipeline, depth-tested against the scene, with labels through the interface pass; every reading from the simulation |
 | How units are drawn | M1 | Units are 0.5 m models ([MvpAssets.md](MvpAssets.md)), axis-aligned and rotated in 90° steps. Engine poses are baked; debris is oriented voxels. Arrows are line models, turned freely along their velocity ([ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md), Proposed). |
+| Formations and separation | M4 | [ADR-022](ADR/ADR-022-formations-and-separation.md), Proposed: one figure a cell, steps reserved in unit-id order, friendly figures swapping head-on; ranks of three on open ground, single file through a gap |
+| Units and combat | M4 | [ADR-023](ADR/ADR-023-units-and-combat.md), Proposed: statistics in a `UNIT` section; one integer damage formula; melee to the eight neighbours, worked out together; arrows as straight physical shots that hit only their target; engines as squads of one body; shots cost stone |
+| Structures at work | M4 | [ADR-024](ADR/ADR-024-structures-at-work.md), Proposed: the built mask; working read from the critical part's standing share; repair by the owner's laborers at a fixed rate with its lock; garrisons firing from the outer face; the gate as a flag; per-template values in `STRC` |
+| Fog of war | M4 | [ADR-025](ADR/ADR-025-fog-of-war.md), Proposed: a visibility bit per player per cell each tick; the state update filtered per player; chunks sent when seen; last-seen land kept by the client; a column shade in the voxel pass |
+| Scenarios and the Siege trial | M4 | [ADR-026](ADR/ADR-026-scenarios-and-the-siege-trial.md), Proposed: JSON sources baked into `SCEN`; loaded as tick 0; the trial's rules in step 10; its events, log and replay |
+| The AI | M4 | [ADR-027](ADR/ADR-027-commanders.md), Proposed: commanders inside the simulation, one a player, reading only their player's view, run as step 13, saved, recomputed on replay |
+| The control | M4 | [ADR-028](ADR/ADR-028-the-control.md), Proposed: health-bar structures behind one seam, `StructureRule`, chosen by the scenario; hit points calibrated on the voxel version |
 
 ### One simulation tick, in order
 
 The order is fixed, so that one build replays the same commands to the same result (ADR-002, decision 6). Deferred work is budgeted in units of work, never in elapsed time.
 
 1. Decode and apply the commands that arrived for this tick.
-2. Advance designations and jobs: digging, hauling, construction, repair at its fixed rate per section.
-3. Search for the squads that need a path, those marked by step 8 of the last tick and those still searching, within the node budget (ADR-015, decision 5); then move units along their paths, and resolve melee.
-4. Advance shots through the voxel grid; apply hits to units, and stamp craters as edits.
+2. Advance designations and jobs: digging, hauling, construction, repair at its fixed rate per section and its lock, and engines deploying or packing.
+3. Search for the squads that need a path, those marked by step 8 of the last tick and those still searching, within the node budget (ADR-015, decision 5); then move units along their paths, one to a cell (ADR-022), and resolve melee, every strike worked out before any lands (ADR-023).
+4. Loose arrows and fire garrisons and the passage attack; advance shots through the voxel grid; land the ram's blows; apply hits to units, and stamp craters as edits.
 5. Run the support search over the region the tick's edits so far can affect, and start a collapse for each unsupported piece, in entity-id order.
 6. Advance the collapses in progress: warnings, falls, rubble, damage, cascades that start next tick.
 7. Run slump and the rule for loose material, within the tick's work budget. The edits of steps 6 and 7 are searched in step 5 of the next tick, so a slump that undermines a wall starts its collapse one tick later.
 8. Rebuild every navigation tile the tick's edits touched, none deferred, and what navigation keeps to answer reach (ADR-015).
 9. Drop, lift or move the units whose cells changed, in unit-id order (ADR-015, decision 7).
-10. Check the win and loss rules: the storming clock, and the Siege trial's limits.
-11. Filter state by what each player can see, and publish state updates and chunk snapshots.
+10. Update which structures work, then check the win and loss rules: the storming clock, and the Siege trial's limits.
+11. Filter state by what each player can see, and publish state updates and chunk snapshots, each chunk to a player who sees it (ADR-025).
 12. Answer queries on the tick's state, filtered the same way, within the tick's query budget, a number of queries in units of work (ADR-009, amended 2026-11-01).
+13. Let each commander read its player's view and queue its commands for the next tick's step 1, within its work budget (ADR-027; added by M4's revision, Proposed).
 
 ## Milestones
 
@@ -471,20 +484,117 @@ M3 is carried out as 24 work orders in seven phases, written out in [MvpPlan-M3.
 
 ### M4 — Siege trial
 
-**Build:**
-- **formations and separation** (ADR-015, decision 6): how a squad's figures arrange about its path and keep apart, in fixed point inside the deterministic tick, so that no two figures stand in the same place and a breach passes figures at a limited rate. Until M4, figures may pass through each other. How they keep apart is recorded in an ADR when it is built;
-- units, stats and combat, physical shots for arrows and bolts (the trebuchet's shot and craters come from M2; arrows draw as line models, [ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md)), the ram's blows and craters, hits on units, elevation, garrisons and the gatehouse's passage attack;
-- drawing units and buildings;
-- fog with the visibility filter and last-seen land;
-- the world templates T1–T7 redrawn natively at 1 m, and the Siege castle built from them (the shared-hash check of ADR-008, decision 5, is `Earthrise`'s from M3, ADR-020);
-- the subset of jobs the trial needs: repair and trenches;
-- the rest of the interface: layout A of [Hud.md](Hud.md), with squad selection, control groups, the command card, the minimap, alerts and the repair lock, and every hover reading also reachable without hover (ADR-007);
-- the Siege defender AI;
-- the storming win and the loss rule;
-- the control version of the trial;
-- logging of breach points, shots, the stone spent by each side, predictions, and how many figures pass through each breach a minute.
+**When it starts.** M4's revision of 2026-11-01 is Proposed: it is accepted when the owner merges its pull request, and its 27 inputs below wait for the owner's answers (phase A, order M4-A1). It was written before any M3 code, against M3's contracts as [MvpPlan-M3.md](MvpPlan-M3.md) fixes them. **No M4 code is written until M3 closes** (input 2): M3's six-person reading may send the views back for the one round of legibility work the kill criterion allows (GameDesign.md, *Kill criteria*), and M3-G3's account of what M4 inherits corrects this plan's contracts before phase B. Like M3, M4 draws and takes input, so each order that does is run by the owner before its pull request merges (AGENTS.md §3).
 
-**Done when** the trial can be won by storming and lost by the clock or by running out of attackers, the control plays the same in everything but the wall rule, the HUD renders without overlap or clipped text at the sizes Hud.md §11 names, a squad sent through a breach passes it with no two figures overlapping, at a rate the breach log records and that replays identically, and the AGENTS.md checklist passes, including running the executable.
+**Build** the trial the MVP's second hypothesis is tested in:
+- **T1–T7 redrawn natively at 1 m,** T5 with its gate at the inner end of its passage (GameDesign.md, *the paper tests' values*, item 14), and the **Siege castle** as a scenario, a baked source of seeds, structures, earthworks, players and armies ([ADR-026](ADR/ADR-026-scenarios-and-the-siege-trial.md); ADR-014, decision 7);
+- **units' statistics, structures' values and the trial's rules as server data,** tuned between playtests without a client build ([ADR-023](ADR/ADR-023-units-and-combat.md), [ADR-024](ADR/ADR-024-structures-at-work.md));
+- **formations and separation:** one figure a cell, ranks on open ground and single file through a gap, so that a breach passes figures at a limited rate ([ADR-022](ADR/ADR-022-formations-and-separation.md); ADR-015, decision 6);
+- **combat:** hit points and the three damage types, melee, arrows as physical shots with elevation steps, the trebuchet's shot against units and engines, its stone, deploying and packing, and the ram's blows and craters (ADR-023); arrows drawn as line models ([ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md));
+- **structures at work:** the built mask, critical parts and working, gates, garrisons, the gatehouse's passage attack, repair at a fixed rate per section with its lock, and sappers' trenches (ADR-024);
+- **fog:** visibility by radius, the state filtered per player, chunks sent when seen, last-seen land ([ADR-025](ADR/ADR-025-fog-of-war.md));
+- **the trial's rules:** the storming win, the clock and the army rule, and the events its log records (ADR-026);
+- **the Siege defender,** a commander inside the simulation that sees through its own fog, fights, repairs, sallies to a leash and shoots sappers, and a scripted attacker for the tests ([ADR-027](ADR/ADR-027-commanders.md));
+- **the control:** health-bar structures behind one seam, chosen by the scenario ([ADR-028](ADR/ADR-028-the-control.md));
+- **drawing the war:** units, engines, gates, arrows, interpolation, silhouettes and fog;
+- **the rest of layout A** ([Hud.md](Hud.md)): the deck, selection, the command card and its modes, control groups, the minimap, the alerts, the repair lock, and every hover reading also reachable without hover (ADR-007);
+- **`Earthrise --siege [--control]`,** its log and replay, and a reader for the logs: breach points, shots, the stone each side spends, and the figures through each breach a minute. Predictions are M3's lab's (input 24).
+
+### M4's phases (written 2026-11-01, before M3's code)
+
+M4 is carried out as 42 work orders in ten phases, written out in [MvpPlan-M4.md](MvpPlan-M4.md). Each order is one commit; phase A goes in the plan's pull request, and B to J in two draft pull requests, the simulation's and the client's (input 26). An order is a self-contained brief, as M2's and M3's were.
+
+| Phase | Orders | What lands | Needs first |
+|---|---|---|---|
+| A | 1 | The owner's decisions, written down | Inputs 1–27 below |
+| B | 5 | T1–T7 at 1 m; units', structures' and the trial's server data; the castle as a scenario; four icons | A, and M3 closed |
+| C | 6 | Commands, players, hit points and damage; formations; melee and orders; arrows; the trebuchet against units and engines; the ram | B3 |
+| D | 6 | Working and ruin; gates; garrisons; the passage attack; repair and its lock; trenches | C1, B1, B3 |
+| E | 1 | Fog | C1, D |
+| F | 5 | The trial's rules; the defender; the control; the scripted attacker and the trial in CI | D, E, B4 |
+| G | 3 | `Engine`: the line pass, silhouettes and the column shade, the image atlas | A |
+| H | 3 | Units, engines, gates, arrows, fog and silhouettes drawn | F5, G |
+| I | 7 | Layout A | H1 |
+| J | 5 | `Earthrise --siege`, its log and replay, the control's client, the measured run, the report | F, I |
+| | **42 orders, 3 pull requests** | | |
+
+- **B1, B2 and B5 are content** and can land beside B3; **G needs only A.**
+- **The headless pull request, B to F, ends with a trial that plays itself** in CI and in `SimulationBench --siege`, both versions, before any HUD exists. That is the checkpoint at which the owner can stop and retune values in data before the client's half begins.
+- **The owner runs** fall after B2, B4, H1, H2, H3, I2, I3, I5, I6, J1, J3 and J4, with the playthroughs in J5. That is what sets M4's pace.
+
+**The owner's inputs.** Each is a design value no document gives, or a choice the documents leave to M4, and AGENTS.md requires it written down before the code that rests on it. The implementer proposes each; the owner answers before phase B. Where a proposal takes up a value the paper tests left Proposed, it says so.
+
+| # | Input | For orders | Proposed by the implementer, 2026-11-01 |
+|---|---|---|---|
+| 1 | Give [ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md) and [ADR-022](ADR/ADR-022-formations-and-separation.md) to [ADR-028](ADR/ADR-028-the-control.md) the go-ahead, or change them, with the amendments they bring: ADR-004 (a second structure rule, for the control), ADR-014 (the replay's header names each seat's commander), ADR-015 (decision 6 carried out by ADR-022), ADR-016 (`UNIT`, `STRC` and `SCEN`), ADR-019 (the image atlas, and a ninth row of glyph cells for 131 glyphs), ADR-020 (the state update per player, interpolation) and ADR-021 (silhouettes, the fog's shade). Each is marked Accepted by the commit that first implements it (AGENTS.md §6) | B3, B4, C1, C2, D1, E1, F2, F4, G1–G3 | Go-ahead for all eight, as written |
+| 2 | **When M4 starts** | All from B | After M3 closes, with its verdict in and any round of legibility work done; M3-G3's inheritance corrects this plan's contracts first |
+| 3 | **Who redraws T1–T7 natively at 1 m** (MvpAssets.md, *Known issues*) | B1, B2 | The implementer, as layer files under the asset check: each template's outline, parts and openings kept, its volume within 2 % (T3's 96 m³ and T2's 1,650 and 120 m³ exactly), previews for the owner to judge. T5's gate moves to the inner end of its passage, the passage 3 m wide and 4 m high clear before it (the paper tests' item 14, taken up). The owner may instead supply the seven from Claude Design, and B1 and B2 then import them |
+| 4 | **The Siege castle** | B1, B4 | The route table's ([Review/PaperTests/SiegeRouteTable.md](Review/PaperTests/SiegeRouteTable.md)): 62 × 62 m over its towers; 22 T3 sections S1–S4, E1–E6, N1–N6, W1–W6; towers SW, SE, NW, NE and ST; GH facing south; the keep and the hall in the bailey; a ditch 4–9 m out and a rampart 1–4 m out, with a causeway before the gate and a gap before E3; 1 m of soil over common rock, deep earth under E3, whose foundation reaches 4 m (item 16, taken up); the camp 100 m south. S3 is nearest and on rock behind the ditch; E3 is the weak section. At the decided 50 m range no stand outside every garrison's reach covers the great tower, with 5.5 m to spare (item 11, taken up as measured on the plan). Placed on the generated MVP map at the flattest 200 × 200 m site clear of the river, levelled |
+| 5 | **The armies and their stockpiles** (GameDesign.md, *MVP*: a fixed army; the route table's ambiguity 18: one trebuchet) | B4, F5 | **Attacker:** one trebuchet, packed in the camp, one ram, one squad of sappers, four of men-at-arms, three of spearmen, three of archers and two of outriders, 72 figures; 120 m³ of stone, 80 shots; no timber. **Defender:** six archers in each of the seven garrisons (SW, SE, NW, NE, ST, GH, the keep), 42, as the route table has them; one squad of men-at-arms and one of outriders as the sally and the reserve; six laborers; 200 m³ of stone and 20 m³ of timber. **A shot costs 1.5 m³** (the paper tests' item 17, taken up), so a breach costs the attacker about half the defender's rebuild |
+| 6 | **Unit statistics,** vision included (Hud.md §5's placeholders; GameDesign.md, *Open questions*) | B3, C1–C6, E1, I2 | The table below. Counters by arithmetic on it, not measured: six spearmen kill three outriders in about 8 s and lose one or two; three outriders kill six archers in about 12 s; an archer's arrow does 1 to a man-at-arms, so men-at-arms storm; six archers kill five of six spearmen closing 30 m |
+| 7 | **Arrows and elevation** (GameDescription.md, *Combat model*) | B3, C4 | An arrow flies straight at 40 m/s from 1.5 m above its shooter's cell, or from a garrison's outer face at its stand height, to 1 m above its target's cell, and hits if the target stands within a cell of that point when it arrives. A step is 3 m of height, at most two, each +15 % damage and a 5 m band of range, the same lost uphill. No bolts: crossbowmen are out of the Trials |
+| 8 | **Damage from engines, collapses and falls** (GameDesign.md, *M2's values*, item 8; ADR-015, decision 7) | B3, C1, C5 | A trebuchet's shot deals 40 crush to every unit within a cell of the struck voxel and to an engine whose footprint holds it. A collapse deals 60 crush, once to each unit it strikes. A drop deals 10 crush for each metre beyond 3 |
+| 9 | **The ram** (the paper tests' item 16; ADR-006, *Left open*) | B3, C6 | A blow every 15 s (item 16, taken up); craters on GameDescription.md's contact column, on the ladder: timber 4 voxels, earth 1, stone 1 within the bottom metre of the structure and none above (the route table's ambiguity 5). 300 hit points; its roof is 20 pierce armor, its melee armor 0; machines' 0.7 m/s |
+| 10 | **Critical parts and garrisons** | B3, D1, D3 | Working while standing: T2's great tower 90 %, T4's firing platform 75 %, T5's gate 50 % (the route table's), T7's gate 50 %, T1's frame 75 %. Garrisons of six in T2, T4 and T5; stand heights 16 m in T2 and 11 m in T4 and T5, so every garrison has two steps (the route table's); garrisoned units heal a hit point every 5 s. Vision 10 m from a structure's footprint, and 80 m from a garrisoned building's, so the defender sees the stands within its sally's leash and not the camp 100 m out |
+| 11 | **Repair and the lock** (the route table's repair; GameDesign.md, *the paper tests' values*, item 3) | B3, D5 | 0.08 m³ a second per section, the route table's, which gave 1.50× at the 20 s reload on its own model; on the voxel version's 2 m³ crater it is about 1.7× by arithmetic, inside the Decided 1.3–2×, and D5 measures it. One of the owner's laborers within 3 m on the owner's side; one cubic metre of the voxel's material from the stockpile for each voxel; lowest first, into empty cells only. The lock: 10 s after a shot, a blow or a trench cell within 2 m |
+| 12 | **Sappers and trenches** | B3, D6 | 0.2 m³ a second each, twice a laborer's 0.1 (the route table's); spoil leaves play; dug from the top, each layer leaving a ramp at the end nearest the squad; the TRENCH order a box the player drags. At those rates six sappers bring E3 down in about 3.3 minutes on a 4 m foundation (the route table's 198 s), meeting the paper tests' item 15, taken up |
+| 13 | **Gates and the passage attack** (GameDesign.md, *the MVP assets v3 package*, item 3; *the design review*, item 9) | B3, D2, D4 | **An open gate is passable to every unit,** not only its owner's: owner-only passage needs navigation per owner, which ADR-015 does not have, and a sally that can be followed in is a real risk the defender takes. The defender shuts it when an enemy soldier comes within 10 m with no sally figure as near. **The passage attack:** 10 crush every 4 s to every unit in the passage outside the gate, while the gatehouse works and holds a garrison |
+| 14 | **Fog** (ADR-025) | B3, B4, E1, H3 | Radii from input 6, and structures' from input 10. **The map is revealed to the attacker for the first 2 s,** chunks, structures and readings, never units or garrisons: the castle's plan and every section's integrity reading, kept as last seen, so the choice of breach can be read from the first minute (H2). The shade 0.55, judged on screen |
+| 15 | **Storming** (GameDesign.md, *Stages*, 1) | B4, F1 | The keep's foot is the ring of cells within 3 m of its footprint. The clock counts while the keep does not work and the ring holds one of the attacker's soldiers and none of the defender's; it pauses while both stand there, and resets when the ring holds no attacker's soldier or the keep is repaired, a voxel restored or, in the control, a hit point. Two minutes |
+| 16 | **The time limit** | B4, F1, J1 | 40 minutes of game time. The army rule stays as GameDesign.md, *Stages*, 1, decides it: lost when no attacking unit is left, engines included, so an attacker left with engines alone plays out the clock |
+| 17 | **The trebuchet's deploy and pack, and its packed width** (GameDesign.md, *the MVP assets v3 package*, items 1 and 6) | B3, C5 | 20 s each, one reload. The packed wagon moves as machines, width 3, accepting its 0.25 m overhang either side as ADR-015 accepts the ram's length; the owner may instead have S3p narrowed to 3 m, which changes no code |
+| 18 | **The Siege defender** (MvpPlan.md, *In*; ADR-027) | F2, F3 | Every 0.5 s. Garrisons shoot sappers first, then the ram, the trebuchet, then the nearest. Laborers repair the most damaged unlocked structures, one each, nearest first. Archers put out go to the nearest working building with room. The sally goes when an attacker's engine is seen within 70 m of the curtain's outer faces (the route table's leash) and the sally force is at half strength or more, and returns when the engine is dead, the force below half, or any of it past the leash. An opened section draws the reserve to its inner mouth |
+| 19 | **The control** (ADR-028) | B3, F4, F5, J3 | One pool of hit points a structure, first values 900 for a T3, the route table's nine shots at 100 a shot, then calibrated in F5: each template's unrepaired shots to open or stop on the voxel version, times 100. A ram's blow 100, a fourth of it on stone; a sapper's trench 4 a cubic metre dug within 2 m of a section. A section at 0 falls whole with its warning; a building at 0 stops and stands; a gatehouse or palisade gate at 0 loses its gate. Repair restores 50 hit points a cubic metre of stone at the voxel version's rate, so a repair window restores the same share of a shot in both versions. The control's HUD shows HEALTH in place of the critical part's row on towers, the gatehouse and the keep, which amends Hud.md §1 and §5, whose list names the towers alone |
+| 20 | **Interpolation** (ADR-020, *Left open*; GameDesign.md, *M3's values*, item 12) | H1, H2 | Every unit, engine and shot drawn between its last two positions at the clock's fraction, a tick behind, as M3 draws the shot; a unit that moves more than 1.5 m in a tick snaps, and a shot never does. Cavalry at 2.8 m/s moves about 2 px a tick at the default zoom of about 13 px a metre, and an arrow about 26, so M3's "decide if units stutter" is decided for smoothness |
+| 21 | **The HUD's sizes** (GameDesign.md, *Open questions*) | B5, G3, I1, I2, I4 | **The UI scale caps** at the largest step that leaves the deck its 972 logical px: 1 at 1280 px, 1.5 at 1920 px, whatever the DPI; the done-when's "each scale step" becomes "each step the width allows". **Control groups:** Hud.md §3's strip of five slots and SET, 120 × 44 and 64 × 44, so the 44 px hit target holds; groups 6–9 by key alone. **SPLIT, MERGE, DEPLOY and WALL** drawn by the implementer as 9 × 9 icons at U+E019–U+E01C; the owner may redraw them. **Portraits** rendered from each kind's model once at startup into an RGBA atlas; structures as their icon glyphs. The glyph atlas gains a ninth row of cells for the four icons |
+| 22 | **The wall section's OPEN row** (Hud.md §5; ADR-021, *Left open*) | I6 | No percentage: there is no formula for one but the Hold rule test's 1 − T ÷ T₀, a trench search M6 builds for the waves. The row reads `OPEN yes` once the section is opened, and otherwise its weak reading against its fall, as `WEAK HOLE 3/5 M` or `WEAK GAP 2/5 M`, within 17 characters |
+| 23 | **The views across the castle** (ADR-021, *Left open*: labels for about thirty structures) | G2, H3, I6 | Full integrity labels for the eight sections on screen nearest its centre, name and weak line for the rest, names alone above 150 m of view height; the selected structure always full. Silhouettes for the player's units and visible enemies, in their faction colour at 0.5 alpha |
+| 24 | **Predictions for M5** (MvpPlan.md, M5; M4's build list had "predictions" logged) | J2 | M5 asks its prediction items through M3's lab, unchanged, after each participant's voxel trial: the instrument M3 validated, keyed by the simulation, comparable with M3's reading. Prompts inside the trial would need keys resolved on scratch copies of a world with an AI and the player's other units in it, which is a different and murkier question, and three more orders |
+| 25 | **The trial's flow and records** | H1, J1, J2 | A log and a replay per run in `Logs\`, committed under `Design/Review/SiegeTrial/` after playtests; no save or load offered to players; pause on Pause and F10, keys on no card; `--watch` runs the scripted attacker for the player and needs no participant |
+| 26 | **The pull requests** | All from B | Two draft pull requests: B to F, headless and confirmed by CI, and G to J, the client and the owner's runs. M2 and M3 used one for B to G by the owner's choice; at 41 orders after A, one would be hard to review and hides the checkpoint above |
+| 27 | **M4's work budgets:** the commanders' work a tick, and any budget combat needs | B3, F5, J4 | Set by the implementer from F5's measurements to fit M2's 25 ms, and recorded as Proposed until J4 measures them on the benchmark. Starting at 32 units a tick for the commanders |
+
+**Input 6's table** (Proposed; every number is a first value for M5 to tune):
+
+| Kind | Squad | Hit points | Attack | Reload | Range | Armor, melee / pierce / crush | Speed | Vision | Bonuses |
+|---|---|---|---|---|---|---|---|---|---|
+| Laborer | 1 | 25 | 2 melee | 2 s | touch | 0 / 0 / 0 | 1.4 m/s | 8 m | digs 0.1 m³/s |
+| Spearmen | 6 | 45 | 4 melee | 2 s | touch | 0 / 0 / 0 | 1.4 m/s | 10 m | +12 against outriders |
+| Archers | 6 | 30 | 4 pierce | 2 s | 30 m | 0 / 0 / 0 | 1.4 m/s | 32 m | none: their range beats spearmen |
+| Outriders | 3 | 60 | 6 melee | 2 s | touch | 0 / 2 / 0 | 2.8 m/s | 16 m | +6 against archers, +20 against the ram and the trebuchet, +4 against laborers |
+| Men-at-arms | 6 | 70 | 8 melee | 2 s | touch | 2 / 4 / 0 | 1.4 m/s | 10 m | +4 against spearmen |
+| Sappers | 6 | 40 | 3 melee | 2 s | touch | 0 / 4 / 0 | 1.4 m/s | 10 m | dig 0.2 m³/s |
+| Ram | 1 | 300 | blows, input 9 | 15 s | contact | 0 / 20 / 0 | 0.7 m/s | 8 m | |
+| Trebuchet | 1 | 150 | shot, input 8 | 20 s | 12–50 m | 0 / 4 / 0 | 0.7 m/s packed | 50 m | |
+
+**Risks this plan sees** (judgments, beside the plan's risk table):
+- **The balance is on paper, and thin.** The route table modelled no combat (its *Not modelled*), so input 6 is a first guess. At its values an arrow does 1 to a man-at-arms, and the 12 to 18 archers covering each side of the keep's foot take about 15 of 24 men-at-arms over the two-minute hold (arithmetic: 18 arrows every 2 s at 1 each, over 120 s, against 70 hit points). Storming therefore wants the covering towers stopped first, which is the intended play, but F5's scripted attacker may not win with first values. F5 reports, and the fix is a retune in `GameData/Server/`, not code.
+- **No first value gives the gate its four minutes** (the route table's ambiguity 3). The ram opens T5's 12 voxels in three blows, 30 s from the first, and the passage attack stops when the gate breaks. D4 measures it; the owner chooses among a thicker gate in T5's redraw, a smaller contact crater in timber, or a passage attack that outlives the gate.
+- **The plan is written before M3's code.** Its contracts extend M3's as planned; M3 may change them, and M4 then starts with a correcting commit (input 2).
+- **Separation can still jam.** The swap clears two figures head-on; three squads meeting in a 1 m gap can wait on each other until ADR-022's retry search moves one. C2's tests try it, and the breach log shows it in play.
+- **Thirty structures' labels may crowd the screen,** and ten were all M3 tried (input 23; I6's owner run).
+- **The control's hit points rest on `SiegeAttacker`'s shot patterns.** A player who aims better on the voxel version breaches faster than the calibration; that difference is the hypothesis, not a defect.
+- **Twelve owner runs and the playthroughs,** the most of any milestone, on 42 orders. The headless pull request's end is the place to stop and retune before the client's half.
+
+**Done when** all of the following hold:
+- **Headless, in CI:**
+  - in both versions, `SiegeAttacker` wins by storming against `SiegeDefender` inside the time limit; with no commands the attacker loses to the clock; with every unit spent it loses by the army; each run replays with every state hash equal, and saves at three ticks each continue identically for 1,000 ticks;
+  - two squads sent through a 1 m breach pass it with no two units in one cell on any tick, at a rate the trial's events record, and the run replays identically;
+  - every command and query round-trips as bytes;
+  - the line pass, the silhouettes, the column shade and the image atlas pass their render tests on WARP;
+  - the HUD model differs between the versions in the health bars and the critical part's rows alone (input 19);
+  - every suite passes.
+- **On the benchmark machine:**
+  - the owner plays `Earthrise --siege` to a win and to a loss in both versions, and their logs and replays are committed;
+  - layout A renders with no overlap and no clipped text at 1280 × 720 and 1920 × 1080 at each UI scale step the width allows (input 21), and on the Surface once one is available (Hud.md §11);
+  - over J4's measured run the voxel pass stays within 8 ms at the 95th percentile and the slowest tick of play within M2's 25 ms.
+- **Throughout:** the AGENTS.md checklist passes, and every order that draws or takes input was run by the owner.
+
+**The record.** Each phase's pull request, its commits, one per order, and what CI found.
+
+| Phase | PR | Commits | Notes |
+|---|---|---|---|
+| Plan | | 1 | This revision, the work orders and ADR-022 to ADR-028, Proposed. |
 
 ### M5 — Siege playtest: the verdict on H2
 
@@ -525,6 +635,8 @@ M3 is carried out as 24 work orders in seven phases, written out in [MvpPlan-M3.
 | Players cannot read breaches | M3, M5 | The single round of legibility work, then the kill criterion |
 | The lab's items cannot be split evenly between open and shut | M3 | Prior damage and pillars give the shut side its items; B7 reports the set, and the owner changes input 2 if it falls short |
 | The Siege defender is too weak or too strong to test anything | M4 | Scripted behaviors and tuning; it plays one authored castle, not arbitrary ones |
+| Combat's first values make the Siege trial unwinnable, or trivial | M4 | Statistics are server data; `SiegeAttacker`'s trial in CI and `SimulationBench --siege` report it before the client's half; a retune is a data change |
+| M4 is planned before M3's code | M4 | No M4 code until M3 closes; M3-G3's inheritance corrects the plan's contracts in a commit of its own first |
 | The plan overruns | Every milestone | The plan neither forecasts nor logs time (GameDesign.md, *No time logging*); what to cut is the owner's call (*Planning M2*) |
 | Content takes longer than code | M4, M6 | The templates and models already exist in `GameData/`; one castle and two Hold maps only |
 
