@@ -253,6 +253,19 @@ The owner settled what M1's remaining tasks needed and no document gave (MvpPlan
 8. **The 0.5 m world for ADR-006's comparison is the test scene with each 1 m voxel split into eight,** so the two columns differ only in voxel size.
 9. **The test world is built in Simulation,** so the renderer spike and `SimulationBench` measure the same town. Simulation takes its templates through a lookup and never reads client content. Until the server bake writes the templates (M2), both executables hand it Content's, so `SimulationBench` depends on Content until then ([ADR-010](ADR/ADR-010-solution-and-build-layout.md), amended).
 
+### 2026-11-01: planning M2
+
+The owner settled how M2 is planned and when it starts ([MvpPlan.md](MvpPlan.md), M2).
+
+1. **No M2 code until M1 closes.** M2 starts once the pass mark is measured on the RTX 3060 machine, ADR-006's table is filled in, and M1 is signed off. Until then M2 is planned on paper only.
+2. **Effort is not estimated.**
+   - FTE-months and FTE-days are dropped from the plan and from the build budget (*Build budget*).
+   - Claude sessions write the code, so what sets the pace is the owner's hours, the owner's decisions and CI's round trips.
+   - Each milestone forecasts its calendar weeks and the owner's hours, and logs both.
+3. **Work is planned as work orders,** each a self-contained brief a Claude session can carry out without rebuilding its scope from the other documents. M2's are in [MvpPlan-M2.md](MvpPlan-M2.md).
+4. **One commit per order, one pull request per phase.** A phase is a group of orders that lands together (AGENTS.md §6).
+5. **An ADR may be written ahead of its code.** It stays Proposed until the pull request that first implements it marks it Accepted (AGENTS.md §6).
+
 ## Pillars (Decided)
 
 A pillar is a test every feature has to pass. A feature that serves none of them is a candidate for cutting.
@@ -292,23 +305,18 @@ A classic RTS match ends; a world lasts a season, and the season replaces the ma
 - **The demand threshold** is 32 sign-ups, enough to open two 32-seat worlds at half human.
 - **Online work starts only when** the MVP's hypotheses and the season tests (*Kill criteria*) have passed, and the demand threshold is met. The simulation must build headless as its own project, with no dependency on the client. [ADR-003](ADR/ADR-003-world-as-seed-plus-edits.md)'s generator versioning must be in force, and a save must survive a change of generator version. An operations budget must be written down, in hours per week and money per month. Two questions must be decided apart: whether distribution goes through a store, which needs no SDK in the executable, and whether identity goes through a platform such as Steam, whose SDK R14 excludes.
 
-## Build budget (Decided: there is one, with a cut order; Proposed: its figures and the order)
+## Build budget (Decided: there is one, with a cut order, measured in calendar time and the owner's hours; Proposed: the order)
 
-The review estimated the plan at 79–137 FTE-months of work for one experienced developer. These are judgment estimates, not measurements (review finding F-52). The two cuts taken in the design review save about 3–5 of them.
+The design review estimated the work in FTE-months of one experienced developer (review finding F-52). The owner dropped effort estimates on 2026-11-01 (*Planning M2*): Claude sessions write the code, so the pace is set by the owner's hours, the owner's decisions and CI's round trips, not by how long a solo developer would take.
 
-| Stage | FTE-months (estimate) |
-|---|---|
-| Renderer spike, Trials and their playtest | 32–56 |
-| Skirmish, Worlds and release, after the two cuts | 44–76 |
+The budget is therefore the forecast [MvpPlan.md](MvpPlan.md) writes for each milestone before it starts: its calendar weeks and the owner's hours. Each milestone logs both as it goes. Each milestone's measured pace rescales the forecasts after it, as the spike's did first.
 
-At 20 hours a week that puts the Trials verdict 5–9 years out. The spike's own estimate is written down before it starts, and when it ends, the ratio of actual time to the estimate rescales every figure here.
+**Cut order.** When a stage overruns its forecast by half, in calendar weeks or in the owner's hours, the next cut in this order is taken before the stage goes on:
 
-**Cut order.** When a stage overruns its budget by half, the next cut in this order is taken before the stage goes on:
-
-1. AI houses become fortress garrisons: they hold the old fortresses with the Siege defender's AI, and never hold Earthstone or rank (saves about 4–8).
-2. Worlds open with one culture, and the other two follow (3–5).
-3. Banners share vision and truces only (1–2).
-4. Fire stays out of the first season (1–1.5).
+1. AI houses become fortress garrisons: they hold the old fortresses with the Siege defender's AI, and never hold Earthstone or rank.
+2. Worlds open with one culture, and the other two follow.
+3. Banners share vision and truces only.
+4. Fire stays out of the first season.
 
 ## MVP (Decided: the stages, the hypotheses, the control, the roster and where the MVP ends; Proposed: the rest)
 
