@@ -3,6 +3,7 @@
 #include "SceneScript.h"
 
 #include "Catalog.h"
+#include "Generator.h"
 #include "SplitMix64.h"
 
 namespace RendererSpike
@@ -165,6 +166,47 @@ ModelPlacement Stand(const Simulation::ChunkStore& _store, const Simulation::Tes
 }
 
 } // namespace
+
+TestScene BuildGeneratedScene(Simulation::ChunkStore& _store, std::uint64_t _seed)
+{
+  constexpr std::int32_t WIDTH = Simulation::Generator::MAP_WIDTH_VOXELS;
+  constexpr std::int32_t DEPTH = Simulation::Generator::MAP_DEPTH_VOXELS;
+  const Simulation::Generator generator({.worldSeed = _seed,
+                                         .resourceSeed = Core::SplitMix64Mix(_seed),
+                                         .widthVoxels = WIDTH,
+                                         .heightVoxels = Simulation::Generator::MAP_HEIGHT_VOXELS,
+                                         .depthVoxels = DEPTH});
+  for (std::int32_t y = 0; y < generator.HeightChunks(); ++y)
+  {
+    for (std::int32_t z = 0; z < generator.DepthChunks(); ++z)
+    {
+      for (std::int32_t x = 0; x < generator.WidthChunks(); ++x)
+      {
+        const Protocol::ChunkCoordinate coordinate{.xChunks = x, .yChunks = y, .zChunks = z};
+        const auto chunk = std::make_unique<Protocol::Chunk>();
+        generator.GenerateChunk(coordinate, *chunk);
+        _store.SetChunk(coordinate, *chunk);
+      }
+    }
+  }
+  TestScene scene{
+    .world =
+      {.edgeVoxels = WIDTH, .sceneXVoxels = 0, .sceneZVoxels = 0, .surfaceVoxels = {}, .editedVoxels = 0, .breach = {}, .breachId = 0},
+    .fixedModels = {},
+    .walkers = {},
+    .centerXMeters = static_cast<float>(WIDTH / 2),
+    .centerYMeters = static_cast<float>(generator.SurfaceAt(WIDTH / 2, DEPTH / 2) + 3),
+    .centerZMeters = static_cast<float>(DEPTH / 2)};
+  scene.world.surfaceVoxels.reserve(static_cast<std::size_t>(WIDTH) * static_cast<std::size_t>(DEPTH));
+  for (std::int32_t z = 0; z < DEPTH; ++z)
+  {
+    for (std::int32_t x = 0; x < WIDTH; ++x)
+    {
+      scene.world.surfaceVoxels.push_back(generator.SurfaceAt(x, z));
+    }
+  }
+  return scene;
+}
 
 TestScene BuildTestScene(Simulation::ChunkStore& _store, std::uint64_t _seed, const Simulation::TemplateLookup& _templates)
 {

@@ -60,6 +60,11 @@ struct TestScene
 /// needs is not in _templates or a model is not in Content.
 [[nodiscard]] TestScene BuildTestScene(Simulation::ChunkStore& _store, std::uint64_t _seed, const Simulation::TemplateLookup& _templates);
 
+/// Writes into _store the MVP map the generator makes from _seed, with no units and no edits, and
+/// returns it as a scene whose camera looks at the map's middle (M2-D3). The resource seed is the
+/// seed mixed once, so one number names the map.
+[[nodiscard]] TestScene BuildGeneratedScene(Simulation::ChunkStore& _store, std::uint64_t _seed);
+
 /// Where each walker is at _frame, at 60 frames a second, standing on the ground there and facing
 /// the way it walks, in whole quarter turns. Appends to _placements.
 void PlaceWalkers(const Simulation::ChunkStore& _store, const TestScene& _scene, std::uint32_t _frame,
