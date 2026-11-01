@@ -12,6 +12,7 @@
 #include "GpuDevice.h"
 #include "GpuTimer.h"
 #include "KeyboardInput.h"
+#include "Look.h"
 #include "Measurement.h"
 #include "OrientedVoxel.h"
 #include "OrthographicCamera.h"
