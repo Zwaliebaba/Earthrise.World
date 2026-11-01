@@ -149,7 +149,7 @@ std::optional<std::string> ParticipantFrom(std::wstring_view _commandLine)
   {
     return std::nullopt;
   }
-  const std::string participant = OptionValue(_commandLine, L"--lab").value_or("");
+  std::string participant = OptionValue(_commandLine, L"--lab").value_or(""); // not const, so the return moves it
   const bool named =
     !participant.empty() &&
     std::ranges::all_of(participant, [](char _character)
