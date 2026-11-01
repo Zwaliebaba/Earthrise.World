@@ -31,6 +31,12 @@ inline constexpr std::uint8_t OVERLAY_DIM_INDEX = 246;
 inline constexpr std::uint8_t OVERLAY_TEXT_INDEX = 247;
 /// The strike mark's alpha (ADR-021, decision 4), to be judged on screen.
 inline constexpr float STRIKE_MARK_ALPHA = 0.6F;
+/// The collapse preview's (ADR-021, decision 4; M3-F1): a piece in warning pulses between these over a second, and
+/// its strip lies on the ground at STRIP_ALPHA. To be judged on screen.
+inline constexpr float PIECE_MIN_ALPHA = 0.25F;
+inline constexpr float PIECE_MAX_ALPHA = 0.7F;
+inline constexpr double PIECE_PULSE_SECONDS = 1.0;
+inline constexpr float STRIP_ALPHA = 0.5F;
 
 // The Golden preset (RendererLook.md §6): its clear colour #d6ccba in linear values, because the view that is cleared
 // is sRGB and encodes on write, its sun direction, towards the light, and its lights. The direction is the

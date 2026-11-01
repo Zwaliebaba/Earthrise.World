@@ -7,21 +7,43 @@ namespace Client
 
 void HudAlerts::Push(HudAlert _alert)
 {
-  m_alerts.insert(m_alerts.begin(), std::move(_alert));
-  if (m_alerts.size() > SHOWN)
+  PushEntry({.key = std::nullopt, .alert = std::move(_alert)});
+}
+
+void HudAlerts::Raise(std::uint64_t _key, HudAlert _alert)
+{
+  const auto found = std::ranges::find(m_entries, std::optional<std::uint64_t>(_key), &Entry::key);
+  if (found != m_entries.end())
   {
-    m_alerts.resize(SHOWN);
+    found->alert = std::move(_alert);
+    return;
+  }
+  PushEntry({.key = _key, .alert = std::move(_alert)});
+}
+
+void HudAlerts::PushEntry(Entry _entry)
+{
+  m_entries.insert(m_entries.begin(), std::move(_entry));
+  if (m_entries.size() > SHOWN)
+  {
+    m_entries.resize(SHOWN);
   }
 }
 
 void HudAlerts::Expire(double _nowSeconds)
 {
-  std::erase_if(m_alerts, [_nowSeconds](const HudAlert& _alert) { return _alert.expiresSeconds <= _nowSeconds; });
+  std::erase_if(m_entries, [_nowSeconds](const Entry& _entry) { return _entry.alert.expiresSeconds <= _nowSeconds; });
 }
 
-const std::vector<HudAlert>& HudAlerts::Shown() const noexcept
+std::vector<HudAlert> HudAlerts::Shown() const
 {
-  return m_alerts;
+  std::vector<HudAlert> shown;
+  shown.reserve(m_entries.size());
+  for (const Entry& entry : m_entries)
+  {
+    shown.push_back(entry.alert);
+  }
+  return shown;
 }
 
 } // namespace Client

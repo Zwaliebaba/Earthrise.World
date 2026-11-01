@@ -77,6 +77,8 @@
     <ClInclude Include="OverlayBox.h" />
     <ClInclude Include="FireMode.h" />
     <ClCompile Include="FireMode.cpp" />
+    <ClInclude Include="Overlays.h" />
+    <ClCompile Include="Overlays.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

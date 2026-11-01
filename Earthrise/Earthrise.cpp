@@ -20,6 +20,7 @@
 #include "KeyboardInput.h"
 #include "Look.h"
 #include "ModelPlacement.h"
+#include "Overlays.h"
 #include "PointerInput.h"
 #include "Script.h"
 #include "ServerData.h"
@@ -435,7 +436,9 @@ int Run(const Options& _options)
   Client::WorldPicker picker;
   Protocol::EntityId selected = Protocol::NO_ENTITY;
   Client::FireMode fire;
-  bool worldChanged = false;                              // the last frame took a changed chunk
+  bool worldChanged = false; // the last frame took a changed chunk
+  Client::Overlays views;
+  bool integrityView = true;                              // F1, on by default (Hud.md §7)
   std::optional<DirectX::XMFLOAT4X4> drawnViewProjection; // the last frame's, which the clicks land on
   const std::array<float, 4> figuresColor = Client::LinearColor(Client::DIM_SRGB);
   std::int32_t lastXPixels = 0;
@@ -578,6 +581,10 @@ int Run(const Options& _options)
       fire.Update({}, nullptr, session);
     }
     window.ShowCrosshair(fire.Active());
+    if (keyboard.WasPressed(VK_F1))
+    {
+      integrityView = !integrityView;
+    }
     if (keyboard.WasPressed(VK_SPACE))
     {
       const auto newest = std::ranges::find_if(hudModel.alerts, [](const Client::HudAlert& _alert) { return _alert.location.has_value(); });
@@ -603,6 +610,7 @@ int Run(const Options& _options)
     const float uiScale = _options.uiScale.value_or(Client::UiScaleForDpi(window.Dpi()));
     const float topBarPixels = Client::TOP_BAR_LOGICAL_PIXELS * uiScale;
     // The HUD, built from the session (M3-E2), and the frame's figures under it in the bottom-left corner.
+    views.Update(session, seconds, alerts);
     alerts.Expire(seconds);
     // The objective line names the selection while there is one, with FIRE's key, or RELOADING in off text.
     const bool ready = selectedView != nullptr && selected != Protocol::NO_ENTITY && Client::FireMode::Ready(*selectedView);
@@ -619,7 +627,7 @@ int Run(const Options& _options)
                 .mode = fire.Mode(),
                 .alerts = alerts.Shown(),
                 .selectedEngine = selected,
-                .integrityView = true,
+                .integrityView = integrityView,
                 .passabilityView = false};
     interfaceQuads.clear();
     const std::uint32_t figuresScale = Client::TextLayout::PixelsPerFontPixel(Client::TextSize::Label, uiScale);
@@ -634,8 +642,9 @@ int Run(const Options& _options)
     {
       hud.LayCursor(*cursor, pointer.XPixels(), pointer.YPixels(), uiScale, interfaceQuads);
     }
-    // The world overlays (ADR-021): FIRE's strike mark.
-    const std::array<Client::OverlayLayer, 1> overlays = {{{.alpha = Client::STRIKE_MARK_ALPHA, .boxes = fire.StrikeMark(session)}}};
+    // The world overlays (ADR-021): the views, then FIRE's strike mark.
+    std::vector<Client::OverlayLayer> overlays = views.Layers(session, seconds, integrityView);
+    overlays.push_back({.alpha = Client::STRIKE_MARK_ALPHA, .boxes = fire.StrikeMark(session)});
     Client::WorldRenderer::Frame frame{.commandList = commandList,
                                        .slot = slot,
                                        .ring = &ring,

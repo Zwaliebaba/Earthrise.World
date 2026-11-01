@@ -43,11 +43,36 @@ inline constexpr std::string_view AIM_TOO_CLOSE = "TOO CLOSE · {} m";
 inline constexpr std::string_view AIM_OUT_OF_RANGE = "OUT OF RANGE · {} m";
 inline constexpr std::string_view AIM_WAITING = "…";
 
+// The collapse alerts (Hud.md §10; M3-F1), named for the collapse's structure, or A WALL for one with none.
+inline constexpr std::string_view WILL_FALL_ALERT = "{} WILL FALL IN {} S";
+inline constexpr std::string_view HAS_FALLEN_ALERT = "{} HAS FALLEN";
+inline constexpr std::string_view UNNAMED_WALL = "A WALL";
+
 /// Every string above, for the glyph coverage test.
-inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>(
-  {FIGURES,    TIME_KEY,   TIME_VALUE,  SHOTS_KEY,    SHOTS_VALUE,    BREACH_OBJECTIVE_TITLE, BREACH_OBJECTIVE_DETAIL,
-   TURN_LEFT,  TURN_RIGHT, ZOOM_OUT,    ZOOM_IN,      TREBUCHET_NAME, FIRE_READY_DETAIL,      RELOADING_DETAIL,
-   CANCEL_ESC, JUMP,       FIRE_BANNER, AIM_IN_RANGE, AIM_BLOCKED,    AIM_TOO_CLOSE,          AIM_OUT_OF_RANGE,
-   AIM_WAITING});
+inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
+                                                                     TIME_KEY,
+                                                                     TIME_VALUE,
+                                                                     SHOTS_KEY,
+                                                                     SHOTS_VALUE,
+                                                                     BREACH_OBJECTIVE_TITLE,
+                                                                     BREACH_OBJECTIVE_DETAIL,
+                                                                     TURN_LEFT,
+                                                                     TURN_RIGHT,
+                                                                     ZOOM_OUT,
+                                                                     ZOOM_IN,
+                                                                     TREBUCHET_NAME,
+                                                                     FIRE_READY_DETAIL,
+                                                                     RELOADING_DETAIL,
+                                                                     CANCEL_ESC,
+                                                                     JUMP,
+                                                                     FIRE_BANNER,
+                                                                     AIM_IN_RANGE,
+                                                                     AIM_BLOCKED,
+                                                                     AIM_TOO_CLOSE,
+                                                                     AIM_OUT_OF_RANGE,
+                                                                     AIM_WAITING,
+                                                                     WILL_FALL_ALERT,
+                                                                     HAS_FALLEN_ALERT,
+                                                                     UNNAMED_WALL});
 
 } // namespace Client

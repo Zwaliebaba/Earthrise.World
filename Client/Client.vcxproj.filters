@@ -28,6 +28,9 @@
     <Filter Include="Hud">
       <UniqueIdentifier>{AAE0912F-0EB4-5682-8FCB-EFA0441AC623}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Views">
+      <UniqueIdentifier>{C8D20524-785A-50C8-A4E2-CA5AA774CEF8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -149,6 +152,12 @@
     </ClInclude>
     <ClCompile Include="FireMode.cpp">
       <Filter>Hud</Filter>
+    </ClCompile>
+    <ClInclude Include="Overlays.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClCompile Include="Overlays.cpp">
+      <Filter>Views</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
