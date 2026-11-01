@@ -953,6 +953,25 @@
    ]
   },
   {
+   "id": "X2",
+   "key": "arrow",
+   "name": "Arrow",
+   "grid": null,
+   "voxelSize": null,
+   "role": "One per arrow in flight, drawn at the shot's position interpolated between ticks and turned freely along its velocity, pitch included. Not voxels: a 0.5 m voxel is wider than an arrow is long, so no voxel arrow reads as one at any zoom (ADR-006, decision 2's one exception; ADR-018). Drawn 1 m long against a real 0.8 m, about 13 px at the default zoom, with its width fixed in screen pixels; shorter than 6 px on screen, it is a 2 px dot. Unlit, casts no shadow, and depth-tested against the voxel pass, so walls hide it. Arrows are M4's.",
+   "criticalPart": null,
+   "silhouetteCue": "Thin line, iron head, faction fletching",
+   "sizeVoxels": null,
+   "lengthMetres": 0.8,
+   "drawnLengthMetres": 1,
+   "voxelCount": 0,
+   "authoring": "from the owner's MVP assets v3 package (2026-11-01, Design/Reference/MvpAssetsV3/), its fields renamed to the schema the bake reads",
+   "files": {
+    "json": "Client/Lines/earthrise-x2-arrow.json"
+   },
+   "kind": "line model"
+  },
+  {
    "id": "G1",
    "key": "gatehouseGateRaised",
    "name": "Gatehouse gate, raised",

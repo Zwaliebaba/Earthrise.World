@@ -152,6 +152,31 @@ public:
     Assert::IsTrue(Content::FindModel("T2") == nullptr);
   }
 
+  // ADR-018: the arrow is the one model that is not voxels. Its segments run contiguously from its tail to its drawn
+  // length, each at least a pixel wide, with its fletching in the side's faction colour and its head tapering.
+  TEST_METHOD(HoldsTheArrowAsALineModel)
+  {
+    Assert::AreEqual(std::size_t{1}, Content::LineModels().size());
+    const Content::LineModelView* arrow = Content::FindLineModel("X2");
+    Assert::IsNotNull(arrow);
+    Assert::IsTrue(arrow->name == "Arrow");
+    Assert::AreEqual(std::uint32_t{1000}, arrow->drawnLengthMillimeters);
+    Assert::AreEqual(std::size_t{3}, arrow->segments.size());
+    std::uint32_t reachedMillimeters = 0;
+    for (const Content::LineSegmentView& segment : arrow->segments)
+    {
+      Assert::AreEqual(reachedMillimeters, segment.fromMillimeters);
+      Assert::IsTrue(segment.toMillimeters > segment.fromMillimeters);
+      Assert::IsTrue(segment.widthPixels >= 1);
+      reachedMillimeters = segment.toMillimeters;
+    }
+    Assert::AreEqual(arrow->drawnLengthMillimeters, reachedMillimeters);
+    Assert::IsTrue(arrow->segments.front().factionColor);
+    Assert::IsTrue(arrow->segments.back().tapers);
+    Assert::IsTrue(Content::FindLineModel("S3") == nullptr);
+    Assert::IsTrue(Content::FindModel("X2") == nullptr);
+  }
+
   TEST_METHOD(RefusesAPositionOutsideTheGrid)
   {
     const Content::VoxelGrid& grid = Content::FindTemplate("T3")->grid;

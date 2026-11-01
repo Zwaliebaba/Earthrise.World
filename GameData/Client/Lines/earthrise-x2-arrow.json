@@ -1,0 +1,48 @@
+{
+ "id": "X2",
+ "name": "Arrow",
+ "kind": "line model: the one model that is not voxels (ADR-006, decision 2; ADR-018)",
+ "lengthMetres": 0.8,
+ "drawnLengthMetres": 1,
+ "axis": "from the tail at 0 to the head at drawnLengthMetres, along the arrow's velocity, pitch and yaw free",
+ "widthIsScreenSpace": true,
+ "dotBelowPixels": 6,
+ "dotWidthPixels": 2,
+ "segments": [
+  {
+   "name": "fletching",
+   "fromMetres": 0,
+   "toMetres": 0.18,
+   "color": "faction",
+   "widthPixels": 3
+  },
+  {
+   "name": "shaft",
+   "fromMetres": 0.18,
+   "toMetres": 0.86,
+   "color": "#c79a6b",
+   "widthPixels": 2
+  },
+  {
+   "name": "head",
+   "fromMetres": 0.86,
+   "toMetres": 1,
+   "color": "#9aa0a6",
+   "widthPixels": 3,
+   "tapers": true
+  }
+ ],
+ "lit": false,
+ "castsShadow": false,
+ "depthTested": true,
+ "tracer": {
+  "optional": true,
+  "note": "Only if a volley still does not read on screen; not baked.",
+  "seconds": 0.2,
+  "widthPixels": 1,
+  "color": "#f3ede2",
+  "alphaFrom": 0.5,
+  "alphaTo": 0
+ },
+ "derivedFrom": "The owner's MVP assets v3 package (2026-11-01), kept in Design/Reference/MvpAssetsV3/ with this file as delivered; its fields were renamed to the schema the bake reads (GameData/README.md)"
+}
