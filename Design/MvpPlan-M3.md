@@ -1,13 +1,13 @@
 # Earthrise.World — M3 work orders
 
-**Status:** Proposed, 2026-11-01, with [MvpPlan.md](MvpPlan.md)'s M3 revision, which is accepted when the owner merges its pull request, #45 (GameDesign.md, *Closing M2*, item 6). The owner answered MvpPlan.md, M3, inputs 1–15 the same day, taking every proposal (order M3-A1; GameDesign.md, *M3's values*). No order from phase B on starts before that pull request merges; phase A is paper. "Input N" means MvpPlan.md, M3, input N. These orders carry out M3 as MvpPlan.md, M3, defines it, under [ADR-019](ADR/ADR-019-text-and-the-interface-pass.md) to [ADR-021](ADR/ADR-021-world-overlays.md). Where an order and those differ, they win, and the order is corrected.
+**Status:** Proposed, 2026-11-01, with [MvpPlan.md](MvpPlan.md)'s M3 revision, which is accepted when the owner merges its pull request, #45 (GameDesign.md, *Closing M2*, item 6). The owner answered MvpPlan.md, M3, inputs 1–15 the same day, taking every proposal, and inputs 16 and 17 after main's v3 asset package merged (order M3-A1; GameDesign.md, *M3's values*). No order from phase B on starts before that pull request merges; phase A is paper. "Input N" means MvpPlan.md, M3, input N. These orders carry out M3 as MvpPlan.md, M3, defines it, under [ADR-019](ADR/ADR-019-text-and-the-interface-pass.md) to [ADR-021](ADR/ADR-021-world-overlays.md). Where an order and those differ, they win, and the order is corrected.
 
 **An order is one commit, and a phase is one pull request** (AGENTS.md §6), or one draft pull request for B to G if the owner chooses that again, as in M2. There are 24 orders in seven phases:
 
 | Phase | Orders | What lands | Waits on |
 |---|---|---|---|
-| A | A1 | The owner's decisions, written down | The owner's answers to MvpPlan.md, M3, inputs 1–15 |
-| B | B1–B8 | The simulation's side: structures, state updates, queries, the three readings, the lab's items, the font's bake | A |
+| A | A1 | The owner's decisions, written down | The owner's answers to MvpPlan.md, M3, inputs 1–17 |
+| B | B1–B8 | The simulation's side: structures, state updates, queries, the three readings, the lab's items, the font's and the debris table's bake | A |
 | C | C1–C3 | `Client` and `Earthrise`; the world view moves; the breach run on screen | B1–B3 |
 | D | D1–D2 | `Engine`'s interface pass and overlay pipeline, with their render tests | A |
 | E | E1–E4 | Text and the HUD's first pieces; picking, selection and FIRE | B8, C, D |
@@ -57,7 +57,7 @@ struct EngineView { EntityId id; std::uint8_t owner; EngineKind kind; VoxelPosit
 struct SquadView { EntityId id; std::uint8_t owner; std::vector<EntityId> units; bool hasGoal; VoxelPosition goalVoxels; bool shortOfGoal; };
 struct UnitView { EntityId id; EntityId squad; std::uint8_t owner; UnitKind kind; FixedPosition position; VoxelPosition cellVoxels; };
 struct ShotView { EntityId id; EntityId engine; FixedPosition position; };
-struct FallenVoxel { VoxelPosition position; std::uint8_t paletteIndex; }; // moved from Simulation/TestWorld.h
+struct PlacedVoxel { VoxelPosition position; std::uint8_t paletteIndex; }; // Simulation's PlacedVoxel (CollapsePlan.h) and FallenVoxel (TestWorld.h), the same two fields, moved here as one
 struct CollapseView
 {
   EntityId id;
@@ -66,8 +66,9 @@ struct CollapseView
   std::uint32_t fallTicksLeft;
   std::vector<VoxelPosition> piece;
   std::vector<VoxelPosition> strip; // CollapsePlan::strip: where units are hit
-  std::vector<FallenVoxel> fallen;  // empty until the fall's first tick
-  std::vector<VoxelPosition> rubble; // where its rubble has landed so far
+  std::vector<PlacedVoxel> landing; // CollapsePlan::landing from the first warning tick, nearest the foot first: where its debris rests (input 16)
+  std::uint32_t landedVoxels;       // how many of landing have landed: 0 until the fall's first tick
+  std::vector<PlacedVoxel> fallen;  // the piece's voxels as they were, empty until the fall's first tick
 };
 struct ShotHitView { EntityId shot; VoxelPosition voxel; };
 struct StateUpdate
@@ -245,6 +246,17 @@ struct Glyph
 inline constexpr std::uint32_t FONT_CELL_ROWS = 10;
 inline constexpr std::uint32_t FONT_BASELINE_ROW = 7;
 inline constexpr std::uint32_t FONT_GLYPH_COUNT = 127;
+
+// Content/Debris.h — input 16. Baked from GameData/Manifest.json's debrisByRubble (MvpAssets.md, *Poses, projectiles,
+// gates and debris*).
+struct DebrisChoice
+{
+  std::uint8_t rubbleIndex;                 // the palette index of the rubble it lies on
+  std::span<const std::string_view> models; // the models scattered over it, each in Models()
+  std::uint8_t tintIndex;                   // every voxel of a piece drawn in this index, or 0 to keep the model's own
+};
+[[nodiscard]] std::span<const DebrisChoice> DebrisChoices() noexcept; // ascending rubble index
+[[nodiscard]] const DebrisChoice* FindDebrisChoice(std::uint8_t _rubbleIndex) noexcept;
 [[nodiscard]] std::span<const Glyph> Glyphs() noexcept; // ascending code point
 [[nodiscard]] const Glyph* FindGlyph(char32_t _codePoint) noexcept;
 ```
@@ -299,7 +311,9 @@ using SolidAt = std::function<bool(std::int32_t, std::int32_t, std::int32_t)>; /
 // Client/Look.h — RendererLook.md's numbers, moved from the spike: the Golden preset, the shadow maps'
 // sizes and biases, the camera's angles and zoom range, the model voxel's edge, and the palette entries
 // above the materials': 240 attacker, 241 defender, 242 ford, and ADR-021's overlays, 243 good, 244 bad,
-// 245 accent, 246 dim, 247 text, in Hud.md §2's colours.
+// 245 accent, 246 dim, 247 text, in Hud.md §2's colours; and the trebuchet's poses (input 16): S3c, cocked, placed at
+// S3's placement moved -5 m along the model's own x before its turn, and S3, released, for RELEASED_POSE_TICKS = 20
+// after a fire, both from MvpAssets.md, *Poses, projectiles, gates and debris*, as arithmetic on the files.
 
 // Client/TickClock.h — ADR-020, decision 4.
 class TickClock
@@ -312,6 +326,8 @@ public:
   [[nodiscard]] std::uint32_t Advance(double _seconds, double _speed);
   void SetPaused(bool _paused) noexcept;
   [[nodiscard]] bool Paused() const noexcept;
+  /// The accumulator's part of the next tick, 0 to 1: where the shot is drawn between its last two positions (input 17).
+  [[nodiscard]] double TickFraction() const noexcept;
 };
 
 // Client/Session.h — ADR-020, decision 2: the client's copy of what it was told, and what it asks.
@@ -322,6 +338,8 @@ public:
   void Receive(const Protocol::StateUpdate& _state, std::span<const Protocol::ChunkSnapshot> _snapshots,
                std::span<const std::vector<std::byte>> _answers);
   [[nodiscard]] const Protocol::StateUpdate& State() const noexcept;
+  /// The update before the last, for the shot's interpolation (input 17); empty before the second.
+  [[nodiscard]] const Protocol::StateUpdate& PreviousState() const noexcept;
   /// The commands and queries the client has queued since the last call, as bytes, for the executable to hand the simulation.
   [[nodiscard]] std::vector<std::vector<std::byte>> TakeCommands();
   [[nodiscard]] std::vector<std::vector<std::byte>> TakeQueries();
@@ -359,7 +377,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 ## Phase A — Decisions
 
 ### M3-A1 — Write down the owner's decisions
-- **Waits on:** the owner's answers to MvpPlan.md, M3, inputs 1–15. Paper only.
+- **Waits on:** the owner's answers to MvpPlan.md, M3, inputs 1–17. Paper only.
 - **Read first:** MvpPlan.md, M3, *The owner's inputs*; GameDesign.md, *Closing M2* and *Open questions*.
 - **Changes:**
   - **GameDesign.md** gains `### <date>: M3's values`, with each input as Decided in the owner's words, or as the owner changed it. Input 10 stays Proposed, because G3 measures it. The Open questions *Craters at 1 m* and *The HUD's sizes* are rewritten as the owner decides them (inputs 11 and 8).
@@ -388,12 +406,12 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 - **Waits on:** B1.
 - **Read first:** ADR-002, decision 3; ADR-020, decision 3; *Contracts*, `Protocol`.
 - **Changes:**
-  - **`Protocol`:** `FixedPosition.h` and `EntityKinds.h` moved in, `StateUpdate.h` new, in the filter `State`. `Simulation` and `RendererSpike` keep compiling through using-declarations and include changes only.
+  - **`Protocol`:** `FixedPosition.h` and `EntityKinds.h` moved in, and `PlacedVoxel` with them, `StateUpdate.h` new, in the filter `State`. `Simulation` and `RendererSpike` keep compiling through using-declarations and include changes only.
   - **`Unit::kind`,** which `AddSquad` takes; the breach run's squad is men-at-arms.
   - **`World::PublishState`** fills the update from the entities, through `PublishState(player)` with the identity filter M3 has; `World::State` returns it.
 - **Tests:** **`StateUpdateTests`:**
   - On the breach run, every structure, engine, squad, unit, shot and collapse appears in its tick's update, in id order, and nothing that no longer exists does.
-  - A collapse's view carries its piece and strip from its first warning tick, `fallen` and `rubble` empty until the fall's first tick and growing with it, and `warningTicksLeft` counting down to 0.
+  - A collapse's view carries its piece, strip and landing from its first warning tick, the landing equal to its `CollapsePlan`'s; `fallen` empty and `landedVoxels` 0 until the fall's first tick, then `landedVoxels` growing to the landing's size on the fall's last tick; and `warningTicksLeft` counting down to 0.
   - The tick's hits match `LastTickHits`.
   - A unit's position in the update equals the unit's.
 - **ADR:** ADR-020, decision 3, implemented; the ADR stays Proposed until C1.
@@ -464,15 +482,15 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
   - Every item ends quiet within `LAB_MAX_TICKS_PER_PHASE` of each phase, and none times out.
   - An item resolved twice gives the same hash, and resolved from a save taken between its two halves gives the same key and hash.
 
-### M3-B8 — The font's bake
-- **Waits on:** A1, for ADR-019's go-ahead.
-- **Read first:** ADR-019, decision 1; Hud.md §9; `Tools/BakeContent.py`'s client half; `Content/Palette.cpp`, which reads a generated table; *Contracts*, `Content`.
+### M3-B8 — The font's and the debris table's bake
+- **Waits on:** A1, for ADR-019's go-ahead and input 16.
+- **Read first:** ADR-019, decision 1; Hud.md §9; MvpAssets.md, *Poses, projectiles, gates and debris*; `GameData/Manifest.json`'s `debrisByRubble`; `Tools/BakeContent.py`'s client half; `Content/Palette.cpp`, which reads a generated table; *Contracts*, `Content`.
 - **Changes:**
-  - **`Tools/BakeContent.py --client`** writes `FontTable.h` from the glyph JSON; `Content.vcxproj`'s bake inputs and outputs name the JSON and the header.
-  - **`Content/Font.h` and `.cpp`,** in the filter `Fonts`.
-  - **`Tools/CheckAssets.py`** gains check 13, after main's check 12 for line models: the glyph file holds 127 glyphs, each row as wide as its glyph says, no code point twice, every row made of `.` and `#`, and the 15 symbols and 25 icons of Hud.md §9 present.
-  - **`Tools/TestCheckAssets.py`** and **`Tools/TestBakeContent.py`** gain the font: a broken glyph fails, and the baked rows of `1` are its bitmap.
-- **Tests:** **`FontTests`** (`ContentTests`): 127 glyphs in ascending code point; `FindGlyph(U'1')`'s rows are the seven known masks, with `topRow` 1 and `advancePixels` 6; `FindGlyph(U'$')` is null, since the font lacks it; every icon code point U+E000 to U+E018 is present and 9 wide.
+  - **`Tools/BakeContent.py --client`** writes `FontTable.h` from the glyph JSON, and `DebrisTable.h` from `Manifest.json`'s `debrisByRubble`, each tint as the palette index of that colour; `Content.vcxproj`'s bake inputs and outputs name both sources and both headers.
+  - **`Content/Font.h` and `.cpp`,** in the filter `Fonts`; **`Content/Debris.h` and `.cpp`,** in the filter `Catalog`, beside the models.
+  - **`Tools/CheckAssets.py`** gains check 13, after main's check 12 for line models: the glyph file holds 127 glyphs, each row as wide as its glyph says, no code point twice, every row made of `.` and `#`, and the 15 symbols and 25 icons of Hud.md §9 present. It gains check 14 too: each `debrisByRubble` row names a palette index whose behaviour is a rubble, models that are in `GameData/Client/Models/`, and a tint, if any, that is exactly one palette entry's colour.
+  - **`Tools/TestCheckAssets.py`** and **`Tools/TestBakeContent.py`** gain the font and the table: a broken glyph fails, a row naming a model that does not exist fails, the baked rows of `1` are its bitmap, and rock rubble's row bakes D1–D3 with tint index 28.
+- **Tests:** **`DebrisTests`** (`ContentTests`): four choices in ascending rubble index, 8, 25, 26 and 28; 25 gives D4 and D5 with no tint; every model named is in `Models()`; `FindDebrisChoice(6)` is null. **`FontTests`** (`ContentTests`): 127 glyphs in ascending code point; `FindGlyph(U'1')`'s rows are the seven known masks, with `topRow` 1 and `advancePixels` 6; `FindGlyph(U'$')` is null, since the font lacks it; every icon code point U+E000 to U+E018 is present and 9 wide.
 
 ## Phase C — The client and the executable join
 
@@ -485,24 +503,25 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
   - **ADR-010** is amended: `Client` and `Earthrise` join in M3, `RendererSpike` references `Client` (C2), and the checker holds the layering table. **ADR-020** is marked Accepted. **AGENTS.md** §2's list of what the tree holds counts fifteen projects.
 - **Tests:** `SuiteSmoke` in `ClientTests`; `Build/TestCheckers.py` passes the repository and fails the new variant for its reason. CI builds and runs every suite.
 
-### M3-C2 — The world view moves into `Client`
-- **Waits on:** C1 and B2.
-- **Read first:** `RendererSpike/WorldView.h`, `Debris.h`, `SceneScript.h`'s `ModelPlacement`, and the constants at the top of `RendererSpike.cpp`; ADR-020, decision 1.
+### M3-C2 — The world view moves into `Client`, and the debris becomes models
+- **Waits on:** C1, B2 and B8, and input 16.
+- **Read first:** `RendererSpike/WorldView.h`, `Debris.h`, `SceneScript.h`'s `ModelPlacement`, and the constants at the top of `RendererSpike.cpp`; ADR-020, decision 1; MvpAssets.md, *Poses, projectiles, gates and debris*; GameDesign.md, *M1's open values*, item 7.
 - **Changes:**
-  - `WorldView`, `Debris` and `ModelPlacement` move to `Client`, in the filter `World`, unchanged but for their namespace and for `Debris` taking `Protocol::FallenVoxel`. `Client/Look.h` takes the spike's look constants and palette entries, in the filter `Look`.
-  - `RendererSpike` references `Client`, includes these from it, and deletes its copies. Its loop, its measurement and its scene script stay as they are.
-- **Tests:** the existing `EngineTests` and the spike's build. `ClientTests` gains `WorldViewTests` only where a test needs no GPU: `Debris` scatters the same pieces for the same id.
-- **Owner runs:** the spike with `--measure --windowed`: the same picture, and the voxel pass's 95th percentile within the run-to-run spread of the M1 and M2 figures.
+  - `WorldView`, `Debris` and `ModelPlacement` move to `Client`, in the filter `World`, unchanged but for their namespace and for `Debris`, below. `Client/Look.h` takes the spike's look constants and palette entries, in the filter `Look`.
+  - **`Debris` scatters the v3 package's models** (input 16): `Scatter` takes the collapse's id, its fallen voxels and its landing as `Protocol::PlacedVoxel`s. Over each landing column's top voxel, `Content::FindDebrisChoice` gives the models; one piece is placed per about 4 m² of that rubble's top, by keyed draws on the collapse's id (`Core::KeyedDraw`), with its model, a quarter turn of yaw and an offset of 0, 0.25 or 0.5 m within its cell, as MvpAssets.md says. Each piece starts at a fallen voxel chosen by the same draws, falls and turns for `FALL_SECONDS`, and rests on its cell's top at its yaw. It is drawn as its model's voxels, each an `Engine::OrientedVoxel` sharing the piece's turn, through the oriented pass, as M1's single voxels were; over rock rubble every voxel takes the choice's tint index.
+  - `RendererSpike` references `Client`, includes these from it, and deletes its copies. It builds its collapse's landing from the rubble cells its scene script records and the store's indices there. Its loop, its measurement and its scene script otherwise stay as they are.
+- **Tests:** the existing `EngineTests` and the spike's build. `ClientTests` gains `DebrisTests`, which need no GPU: the same id gives the same pieces; a landing of 40 stone-rubble columns gives about 10 pieces, each one of D1–D3, each resting on a landing column at a whole quarter turn; over rock rubble every voxel is index 28; over earth rubble every piece is D6; nothing rests outside the landing.
+- **Owner runs:** the spike with `--measure --windowed`: the same picture but for the debris, which is now D1–D6 models tumbling and coming to rest on the breach's and the collapse's rubble, and the voxel pass's 95th percentile within the run-to-run spread of the M1 and M2 figures.
 
 ### M3-C3 — The breach run on screen
-- **Waits on:** C2 and B3, and inputs 4, 12 and 14.
-- **Read first:** ADR-020, decisions 2 and 4; ADR-016, decision 7; ADR-014, decision 6; `RendererSpike/RendererSpike.cpp`'s `Run`, `Steer` and `MakeFrame`; `SimulationBench/SimulationBench.cpp`'s `BuildIdOf`; RendererLook.md §7; Hud.md §3, *The camera frames the uncovered area*, and §7's global keys; *Contracts*, `Client`.
+- **Waits on:** C2 and B3, and inputs 4, 12, 14, 16 and 17.
+- **Read first:** ADR-020, decisions 2 and 4; ADR-016, decision 7; MvpAssets.md, *Poses, projectiles, gates and debris*; ADR-014, decision 6; `RendererSpike/RendererSpike.cpp`'s `Run`, `Steer` and `MakeFrame`; `SimulationBench/SimulationBench.cpp`'s `BuildIdOf`; RendererLook.md §7; Hud.md §3, *The camera frames the uncovered area*, and §7's global keys; *Contracts*, `Client`.
 - **Changes:**
   - **`Client::TickClock`, `Client::Session`, `Client::Camera`** (Hud.md's keys, moved from the spike's `Steer`, with the look-at point offset below the top bar's 44 logical px) and **`Client::WorldRenderer`** (the spike's frame: the two shadow maps, the voxel pass, the debris, the upscale, and the GPU timer, so that the title shows the voxel pass's time), in the filters `Time`, `Session`, `Camera` and `Rendering`.
   - **ADR-016,** decision 7, is amended: `Earthrise` compares the two shared hashes from M3, not M4 (ADR-020, decision 7).
-  - **`Earthrise`** loads `ServerData` from beside itself, computes its build id, refuses a shared-hash mismatch, builds the lab's site through `BuildLabSite` (B7) or, until B7 lands, the breach run, and runs it live: each frame the clock's ticks, each tick the session's command and query bytes handed over, the world ticked, and its state, snapshots and answers handed back. The breach run's script fires as scripted; the trebuchet draws as S3 at its cell facing the wall, the squad as six U5, a shot as one 0.5 m oriented voxel of stone rubble's colour, the collapse with its debris from the collapse view's fallen voxels and rubble. The camera starts at the default azimuth and view height on W2. `--speed 10` runs the clock at ten times, for the owner to see the whole run quickly.
-- **Tests:** **`TickClockTests`:** 1/60 s a frame gives a tick every third frame on average and 20 a second; a 1 s frame gives 8 and keeps 12 for later; paused gives none; speed 10 gives ten times the ticks. **`SessionTests`:** a received update replaces the last; commands and queries come out as the bytes `Encode` writes; the newest answer per key replaces the last.
-- **Owner runs:** `Earthrise --windowed`, and with `--speed 10`: the enclosure, the trebuchet and the men-at-arms; five shots that leave craters where the M2 report says; the slot's warning and fall with debris; the squad walking through. The voxel pass's time in the title.
+  - **`Earthrise`** loads `ServerData` from beside itself, computes its build id, refuses a shared-hash mismatch, builds the lab's site through `BuildLabSite` (B7) or, until B7 lands, the breach run, and runs it live: each frame the clock's ticks, each tick the session's command and query bytes handed over, the world ticked, and its state, snapshots and answers handed back. The breach run's script fires as scripted; the trebuchet draws at its cell facing the wall as S3c, cocked, and as S3, released, for `RELEASED_POSE_TICKS` after its `reloadTicks` rises, which is when it fired, each placed as `Client/Look.h` says (input 16); the squad as six U5; a shot as X1, centred on its position, drawn between its positions in the session's previous and last updates at the clock's `TickFraction`, or at its last when it has none before (input 17); the collapse with its debris scattered on the fall's first tick from the collapse view's fallen voxels and landing. The camera starts at the default azimuth and view height on W2. `--speed 10` runs the clock at ten times, for the owner to see the whole run quickly.
+- **Tests:** **`TickClockTests`:** 1/60 s a frame gives a tick every third frame on average and 20 a second; a 1 s frame gives 8 and keeps 12 for later; paused gives none; speed 10 gives ten times the ticks; `TickFraction` is 0.5 halfway to the next tick, and stays below 1. **`SessionTests`:** a received update replaces the last and becomes `PreviousState` when the next arrives; commands and queries come out as the bytes `Encode` writes; the newest answer per key replaces the last.
+- **Owner runs:** `Earthrise --windowed`, and with `--speed 10`: the enclosure, the trebuchet cocked and released at each throw without a jump in its frame, and the men-at-arms; five shots that fly smoothly as X1 and leave craters where the M2 report says; the slot's warning and fall with debris; the squad walking through. The voxel pass's time in the title.
 
 ## Phase D — `Engine`: text and overlays
 

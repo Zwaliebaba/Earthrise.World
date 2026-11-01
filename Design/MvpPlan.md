@@ -2,7 +2,7 @@
 
 **Status:** Accepted by the owner for M0 to M2, 2026-10-31; M3 to M7 stay Proposed until after M1 (GameDesign.md, *Starting the MVP*). M2's revision of 2026-11-01 was accepted when the owner merged it (pull request #32). M3's revision of 2026-11-01 is accepted when the owner merges it (pull request #45; GameDesign.md, *Closing M2*, item 6). It covers:
 - M3's work orders and phases, in [MvpPlan-M3.md](MvpPlan-M3.md);
-- the owner inputs, fifteen, each answered as proposed on 2026-11-01 (GameDesign.md, *M3's values*);
+- the owner inputs, seventeen, each answered as proposed on 2026-11-01: fifteen with the plan, and two after the v3 asset package (pull request #44) (GameDesign.md, *M3's values*);
 - ADR-019 to ADR-021, Proposed, with the owner's go-ahead.
 
 M0 to M2 were closed by the owner on 2026-11-01 (GameDesign.md, *Closing M0 and M1* and *Closing M2*); nothing from M3 on is implemented. [GameDesign.md](GameDesign.md) defines the MVP and governs where this plan differs from it. [AGENTS.md](../AGENTS.md) governs how the code is written.
@@ -380,12 +380,13 @@ The phases' calendar forecast and owner hours, written here, were dropped on clo
 
 ### M3 — Breach lab
 
-**When it starts.** The owner answered inputs 1–15 below on 2026-11-01, taking every proposal (phase A, order M3-A1). No M3 code is written until this revision is accepted by merging pull request #45 (GameDesign.md, *Closing M2*, item 6). M2 is closed, so nothing else holds it back. M3 is the first milestone that draws and takes input, so each order that does is run by the owner before its phase merges (AGENTS.md §3).
+**When it starts.** The owner answered inputs 1–17 below on 2026-11-01, taking every proposal (phase A, order M3-A1). No M3 code is written until this revision is accepted by merging pull request #45 (GameDesign.md, *Closing M2*, item 6). M2 is closed, so nothing else holds it back. M3 is the first milestone that draws and takes input, so each order that does is run by the owner before its phase merges (AGENTS.md §3).
 
 **Build** a thin client, which is the first game executable:
 - `Client` and `Earthrise` join the solution ([ADR-020](ADR/ADR-020-the-in-process-client.md); ADR-010 amended), and the world view the spike built moves into `Client`;
 - the simulation's side of the boundary: structures as entities, the state update as a value, queries as bytes with their budget, the three readings the lab needs, an aim check, a section's integrity and reach in a tile, and `Quiet`, for the lab's fast-forward to stop on;
 - the camera, with Hud.md's keys and its framing below the top bar;
+- the trebuchet drawn cocked and released, its shot drawn between ticks, and collapse debris from the v3 package's models (inputs 16 and 17);
 - click-to-fire a trebuchet at a wall, with the attack cursor's four readings and a mark where the shot will strike;
 - the integrity view read from the resolver;
 - the collapse preview and the passability view, with F1 toggling the integrity view and F2 the passability view ([ADR-021](ADR/ADR-021-world-overlays.md));
@@ -401,8 +402,8 @@ M3 is carried out as 24 work orders in seven phases, written out in [MvpPlan-M3.
 
 | Phase | Orders | What lands | Needs first |
 |---|---|---|---|
-| A | 1 | The owner's decisions, written down | Inputs 1–15 below |
-| B | 8 | The simulation's side: structures, the state update, queries and their budget, the aim, integrity and reach readings, the lab's items, the font's bake | A |
+| A | 1 | The owner's decisions, written down | Inputs 1–17 below |
+| B | 8 | The simulation's side: structures, the state update, queries and their budget, the aim, integrity and reach readings, the lab's items, the font's and the debris table's bake | A |
 | C | 3 | `Client`, `ClientTests` and `Earthrise`; the world view moves; the breach run on screen | B1–B3 |
 | D | 2 | `Engine`'s interface pass and overlay pipeline, with render tests on WARP | A |
 | E | 4 | Text, the top bar, the banner, the buttons and the alerts; picking, selection and FIRE | B8, C, D |
@@ -432,6 +433,8 @@ M3 is carried out as 24 work orders in seven phases, written out in [MvpPlan-M3.
 | 13 | **The lab's log** | G1, G3 | One CSV a run in `Logs\` beside the executable, with the columns MvpPlan-M3.md fixes and each item's live and headless state hash. After the session the logs and the facilitator's reasons are committed under `Design/Review/BreachLab/` |
 | 14 | **The camera in the lab** | C3, E2 | It starts at the default azimuth, the south-west, at 84 m of view height on W2, with Hud.md §3's framing offset for the top bar, and the player moves it freely; the log counts turns and zoom notches during a question |
 | 15 | **Mouse messages** (ADR-007, decision 4) | E3 | M1's `PointerInput` reads mouse messages, not `WM_POINTER`. M3 keeps that, and the switch comes with the touch scheme after the verdict. ADR-007 is amended to say so |
+| 16 | **The v3 package's models in M3** (GameDesign.md, *the MVP assets v3 package*; asked after pull request #44 merged) | B2, B8, C2, C3 | The trebuchet as S3c, cocked, and S3, released, for 20 ticks after it fires; its shot as X1; collapse debris as D1–D6 by rubble, baked from `Manifest.json`'s `debrisByRubble` and scattered as MvpAssets.md says, falling with the collapse for 1.5 s and resting at a quarter turn of yaw. The state update carries each collapse's landing, so that the debris knows where it rests. S3p and the open gates wait for M4 |
+| 17 | **The shot between ticks** (against input 12; asked with input 16) | C3 | X1 is drawn between its last two positions at the clock's fraction of a tick, a tick behind, since it moves 10 px or more a tick at the default zoom. Nothing else is interpolated |
 
 **Risks this plan sees** (judgments, beside the plan's risk table):
 - **The items may not split 8 and 8 with trebuchet shots alone.** On the 1 m grid a shot takes two voxels and a hole opens the slot above it at 5 wide, so most shot patterns either open the wall at the fifth adjacent shot or never do. Prior damage and shots that leave pillars give the shut side its items; order B7 reports the set, and if fewer than eight shut items are more than trivial, the set shrinks or input 2 changes.
@@ -459,7 +462,7 @@ M3 is carried out as 24 work orders in seven phases, written out in [MvpPlan-M3.
 | Phase | PR | Commits | Notes |
 |---|---|---|---|
 | Plan | #45 | 3 | This revision, the work orders and ADR-019 to ADR-021, Proposed: first numbered 018 to 020, renumbered when main took ADR-018 for line models (#44), and main merged in. |
-| A | #45 | 1 | The owner's 15 answers, every proposal taken, in the plan's PR because they edit the files it adds. |
+| A | #45 | 2 | The owner's 15 answers, every proposal taken, then inputs 16 and 17 after main's v3 package; in the plan's PR because they edit the files it adds. |
 
 **What M3 inherits from M2** (written 2026-11-01, when M2's orders were done; its calendar and owner-hours forecast was dropped on closing M2, GameDesign.md, *No time logging*):
 - **M2's shape.** Its 30 orders from B1 to G3 landed in 32 commits; two orders needed a second CI run, both for a lint the container could not reach.

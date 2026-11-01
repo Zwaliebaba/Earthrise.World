@@ -361,7 +361,7 @@ The owner dropped time from the plan on closing M2.
 
 ### 2026-11-01: the MVP assets v3 package
 
-The owner's third asset package fills what [MvpAssets.md](MvpAssets.md) lacked against MvpPlan.md's *In*, and is kept unchanged in [Reference/MvpAssetsV3/](Reference/MvpAssetsV3/). Its content, its check and bake, and the documents are in; the client code it asks for is not, and waits on the open items below (MvpAssets.md, *Poses, projectiles, gates and debris*).
+The owner's third asset package fills what [MvpAssets.md](MvpAssets.md) lacked against MvpPlan.md's *In*, and is kept unchanged in [Reference/MvpAssetsV3/](Reference/MvpAssetsV3/). Its content, its check and bake, and the documents are in; the client code it asks for is not, and waits on the open items below (MvpAssets.md, *Poses, projectiles, gates and debris*). M3 draws the trebuchet's cocked and released poses, its shot and the collapse debris, which wait on neither (*M3's values*, items 16 and 17).
 
 1. **The trebuchet's three poses are three models.** S3, the existing drawing, is the released pose, counterweight down and arm up, as just after a throw; S3c is cocked and S3p is packed, a four-wheeled wagon that cannot fire. Packed is the only pose that moves. The deploy and pack times are M4's.
 2. **The arrow is not voxels.** It is the one exception to *the 1 m world*, item 2: a line model, three coloured segments along its axis with their widths in screen pixels, turned freely along its velocity, pitch included; shorter than 6 px on screen, it is a 2 px dot. [ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md), Proposed, records the format and the pass that draws it, and binds nothing until the owner gives it the go-ahead. Every voxel model still turns in 90° steps, and the simulation is unchanged: an arrow is a physical shot (M4).
@@ -372,7 +372,7 @@ The owner's third asset package fills what [MvpAssets.md](MvpAssets.md) lacked a
 
 ### 2026-11-01: M3's values
 
-The owner answered MvpPlan.md's fifteen M3 inputs, taking each proposal as written (work order M3-A1). MvpPlan.md's M3 revision is accepted when the owner merges its pull request, #45, and no M3 code is written before then (*Closing M2*, item 6). Item 10 is the implementer's, measured in M3 and recorded here as Proposed until it is.
+The owner answered MvpPlan.md's fifteen M3 inputs, taking each proposal as written, and the same day, after the v3 asset package merged (pull request #44), two more, items 16 and 17, each as proposed (work order M3-A1). MvpPlan.md's M3 revision is accepted when the owner merges its pull request, #45, and no M3 code is written before then (*Closing M2*, item 6). Item 10 is the implementer's, measured in M3 and recorded here as Proposed until it is.
 
 1. **ADR-019 to ADR-021 have the go-ahead,** as written, with ADR-010's amendment: `Client` and `Earthrise` join the solution in M3, and `RendererSpike` references `Client` for the world view. Each ADR is marked Accepted by the commit that first implements it.
 2. **The breach lab's items.**
@@ -390,10 +390,17 @@ The owner answered MvpPlan.md's fifteen M3 inputs, taking each proposal as writt
 9. **The UI scale follows Hud.md §2's bands:** 100–124 % gives 1, 125–174 % gives 1.5, and 175 % and above gives 2, with `--ui-scale` to override.
 10. **Queries are budgeted at 16 units of work a tick,** in `RULE`. An aim check costs 1, a tile's reach 1, and a section's integrity 8. At most 64 wait, and the oldest is dropped. **Proposed** until order M3-G3 measures it on the benchmark machine.
 11. **Whether players can tell weapons apart by their 1 m craters** is tested in M5's playtest, once M4 adds the ram's craters. M3 has the trebuchet alone (*Open questions*).
-12. **No interpolation between ticks in M3.** An entity is drawn where its last state update put it, judged on screen; M4 decides if units stutter.
+12. **No interpolation between ticks in M3,** but for the trebuchet's shot (item 17). An entity is drawn where its last state update put it, judged on screen; M4 decides if units stutter.
 13. **The lab's log** is one CSV a run, in `Logs\` beside the executable, with each item's live and headless state hash. After the session, the logs and the facilitator's reasons are committed under `Design/Review/BreachLab/`.
 14. **The lab's camera** starts at the default azimuth, the south-west, at 84 m of view height on W2, framed below the top bar (Hud.md §3), and the player moves it freely.
 15. **Mouse messages stay until the touch scheme.** M1's `Engine::PointerInput` reads them, not `WM_POINTER`, and the switch comes with touch after the verdict ([ADR-007](ADR/ADR-007-platforms-and-input.md), amended).
+16. **M3's client draws the v3 package's poses, shot and debris** (*the MVP assets v3 package*). None waits on that package's open items.
+    - **The trebuchet** is S3c, cocked, and S3, released, for the 20 ticks after it fires, placed as MvpAssets.md says.
+    - **Its shot** is X1.
+    - **A collapse's debris** is D1–D6, chosen by the rubble it lies on from `Manifest.json`'s `debrisByRubble`, which the client bake bakes, and scattered as MvpAssets.md says. Each piece falls with the collapse for about 1.5 s, turning, and rests on the rubble at a quarter turn of yaw, in place of M1's single voxels resting at their tumbled angles (*M1's open values*, item 7).
+    - **The state update** carries each collapse's landing from its first warning tick, so that the client knows where the debris rests before the rubble lands.
+    - **S3p and the open gates** wait for M4, which moves engines and opens gates.
+17. **The trebuchet's shot is drawn between ticks.** X1 is drawn between its last two positions at the clock's fraction of a tick, a tick behind. It moves 10 px or more a tick at the default zoom, which is arithmetic on its arc, not a measurement. Nothing else is interpolated (item 12).
 
 ## Pillars (Decided)
 
