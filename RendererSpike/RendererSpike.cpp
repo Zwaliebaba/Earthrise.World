@@ -647,7 +647,7 @@ int Run(const Options& _options)
     // with their neighbours' (GameDesign.md, the renderer spike's question 5).
     const double rebuildMilliseconds =
       editTime.count() + std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - rebuildStart).count();
-    worldView.PlaceModels(commandList, ring, placements);
+    worldView.PlaceModels(ring, placements);
     const float displayAspect = static_cast<float>(swapChain.WidthPixels()) / static_cast<float>(swapChain.HeightPixels());
     const D3D12_GPU_VIRTUAL_ADDRESS frameConstants =
       UploadConstants(ring, MakeFrame(camera, displayAspect, sceneColor.WidthPixels(), sceneColor.HeightPixels(), sunViewProjection));

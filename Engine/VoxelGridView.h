@@ -45,6 +45,10 @@ struct RecordShading
   /// A jitter cell is 2 to this power cells on an edge: 0, or 1 for 0.5 m cells jittered as the
   /// 1 m world voxel they split from (RendererLook.md §4).
   std::uint32_t jitterCellShift;
+  /// Cells the corner levels also count as solid, in or beyond the grid, or null for none: for a
+  /// model, the world's voxels where it stands, so that it is shaded where it touches the world
+  /// (RendererLook.md §5). Which faces are exposed is the grid's alone.
+  const SolidOutside* alsoSolid;
 };
 
 /// A record for every solid cell with at least one empty face neighbour, in storage order: the
