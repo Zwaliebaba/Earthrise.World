@@ -72,21 +72,47 @@ class View:
 # ── Reading ─────────────────────────────────────────────────────────────────────────────────────
 
 
-def ReadPaletteColors():
-  """([sRGB colour for each index], [whether the palette has that index]), 256 of each."""
+CORNER_SHADE_SETS = ("structure", "terrain")  # in the order Content::CornerShadeSet numbers them
+MAX_JITTER = 0.25
+
+
+class PaletteLook:
+  """What the client draws each palette index with (RendererLook.md, sections 3 to 5), 256 of each."""
+
+  def __init__(self):
+    self.colors = [0] * PALETTE_ENTRIES      # sRGB
+    self.present = [False] * PALETTE_ENTRIES  # whether the palette has the index
+    self.jitter = [0.0] * PALETTE_ENTRIES     # the HSL lightness range: offsets fall within +-jitter/2
+    self.shadeSets = [0] * PALETTE_ENTRIES    # an index into CORNER_SHADE_SETS
+    self.cornerShades = []                    # each set's four shade values, ao level 0 to 3
+
+
+def ReadPaletteLook():
   data = json.loads(PALETTE.read_text(encoding="utf-8"))
   entries = data.get("entries") or data.get("materials")
-  colors = [0] * PALETTE_ENTRIES
-  present = [False] * PALETTE_ENTRIES
+  look = PaletteLook()
   for entry in entries:
     index = entry["index"]
     if not 1 <= index < PALETTE_ENTRIES:
       raise ValueError(f"palette index {index} is outside 1-255")
-    if present[index]:
+    if look.present[index]:
       raise ValueError(f"palette index {index} appears twice")
-    colors[index] = int(entry["hex"].lstrip("#"), 16)
-    present[index] = True
-  return colors, present
+    jitter = entry.get("jitter")
+    if not isinstance(jitter, (int, float)) or not 0 <= jitter <= MAX_JITTER:
+      raise ValueError(f"palette index {index} has a jitter of {jitter!r}, not a number from 0 to {MAX_JITTER}")
+    shadeSet = entry.get("aoSet")
+    if shadeSet not in CORNER_SHADE_SETS:
+      raise ValueError(f"palette index {index} has an aoSet of {shadeSet!r}, not one of {', '.join(CORNER_SHADE_SETS)}")
+    look.colors[index] = int(entry["hex"].lstrip("#"), 16)
+    look.present[index] = True
+    look.jitter[index] = float(jitter)
+    look.shadeSets[index] = CORNER_SHADE_SETS.index(shadeSet)
+  for name in CORNER_SHADE_SETS:
+    shades = data.get("ao", {}).get(name)
+    if not isinstance(shades, list) or len(shades) != 4 or not all(isinstance(value, (int, float)) and 0 < value <= 1 for value in shades):
+      raise ValueError(f"the palette's ao.{name} is {shades!r}, not four shades in (0, 1]")
+    look.cornerShades.append([float(value) for value in shades])
+  return look
 
 
 def WholeNumber(_value):
@@ -200,14 +226,27 @@ def CppString(_text):
   return '"' + "".join(out) + '"'
 
 
-def PaletteHeader(_colors, _present):
-  rows = ",\n".join("  " + ", ".join(f"0x{_colors[i + j]:06x}u" for j in range(8))
+def FloatLiteral(_value):
+  return f"{_value!r}F" if "." in repr(_value) or "e" in repr(_value) else f"{_value!r}.0F"
+
+
+def PaletteHeader(_look):
+  rows = ",\n".join("  " + ", ".join(f"0x{_look.colors[i + j]:06x}u" for j in range(8))
                     for i in range(0, PALETTE_ENTRIES, 8))
-  flags = ",\n".join("  " + ", ".join("true" if _present[i + j] else "false" for j in range(16))
+  flags = ",\n".join("  " + ", ".join("true" if _look.present[i + j] else "false" for j in range(16))
                      for i in range(0, PALETTE_ENTRIES, 16))
+  jitter = ",\n".join("  " + ", ".join(FloatLiteral(_look.jitter[i + j]) for j in range(16))
+                      for i in range(0, PALETTE_ENTRIES, 16))
+  sets = ",\n".join("  " + ", ".join(str(_look.shadeSets[i + j]) for j in range(32))
+                    for i in range(0, PALETTE_ENTRIES, 32))
+  shades = ",\n".join("  {" + ", ".join(FloatLiteral(value) for value in row) + "}" for row in _look.cornerShades)
   return Header("GameData/Server/Palette.json", ["array", "cstdint"],
                 f"inline constexpr std::array<std::uint32_t, {PALETTE_ENTRIES}> PALETTE_SRGB = {{\n{rows}}};\n\n"
-                f"inline constexpr std::array<bool, {PALETTE_ENTRIES}> PALETTE_PRESENT = {{\n{flags}}};\n\n")
+                f"inline constexpr std::array<bool, {PALETTE_ENTRIES}> PALETTE_PRESENT = {{\n{flags}}};\n\n"
+                f"inline constexpr std::array<float, {PALETTE_ENTRIES}> PALETTE_JITTER = {{\n{jitter}}};\n\n"
+                f"// By index, the corner-shade set: {', '.join(f'{i} {name}' for i, name in enumerate(CORNER_SHADE_SETS))}.\n"
+                f"inline constexpr std::array<std::uint8_t, {PALETTE_ENTRIES}> PALETTE_SHADE_SET = {{\n{sets}}};\n\n"
+                f"inline constexpr std::array<std::array<float, 4>, {len(CORNER_SHADE_SETS)}> CORNER_SHADES = {{{{\n{shades}}}}};\n\n")
 
 
 def IndicesArray(_name, _view):
@@ -279,7 +318,8 @@ def Main(_arguments):
     print("BakeContent: Python 3.12 or later is needed (ADR-010)")
     return 1
 
-  colors, present = ReadPaletteColors()
+  look = ReadPaletteLook()
+  colors, present = look.colors, look.present
   report = CheckAssets.Report(ROOT)
   palette, _ = CheckAssets.ReadPalette(report, ROOT)
   templates = ReadViews(report, TEMPLATES, palette, True)
@@ -291,7 +331,7 @@ def Main(_arguments):
     return 1
 
   headers = {
-    "PaletteTable.h": PaletteHeader(colors, present),
+    "PaletteTable.h": PaletteHeader(look),
     "TemplateTable.h": TemplateHeader(templates),
     "ModelTable.h": ModelHeader(models),
     "SharedHashValue.h": SharedHashHeader(Fnv1a64(SharedEncoding(colors, present, templates))),

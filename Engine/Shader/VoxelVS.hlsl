@@ -6,7 +6,7 @@
 
 VoxelInterpolants main(uint _vertexId : SV_VertexID, uint _instanceId : SV_InstanceID)
 {
-  const uint2 record = g_records[_instanceId];
+  const uint3 record = g_records[_instanceId];
   const float3 boxMin = g_batch.originMeters + float3(TurnedCell(RecordCell(record.x), g_batch.turn)) * g_batch.voxelEdgeMeters;
   const float3 boxMax = boxMin + g_batch.voxelEdgeMeters;
 
@@ -30,7 +30,12 @@ VoxelInterpolants main(uint _vertexId : SV_VertexID, uint _instanceId : SV_Insta
   output.position = float4((_vertexId & 1u) != 0 ? high.x : low.x, (_vertexId & 2u) != 0 ? high.y : low.y, min(nearestDepth, 1.0), 1.0);
   output.boxCenter = boxMin + 0.5 * g_batch.voxelEdgeMeters;
   output.boxRadius = 0.5 * g_batch.voxelEdgeMeters;
-  const uint paletteIndex = RecordPaletteIndex(record.x);
-  output.paletteIndex = paletteIndex == g_batch.swapFromIndex ? g_batch.swapToIndex : paletteIndex;
+  // The colour, jittered here once a voxel rather than once a pixel (RendererLook.md §4), and what
+  // the pixel shader needs to read the corners' shades in the batch's own frame.
+  const uint recordIndex = RecordPaletteIndex(record.x);
+  const uint paletteIndex = recordIndex == g_batch.swapFromIndex ? g_batch.swapToIndex : recordIndex;
+  output.albedo = JitterLightness(g_palette.colors[paletteIndex].rgb, RecordLightnessOffset(record.z));
+  output.cornerLevels = uint2(record.y, record.z & 255u);
+  output.shadeAndTurn = RecordShadeTable(record.x) | ((g_batch.turn & 3u) << 1);
   return output;
 }

@@ -18,6 +18,9 @@
     <ClCompile Include="CatalogTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="PaletteTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
     <ClCompile Include="SharedHashTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>

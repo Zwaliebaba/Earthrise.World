@@ -53,10 +53,20 @@ constexpr const wchar_t* TITLE = L"Earthrise.World: renderer spike";
 constexpr std::uint64_t SCENE_SEED = 0x5eed2026ULL;
 constexpr std::uint64_t UPLOAD_RING_BYTES = std::uint64_t{32} * 1024 * 1024;
 
-// The Golden preset (RendererLook.md): its clear colour #d6ccba in linear values, because the view
-// that is cleared is sRGB and encodes on write, and its sun direction, towards the light.
+// The Golden preset (RendererLook.md §6): its clear colour #d6ccba in linear values, because the
+// view that is cleared is sRGB and encodes on write, its sun direction, towards the light, and its
+// lights. Their intensities are three.js r160's physical ones: r160 divides its Lambert term by pi
+// and no longer scales its lights by pi (WebGLRenderer.useLegacyLights is false), so they are
+// divided by pi here, as RendererLook.md expected.
 constexpr std::array<float, 4> CLEAR_COLOR = {0.6724F, 0.6038F, 0.4910F, 1.0F};
 constexpr std::array<float, 3> SUN_TOWARDS = {-90.0F, 75.0F, 55.0F};
+constexpr std::uint32_t SUN_SRGB = 0xffd8a6;
+constexpr float SUN_INTENSITY = 2.7F;
+constexpr std::uint32_t SKY_SRGB = 0xd4dbe6;
+constexpr std::uint32_t GROUND_SRGB = 0x5a4a38;
+constexpr float HEMISPHERE_INTENSITY = 1.0F;
+constexpr float PI = 3.14159265F;
+constexpr std::uint8_t WATER_INDEX = 9;
 
 // The scene's target: 8 bits a channel through an sRGB view, as the back buffer, because the output
 // is sRGB with no tone mapping (RendererLook.md). The upscale reads it through the same view.
@@ -154,6 +164,70 @@ float SrgbToLinear(float _value) noexcept
   return _value <= 0.04045F ? _value / 12.92F : std::pow((_value + 0.055F) / 1.055F, 2.4F);
 }
 
+DirectX::XMFLOAT3 LinearOf(std::uint32_t _srgb) noexcept
+{
+  const auto channel = [_srgb](int _shift) { return SrgbToLinear(static_cast<float>((_srgb >> _shift) & 0xffU) / 255.0F); };
+  return {channel(16), channel(8), channel(0)};
+}
+
+/// A light's radiance as the voxel pass takes it: linear, times its intensity, over pi.
+DirectX::XMFLOAT4 Radiance(std::uint32_t _srgb, float _intensity) noexcept
+{
+  const DirectX::XMFLOAT3 color = LinearOf(_srgb);
+  const float scale = _intensity / PI;
+  return {color.x * scale, color.y * scale, color.z * scale, 0.0F};
+}
+
+/// A linear colour with its HSL lightness scaled, hue and saturation kept: three.js r160's getHSL
+/// and setHSL, as the voxel pass's jitter uses them (Shader/VoxelCommon.hlsli).
+DirectX::XMFLOAT4 ScaledLightness(DirectX::XMFLOAT4 _color, float _scale) noexcept
+{
+  const float maxChannel = std::max({_color.x, _color.y, _color.z});
+  const float minChannel = std::min({_color.x, _color.y, _color.z});
+  const float lightness = std::clamp(0.5F * (maxChannel + minChannel) * _scale, 0.0F, 1.0F);
+  if (maxChannel == minChannel)
+  {
+    return {lightness, lightness, lightness, _color.w};
+  }
+  const float delta = maxChannel - minChannel;
+  const float oldLightness = 0.5F * (maxChannel + minChannel);
+  const float saturation = oldLightness <= 0.5F ? delta / (maxChannel + minChannel) : delta / (2.0F - maxChannel - minChannel);
+  float hue = 0.0F;
+  if (maxChannel == _color.x)
+  {
+    hue = (_color.y - _color.z) / delta + (_color.y < _color.z ? 6.0F : 0.0F);
+  }
+  else if (maxChannel == _color.y)
+  {
+    hue = (_color.z - _color.x) / delta + 2.0F;
+  }
+  else
+  {
+    hue = (_color.x - _color.y) / delta + 4.0F;
+  }
+  hue /= 6.0F;
+  const float p = lightness <= 0.5F ? lightness * (1.0F + saturation) : lightness + saturation - lightness * saturation;
+  const float q = 2.0F * lightness - p;
+  const auto channel = [p, q](float _t)
+  {
+    const float t = _t < 0.0F ? _t + 1.0F : (_t > 1.0F ? _t - 1.0F : _t);
+    if (t < 1.0F / 6.0F)
+    {
+      return q + (p - q) * 6.0F * t;
+    }
+    if (t < 0.5F)
+    {
+      return p;
+    }
+    if (t < 2.0F / 3.0F)
+    {
+      return q + (p - q) * 6.0F * (2.0F / 3.0F - t);
+    }
+    return q;
+  };
+  return {channel(hue + 1.0F / 3.0F), channel(hue), channel(hue - 1.0F / 3.0F), _color.w};
+}
+
 std::array<DirectX::XMFLOAT4, Engine::VoxelPass::PALETTE_ENTRIES> LinearPalette() noexcept
 {
   std::array<DirectX::XMFLOAT4, Engine::VoxelPass::PALETTE_ENTRIES> colors{};
@@ -171,6 +245,8 @@ std::array<DirectX::XMFLOAT4, Engine::VoxelPass::PALETTE_ENTRIES> LinearPalette(
     const auto channel = [side](int _shift) { return SrgbToLinear(static_cast<float>((side >> _shift) & 0xffU) / 255.0F); };
     colors[index] = {channel(16), channel(8), channel(0), 1.0F};
   }
+  // Fords: water one world voxel deep, drawn lighter (RendererLook.md §3).
+  colors[Spike::FORD_COLOR_INDEX] = ScaledLightness(colors[WATER_INDEX], Spike::FORD_LIGHTNESS_SCALE);
   return colors;
 }
 
@@ -263,6 +339,15 @@ Engine::VoxelPass::FrameConstants MakeFrame(const Engine::OrthographicCamera& _c
   frame.viewportPixels = {width, height, 1.0F / width, 1.0F / height};
   DirectX::XMStoreFloat4(&frame.lightDirection,
                          DirectX::XMVector3Normalize(DirectX::XMVectorSet(SUN_TOWARDS[0], SUN_TOWARDS[1], SUN_TOWARDS[2], 0.0F)));
+  frame.sunRadiance = Radiance(SUN_SRGB, SUN_INTENSITY);
+  frame.skyRadiance = Radiance(SKY_SRGB, HEMISPHERE_INTENSITY);
+  frame.groundRadiance = Radiance(GROUND_SRGB, HEMISPHERE_INTENSITY);
+  // The record's shade-table bit is Content's corner-shade set: 0 structure, 1 terrain.
+  for (const Content::CornerShadeSet set : {Content::CornerShadeSet::Structure, Content::CornerShadeSet::Terrain})
+  {
+    const std::array<float, Content::CORNER_SHADE_LEVELS> shades = Content::CornerShades(set);
+    frame.cornerShades.at(static_cast<std::size_t>(set)) = {shades[0], shades[1], shades[2], shades[3]};
+  }
   return frame;
 }
 

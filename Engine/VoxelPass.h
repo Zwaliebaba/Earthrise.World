@@ -8,6 +8,7 @@
 #include <d3d12.h>
 #include <winrt/base.h>
 
+#include <array>
 #include <cstdint>
 
 namespace Engine
@@ -28,6 +29,15 @@ public:
     DirectX::XMFLOAT4 rayDirection;   // world, unit length: the orthographic camera's forward
     DirectX::XMFLOAT4 viewportPixels; // width, height, 1 / width, 1 / height
     DirectX::XMFLOAT4 lightDirection; // world, unit length, towards the light
+    /// The light's radiance in linear RGB, with its intensity and Lambert's 1 / pi already
+    /// multiplied in: the sun's, and the hemisphere's from straight up and straight down
+    /// (RendererLook.md §6). The fourth component is unused.
+    DirectX::XMFLOAT4 sunRadiance;
+    DirectX::XMFLOAT4 skyRadiance;
+    DirectX::XMFLOAT4 groundRadiance;
+    /// Each corner-shade table's shade at corner levels 0 to 3 (RendererLook.md §5), which a
+    /// record's shade-table bit chooses between.
+    std::array<DirectX::XMFLOAT4, 2> cornerShades;
   };
 
   /// One linear colour per palette index.

@@ -12,6 +12,7 @@
 #include "SceneScript.h"
 #include "StaticBuffer.h"
 #include "UploadRing.h"
+#include "VoxelGridView.h"
 #include "VoxelPass.h"
 #include "VoxelRecord.h"
 
@@ -26,6 +27,13 @@
 namespace Spike
 {
 
+/// The palette entry fords are drawn in: water one world voxel deep over a solid floor draws
+/// lighter, so fords show (RendererLook.md §3, index 9). Its colour is water's with its HSL
+/// lightness raised by FORD_LIGHTNESS_SCALE, which RendererLook.md proposes as 15% and leaves to the
+/// spike to tune.
+inline constexpr std::uint8_t FORD_COLOR_INDEX = 242;
+inline constexpr float FORD_LIGHTNESS_SCALE = 1.15F;
+
 /// What the spike draws, and only from what it was told (ADR-002): one batch of voxel records per
 /// world chunk, built from the chunk snapshots the simulation publishes, and one per model, drawn at
 /// each placement. Both go through the one voxel pass (MvpPlan.md, M1: two voxel sources).
@@ -35,8 +43,9 @@ public:
   /// Draws world chunks with voxels _worldVoxelMeters on an edge: 1, or 0.5 for ADR-006's comparison.
   WorldView(ID3D12Device* _device, float _worldVoxelMeters);
 
-  /// Takes newly published snapshots and rebuilds their chunks' batches, and their neighbours',
-  /// whose exposed faces can change with them. Records the uploads on _commandList.
+  /// Takes newly published snapshots and rebuilds their chunks' batches, and those of the
+  /// neighbours whose exposed faces or corner shades a changed voxel can reach: any of the 26 a
+  /// voxel on the chunk's boundary touches. Records the uploads on _commandList.
   void TakeSnapshots(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring,
                      std::span<const Protocol::ChunkSnapshot> _snapshots);
 
@@ -67,11 +76,15 @@ private:
   };
 
   void RebuildChunk(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, std::uint64_t _key);
+  /// The palette index at a world voxel, from the snapshots taken so far; 0 where none holds it.
+  [[nodiscard]] std::uint8_t IndexAt(Protocol::VoxelPosition _position) const;
   [[nodiscard]] Batch Upload(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring,
                              std::span<const Engine::VoxelRecord> _records) const;
 
   ID3D12Device* m_device;
   float m_worldVoxelMeters;
+  std::uint32_t m_jitterCellShift; // world voxels to a 1 m jitter cell, as a power of two
+  Engine::PaletteShading m_shading;
   std::map<std::uint64_t, Protocol::ChunkSnapshot> m_snapshots;
   std::map<std::uint64_t, Batch> m_chunks;
   std::map<std::string_view, Batch> m_models;
