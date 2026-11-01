@@ -25,6 +25,9 @@
     <Filter Include="Text">
       <UniqueIdentifier>{0F59263F-7F19-5BD3-A800-CC308902DEF6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Hud">
+      <UniqueIdentifier>{AAE0912F-0EB4-5682-8FCB-EFA0441AC623}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -107,6 +110,30 @@
     </ClInclude>
     <ClCompile Include="FontAtlas.cpp">
       <Filter>Text</Filter>
+    </ClCompile>
+    <ClInclude Include="HudModel.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClCompile Include="HudModel.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClInclude Include="HudAlerts.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClCompile Include="HudAlerts.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClInclude Include="Hud.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClCompile Include="Hud.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClInclude Include="FireTally.h">
+      <Filter>Session</Filter>
+    </ClInclude>
+    <ClCompile Include="FireTally.cpp">
+      <Filter>Session</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

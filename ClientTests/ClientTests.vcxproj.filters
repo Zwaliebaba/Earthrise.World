@@ -30,5 +30,8 @@
     <ClCompile Include="StringsTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="HudTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

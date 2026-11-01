@@ -25,6 +25,14 @@ public:
   void Steer(const Engine::KeyboardInput& _keyboard, const Engine::PointerInput& _pointer, std::int32_t _dragXPixels,
              std::int32_t _dragYPixels, std::uint32_t _heightPixels, float _seconds);
 
+  /// The top bar's camera buttons (M3-E2): ↺ and ↻ turn a quarter as [ and ] do, and - and + zoom a notch out and in.
+  /// The turn eases at the next Steer.
+  void Turn(std::int32_t _quarterTurns) noexcept;
+  void Zoom(float _notches) noexcept;
+
+  /// Looks at _targetMeters from where the camera stands now: JUMP, and Space, put an alert's place in the middle.
+  void LookAt(const DirectX::XMFLOAT3& _targetMeters) noexcept;
+
   /// The view-projection for a target _aspect wide over high and _heightPixels high, whose top _topBarPixels the top bar
   /// covers.
   [[nodiscard]] DirectX::XMMATRIX ViewProjection(float _aspect, std::uint32_t _heightPixels, float _topBarPixels) const noexcept;

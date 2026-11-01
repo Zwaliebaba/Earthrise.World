@@ -64,6 +64,14 @@
     <ClInclude Include="Strings.h" />
     <ClInclude Include="FontAtlas.h" />
     <ClCompile Include="FontAtlas.cpp" />
+    <ClInclude Include="HudModel.h" />
+    <ClCompile Include="HudModel.cpp" />
+    <ClInclude Include="HudAlerts.h" />
+    <ClCompile Include="HudAlerts.cpp" />
+    <ClInclude Include="Hud.h" />
+    <ClCompile Include="Hud.cpp" />
+    <ClInclude Include="FireTally.h" />
+    <ClCompile Include="FireTally.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

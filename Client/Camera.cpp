@@ -47,6 +47,21 @@ void Camera::Steer(const Engine::KeyboardInput& _keyboard, const Engine::Pointer
   m_camera.Update(_seconds);
 }
 
+void Camera::Turn(std::int32_t _quarterTurns) noexcept
+{
+  m_camera.Rotate(_quarterTurns);
+}
+
+void Camera::Zoom(float _notches) noexcept
+{
+  m_camera.Zoom(_notches);
+}
+
+void Camera::LookAt(const DirectX::XMFLOAT3& _targetMeters) noexcept
+{
+  m_camera.SetTargetMeters(_targetMeters);
+}
+
 DirectX::XMMATRIX Camera::ViewProjection(float _aspect, std::uint32_t _heightPixels, float _topBarPixels) const noexcept
 {
   // The look-at point moves down by half the top bar, so it sits at the middle of the uncovered area: in clip space

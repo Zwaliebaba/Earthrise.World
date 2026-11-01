@@ -65,6 +65,20 @@ inline constexpr float PAN_VIEWS_PER_SECOND = 0.8F;
 /// The top bar's height in logical pixels (Hud.md §3): the camera frames the area below it.
 inline constexpr float TOP_BAR_LOGICAL_PIXELS = 44.0F;
 
+// Hud.md §2's colour tokens, as sRGB 0xrrggbb. Every panel is PANEL_SRGB at PANEL_ALPHA.
+inline constexpr std::uint32_t PANEL_SRGB = 0x151310;
+inline constexpr float PANEL_ALPHA = 0.92F;
+inline constexpr std::uint32_t BUTTON_SRGB = 0x2a2621; // panel-deep, for buttons
+inline constexpr std::uint32_t LINE_SRGB = 0x3a342c;
+inline constexpr std::uint32_t TEXT_SRGB = 0xf3ede2;
+inline constexpr std::uint32_t DIM_SRGB = 0xa69c8a;
+inline constexpr std::uint32_t SUB_SRGB = 0xd8d0c2;
+inline constexpr std::uint32_t ACCENT_SRGB = 0xe8b86a;
+inline constexpr std::uint32_t ACTIVE_BACKGROUND_SRGB = 0x4a3d22;
+inline constexpr std::uint32_t BAD_SRGB = 0xd2584a;
+inline constexpr std::uint32_t GOOD_SRGB = 0x9cc26a;
+inline constexpr std::uint32_t OFF_SRGB = 0x6a6258;
+
 // The trebuchet's poses (GameDesign.md, M3's values, item 16; MvpAssets.md, *Poses, projectiles, gates and debris*):
 // S3c, cocked, at S3's placement moved 5 m along the model's own -x before its turn, as arithmetic on the files after
 // the bake's trim and mirror; and S3, released, for RELEASED_POSE_TICKS after it fires.

@@ -12,6 +12,10 @@
 #include "FrameTimer.h"
 #include "GpuDevice.h"
 #include "Hash.h"
+#include "FireTally.h"
+#include "Hud.h"
+#include "HudAlerts.h"
+#include "HudModel.h"
 #include "KeyboardInput.h"
 #include "Look.h"
 #include "ModelPlacement.h"
@@ -54,9 +58,8 @@ constexpr double MAX_SPEED = 100.0;
 constexpr std::uint8_t PLAYER = Simulation::BreachRun::PLAYER;
 constexpr float CELL_CENTER_METERS = 0.5F;
 constexpr std::uint32_t QUARTER_TURNS = 4;
-// The frame's figures, in the top-left corner (M3-E1), in logical pixels.
+// The frame's figures, in the bottom-left corner (M3-E1), in logical pixels.
 constexpr float FIGURES_MARGIN_LOGICAL_PIXELS = 8.0F;
-constexpr std::uint32_t TEXT_SRGB = 0xf3ede2; // Hud.md §2's text
 
 struct Options
 {
@@ -289,16 +292,6 @@ public:
   void Update(const Client::Session& _session, float _seconds)
   {
     const Protocol::StateUpdate& state = _session.State();
-    for (const Protocol::EngineView& engine : state.engines)
-    {
-      // An engine fired in the tick its reload rose.
-      const auto last = m_reloadTicks.find(engine.id);
-      if (last != m_reloadTicks.end() && engine.reloadTicks > last->second)
-      {
-        m_firedTick.insert_or_assign(engine.id, state.tick);
-      }
-      m_reloadTicks.insert_or_assign(engine.id, engine.reloadTicks);
-    }
     for (const Protocol::CollapseView& collapse : state.collapses)
     {
       if (!collapse.fallen.empty() && !m_debris.contains(collapse.id))
@@ -308,15 +301,15 @@ public:
     }
   }
 
-  void Place(const Client::Session& _session, double _tickFraction, std::vector<Client::ModelPlacement>& _placements,
-             std::vector<Engine::OrientedVoxel>& _debris, float _seconds) const
+  void Place(const Client::Session& _session, const Client::FireTally& _tally, double _tickFraction,
+             std::vector<Client::ModelPlacement>& _placements, std::vector<Engine::OrientedVoxel>& _debris, float _seconds) const
   {
     const Protocol::StateUpdate& state = _session.State();
     _placements.clear();
     for (const Protocol::EngineView& engine : state.engines)
     {
-      const auto fired = m_firedTick.find(engine.id);
-      const bool released = fired != m_firedTick.end() && state.tick - fired->second < Client::RELEASED_POSE_TICKS;
+      const std::optional<std::uint32_t> fired = _tally.LastFiredTick(engine.id);
+      const bool released = fired.has_value() && state.tick - *fired < Client::RELEASED_POSE_TICKS;
       _placements.push_back(Trebuchet(engine, released));
     }
     for (const Protocol::UnitView& unit : state.units)
@@ -359,10 +352,15 @@ public:
   }
 
 private:
-  std::map<Protocol::EntityId, std::uint32_t> m_reloadTicks;
-  std::map<Protocol::EntityId, std::uint32_t> m_firedTick;
   std::map<Protocol::EntityId, Client::Debris> m_debris;
 };
+
+/// The middle of _cell's floor, where the camera looks when it jumps to an alert.
+DirectX::XMFLOAT3 FloorMiddle(const Protocol::VoxelPosition& _cell) noexcept
+{
+  return {static_cast<float>(_cell.xVoxels) + CELL_CENTER_METERS, static_cast<float>(_cell.yVoxels),
+          static_cast<float>(_cell.zVoxels) + CELL_CENTER_METERS};
+}
 
 int Run(const Options& _options)
 {
@@ -376,6 +374,7 @@ int Run(const Options& _options)
   const Simulation::BreachRun run = Simulation::BuildBreachRun(world);
   Client::Session session;
   Client::TickClock clock;
+  Client::FireTally tally;
   Presentation presentation;
 
   Engine::Window window({.title = TITLE, .clientWidthPixels = 1280, .clientHeightPixels = 720, .fullScreen = !_options.windowed});
@@ -402,7 +401,10 @@ int Run(const Options& _options)
   std::vector<Client::ModelPlacement> placements;
   std::vector<Engine::OrientedVoxel> debris;
   std::vector<Client::ScreenQuad> interfaceQuads;
-  const std::array<float, 4> textColor = Client::LinearColor(TEXT_SRGB);
+  Client::Hud hud;
+  Client::HudAlerts alerts;
+  Client::HudModel hudModel; // as the HUD was last built, which the clicks land on
+  const std::array<float, 4> figuresColor = Client::LinearColor(Client::DIM_SRGB);
   std::int32_t lastXPixels = 0;
   std::int32_t lastYPixels = 0;
   double seconds = 0.0;
@@ -464,14 +466,56 @@ int Run(const Options& _options)
       const std::vector<Protocol::ChunkSnapshot> published = world.Publish();
       const std::vector<std::vector<std::byte>> answers = world.TakeAnswers();
       session.Receive(world.State(), published, answers);
+      tally.Observe(session.State());
       presentation.Update(session, static_cast<float>(seconds));
+    }
+
+    // A left click on the HUD is the HUD's (M3-E2): the camera buttons turn and zoom, and JUMP, or Space for the
+    // newest alert with a place, looks at the alert's place.
+    if (pointer.WasPressed(Engine::PointerInput::Button::Left))
+    {
+      const std::optional<Client::HudTarget> hit = hud.HitTest(pointer.XPixels(), pointer.YPixels());
+      if (hit.has_value())
+      {
+        switch (hit->control)
+        {
+        case Client::HudControl::TurnLeft:
+          camera.Turn(-1);
+          break;
+        case Client::HudControl::TurnRight:
+          camera.Turn(1);
+          break;
+        case Client::HudControl::ZoomOut:
+          camera.Zoom(-1.0F);
+          break;
+        case Client::HudControl::ZoomIn:
+          camera.Zoom(1.0F);
+          break;
+        case Client::HudControl::Cancel:
+          break; // no targeting mode yet (M3-E4)
+        case Client::HudControl::Jump:
+          if (hit->alert < hudModel.alerts.size() && hudModel.alerts.at(hit->alert).location.has_value())
+          {
+            camera.LookAt(FloorMiddle(*hudModel.alerts.at(hit->alert).location));
+          }
+          break;
+        }
+      }
+    }
+    if (keyboard.WasPressed(VK_SPACE))
+    {
+      const auto newest = std::ranges::find_if(hudModel.alerts, [](const Client::HudAlert& _alert) { return _alert.location.has_value(); });
+      if (newest != hudModel.alerts.end())
+      {
+        camera.LookAt(FloorMiddle(*newest->location));
+      }
     }
 
     camera.Steer(keyboard, pointer, pointer.XPixels() - lastXPixels, pointer.YPixels() - lastYPixels, swapChain.HeightPixels(),
                  static_cast<float>(lapSeconds));
     lastXPixels = pointer.XPixels();
     lastYPixels = pointer.YPixels();
-    presentation.Place(session, clock.TickFraction(), placements, debris, static_cast<float>(seconds));
+    presentation.Place(session, tally, clock.TickFraction(), placements, debris, static_cast<float>(seconds));
 
     const std::uint64_t completed = device.DirectQueue().CompletedValue();
     ring.Reclaim(completed);
@@ -482,10 +526,23 @@ int Run(const Options& _options)
     // The UI scale: --ui-scale, or the display's band (Hud.md §2).
     const float uiScale = _options.uiScale.value_or(Client::UiScaleForDpi(window.Dpi()));
     const float topBarPixels = Client::TOP_BAR_LOGICAL_PIXELS * uiScale;
+    // The HUD, built from the session (M3-E2), and the frame's figures under it in the bottom-left corner.
+    alerts.Expire(seconds);
+    hudModel = {.resources = Client::BreachResources(session.State().tick, tally.Fired(PLAYER)),
+                .objective = {.title = std::string(Client::BREACH_OBJECTIVE_TITLE), .detail = std::string(Client::BREACH_OBJECTIVE_DETAIL)},
+                .mode = {},
+                .alerts = alerts.Shown(),
+                .selectedEngine = Protocol::NO_ENTITY,
+                .integrityView = true,
+                .passabilityView = false};
     interfaceQuads.clear();
+    const std::uint32_t figuresScale = Client::TextLayout::PixelsPerFontPixel(Client::TextSize::Label, uiScale);
     const std::int32_t margin = Client::ScaledPixels(FIGURES_MARGIN_LOGICAL_PIXELS, uiScale);
     Client::TextLayout::Lay(std::format(Client::FIGURES, renderer.VoxelPassMilliseconds(), session.State().tick, _options.speed), margin,
-                            margin, Client::TextLayout::PixelsPerFontPixel(Client::TextSize::Label, uiScale), textColor, interfaceQuads);
+                            static_cast<std::int32_t>(swapChain.HeightPixels()) - margin -
+                              static_cast<std::int32_t>(Client::TextLayout::CellPixels(figuresScale)),
+                            figuresScale, figuresColor, interfaceQuads);
+    hud.Build(hudModel, swapChain.WidthPixels(), uiScale, interfaceQuads);
     Client::WorldRenderer::Frame frame{.commandList = commandList,
                                        .slot = slot,
                                        .ring = &ring,
