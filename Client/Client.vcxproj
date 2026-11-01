@@ -53,6 +53,17 @@
     <ClCompile Include="Camera.cpp" />
     <ClInclude Include="WorldRenderer.h" />
     <ClCompile Include="WorldRenderer.cpp" />
+    <ClInclude Include="ScreenQuad.h" />
+    <ClCompile Include="ScreenQuad.cpp" />
+    <ClInclude Include="GlyphAtlas.h" />
+    <ClCompile Include="GlyphAtlas.cpp" />
+    <ClInclude Include="TextLayout.h" />
+    <ClCompile Include="TextLayout.cpp" />
+    <ClInclude Include="UiScale.h" />
+    <ClCompile Include="UiScale.cpp" />
+    <ClInclude Include="Strings.h" />
+    <ClInclude Include="FontAtlas.h" />
+    <ClCompile Include="FontAtlas.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

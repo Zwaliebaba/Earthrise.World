@@ -2,6 +2,7 @@
 
 #include "WorldRenderer.h"
 
+#include "GlyphAtlas.h"
 #include "Look.h"
 #include "Palette.h"
 #include "ResourceBarrier.h"
@@ -209,10 +210,13 @@ WorldRenderer::WorldRenderer(ID3D12Device* _device, ID3D12CommandQueue* _queue, 
     m_upscale(_device, {.targetFormat = _desc.targetFormat}),
     m_gpuTimer(_device, _queue, {.slotCount = Engine::FrameRing::FRAMES_IN_FLIGHT, .spanCount = SPAN_COUNT}),
     m_worldView(_device, 1.0F),
+    m_interface(_device, {.targetFormat = _desc.targetFormat}),
+    m_fontAtlas(_device),
     m_palette(LinearPalette())
 {
   m_pass.SetShadowMaps(m_staticShadow.Texture(), m_dynamicShadow.Texture());
   m_upscale.SetSource(m_sceneColor.Texture());
+  m_interface.SetAtlas(m_fontAtlas.Texture(), GlyphAtlas::WIDTH_TEXELS, GlyphAtlas::HEIGHT_TEXELS);
   // The sun's view over the whole world, its height included, for both shadow maps.
   DirectX::XMStoreFloat4x4(&m_sunViewProjection,
                            Engine::SunViewProjection(SunTowards(), DirectX::XMFLOAT3{0.0F, 0.0F, 0.0F},
@@ -231,6 +235,7 @@ void WorldRenderer::Draw(const Frame& _frame)
 {
   ID3D12GraphicsCommandList* commandList = _frame.commandList;
   Engine::UploadRing& ring = *_frame.ring;
+  m_fontAtlas.Upload(commandList, ring);
   const std::uint32_t slot = _frame.slot;
   // FrameRing::Begin waited for this slot's last frame, so its timestamps are back.
   if (m_timed.at(slot))
@@ -303,6 +308,28 @@ void WorldRenderer::Draw(const Frame& _frame)
   commandList->OMSetRenderTargets(1, &_frame.backBufferView, FALSE, nullptr);
   SetViewport(commandList, _frame.backWidthPixels, _frame.backHeightPixels);
   m_upscale.Draw(commandList);
+  // The interface over it, at the back buffer's size (ADR-019, decision 3).
+  if (!_frame.interfaceQuads.empty())
+  {
+    std::vector<Engine::InterfaceQuad> quads;
+    quads.reserve(_frame.interfaceQuads.size());
+    for (const ScreenQuad& quad : _frame.interfaceQuads)
+    {
+      quads.push_back({.xPixels = quad.xPixels,
+                       .yPixels = quad.yPixels,
+                       .widthPixels = quad.widthPixels,
+                       .heightPixels = quad.heightPixels,
+                       .u0 = quad.u0,
+                       .v0 = quad.v0,
+                       .u1 = quad.u1,
+                       .v1 = quad.v1,
+                       .color = {quad.color[0], quad.color[1], quad.color[2], quad.color[3]},
+                       .textured = quad.textured ? 1U : 0U,
+                       .reserved = {}});
+    }
+    m_interface.Draw(commandList, UploadArray(ring, std::span<const Engine::InterfaceQuad>(quads)),
+                     static_cast<std::uint32_t>(quads.size()), _frame.backWidthPixels, _frame.backHeightPixels);
+  }
   const D3D12_RESOURCE_BARRIER toPresent =
     Engine::TransitionBarrier(_frame.backBuffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
   commandList->ResourceBarrier(1, &toPresent);

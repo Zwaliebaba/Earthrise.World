@@ -20,8 +20,11 @@
 #include "ServerData.h"
 #include "Session.h"
 #include "SharedHash.h"
+#include "Strings.h"
 #include "SwapChain.h"
+#include "TextLayout.h"
 #include "TickClock.h"
+#include "UiScale.h"
 #include "UploadRing.h"
 #include "Window.h"
 #include "World.h"
@@ -36,7 +39,8 @@
 // slot's warning and fall with its debris, and the squad walking through.
 //
 // It starts borderless over the whole monitor (ADR-011, decision 1), and Alt+Enter switches between that and a window.
-// `--windowed` starts it in a window. `--speed 10` runs the clock at ten times.
+// `--windowed` starts it in a window. `--speed 10` runs the clock at ten times. `--ui-scale 1.5` sets the UI scale over
+// the display's band (Hud.md §2).
 
 namespace
 {
@@ -50,12 +54,15 @@ constexpr double MAX_SPEED = 100.0;
 constexpr std::uint8_t PLAYER = Simulation::BreachRun::PLAYER;
 constexpr float CELL_CENTER_METERS = 0.5F;
 constexpr std::uint32_t QUARTER_TURNS = 4;
-constexpr std::uint32_t DPI_PER_SCALE = 96;
+// The frame's figures, in the top-left corner (M3-E1), in logical pixels.
+constexpr float FIGURES_MARGIN_LOGICAL_PIXELS = 8.0F;
+constexpr std::uint32_t TEXT_SRGB = 0xf3ede2; // Hud.md §2's text
 
 struct Options
 {
   bool windowed;
   double speed;
+  std::optional<float> uiScale; // --ui-scale, over the display's band
 };
 
 /// Whether the command line holds _flag as a word of its own.
@@ -74,17 +81,15 @@ bool HasFlag(std::wstring_view _commandLine, std::wstring_view _flag)
   return false;
 }
 
-/// The speed after --speed, as `--speed 10` or `--speed=10`, and 1 when it asks for none. Throws std::invalid_argument
-/// for anything but a number above 0 and up to MAX_SPEED.
-double SpeedFrom(std::wstring_view _commandLine)
+/// The value after _option, as `--option value` or `--option=value`, or nothing when the command line lacks it.
+std::optional<std::string> OptionValue(std::wstring_view _commandLine, std::wstring_view _option)
 {
-  constexpr std::wstring_view OPTION = L"--speed";
-  const std::size_t at = _commandLine.find(OPTION);
+  const std::size_t at = _commandLine.find(_option);
   if (at == std::wstring_view::npos)
   {
-    return 1.0;
+    return std::nullopt;
   }
-  std::wstring_view rest = _commandLine.substr(at + OPTION.size());
+  std::wstring_view rest = _commandLine.substr(at + _option.size());
   if (rest.starts_with(L'='))
   {
     rest.remove_prefix(1);
@@ -98,6 +103,19 @@ double SpeedFrom(std::wstring_view _commandLine)
   {
     value.push_back(character < 128 ? static_cast<char>(character) : '?');
   }
+  return value;
+}
+
+/// The speed after --speed, as `--speed 10` or `--speed=10`, and 1 when it asks for none. Throws std::invalid_argument
+/// for anything but a number above 0 and up to MAX_SPEED.
+double SpeedFrom(std::wstring_view _commandLine)
+{
+  const std::optional<std::string> given = OptionValue(_commandLine, L"--speed");
+  if (!given)
+  {
+    return 1.0;
+  }
+  const std::string& value = *given;
   double speed = 0.0;
   const std::from_chars_result parsed = std::from_chars(value.data(), value.data() + value.size(), speed);
   if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size() || !(speed > 0.0) || speed > MAX_SPEED)
@@ -346,15 +364,6 @@ private:
   std::map<Protocol::EntityId, Client::Debris> m_debris;
 };
 
-/// The UI scale of Hud.md §2's bands, from the monitor's DPI: 100 to 124 % gives 1, 125 to 174 % 1.5, and 175 % and
-/// above 2 (GameDesign.md, M3's values, item 9).
-float UiScale(HWND _window) noexcept
-{
-  const UINT dpi = GetDpiForWindow(_window);
-  const UINT percent = dpi == 0 ? 100 : dpi * 100 / DPI_PER_SCALE;
-  return percent >= 175 ? 2.0F : (percent >= 125 ? 1.5F : 1.0F);
-}
-
 int Run(const Options& _options)
 {
   const std::filesystem::path executable = ExecutablePath();
@@ -392,6 +401,8 @@ int Run(const Options& _options)
   Engine::FrameTimer timer;
   std::vector<Client::ModelPlacement> placements;
   std::vector<Engine::OrientedVoxel> debris;
+  std::vector<Client::ScreenQuad> interfaceQuads;
+  const std::array<float, 4> textColor = Client::LinearColor(TEXT_SRGB);
   std::int32_t lastXPixels = 0;
   std::int32_t lastYPixels = 0;
   double seconds = 0.0;
@@ -468,7 +479,13 @@ int Run(const Options& _options)
     const std::uint32_t slot = frames.Slot();
     ID3D12GraphicsCommandList* commandList = frames.Begin();
     const float aspect = static_cast<float>(swapChain.WidthPixels()) / static_cast<float>(swapChain.HeightPixels());
-    const float topBarPixels = Client::TOP_BAR_LOGICAL_PIXELS * UiScale(window.Handle());
+    // The UI scale: --ui-scale, or the display's band (Hud.md §2).
+    const float uiScale = _options.uiScale.value_or(Client::UiScaleForDpi(window.Dpi()));
+    const float topBarPixels = Client::TOP_BAR_LOGICAL_PIXELS * uiScale;
+    interfaceQuads.clear();
+    const std::int32_t margin = Client::ScaledPixels(FIGURES_MARGIN_LOGICAL_PIXELS, uiScale);
+    Client::TextLayout::Lay(std::format(Client::FIGURES, renderer.VoxelPassMilliseconds(), session.State().tick, _options.speed), margin,
+                            margin, Client::TextLayout::PixelsPerFontPixel(Client::TextSize::Label, uiScale), textColor, interfaceQuads);
     Client::WorldRenderer::Frame frame{.commandList = commandList,
                                        .slot = slot,
                                        .ring = &ring,
@@ -481,7 +498,8 @@ int Run(const Options& _options)
                                        .backBuffer = swapChain.BackBuffer(),
                                        .backBufferView = swapChain.BackBufferView(),
                                        .backWidthPixels = swapChain.WidthPixels(),
-                                       .backHeightPixels = swapChain.HeightPixels()};
+                                       .backHeightPixels = swapChain.HeightPixels(),
+                                       .interfaceQuads = interfaceQuads};
     const std::vector<Protocol::ChunkSnapshot> snapshots = session.TakeSnapshots();
     frame.snapshots = snapshots;
     DirectX::XMStoreFloat4x4(&frame.viewProjection, camera.ViewProjection(aspect, swapChain.HeightPixels(), topBarPixels));
@@ -517,7 +535,10 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
   try
   {
     const std::wstring_view commandLine = _commandLine != nullptr ? _commandLine : L"";
-    return Run({.windowed = HasFlag(commandLine, L"--windowed"), .speed = SpeedFrom(commandLine)});
+    const std::optional<std::string> uiScale = OptionValue(commandLine, L"--ui-scale");
+    return Run({.windowed = HasFlag(commandLine, L"--windowed"),
+                .speed = SpeedFrom(commandLine),
+                .uiScale = uiScale ? std::optional<float>(Client::UiScaleFromOption(*uiScale)) : std::nullopt});
   }
   catch (const winrt::hresult_error& error)
   {

@@ -22,6 +22,9 @@
     <Filter Include="Rendering">
       <UniqueIdentifier>{1A8E7324-E758-5483-BBFA-AFB242A1BD28}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Text">
+      <UniqueIdentifier>{0F59263F-7F19-5BD3-A800-CC308902DEF6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -71,6 +74,39 @@
     </ClInclude>
     <ClCompile Include="WorldRenderer.cpp">
       <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClInclude Include="ScreenQuad.h">
+      <Filter>Text</Filter>
+    </ClInclude>
+    <ClCompile Include="ScreenQuad.cpp">
+      <Filter>Text</Filter>
+    </ClCompile>
+    <ClInclude Include="GlyphAtlas.h">
+      <Filter>Text</Filter>
+    </ClInclude>
+    <ClCompile Include="GlyphAtlas.cpp">
+      <Filter>Text</Filter>
+    </ClCompile>
+    <ClInclude Include="TextLayout.h">
+      <Filter>Text</Filter>
+    </ClInclude>
+    <ClCompile Include="TextLayout.cpp">
+      <Filter>Text</Filter>
+    </ClCompile>
+    <ClInclude Include="UiScale.h">
+      <Filter>Text</Filter>
+    </ClInclude>
+    <ClCompile Include="UiScale.cpp">
+      <Filter>Text</Filter>
+    </ClCompile>
+    <ClInclude Include="Strings.h">
+      <Filter>Text</Filter>
+    </ClInclude>
+    <ClInclude Include="FontAtlas.h">
+      <Filter>Text</Filter>
+    </ClInclude>
+    <ClCompile Include="FontAtlas.cpp">
+      <Filter>Text</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

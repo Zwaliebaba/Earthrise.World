@@ -11,10 +11,13 @@
 #include "ChunkSnapshot.h"
 #include "ColorTarget.h"
 #include "DepthTarget.h"
+#include "FontAtlas.h"
 #include "FrameRing.h"
 #include "GpuTimer.h"
+#include "InterfacePass.h"
 #include "ModelPlacement.h"
 #include "OrientedVoxel.h"
+#include "ScreenQuad.h"
 #include "ShadowMap.h"
 #include "UploadRing.h"
 #include "UpscalePass.h"
@@ -30,7 +33,8 @@ namespace Client
 {
 
 /// One frame of the world as the renderer spike draws it (M3-C3): the sun's two shadow maps, the voxel pass with the
-/// world's chunks, the models and the debris, scaled to the back buffer, and the GPU timer over the voxel pass.
+/// world's chunks, the models and the debris, scaled to the back buffer, and the GPU timer over the voxel pass; then the
+/// interface over it at the back buffer's size (M3-E1).
 class WorldRenderer
 {
 public:
@@ -60,6 +64,7 @@ public:
     D3D12_CPU_DESCRIPTOR_HANDLE backBufferView;
     std::uint32_t backWidthPixels;
     std::uint32_t backHeightPixels;
+    std::span<const ScreenQuad> interfaceQuads; // drawn over the scaled scene, in order
   };
 
   /// Throws winrt::hresult_error when the device refuses.
@@ -93,6 +98,8 @@ private:
   Engine::UpscalePass m_upscale;
   Engine::GpuTimer m_gpuTimer;
   WorldView m_worldView;
+  Engine::InterfacePass m_interface;
+  FontAtlas m_fontAtlas;
   std::array<DirectX::XMFLOAT4, Engine::VoxelPass::PALETTE_ENTRIES> m_palette;
   DirectX::XMFLOAT4X4 m_sunViewProjection{};
   std::array<bool, Engine::FrameRing::FRAMES_IN_FLIGHT> m_timed{};
