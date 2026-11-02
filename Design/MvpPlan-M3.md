@@ -179,7 +179,7 @@ public:
 };
 
 // Simulation/Rules.h gains, from RULE (input 10):
-std::int32_t queryWorkPerTick; // units of work step 12 spends: an aim check 1, a tile's reach 1, a section's integrity 8
+std::int32_t queryWorkPerTick; // units of work step 12 spends: an aim check 1, a tile's reach 1, a section's integrity 16
 
 // Simulation/Shot.h gains:
 /// One tick of a shot's flight: the first solid voxel the step from _ticksFlown crosses, if any, and,

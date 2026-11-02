@@ -8,7 +8,7 @@ using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 // Queries within the tick's budget (M3-B3; ADR-009; ADR-020, decisions 5 and 6): answered in step 12
 // on the tick's state, oldest first, within queryWorkPerTick units of work, an aim check costing 1 and
-// a section's integrity 8; the 65th waiting drops the oldest. And Quiet, what the breach lab's
+// a section's integrity 16; the 65th waiting drops the oldest. And Quiet, what the breach lab's
 // fast-forward stops on.
 
 namespace SimulationTests
@@ -41,7 +41,7 @@ std::vector<std::byte> Bytes(const Protocol::Command& _command)
 
 // constexpr, so that building them at static initialization cannot throw.
 constexpr Protocol::Query AIM = Protocol::AimCheck{.engine = 1, .targetVoxels = At(30, GROUND, 30)}; // costs 1
-constexpr Protocol::Query INTEGRITY = Protocol::SectionIntegrity{.structure = 1};                    // costs 8
+constexpr Protocol::Query INTEGRITY = Protocol::SectionIntegrity{.structure = 1};                    // costs 16
 
 std::vector<Protocol::Answer> Answers(Simulation::World& _world)
 {
@@ -115,21 +115,21 @@ public:
 
   TEST_METHOD(AQueryThatDoesNotFitWaitsForTheNextTick)
   {
-    // 1 + 8 leaves 7, so the second integrity reading waits, and is answered next tick, not dropped.
+    // An aim check leaves 15, so the integrity reading after it waits, and each reading takes a tick
+    // of its own: answered in later ticks, oldest first, never dropped.
     Simulation::World world(FlatWorld::Desc());
     world.Ask(PLAYER, Bytes(1, AIM));
     world.Ask(PLAYER, Bytes(2, INTEGRITY));
     world.Ask(PLAYER, Bytes(3, INTEGRITY));
     world.Ask(PLAYER, Bytes(4, AIM));
-    world.Tick();
-    const std::vector<Protocol::Answer> first = Answers(world);
-    Assert::AreEqual(std::size_t{2}, first.size());
-    Assert::AreEqual(2U, first.back().queryId);
-    world.Tick();
-    const std::vector<Protocol::Answer> second = Answers(world);
-    Assert::AreEqual(std::size_t{2}, second.size());
-    Assert::AreEqual(3U, second.front().queryId);
-    Assert::AreEqual(4U, second.back().queryId);
+    const std::vector<std::vector<std::uint32_t>> expected{{1}, {2}, {3}, {4}};
+    for (const std::vector<std::uint32_t>& ids : expected)
+    {
+      world.Tick();
+      const std::vector<Protocol::Answer> answers = Answers(world);
+      Assert::AreEqual(ids.size(), answers.size());
+      Assert::AreEqual(ids.front(), answers.front().queryId);
+    }
   }
 
   TEST_METHOD(DropsTheOldestPastSixtyFourWaiting)
@@ -179,21 +179,21 @@ public:
 
   TEST_METHOD(AnswersBetweenTicksWithinOneTicksBudgetAndChangesNothing)
   {
-    // The lab's question pauses the clock (M3-G1): two integrity readings fit a tick's 16, the third waits.
+    // The lab's question pauses the clock (M3-G1): one integrity reading fills a tick's 16, the next waits.
     Simulation::World asked(FlatWorld::Desc());
     Simulation::World plain(FlatWorld::Desc());
     asked.Tick();
     plain.Tick();
-    for (std::uint32_t id = 1; id <= 3; ++id)
+    for (std::uint32_t id = 1; id <= 2; ++id)
     {
       asked.Ask(PLAYER, Bytes(id, INTEGRITY));
     }
     asked.AnswerBetweenTicks();
     const std::vector<Protocol::Answer> first = Answers(asked);
-    Assert::AreEqual(std::size_t{2}, first.size());
+    Assert::AreEqual(std::size_t{1}, first.size());
     Assert::AreEqual(0U, first.front().tick); // the last tick ticked
     asked.AnswerBetweenTicks();
-    Assert::AreEqual(3U, Answers(asked).front().queryId);
+    Assert::AreEqual(2U, Answers(asked).front().queryId);
     Assert::AreEqual(1U, asked.TickCount());
     Assert::AreEqual(Simulation::StateHash(plain), Simulation::StateHash(asked));
     asked.Tick();
