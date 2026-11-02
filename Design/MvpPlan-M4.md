@@ -1,8 +1,16 @@
 # Earthrise.World — M4 work orders
 
-**Status:** Proposed, 2026-11-01, with [MvpPlan.md](MvpPlan.md)'s M4 revision, which is accepted when the owner merges its pull request. The owner answered MvpPlan.md, M4, inputs 1–28 on 2026-11-01, taking every proposal (order M4-A1; GameDesign.md, *M4's values*). No order from phase B on starts before that pull request, #49, merges **and M3 closes** (input 2). "Input N" means MvpPlan.md, M4, input N. These orders carry out M4 as MvpPlan.md, M4, defines it, under [ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md) and [ADR-022](ADR/ADR-022-formations-and-separation.md) to [ADR-028](ADR/ADR-028-the-control.md). Where an order and those differ, they win, and the order is corrected.
+**Status:** Proposed, 2026-11-01, with [MvpPlan.md](MvpPlan.md)'s M4 revision, which is accepted when the owner merges its pull request. The owner answered MvpPlan.md, M4, inputs 1–28 on 2026-11-01, taking every proposal (order M4-A1; GameDesign.md, *M4's values*). No order from phase B on starts before that pull request, #49, merges **and M3 closes** (input 2). **The owner changed input 2 on 2026-11-02:** phases B to F start before M3 closes, after the correcting commit below; G to J still wait for M3 to close. "Input N" means MvpPlan.md, M4, input N. These orders carry out M4 as MvpPlan.md, M4, defines it, under [ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md) and [ADR-022](ADR/ADR-022-formations-and-separation.md) to [ADR-028](ADR/ADR-028-the-control.md). Where an order and those differ, they win, and the order is corrected.
 
 **This plan is written against M3's contracts as [MvpPlan-M3.md](MvpPlan-M3.md) fixes them,** before any M3 code exists. M3-G3 writes what M4 inherits; where M3's code changed a contract M4 builds on, this file is corrected in a commit of its own before phase B starts.
+
+**Corrected against M3's code on 2026-11-02,** from M3's merged orders B1 to G2, before phase B and ahead of M3-G3 (input 2, as the owner changed it). The headless contracts, `Protocol`, `Simulation` and `Content`, were read against the code; `Engine`'s and `Client`'s wait for M3-G3, since phases G to J wait for M3 to close. What changed:
+- **`QUERY_RECORD_VERSION` is 2 already:** M3-F3 raised it when the tile reach reading gained its surfaces. M4's three raises therefore take it to 3 in C4, 4 in D5 and 5 in E1.
+- **`StructureView` has M3's `extentVoxels`** beside the fields this plan listed: the box after the turn, which the client draws by.
+- **A save's record versions are per kind from C1.** M3's `Save.cpp` writes every entity record at one `RECORD_VERSION`, 1. The first order to raise one, C1, gives each `SaveEntityTag` its own, so that D1's structure record is version 2 as ADR-024 says, whatever the units' and squads' records reach first.
+- **M3's player is 1** (`BreachRun::PLAYER`), and `World::PublishState` builds its one update through `StateFor(0)`, a filter that passes everything; `State()` becomes `State(1)` as the contract says, and the filter's argument becomes the player it filters for.
+- **M3's `AddSquad` takes a `NavigationClass` and a `UnitKind` defaulting to `Spearman`.** The contract's `AddSquad(owner, kind, cells)` replaces it in C1, the class read from the kind's stats, and every caller, `TestWorld`, `Script`, `BreachRun`, `BreachLab` and the tests, moves to it in that commit.
+- **The glyph atlas's layout is `Client::GlyphAtlas`'s,** 16 × 8 cells of 10 texels, which `Client::FontAtlas` uploads. B5 grows `GlyphAtlas` to 16 × 9, and its test is `GlyphAtlasTests` in `ClientTests`, beside the `TextLayoutTests` that read it now.
 
 **An order is one commit.** Phase A goes in the plan's pull request. Phases B to J go in two draft pull requests (input 26): B to F, the simulation, headless, which CI confirms; and G to J, the client, which the owner runs. There are 43 orders in ten phases:
 
@@ -81,7 +89,7 @@ using Command = std::variant<MoveSquad, FireEngine, AttackTarget, StormTo, StopS
 
 // Protocol/StateUpdate.h — the views gain (M3's fields stand):
 struct PlayerView { std::uint8_t player; Side side; std::int32_t stoneHundredthsCubicMeters; std::int32_t timberHundredthsCubicMeters; }; // stockpiles 0 for other players
-struct StructureView // + M3's id, owner, templateId, originVoxels, quarterTurns, name
+struct StructureView // + M3's id, owner, templateId, originVoxels, quarterTurns, extentVoxels, name
 {
   bool working;                    // ADR-024, decision 2; true for a structure without a critical part
   std::uint8_t criticalPercent;    // the part's standing share, 100 without a part
@@ -121,7 +129,7 @@ struct StateUpdate // + M3's tick, structures, engines, squads, units, shots, co
   std::vector<std::uint64_t> visibleCells; // bit z * widthCells + x (ADR-025, decision 2)
 };
 
-// Protocol/Query.h gains, each order that adds a field raising QUERY_RECORD_VERSION by one: C4 to 2, D5 to 3, E1 to 4.
+// Protocol/Query.h gains, each order that adds a field raising QUERY_RECORD_VERSION by one: C4 to 3, D5 to 4, E1 to 5 (M3-F3 took it to 2).
 struct SquadAim { EntityId squad; VoxelPosition targetVoxels; };  // tag 4: the attack cursor for a ranged squad, answered by an AimReading from its lead's loosing point
 // IntegrityReading gains std::uint32_t repairLockTicks (D5); Answer gains bool notVisible (E1; ADR-025, decision 6).
 ```
@@ -259,7 +267,7 @@ public:
 
 ```cpp
 // Content/Font.h: FONT_GLYPH_COUNT becomes 131. Icons U+E019 split, U+E01A merge, U+E01B deploy and U+E01C wall join M3's 25,
-// each 9 x 9 (input 21). The client's glyph atlas grows from 16 x 8 cells to 16 x 9, 160 x 90 texels (ADR-019, decision 2, amended).
+// each 9 x 9 (input 21). Client::GlyphAtlas grows from 16 x 8 cells to 16 x 9, 160 x 90 texels (ADR-019, decision 2, amended).
 ```
 
 ### `Engine` (G1–G3)
@@ -386,8 +394,8 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<Siege|SiegeMirror>-<yy
 ### M4-B5 — Four icons for the font
 - **Waits on:** A1, and input 21.
 - **Read first:** Hud.md §7 and §9; ADR-019, *Left open*; `GameData/Client/Fonts/EarthriseMason-glyphs.json`; `Tools/CheckAssets.py`'s check 13.
-- **Changes:** SPLIT, MERGE, DEPLOY and WALL as 9 × 9 icons at U+E019–U+E01C, drawn in the font's style; check 13's counts move to 131 glyphs and 29 icons; the atlases in `Design/Previews/` regenerated; `FONT_GLYPH_COUNT` 131; `Client::FontAtlas` grows to 16 × 9 cells, 160 × 90, since 131 glyphs overflow M3's 128 cells; ADR-019, decision 2, amended.
-- **Tests:** `Tools/TestCheckAssets.py`; **`FontTests`**: 131 glyphs; the four icons present and 9 wide; **`FontAtlasTests`** (`ClientTests`): glyph 131 lands in the ninth row's third cell.
+- **Changes:** SPLIT, MERGE, DEPLOY and WALL as 9 × 9 icons at U+E019–U+E01C, drawn in the font's style; check 13's counts move to 131 glyphs and 29 icons; the atlases in `Design/Previews/` regenerated; `FONT_GLYPH_COUNT` 131; `Client::GlyphAtlas` grows to 16 × 9 cells, 160 × 90, since 131 glyphs overflow M3's 128 cells, and `Client::FontAtlas` uploads the taller texture; ADR-019, decision 2, amended.
+- **Tests:** `Tools/TestCheckAssets.py`; **`FontTests`**: 131 glyphs; the four icons present and 9 wide; **`GlyphAtlasTests`** (`ClientTests`): glyph 131 lands in the ninth row's third cell.
 
 ### M4-B6 — The mirrored castle
 - **Waits on:** B4, and input 28.
@@ -423,7 +431,7 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<Siege|SiegeMirror>-<yy
 ### M4-C4 — Arrows
 - **Waits on:** C3, and input 7.
 - **Read first:** ADR-023, decisions 5 and 6; `Simulation/Shot.h`'s `TraverseVoxels`; Review/PaperTests/SiegeRouteTable.md, *Reach*.
-- **Changes:** ranged figures loose arrows as `Shot`s of kind `Arrow` with an `ArrowLine`, traced each tick in step 4; elevation steps and bands; line of fire checked before loosing; a blocked squad walks towards its target; `SquadAim` answered (record version 2), in the filters `Combat` and `Queries`.
+- **Changes:** ranged figures loose arrows as `Shot`s of kind `Arrow` with an `ArrowLine`, traced each tick in step 4; elevation steps and bands; line of fire checked before loosing; a blocked squad walks towards its target; `SquadAim` answered (record version 3), in the filters `Combat` and `Queries`.
 - **Tests:** **`ArrowTests`:** an archer on level ground reaches 30 m and not 31; one standing 6 m above its target reaches 40 m and deals the two-step damage; one 6 m below deals the uphill damage; a target that steps behind a wall during the arrow's flight is not hit, the arrow stopping at the wall's face; a squad with no line to its target looses nothing and walks until it has one; an arrow passes a unit in its way that is not its target; a target that leaves its aim point by more than a cell is missed; `SquadAim` reads IN RANGE, BLOCKED and OUT OF RANGE as the arrow would.
 
 ### M4-C5 — The trebuchet against units and engines, its stone, deploying and packing
