@@ -352,10 +352,10 @@ Protocol::EntityId World::AddStructure(std::uint8_t _owner, std::string_view _te
         // the gate it holds stand on the ground.
         if (y == 0 && Data().Materials().at(index).behavior == Behavior::BuildingStone)
         {
-          for (std::int32_t depth = 1; depth <= _foundationDepthVoxels; ++depth)
+          for (std::int32_t below = 1; below <= _foundationDepthVoxels; ++below)
           {
             m_voxels.Edit({.xVoxels = _originVoxels.xVoxels + turnedX,
-                           .yVoxels = _originVoxels.yVoxels - depth,
+                           .yVoxels = _originVoxels.yVoxels - below,
                            .zVoxels = _originVoxels.zVoxels + turnedZ},
                           index);
           }
