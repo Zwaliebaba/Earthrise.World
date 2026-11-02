@@ -188,6 +188,15 @@ struct TrialRules
 /// 10 sets afresh.
 struct TrialProgress
 {
+  TrialProgress() = default;
+  ~TrialProgress() = default;
+  TrialProgress(const TrialProgress&) = default;
+  TrialProgress& operator=(const TrialProgress&) = default;
+  // A move may allocate under the debug library's checked containers, whose std::set allocates in its move constructor,
+  // so it is not noexcept (bugprone-exception-escape), as World's is not.
+  TrialProgress(TrialProgress&&) noexcept(false) = default;
+  TrialProgress& operator=(TrialProgress&&) noexcept(false) = default;
+
   Protocol::TrialOutcome outcome = Protocol::TrialOutcome::Running;
   std::uint32_t endTick = 0;   // the tick its outcome came on, which stops the clock
   std::uint32_t holdTicks = 0; // the storming clock
