@@ -147,6 +147,7 @@ The edges run one way:
 | Scenarios and the Siege trial | M4 | [ADR-026](ADR/ADR-026-scenarios-and-the-siege-trial.md), decisions 1 to 3 Accepted by M4-B4, the rest Proposed: JSON sources baked into `SCEN`; loaded as tick 0; the trial's rules in step 10; its events, log and replay |
 | The AI | M4 | [ADR-027](ADR/ADR-027-commanders.md), Proposed: commanders inside the simulation, one a player, reading only their player's view, run as step 13, saved, recomputed on replay |
 | The control | M4 | [ADR-028](ADR/ADR-028-the-control.md), Proposed: health-bar structures behind one seam, `StructureRule`, chosen by the scenario; hit points calibrated on the voxel version |
+| Trenches and undermining | M4 | [ADR-029](ADR/ADR-029-trenches-and-undermining.md), Accepted by M4-D6: sappers dig an open box from the top with a ramp at its near end; earth slumps from under a structure only towards what a trench opened; dug cells lock repair nearby |
 
 ### One simulation tick, in order
 

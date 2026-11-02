@@ -52,6 +52,36 @@ std::pair<std::int32_t, std::int32_t> Turned(std::int32_t _x, std::int32_t _z, s
   }
 }
 
+/// Whether a palette index is a structure's as loose material sees it: solid, not ground and not liquid (M2-E7).
+bool IsStructureIndex(const MaterialRules& _materials, std::uint8_t _index)
+{
+  const MaterialRule& rule = _materials.at(_index);
+  return _index != Protocol::Chunk::EMPTY && !rule.walkableGround && !rule.liquid;
+}
+
+/// Whether a palette index is loose: earth, grass and every rubble (M2-E6).
+bool IsLooseIndex(const MaterialRules& _materials, std::uint8_t _index)
+{
+  const Behavior behavior = _materials.at(_index).behavior;
+  return behavior == Behavior::Earth || behavior == Behavior::StoneRubble || behavior == Behavior::WasteRubble;
+}
+
+/// How far _at lies outside the run _low to _high, both included: 0 inside it.
+std::int32_t Outside(std::int32_t _at, std::int32_t _low, std::int32_t _high)
+{
+  return std::max({_low - _at, 0, _at - _high});
+}
+
+/// How many cells sappers reach a trench from, across the ground: a squad's two ranks (ADR-029, decision 2).
+constexpr std::int32_t TRENCH_REACH_CELLS = 2;
+
+/// Whether _cell stands within TRENCH_REACH_CELLS of the box _low to _high across the ground, inside it included.
+bool WithinTrenchReach(Protocol::VoxelPosition _low, Protocol::VoxelPosition _high, Protocol::VoxelPosition _cell)
+{
+  return std::max(Outside(_cell.xVoxels, _low.xVoxels, _high.xVoxels), Outside(_cell.zVoxels, _low.zVoxels, _high.zVoxels)) <=
+         TRENCH_REACH_CELLS;
+}
+
 } // namespace
 
 World::World(const Desc& _desc)
@@ -302,7 +332,11 @@ Protocol::EntityId World::AddSquad(std::uint8_t _owner, UnitKind _kind, std::spa
               .kind = _kind,
               .facing = 0,
               .order = Protocol::SquadOrder::Idle,
-              .target = Protocol::NO_ENTITY};
+              .target = Protocol::NO_ENTITY,
+              .trenchMinVoxels = {},
+              .trenchMaxVoxels = {},
+              .trenchNearSide = 0,
+              .digProgress = {}};
   for (const Protocol::VoxelPosition& cell : _cellsVoxels)
   {
     const Protocol::EntityId unitId = NewEntityId();
@@ -579,13 +613,14 @@ void World::Acquire()
   }
   // Each figure with an attack takes the nearest enemy figure within its vision, ties to the lower id, or when its squad
   // attacks, the nearest of its target's at any range. A moving squad's figures take none: they strike what they meet
-  // (decision 3) and walk on; nor does a laborer set to repair, which keeps to its work (ADR-024, decision 3).
+  // (decision 3) and walk on; nor does a laborer set to repair or a sapper set to dig, which keep to their work (ADR-024,
+  // decision 3; ADR-029).
   for (auto& [id, unit] : m_units)
   {
     unit.target = Protocol::NO_ENTITY;
     const Squad& squad = m_squads.at(unit.squad);
     if (Garrisoned(unit) || Data().Stats(unit.kind).attack <= 0 || squad.order == Protocol::SquadOrder::Move ||
-        squad.order == Protocol::SquadOrder::Repair)
+        squad.order == Protocol::SquadOrder::Repair || squad.order == Protocol::SquadOrder::Trench)
     {
       continue;
     }
@@ -968,6 +1003,10 @@ void World::Apply(std::uint8_t _player, const Protocol::Command& _command)
   {
     OrderRepair(_player, *repair);
   }
+  else if (const auto* trench = std::get_if<Protocol::DigTrench>(&_command))
+  {
+    DigTrench(_player, *trench);
+  }
   else
   {
     // M4's other commands land with the orders that build them.
@@ -1054,7 +1093,11 @@ void World::Split(std::uint8_t _player, const Protocol::SplitSquad& _split)
                              .kind = squad->kind,
                              .facing = squad->facing,
                              .order = Protocol::SquadOrder::Idle,
-                             .target = Protocol::NO_ENTITY});
+                             .target = Protocol::NO_ENTITY,
+                             .trenchMinVoxels = {},
+                             .trenchMaxVoxels = {},
+                             .trenchNearSide = 0,
+                             .digProgress = {}});
 }
 
 void World::Merge(std::uint8_t _player, const Protocol::MergeSquads& _merge)
@@ -1500,9 +1543,10 @@ void World::RamBlows()
 
 void World::AdvanceJobs()
 {
-  // Step 2: designations and jobs: the garrisons' healing and repair (ADR-024, decisions 3 to 5).
+  // Step 2: designations and jobs: the garrisons' healing, repair and trenches (ADR-024, decisions 3 to 5; ADR-029).
   HealGarrisons();
   AdvanceRepairs();
+  AdvanceTrenches();
 }
 
 void World::MoveUnits()
@@ -2557,6 +2601,10 @@ std::optional<std::pair<std::int32_t, std::int32_t>> World::Slump(std::int32_t _
   { return m_voxels.At({.xVoxels = _atX, .yVoxels = _atY, .zVoxels = _atZ}); };
 
   const std::int32_t top = TopOf(_x, _z);
+  if (top >= 0 && isStructure(at(_x, top, _z)))
+  {
+    return SlumpFromUnder(_x, _z); // ADR-029, decision 3: only towards what a trench opened
+  }
   if (top < 0 || !isLoose(at(_x, top, _z)))
   {
     return std::nullopt;
@@ -2583,6 +2631,15 @@ std::optional<std::pair<std::int32_t, std::int32_t>> World::Slump(std::int32_t _
     side.inside = true;
     side.top = TopOf(_sideX, _sideZ);
     side.structureTop = side.top >= 0 && isStructure(at(_sideX, side.top, _sideZ));
+    // A column a trench opened offers the gap under its structure, as loose material sees it (ADR-029, decision 3).
+    bool under = false;
+    if (side.structureTop && Opened(_sideX, _sideZ) && LooseHeight(_sideX, _sideZ, &under) >= 0 && under)
+    {
+      side.top = LooseHeight(_sideX, _sideZ, &under);
+      side.structureTop = false;
+      side.grounded = !isStructure(at(_sideX, side.top, _sideZ));
+      return side;
+    }
     std::int32_t y = side.top;
     while (y >= 0 && isLoose(at(_sideX, y, _sideZ)))
     {
@@ -3723,6 +3780,257 @@ void World::NoteSpent(bool _timber, std::uint8_t _player, Protocol::EntityId _su
                           .other = Protocol::NO_ENTITY,
                           .amount = _amount,
                           .voxel = _voxel});
+}
+
+void World::DigTrench(std::uint8_t _player, const Protocol::DigTrench& _trench)
+{
+  // A squad of _player's sappers, at a box inside the world (ADR-029, decision 1; MvpPlan.md, M4, input 12).
+  Squad* squad = OrderableSquad(_player, _trench, _trench.squad);
+  if (squad == nullptr)
+  {
+    return;
+  }
+  const Protocol::VoxelPosition& low = _trench.minVoxels;
+  const Protocol::VoxelPosition& high = _trench.maxVoxels;
+  const bool inWorld = low.xVoxels >= 0 && low.yVoxels >= 0 && low.zVoxels >= 0 && high.xVoxels < WidthVoxels() &&
+                       high.yVoxels < HeightVoxels() && high.zVoxels < DepthVoxels();
+  if (squad->kind != Protocol::UnitKind::Sapper || squad->units.empty() || low.xVoxels > high.xVoxels || low.yVoxels > high.yVoxels ||
+      low.zVoxels > high.zVoxels || !inWorld)
+  {
+    Refuse(_player, _trench, Protocol::Refusal::Invalid);
+    return;
+  }
+  // Its ramp is left at the end of the box's long axis nearer the squad's lead, x for a square box, the lower end on a tie.
+  const Protocol::VoxelPosition at = m_units.at(squad->units.front()).cellVoxels;
+  const bool alongX = high.xVoxels - low.xVoxels >= high.zVoxels - low.zVoxels;
+  const std::uint8_t nearSide = alongX ? (std::abs(at.xVoxels - low.xVoxels) <= std::abs(at.xVoxels - high.xVoxels) ? 0 : 1)
+                                       : (std::abs(at.zVoxels - low.zVoxels) <= std::abs(at.zVoxels - high.zVoxels) ? 2 : 3);
+  // A lead within reach digs where it stands; one farther walks to the nearest cell foot can use beside the box, outside
+  // it, ring by ring, each ring in index order; with none, the order is refused.
+  std::optional<Protocol::VoxelPosition> stand;
+  if (!WithinTrenchReach(low, high, at))
+  {
+    std::int64_t best = 0;
+    for (std::int32_t ring = 1; ring <= TRENCH_REACH_CELLS && !stand.has_value(); ++ring)
+    {
+      for (std::int32_t z = low.zVoxels - ring; z <= high.zVoxels + ring; ++z)
+      {
+        for (std::int32_t x = low.xVoxels - ring; x <= high.xVoxels + ring; ++x)
+        {
+          const bool onRing = x == low.xVoxels - ring || x == high.xVoxels + ring || z == low.zVoxels - ring || z == high.zVoxels + ring;
+          if (!onRing || !m_navigation.Usable(x, z, NavigationClass::Foot))
+          {
+            continue;
+          }
+          const std::int64_t dx = std::int64_t{x} - at.xVoxels;
+          const std::int64_t dz = std::int64_t{z} - at.zVoxels;
+          if (!stand.has_value() || (dx * dx) + (dz * dz) < best)
+          {
+            stand = Protocol::VoxelPosition{.xVoxels = x, .yVoxels = m_navigation.WalkableHeight(x, z), .zVoxels = z};
+            best = (dx * dx) + (dz * dz);
+          }
+        }
+      }
+    }
+    if (!stand.has_value())
+    {
+      Refuse(_player, _trench, Protocol::Refusal::Invalid);
+      return;
+    }
+  }
+  Halt(*squad, Protocol::SquadOrder::Trench);
+  squad->trenchMinVoxels = low;
+  squad->trenchMaxVoxels = high;
+  squad->trenchNearSide = nearSide;
+  squad->digProgress = {};
+  if (stand.has_value())
+  {
+    squad->hasGoal = true;
+    squad->goalVoxels = *stand;
+    RequestSearch(*squad);
+  }
+}
+
+bool World::AtTrench(const Squad& _squad, Protocol::VoxelPosition _cell) noexcept
+{
+  return WithinTrenchReach(_squad.trenchMinVoxels, _squad.trenchMaxVoxels, _cell);
+}
+
+std::optional<Protocol::VoxelPosition> World::NextDig(const Squad& _squad) const
+{
+  // Layer k of the box, counted from its top, is dug only in the columns k or more from the ramp's end along its long axis,
+  // so the floor at that end rises a voxel a cell, as foot climb (GameDesign.md, M2's values, item 10).
+  const MaterialRules& materials = Data().Materials();
+  const Protocol::VoxelPosition& low = _squad.trenchMinVoxels;
+  const Protocol::VoxelPosition& high = _squad.trenchMaxVoxels;
+  const auto fromRamp = [&_squad, &low, &high](std::int32_t _x, std::int32_t _z)
+  {
+    switch (_squad.trenchNearSide)
+    {
+    case 0:
+      return _x - low.xVoxels;
+    case 1:
+      return high.xVoxels - _x;
+    case 2:
+      return _z - low.zVoxels;
+    default:
+      return high.zVoxels - _z;
+    }
+  };
+  for (std::int32_t y = high.yVoxels; y >= low.yVoxels; --y)
+  {
+    std::optional<Protocol::VoxelPosition> best;
+    std::int32_t bestFromRamp = -1;
+    for (std::int32_t z = low.zVoxels; z <= high.zVoxels; ++z)
+    {
+      for (std::int32_t x = low.xVoxels; x <= high.xVoxels; ++x)
+      {
+        const Protocol::VoxelPosition voxel{.xVoxels = x, .yVoxels = y, .zVoxels = z};
+        const std::int32_t ramp = fromRamp(x, z);
+        // Open digging, never tunnelling: nothing stands on it (GameDescription.md, Undermining).
+        if (high.yVoxels - y > ramp || !IsLooseIndex(materials, m_voxels.At(voxel)) ||
+            m_voxels.At({.xVoxels = x, .yVoxels = y + 1, .zVoxels = z}) != Protocol::Chunk::EMPTY || ramp <= bestFromRamp)
+        {
+          continue;
+        }
+        best = voxel;
+        bestFromRamp = ramp;
+      }
+    }
+    if (best.has_value())
+    {
+      return best;
+    }
+  }
+  return std::nullopt;
+}
+
+void World::AdvanceTrenches()
+{
+  // ADR-029, decision 2; MvpPlan.md, M4, input 12. Each sapper at the box adds its kind's rate; the spoil leaves play.
+  const Rules& rules = Data().Tuning();
+  for (auto& [id, squad] : m_squads)
+  {
+    if (squad.order != Protocol::SquadOrder::Trench || squad.garrisonedIn != Protocol::NO_ENTITY)
+    {
+      continue;
+    }
+    Core::Fixed rate{};
+    for (const Protocol::EntityId unitId : squad.units)
+    {
+      const Unit& unit = m_units.at(unitId);
+      if (AtTrench(squad, unit.cellVoxels))
+      {
+        rate += Data().Stats(unit.kind).digCubicMetersPerTick;
+      }
+    }
+    std::optional<Protocol::VoxelPosition> next = rate.Raw() > 0 ? NextDig(squad) : std::nullopt;
+    if (!next.has_value())
+    {
+      continue;
+    }
+    squad.digProgress += rate;
+    while (next.has_value() && squad.digProgress >= Core::Fixed::FromRaw(Core::Fixed::ONE_RAW))
+    {
+      squad.digProgress -= Core::Fixed::FromRaw(Core::Fixed::ONE_RAW);
+      m_voxels.Edit(*next, Protocol::Chunk::EMPTY);
+      m_openedColumns.insert((std::int64_t{next->zVoxels} * WidthVoxels()) + next->xVoxels);
+      // A trench cell within repairLockReachVoxels of a footprint locks its repair (ADR-024, decision 4).
+      for (auto& [structureId, structure] : m_structures)
+      {
+        const std::optional<Box> box = BoxOf(structure);
+        if (box.has_value() &&
+            std::max(Outside(next->xVoxels, box->min.xVoxels, box->min.xVoxels + box->widthVoxels - 1),
+                     Outside(next->zVoxels, box->min.zVoxels, box->min.zVoxels + box->depthVoxels - 1)) <= rules.repairLockReachVoxels)
+        {
+          structure.repairLockTicks = static_cast<std::uint32_t>(std::max(0, rules.repairLockTicks));
+        }
+      }
+      next = NextDig(squad);
+    }
+  }
+}
+
+bool World::Opened(std::int32_t _x, std::int32_t _z) const
+{
+  return m_openedColumns.contains((std::int64_t{_z} * WidthVoxels()) + _x);
+}
+
+std::int32_t World::LooseHeight(std::int32_t _x, std::int32_t _z, bool* _under) const
+{
+  const MaterialRules& materials = Data().Materials();
+  const auto at = [this, _x, _z](std::int32_t _y) { return m_voxels.At({.xVoxels = _x, .yVoxels = _y, .zVoxels = _z}); };
+  std::int32_t y = TopOf(_x, _z);
+  *_under = y >= 0 && IsStructureIndex(materials, at(y));
+  if (!*_under)
+  {
+    return y;
+  }
+  while (y >= 0 && IsStructureIndex(materials, at(y)))
+  {
+    --y;
+  }
+  if (y < 0 || at(y) != Protocol::Chunk::EMPTY)
+  {
+    return -1;
+  }
+  while (y >= 0 && at(y) == Protocol::Chunk::EMPTY)
+  {
+    --y;
+  }
+  return y;
+}
+
+std::optional<std::pair<std::int32_t, std::int32_t>> World::SlumpFromUnder(std::int32_t _x, std::int32_t _z)
+{
+  constexpr std::uint8_t EARTH = 2; // a grass voxel that moves lands as earth, as in Slump
+  constexpr std::uint8_t GRASS = 1;
+  const MaterialRules& materials = Data().Materials();
+  const auto at = [this](std::int32_t _atX, std::int32_t _atY, std::int32_t _atZ)
+  { return m_voxels.At({.xVoxels = _atX, .yVoxels = _atY, .zVoxels = _atZ}); };
+  // The loose voxel the structure rests on, or the one below the gap under it.
+  std::int32_t from = TopOf(_x, _z);
+  while (from >= 0 && IsStructureIndex(materials, at(_x, from, _z)))
+  {
+    --from;
+  }
+  while (from >= 0 && at(_x, from, _z) == Protocol::Chunk::EMPTY)
+  {
+    --from;
+  }
+  if (from < 0 || !IsLooseIndex(materials, at(_x, from, _z)))
+  {
+    return std::nullopt;
+  }
+  constexpr std::array<std::array<std::int32_t, 2>, 4> SIDES = {{{0, 1}, {1, 0}, {0, -1}, {-1, 0}}};
+  std::optional<std::pair<std::int32_t, std::int32_t>> to;
+  std::int32_t lowest = 0;
+  for (const auto& [dx, dz] : SIDES)
+  {
+    const std::int32_t sideX = _x + dx;
+    const std::int32_t sideZ = _z + dz;
+    if (sideX < 0 || sideX >= WidthVoxels() || sideZ < 0 || sideZ >= DepthVoxels() || !Opened(sideX, sideZ))
+    {
+      continue;
+    }
+    bool under = false;
+    const std::int32_t height = LooseHeight(sideX, sideZ, &under);
+    const bool lands = !(under && height < 0) && (height < 0 || !IsStructureIndex(materials, at(sideX, height, sideZ)));
+    if (lands && height < from - 1 && (!to.has_value() || height < lowest))
+    {
+      to = std::pair{sideX, sideZ};
+      lowest = height;
+    }
+  }
+  if (!to.has_value())
+  {
+    return std::nullopt;
+  }
+  const std::uint8_t index = at(_x, from, _z);
+  m_voxels.Edit({.xVoxels = _x, .yVoxels = from, .zVoxels = _z}, Protocol::Chunk::EMPTY);
+  m_voxels.Edit({.xVoxels = to->first, .yVoxels = lowest + 1, .zVoxels = to->second}, index == GRASS ? EARTH : index);
+  m_openedColumns.insert((std::int64_t{_z} * WidthVoxels()) + _x);
+  return to;
 }
 
 void World::RestoreGates()

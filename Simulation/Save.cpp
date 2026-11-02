@@ -44,6 +44,16 @@ Protocol::VoxelPosition ReadPosition(Core::ByteReader& _reader)
   return {.xVoxels = _reader.ReadI32(), .yVoxels = _reader.ReadI32(), .zVoxels = _reader.ReadI32()};
 }
 
+void WriteFixed(Core::ByteWriter& _writer, Core::Fixed _value)
+{
+  _writer.WriteI32(_value.Raw());
+}
+
+Core::Fixed ReadFixed(Core::ByteReader& _reader)
+{
+  return Core::Fixed::FromRaw(_reader.ReadI32());
+}
+
 void WriteFixedPosition(Core::ByteWriter& _writer, const FixedPosition& _position)
 {
   _writer.WriteI32(_position.xMeters.Raw());
@@ -132,6 +142,10 @@ void WriteRecord(Core::ByteWriter& _writer, const Squad& _squad)
   _writer.WriteU8(_squad.facing);
   _writer.WriteU8(static_cast<std::uint8_t>(_squad.order));
   _writer.WriteU64(_squad.target);
+  WritePosition(_writer, _squad.trenchMinVoxels);
+  WritePosition(_writer, _squad.trenchMaxVoxels);
+  _writer.WriteU8(_squad.trenchNearSide);
+  WriteFixed(_writer, _squad.digProgress);
 }
 
 Squad ReadSquad(Core::ByteReader& _reader)
@@ -149,7 +163,11 @@ Squad ReadSquad(Core::ByteReader& _reader)
               .kind = UnitKind::Spearman,
               .facing = 0,
               .order = Protocol::SquadOrder::Idle,
-              .target = Protocol::NO_ENTITY};
+              .target = Protocol::NO_ENTITY,
+              .trenchMinVoxels = {},
+              .trenchMaxVoxels = {},
+              .trenchNearSide = 0,
+              .digProgress = {}};
   const std::uint32_t units = _reader.ReadU32();
   for (std::uint32_t number = 0; number < units; ++number)
   {
@@ -175,6 +193,14 @@ Squad ReadSquad(Core::ByteReader& _reader)
   }
   squad.order = ReadEnum(_reader, Protocol::SquadOrder::Garrisoned, "squad's order");
   squad.target = _reader.ReadU64();
+  squad.trenchMinVoxels = ReadPosition(_reader);
+  squad.trenchMaxVoxels = ReadPosition(_reader);
+  squad.trenchNearSide = _reader.ReadU8();
+  if (squad.trenchNearSide > 3)
+  {
+    Refuse("a squad's trench has its ramp at an end this build does not know");
+  }
+  squad.digProgress = ReadFixed(_reader);
   return squad;
 }
 
@@ -242,16 +268,6 @@ SiegeEngine ReadSiegeEngine(Core::ByteReader& _reader)
           .state = ReadEnum(_reader, EngineState::Packing, "engine state"),
           .squad = _reader.ReadU64(),
           .stateTicksLeft = _reader.ReadU32()};
-}
-
-void WriteFixed(Core::ByteWriter& _writer, Core::Fixed _value)
-{
-  _writer.WriteI32(_value.Raw());
-}
-
-Core::Fixed ReadFixed(Core::ByteReader& _reader)
-{
-  return Core::Fixed::FromRaw(_reader.ReadI32());
 }
 
 void WriteRecord(Core::ByteWriter& _writer, const Shot& _shot)
@@ -598,7 +614,7 @@ void WriteEntities(Core::ByteWriter& _writer, const World& _world)
 
 void WritePendingWork(Core::ByteWriter& _writer, std::span<const SubmittedCommand> _commands,
                       std::span<const Protocol::VoxelPosition> _unsearched, std::span<const Protocol::VoxelPosition> _betweenTicks,
-                      const std::set<std::int64_t>& _slumpQueue,
+                      const std::set<std::int64_t>& _slumpQueue, const std::set<std::int64_t>& _openedColumns,
                       const std::map<std::pair<std::uint32_t, Protocol::EntityId>, PathSearch>& _searches)
 {
   _writer.WriteU32(static_cast<std::uint32_t>(_commands.size()));
@@ -612,6 +628,11 @@ void WritePendingWork(Core::ByteWriter& _writer, std::span<const SubmittedComman
   WritePositions(_writer, _betweenTicks);
   _writer.WriteU32(static_cast<std::uint32_t>(_slumpQueue.size()));
   for (const std::int64_t column : _slumpQueue)
+  {
+    _writer.WriteI64(column);
+  }
+  _writer.WriteU32(static_cast<std::uint32_t>(_openedColumns.size()));
+  for (const std::int64_t column : _openedColumns)
   {
     _writer.WriteI64(column);
   }
@@ -630,8 +651,9 @@ std::uint16_t RecordVersion(SaveEntityTag _tag) noexcept
 {
   switch (_tag)
   {
-  case SaveEntityTag::Squad: // M4-B4: the building it is garrisoned in; M4-C1: its kind; M4-C2: its facing; M4-C3: its order
-    return 5;
+  case SaveEntityTag::Squad: // M4-B4: the building it is garrisoned in; M4-C1: its kind; M4-C2: its facing; M4-C3: its order;
+                             // M4-D6: its trench
+    return 6;
   case SaveEntityTag::Unit:        // M4-C1: its hit points; M4-C2: its reservation, its step and its wait; M4-C3: its reload and target
   case SaveEntityTag::SiegeEngine: // M4-B4: its state; M4-C1: its body's squad; M4-C5: its deploy's or pack's ticks left
     return 4;
@@ -680,7 +702,7 @@ std::vector<std::byte> WriteSave(const World& _world)
 
   WriteEntities(writer, _world);
   WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits(), _world.m_slumpQueue,
-                   _world.m_searches);
+                   _world.m_openedColumns, _world.m_searches);
   return writer.TakeBytes();
 }
 
@@ -817,6 +839,11 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
     {
       world.m_slumpQueue.insert(reader.ReadI64());
     }
+    const std::uint32_t opened = reader.ReadU32();
+    for (std::uint32_t number = 0; number < opened; ++number)
+    {
+      world.m_openedColumns.insert(reader.ReadI64());
+    }
     const std::uint32_t searches = reader.ReadU32();
     for (std::uint32_t number = 0; number < searches; ++number)
     {
@@ -848,7 +875,7 @@ std::uint64_t StateHash(const World& _world)
   WriteMatch(writer, _world);
   WriteEntities(writer, _world);
   WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits(), _world.m_slumpQueue,
-                   _world.m_searches);
+                   _world.m_openedColumns, _world.m_searches);
   return Core::Fnv1a64(writer.Bytes(), _world.m_voxels.VoxelHash());
 }
 

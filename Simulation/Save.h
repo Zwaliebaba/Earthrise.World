@@ -27,7 +27,8 @@ namespace Simulation
 //      its build anyway (ADR-014, decision 6), so an older version is refused, never migrated. A
 //      structure's record is its id, u8 owner, template id and name each as a u32 length and UTF-8,
 //      origin and u8 quarter turns; M4-D1's version 2 adds its built mask, as a u32 byte count and the
-//      bytes, its u8 share, u8 working, u32 lock, Fixed repair progress, u8 gate and i32 hit points. A squad's version 2 adds
+//      bytes, its u8 share, u8 working, u32 lock, Fixed repair progress, u8 gate and i32 hit points. A squad's version 6 adds
+//      its trench's two corners, its u8 ramp's end and its Fixed dig progress (M4-D6). A squad's version 2 adds
 //      the u64 building it is garrisoned in, and an engine's version 2 its u8 state (M4-B4); a
 //      squad's version 3 its u8 kind, an engine's version 3 its u64 body's squad, and a unit's
 //      version 2 its i32 hit points (M4-C1); a squad's version 4 its u8 facing, and a unit's version
@@ -42,13 +43,14 @@ namespace Simulation
 //      the last tick made after its step 5, then each voxel, in edit order; and u32 the edits made
 //      between ticks since, then each voxel, in first-edit order, which the next step 5 searches with
 //      them; u32 the columns waiting for slump, then each column index, z * width + x, as an i64,
-//      in rising order; and u32 the path searches still running, then each as the u32 tick it was
+//      in rising order; u32 the columns trenches opened to slump from under a structure, then each
+//      column index as an i64, in rising order (M4-D6; ADR-029); and u32 the path searches still running, then each as the u32 tick it was
 //      asked for in, its u64 squad and the search as PathSearch::Write gives it, in that order.
 // Navigation tiles, chunk hashes and anything else computed from the voxels are not saved: a load
 // rebuilds them.
 
-/// 2 from M4-B4, which gave the save its match.
-inline constexpr std::uint32_t SAVE_FORMAT_VERSION = 2;
+/// 2 from M4-B4, which gave the save its match; 3 from M4-D6, which saves the columns trenches opened.
+inline constexpr std::uint32_t SAVE_FORMAT_VERSION = 3;
 
 /// The type tag each kind of entity is saved under.
 enum class SaveEntityTag : std::uint16_t

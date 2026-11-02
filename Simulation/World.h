@@ -73,6 +73,12 @@ struct Squad
   /// target is gone. Garrisoned is read from garrisonedIn, never held here.
   Protocol::SquadOrder order = Protocol::SquadOrder::Idle;
   Protocol::EntityId target = Protocol::NO_ENTITY; // what an Attack names: a squad, or an engine
+  /// A Trench order's box, both corners included, the end of its long axis its ramp is left at (0 its low x, 1 its high x,
+  /// 2 its low z, 3 its high z) and the progress towards the next cubic metre its sappers dig (ADR-029).
+  Protocol::VoxelPosition trenchMinVoxels{};
+  Protocol::VoxelPosition trenchMaxVoxels{};
+  std::uint8_t trenchNearSide = 0;
+  Core::Fixed digProgress{};
 };
 
 /// A unit's trail step when it is not on its squad's trail: in formation, or making for it (ADR-022).
@@ -590,6 +596,28 @@ private:
   void LooseFromGarrisons();
   /// Step 2: garrisoned figures heal a hit point every garrisonHealTicksPerHitPoint.
   void HealGarrisons();
+
+  // ADR-029: sappers' trenches and undermining.
+  /// Sets a squad of _player's sappers digging a box, from the top, its ramp at the end of its long axis nearest them.
+  void DigTrench(std::uint8_t _player, const Protocol::DigTrench& _trench);
+  /// Whether _cell stands within TRENCH_REACH_CELLS of _squad's trench box across the ground, inside it included.
+  [[nodiscard]] static bool AtTrench(const Squad& _squad, Protocol::VoxelPosition _cell) noexcept;
+  /// The voxel _squad's sappers dig next, or none: a loose voxel of the box open to the sky that its ramp leaves to dig,
+  /// the highest first, then the farthest from the ramp's end, then the lowest column index.
+  [[nodiscard]] std::optional<Protocol::VoxelPosition> NextDig(const Squad& _squad) const;
+  /// Step 2: every squad digging a trench gains its sappers' rate, those at the box, while it has a voxel to dig, and digs
+  /// one for each cubic metre; each opens its column to slump and locks repair on the structures within reach of it.
+  void AdvanceTrenches();
+  /// Whether a trench has opened the column (_x, _z) to slump from under a structure (ADR-029, decision 3).
+  [[nodiscard]] bool Opened(std::int32_t _x, std::int32_t _z) const;
+  /// The height loose material sees a column at: its top, or, for one a structure tops that a trench has opened, the
+  /// highest solid voxel below the gap under the structure, or -1 when there is no gap. _under says whether a structure
+  /// tops it.
+  [[nodiscard]] std::int32_t LooseHeight(std::int32_t _x, std::int32_t _z, bool* _under) const;
+  /// Slump from under a structure (ADR-029, decision 3): the loose voxel below the structure on (_x, _z), or below the gap
+  /// under it, moves to the lowest neighbour a trench has opened more than a voxel below it, ties north, east, south,
+  /// west, and opens (_x, _z). Returns where it went.
+  std::optional<std::pair<std::int32_t, std::int32_t>> SlumpFromUnder(std::int32_t _x, std::int32_t _z);
   /// Whether (_x, _z) is on the owner's side of _box: the half-plane through its footprint's centre that holds the
   /// owner's keep, given doubled as _keepTwice, or any side when there is none (ADR-024, decisions 3 and 5).
   [[nodiscard]] static bool OnOwnersSide(const Box& _box, const std::optional<std::pair<std::int64_t, std::int64_t>>& _keepTwice,
@@ -765,6 +793,9 @@ private:
   std::size_t m_searchedThrough = 0; // how many of this tick's edits step 5 searched
   // The columns waiting for slump, by column index, z * width + x (M2-E6).
   std::set<std::int64_t> m_slumpQueue;
+  // The columns a trench has opened to slump from under a structure, by column index (ADR-029, decision 3): those it dug,
+  // and those under a structure that slumped towards one.
+  std::set<std::int64_t> m_openedColumns;
   std::vector<Protocol::VoxelPosition> m_lastTickEdits;
 };
 
