@@ -10,7 +10,7 @@
 - the owner inputs, twenty-eight, each answered as proposed on 2026-11-01 (GameDesign.md, *M4's values*);
 - ADR-022 to ADR-028, Proposed, and ADR-018, Proposed since the v3 asset package, all with the owner's go-ahead.
 
-**M4.1, added by the owner on 2026-11-02, is Proposed,** and is accepted when the owner merges its pull request. It covers its two work orders, in [MvpPlan-M4.1.md](MvpPlan-M4.1.md), and its two inputs, not yet answered.
+**M4.1, added by the owner on 2026-11-02, is Proposed,** and is accepted when the owner merges its pull request. It covers its two work orders, in [MvpPlan-M4.1.md](MvpPlan-M4.1.md), and its two inputs, each answered as proposed on 2026-11-02 (GameDesign.md, *M4.1's values*).
 
 M0 to M2 were closed by the owner on 2026-11-01 (GameDesign.md, *Closing M0 and M1* and *Closing M2*); nothing from M3 on is implemented. [GameDesign.md](GameDesign.md) defines the MVP and governs where this plan differs from it. [AGENTS.md](../AGENTS.md) governs how the code is written.
 
@@ -612,9 +612,9 @@ M4 is carried out as 43 work orders in ten phases, written out in [MvpPlan-M4.md
 
 **Done when** the report is in `Design/Review/` with its verdict under input 1, and, if that verdict calls for phase B, phase B has landed.
 
-**The owner's inputs.** Each is a choice no document makes, and AGENTS.md requires it written down before the order that rests on it. The implementer proposes each; none is answered yet.
+**The owner's inputs.** Each is a choice no document makes, and AGENTS.md requires it written down before the order that rests on it. The implementer proposed each, and the owner took both proposals on 2026-11-02. GameDesign.md, *M4.1's values*, records them.
 
-| # | Input | For orders | Proposed, 2026-11-02 |
+| # | Input | For orders | Decided, 2026-11-02, as the implementer proposed it |
 |---|---|---|---|
 | 1 | **The verdict's marks** | A1, A2 | Closed with no change if the support search at 4,224 chunks is within 10% of its time at 258; phase B if it is 25% or more slower, with a profile taken; the owner's call in between, with the profile |
 | 2 | **When it runs** | A1 | After M4 closes, beside M5, so that its owner runs do not compete with M4's. Brought forward if M4-J4's measured run finds a tick of play over 25 ms, which M4's done-when forbids; its orders need nothing from M4 but a tree that builds |

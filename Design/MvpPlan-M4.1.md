@@ -1,6 +1,6 @@
 # Earthrise.World — M4.1 work orders
 
-**Status:** Proposed, 2026-11-02, with [MvpPlan.md](MvpPlan.md)'s M4.1, which is accepted when the owner merges its pull request. The owner added M4.1 on 2026-11-02, while M4 was underway, so that the question below is settled after M4 rather than left until online work. Its two inputs are not yet answered. "Input N" means MvpPlan.md, M4.1, input N.
+**Status:** Proposed, 2026-11-02, with [MvpPlan.md](MvpPlan.md)'s M4.1, which is accepted when the owner merges its pull request. The owner added M4.1 on 2026-11-02, while M4 was underway, so that the question below is settled after M4 rather than left until online work. The owner answered its two inputs the same day, taking each proposal (GameDesign.md, *M4.1's values*): the verdict's marks are 10% and 25%, and M4.1 runs after M4 closes, beside M5, unless M4-J4's measured run finds a tick of play over 25 ms. "Input N" means MvpPlan.md, M4.1, input N.
 
 **M4.1 is off the critical path.** It changes `SimulationBench` alone and no simulation code, and nothing from M5 on waits on it.
 
