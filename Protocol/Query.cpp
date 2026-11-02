@@ -146,6 +146,7 @@ void Encode(const Answer& _answer, Core::ByteWriter& _writer)
 {
   _writer.WriteU32(_answer.queryId);
   _writer.WriteU32(_answer.tick);
+  WriteBool(_answer.notVisible, _writer);
   if (const auto* aim = std::get_if<AimReading>(&_answer.reading))
   {
     WriteHeader(AIM_CHECK_TAG, _writer);
@@ -193,6 +194,7 @@ Answer DecodeAnswer(Core::ByteReader& _reader)
 {
   const std::uint32_t queryId = _reader.ReadU32();
   const std::uint32_t tick = _reader.ReadU32();
+  const bool notVisible = ReadBool(_reader);
   const std::uint16_t tag = ReadHeader(_reader);
   if (tag == AIM_CHECK_TAG)
   {
@@ -201,7 +203,7 @@ Answer DecodeAnswer(Core::ByteReader& _reader)
     aim.distanceMeters = _reader.ReadI32();
     aim.strikes = ReadBool(_reader);
     aim.strikeVoxels = ReadPosition(_reader);
-    return {.queryId = queryId, .tick = tick, .reading = aim};
+    return {.queryId = queryId, .tick = tick, .reading = aim, .notVisible = notVisible};
   }
   if (tag == SECTION_INTEGRITY_TAG)
   {
@@ -223,7 +225,7 @@ Answer DecodeAnswer(Core::ByteReader& _reader)
     integrity.weakMinVoxels = ReadPosition(_reader);
     integrity.weakMaxVoxels = ReadPosition(_reader);
     integrity.repairLockTicks = _reader.ReadU32();
-    return {.queryId = queryId, .tick = tick, .reading = integrity};
+    return {.queryId = queryId, .tick = tick, .reading = integrity, .notVisible = notVisible};
   }
   TileReachReading reach{};
   reach.tileX = _reader.ReadI32();
@@ -234,7 +236,7 @@ Answer DecodeAnswer(Core::ByteReader& _reader)
   {
     surface = static_cast<std::int16_t>(_reader.ReadU16());
   }
-  return {.queryId = queryId, .tick = tick, .reading = reach};
+  return {.queryId = queryId, .tick = tick, .reading = reach, .notVisible = notVisible};
 }
 
 } // namespace Protocol

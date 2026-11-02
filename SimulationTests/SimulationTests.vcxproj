@@ -90,6 +90,7 @@
     <ClCompile Include="PassageAttackTests.cpp" />
     <ClCompile Include="RepairTests.cpp" />
     <ClCompile Include="TrenchTests.cpp" />
+    <ClCompile Include="FogTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

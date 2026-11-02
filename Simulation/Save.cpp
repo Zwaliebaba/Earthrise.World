@@ -505,6 +505,7 @@ void WriteMatch(Core::ByteWriter& _writer, const World& _world)
     _writer.WriteU8(static_cast<std::uint8_t>(player.side));
     _writer.WriteI32(player.stoneHundredthsCubicMeters);
     _writer.WriteI32(player.timberHundredthsCubicMeters);
+    _writer.WriteU8(player.revealed ? std::uint8_t{1} : std::uint8_t{0});
   }
   const std::optional<TrialRules>& trial = _world.Trial();
   _writer.WriteU8(trial.has_value() ? std::uint8_t{1} : std::uint8_t{0});
@@ -530,7 +531,9 @@ void ReadMatch(Core::ByteReader& _reader, World& _world)
     const std::uint8_t id = _reader.ReadU8();
     const Protocol::Side side = ReadEnum(_reader, Protocol::Side::Defender, "side");
     const std::int32_t stone = _reader.ReadI32();
-    _world.AddPlayer({.id = id, .side = side, .stoneHundredthsCubicMeters = stone, .timberHundredthsCubicMeters = _reader.ReadI32()});
+    const std::int32_t timber = _reader.ReadI32();
+    _world.AddPlayer(
+      {.id = id, .side = side, .stoneHundredthsCubicMeters = stone, .timberHundredthsCubicMeters = timber, .revealed = ReadBool(_reader)});
   }
   if (ReadBool(_reader))
   {
@@ -645,6 +648,65 @@ void WritePendingWork(Core::ByteWriter& _writer, std::span<const SubmittedComman
   }
 }
 
+void WriteStructureView(Core::ByteWriter& _writer, const Protocol::StructureView& _view)
+{
+  _writer.WriteU64(_view.id);
+  _writer.WriteU8(_view.owner);
+  WriteText(_writer, _view.templateId);
+  WritePosition(_writer, _view.originVoxels);
+  _writer.WriteU32(_view.quarterTurns);
+  WritePosition(_writer, _view.extentVoxels);
+  WriteText(_writer, _view.name);
+  _writer.WriteU8(_view.working ? std::uint8_t{1} : std::uint8_t{0});
+  _writer.WriteU8(_view.criticalPercent);
+  _writer.WriteU32(_view.repairLockTicks);
+  _writer.WriteU8(_view.gateOpen ? std::uint8_t{1} : std::uint8_t{0});
+  _writer.WriteU8(_view.garrisonCount);
+  _writer.WriteU8(_view.garrisonCapacity);
+  _writer.WriteI32(_view.hitPoints);
+  _writer.WriteI32(_view.maxHitPoints);
+  _writer.WriteU8(_view.opened ? std::uint8_t{1} : std::uint8_t{0});
+  _writer.WriteU8(_view.lastSeen ? std::uint8_t{1} : std::uint8_t{0});
+}
+
+Protocol::StructureView ReadStructureView(Core::ByteReader& _reader)
+{
+  Protocol::StructureView view{.id = _reader.ReadU64(),
+                               .owner = _reader.ReadU8(),
+                               .templateId = ReadText(_reader),
+                               .originVoxels = ReadPosition(_reader),
+                               .quarterTurns = _reader.ReadU32(),
+                               .extentVoxels = ReadPosition(_reader),
+                               .name = ReadText(_reader)};
+  view.working = ReadBool(_reader);
+  view.criticalPercent = _reader.ReadU8();
+  view.repairLockTicks = _reader.ReadU32();
+  view.gateOpen = ReadBool(_reader);
+  view.garrisonCount = _reader.ReadU8();
+  view.garrisonCapacity = _reader.ReadU8();
+  view.hitPoints = _reader.ReadI32();
+  view.maxHitPoints = _reader.ReadI32();
+  view.opened = ReadBool(_reader);
+  view.lastSeen = ReadBool(_reader);
+  return view;
+}
+
+/// Each player's structures as they last saw them, in player then id order (ADR-025).
+void WriteLastSeen(Core::ByteWriter& _writer,
+                   const std::map<std::uint8_t, std::map<Protocol::EntityId, Protocol::StructureView>>& _lastSeen)
+{
+  _writer.WriteU32(static_cast<std::uint32_t>(_lastSeen.size()));
+  for (const auto& [player, views] : _lastSeen)
+  {
+    _writer.WriteU8(player);
+    _writer.WriteU32(static_cast<std::uint32_t>(views.size()));
+    for (const auto& [id, view] : views)
+    {
+      WriteStructureView(_writer, view);
+    }
+  }
+}
+
 } // namespace
 
 std::uint16_t RecordVersion(SaveEntityTag _tag) noexcept
@@ -703,6 +765,18 @@ std::vector<std::byte> WriteSave(const World& _world)
   WriteEntities(writer, _world);
   WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits(), _world.m_slumpQueue,
                    _world.m_openedColumns, _world.m_searches);
+  WriteLastSeen(writer, _world.m_lastSeen);
+  writer.WriteU32(static_cast<std::uint32_t>(_world.m_chunksSent.size()));
+  for (const auto& [player, sent] : _world.m_chunksSent)
+  {
+    writer.WriteU8(player);
+    writer.WriteU32(static_cast<std::uint32_t>(sent.size()));
+    for (const auto& [key, version] : sent)
+    {
+      writer.WriteU64(key);
+      writer.WriteU64(version);
+    }
+  }
   return writer.TakeBytes();
 }
 
@@ -851,6 +925,31 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
       const Protocol::EntityId squad = reader.ReadU64();
       world.m_searches.emplace(std::pair{tick, squad}, PathSearch::Read(reader));
     }
+    // Fog's (ADR-025): the structures each player last saw, then the chunk versions each was last sent; visibility
+    // itself is rebuilt from the units and structures.
+    const std::uint32_t seeing = reader.ReadU32();
+    for (std::uint32_t number = 0; number < seeing; ++number)
+    {
+      std::map<Protocol::EntityId, Protocol::StructureView>& views = world.m_lastSeen[reader.ReadU8()];
+      const std::uint32_t count = reader.ReadU32();
+      for (std::uint32_t view = 0; view < count; ++view)
+      {
+        Protocol::StructureView read = ReadStructureView(reader);
+        views.insert_or_assign(read.id, std::move(read));
+      }
+    }
+    const std::uint32_t sending = reader.ReadU32();
+    for (std::uint32_t number = 0; number < sending; ++number)
+    {
+      std::map<std::uint64_t, std::uint64_t>& sent = world.m_chunksSent[reader.ReadU8()];
+      const std::uint32_t count = reader.ReadU32();
+      for (std::uint32_t chunk = 0; chunk < count; ++chunk)
+      {
+        const std::uint64_t key = reader.ReadU64();
+        sent.insert_or_assign(key, reader.ReadU64());
+      }
+    }
+    world.RecomputeVisibility();
     if (!reader.AtEnd())
     {
       Refuse("it holds bytes after its last section");
@@ -876,6 +975,8 @@ std::uint64_t StateHash(const World& _world)
   WriteEntities(writer, _world);
   WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits(), _world.m_slumpQueue,
                    _world.m_openedColumns, _world.m_searches);
+  // The chunk versions sent are the client's calls' doing, not the simulation's, so the hash leaves them out.
+  WriteLastSeen(writer, _world.m_lastSeen);
   return Core::Fnv1a64(writer.Bytes(), _world.m_voxels.VoxelHash());
 }
 

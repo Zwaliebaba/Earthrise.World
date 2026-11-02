@@ -247,7 +247,8 @@ void LoadScenario(World& _world, std::string_view _scenarioId)
     _world.AddPlayer({.id = player.id,
                       .side = player.side,
                       .stoneHundredthsCubicMeters = player.stoneHundredthsCubicMeters,
-                      .timberHundredthsCubicMeters = player.timberHundredthsCubicMeters});
+                      .timberHundredthsCubicMeters = player.timberHundredthsCubicMeters,
+                      .revealed = player.revealed});
   }
   for (const ScenarioSquad& squad : scenario.squads)
   {

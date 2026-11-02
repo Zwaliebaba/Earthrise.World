@@ -15,6 +15,7 @@
 #include "ServerData.h"
 #include "Shot.h"
 #include "StateUpdate.h"
+#include "Visibility.h"
 #include "VoxelWorld.h"
 
 #include <cstddef>
@@ -136,6 +137,7 @@ struct Player
   Protocol::Side side;
   std::int32_t stoneHundredthsCubicMeters;
   std::int32_t timberHundredthsCubicMeters;
+  bool revealed = false; // the map counts as seen for the first revealTicks, for chunks, structures and answers (ADR-025)
 };
 
 /// What the simulation records happening in a tick for the trial's log and the tests, never the client (ADR-026,
@@ -314,8 +316,16 @@ public:
   /// searched in the next step 5, as the tick's own are.
   [[nodiscard]] VoxelWorld& Voxels() noexcept;
 
-  /// The chunks changed since the last call (ADR-002, decision 3).
+  /// The chunks changed since the last call (ADR-002, decision 3), to whoever asks: M3's, for a world without players.
   [[nodiscard]] std::vector<Protocol::ChunkSnapshot> Publish();
+
+  /// The chunks _player is sent now (ADR-025, decision 3): each whose column holds a cell they see, or every one while
+  /// their map is revealed, whose snapshot differs from the one last sent them. In a world without players, Publish().
+  [[nodiscard]] std::vector<Protocol::ChunkSnapshot> Publish(std::uint8_t _player);
+
+  /// Step 11's first part, every player's visibility stamped afresh from their units and structures (ADR-025,
+  /// decision 1); public so that SimulationBench can time it alone.
+  void RecomputeVisibility();
 
   /// At most this many queries wait; one more drops the oldest (ADR-009, decision 5).
   static constexpr std::size_t MAX_PENDING_QUERIES = 64;
@@ -509,9 +519,23 @@ private:
   /// or, resting on a structure or too near the top of one beside it, on and away (M2-E6, E7).
   /// Returns the neighbour it went to, or nothing.
   std::optional<std::pair<std::int32_t, std::int32_t>> Slump(std::int32_t _x, std::int32_t _z);
-  /// The state _player may see: the filter of ADR-002, decision 4, through which M4's fog goes. M3
-  /// has one player and no fog, so it passes everything (ADR-020, decision 3).
+  /// The state _player may see: the filter of ADR-002, decision 4 (ADR-025, decision 2). A world without players has no
+  /// fog, so it passes everything, as M3's did (ADR-020, decision 3).
   [[nodiscard]] Protocol::StateUpdate StateFor(std::uint8_t _player) const;
+  /// _structure as _player's update shows it now, its garrison counted for its owner alone.
+  [[nodiscard]] Protocol::StructureView StructureViewFor(std::uint8_t _player, const Structure& _structure) const;
+  /// Whether fog applies: the match has players.
+  [[nodiscard]] bool Fogged() const noexcept;
+  /// Whether _player's map is revealed this tick (ADR-025, decision 5).
+  [[nodiscard]] bool Revealed(std::uint8_t _player) const;
+  /// Whether _player sees a cell of the box _x0 to _x1 by _z0 to _z1 now, by their units and structures alone.
+  [[nodiscard]] bool SeesAny(std::uint8_t _player, std::int32_t _x0, std::int32_t _z0, std::int32_t _x1, std::int32_t _z1) const;
+  /// Whether _player sees a cell of _structure's footprint now, or owns it, or has their map revealed.
+  [[nodiscard]] bool SeesStructure(std::uint8_t _player, const Structure& _structure) const;
+  /// Whether an answer to _query may say what it reads for _player (ADR-025, decision 6).
+  [[nodiscard]] bool AnswerVisible(std::uint8_t _player, const Protocol::Query& _query) const;
+  /// What an answer not visible reads: the query's reading type, empty.
+  [[nodiscard]] static Protocol::Reading EmptyReading(const Protocol::Query& _query);
   /// The reading a query asks for, on the tick's state (ADR-009, decision 3): M3-B4 to B6.
   [[nodiscard]] Protocol::Reading Answer(std::uint8_t _player, const Protocol::Query& _query) const;
   /// The attack cursor's reading for an engine of _player's aimed at a voxel (M3-B4).
@@ -780,7 +804,13 @@ private:
   // The collapses whose fall ended this tick, as their last view: step 11 publishes them once more,
   // so the client sees the last of their landing land. Not saved: the next tick reads nothing of it.
   std::vector<Protocol::CollapseView> m_endedCollapses;
-  std::map<std::uint8_t, Protocol::StateUpdate> m_states;                     // step 11's, by player
+  std::map<std::uint8_t, Protocol::StateUpdate> m_states; // step 11's, by player
+  // ADR-025: each player's visibility, derived each step 11 and rebuilt on a load; the version of each chunk last sent to
+  // each player, by packed key, saved but not hashed, since the client's calls set it; and each player's structures as
+  // they stood when last seen, saved and hashed.
+  std::map<std::uint8_t, Visibility> m_visibility;
+  std::map<std::uint8_t, std::map<std::uint64_t, std::uint64_t>> m_chunksSent;
+  std::map<std::uint8_t, std::map<Protocol::EntityId, Protocol::StructureView>> m_lastSeen;
   std::vector<std::pair<std::uint8_t, Protocol::RefusalView>> m_tickRefusals; // the tick's step 1's, by player, in order
   std::vector<TrialEvent> m_tickEvents;
   std::deque<SubmittedCommand> m_pendingQueries; // a query is bytes from a player, as a command is

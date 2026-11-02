@@ -9,6 +9,7 @@
 #include "NavigationGrid.h"
 #include "PathSearch.h"
 #include "Save.h"
+#include "Scenario.h"
 #include "ServerData.h"
 #include "SupportSearch.h"
 #include "TestWorld.h"
@@ -548,6 +549,29 @@ int RunLabItems(const std::filesystem::path& _executable)
   return timedOut ? 2 : 0;
 }
 
+/// Fog's cost on the Siege trial (M4-E1; ADR-025): the castle loaded and ticked, then each player's visibility stamped
+/// afresh, alone, as step 11 does it, and its share of a whole tick.
+int RunSiege(const std::filesystem::path& _executable)
+{
+  const std::uint64_t buildId = BuildIdOf(_executable);
+  const Simulation::ServerData data = Simulation::ServerData::Load(_executable.parent_path() / "ServerData" / "ServerData.bin");
+  Simulation::World world(Simulation::ScenarioDesc(data, "Siege", buildId));
+  Simulation::LoadScenario(world, "Siege");
+  constexpr std::uint32_t SETTLE_TICKS = 100;
+  for (std::uint32_t tick = 0; tick < SETTLE_TICKS; ++tick)
+  {
+    world.Tick();
+  }
+  const Timing visibility = Time(REPEATS, [&world] { world.RecomputeVisibility(); });
+  const Timing tick = Time(REPEATS, [&world] { world.Tick(); });
+  std::println("The Siege trial, build id {:016x}, {} units, {} structures, after {} ticks", buildId, world.Units().size(),
+               world.Structures().size(), SETTLE_TICKS);
+  std::println("visibility, every player: {:.3f} ms median, {:.3f} ms slowest", visibility.medianMilliseconds,
+               visibility.slowestMilliseconds);
+  std::println("a whole tick: {:.3f} ms median, {:.3f} ms slowest", tick.medianMilliseconds, tick.slowestMilliseconds);
+  return 0;
+}
+
 int Run(const std::filesystem::path& _executable)
 {
   std::println("SimulationBench: the renderer spike's question 6, at 1 m and at 0.5 m (ADR-006). Times are this machine's.");
@@ -600,8 +624,8 @@ int wmain(int _argumentCount, wchar_t** _arguments)
     }
     const std::filesystem::path executable = std::filesystem::absolute(_arguments[0]);
     // SimulationBench --breach-run [file.csv] times the breach run (M2-G2), --integrity the integrity
-    // reading on it (M3-B5), --lab-items the breach lab's items (M3-B7); without any, the M1
-    // measurements and the navigation's run.
+    // reading on it (M3-B5), --lab-items the breach lab's items (M3-B7), --siege fog's cost on the Siege trial (M4-E1);
+    // without any, the M1 measurements and the navigation's run.
     const std::span<wchar_t*> arguments(_arguments, static_cast<std::size_t>(_argumentCount));
     if (arguments.size() >= 2 && std::wstring_view(arguments[1]) == L"--breach-run")
     {
@@ -614,6 +638,10 @@ int wmain(int _argumentCount, wchar_t** _arguments)
     if (arguments.size() >= 2 && std::wstring_view(arguments[1]) == L"--lab-items")
     {
       return RunLabItems(executable);
+    }
+    if (arguments.size() >= 2 && std::wstring_view(arguments[1]) == L"--siege")
+    {
+      return RunSiege(executable);
     }
     return Run(executable);
   }

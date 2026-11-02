@@ -31,6 +31,9 @@
     <Filter Include="Combat">
       <UniqueIdentifier>{EB5BC3C4-5E07-51C3-9616-6E0545B8A0E5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Fog">
+      <UniqueIdentifier>{76A8699D-83E3-53AC-B5F1-E8194CFC8738}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -182,6 +185,12 @@
     </ClInclude>
     <ClCompile Include="Arrow.cpp">
       <Filter>Combat</Filter>
+    </ClCompile>
+    <ClInclude Include="Visibility.h">
+      <Filter>Fog</Filter>
+    </ClInclude>
+    <ClCompile Include="Visibility.cpp">
+      <Filter>Fog</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

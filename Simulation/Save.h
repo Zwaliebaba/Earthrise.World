@@ -11,12 +11,13 @@ namespace Simulation
 {
 
 // A save holds everything the next tick reads, and nothing it can rebuild (ADR-014, decision 4).
-// Little-endian throughout, written with Core's byte writer, in five sections:
+// Little-endian throughout, written with Core's byte writer, in six sections:
 //   1. the header: the four bytes ERSV; u32 SAVE_FORMAT_VERSION; u64 the build id; u64 the
 //      server-data hash; u32 the generator version; u64 the world, resource and match seeds; u32 the
 //      tick; u64 the next entity id;
 //   1a. the match (M4-B4): u32 the players, then each as u8 its id and its side (Protocol::Side) and
-//      i32 its stone and its timber in hundredths of a cubic metre, in player order; then u8 1 and the
+//      i32 its stone and its timber in hundredths of a cubic metre, and u8 whether its map is revealed (M4-E1), in player
+//      order; then u8 1 and the
 //      trial's rules, or u8 0 for none: u8 its version, its attacker and its defender, u64 its keep,
 //      u32 its time limit and its hold in ticks, i32 its ring in cells, and the camp's two corners;
 //   2. the edited chunks: u32 their count, then in rising key order each chunk that differs from its
@@ -45,12 +46,17 @@ namespace Simulation
 //      them; u32 the columns waiting for slump, then each column index, z * width + x, as an i64,
 //      in rising order; u32 the columns trenches opened to slump from under a structure, then each
 //      column index as an i64, in rising order (M4-D6; ADR-029); and u32 the path searches still running, then each as the u32 tick it was
-//      asked for in, its u64 squad and the search as PathSearch::Write gives it, in that order.
-// Navigation tiles, chunk hashes and anything else computed from the voxels are not saved: a load
-// rebuilds them.
+//      asked for in, its u64 squad and the search as PathSearch::Write gives it, in that order;
+//   5. fog's (M4-E1; ADR-025): u32 the players with structures last seen, then each as its u8 id, u32 their count and
+//      each structure's view, in player then id order; then u32 the players sent chunks, then each as its u8 id, u32 their
+//      count and each chunk's u64 packed key and u64 version last sent, in key order. The state hash holds the first and
+//      not the second, which the client's calls to Publish set.
+// Navigation tiles, chunk hashes, visibility and anything else computed from the voxels and the entities are not saved: a
+// load rebuilds them.
 
-/// 2 from M4-B4, which gave the save its match; 3 from M4-D6, which saves the columns trenches opened.
-inline constexpr std::uint32_t SAVE_FORMAT_VERSION = 3;
+/// 2 from M4-B4, which gave the save its match; 3 from M4-D6, which saves the columns trenches opened; 4 from M4-E1, which
+/// saves fog's last-seen structures and chunks sent.
+inline constexpr std::uint32_t SAVE_FORMAT_VERSION = 4;
 
 /// The type tag each kind of entity is saved under.
 enum class SaveEntityTag : std::uint16_t

@@ -216,6 +216,191 @@ std::vector<Protocol::ChunkSnapshot> World::Publish()
   return m_voxels.Publish();
 }
 
+std::vector<Protocol::ChunkSnapshot> World::Publish(std::uint8_t _player)
+{
+  std::vector<Protocol::ChunkSnapshot> changed = m_voxels.Publish();
+  if (!Fogged())
+  {
+    return changed;
+  }
+  // Each chunk whose column the player sees, or every one while their map is revealed, unless they hold its snapshot.
+  std::map<std::uint64_t, std::uint64_t>& sent = m_chunksSent[_player];
+  const bool revealed = Revealed(_player);
+  std::vector<Protocol::ChunkSnapshot> snapshots;
+  for (Protocol::ChunkSnapshot& snapshot : m_voxels.Store().Snapshots())
+  {
+    const std::uint64_t key = Protocol::PackChunkKey(snapshot.coordinate);
+    const auto last = sent.find(key);
+    const std::int32_t x = snapshot.coordinate.xChunks * Protocol::CHUNK_EDGE_VOXELS;
+    const std::int32_t z = snapshot.coordinate.zChunks * Protocol::CHUNK_EDGE_VOXELS;
+    if ((last != sent.end() && last->second == snapshot.version) ||
+        (!revealed && !SeesAny(_player, x, z, x + Protocol::CHUNK_EDGE_VOXELS - 1, z + Protocol::CHUNK_EDGE_VOXELS - 1)))
+    {
+      continue;
+    }
+    sent.insert_or_assign(key, snapshot.version);
+    snapshots.push_back(std::move(snapshot));
+  }
+  return snapshots;
+}
+
+void World::RecomputeVisibility()
+{
+  // ADR-025, decision 1: every unit not garrisoned stamps its vision about the cells it stands in, an engine's body its
+  // three, and every structure its vision about its footprint, its garrisoned vision while it holds a garrison.
+  if (!Fogged())
+  {
+    m_visibility.clear();
+    return;
+  }
+  for (const auto& [id, player] : m_players)
+  {
+    m_visibility.try_emplace(id, m_navigation.WidthCells(), m_navigation.DepthCells()).first->second.Clear();
+  }
+  const std::int32_t machineSide = std::max(1, Data().Tuning().machinesWidthVoxels);
+  for (const auto& [id, unit] : m_units)
+  {
+    const auto visibility = m_visibility.find(unit.owner);
+    if (visibility == m_visibility.end() || Garrisoned(unit))
+    {
+      continue;
+    }
+    const std::int32_t side = unit.navigationClass == NavigationClass::Machines ? machineSide : 1;
+    visibility->second.StampBox(
+      unit.cellVoxels, {.xVoxels = unit.cellVoxels.xVoxels + side - 1, .yVoxels = 0, .zVoxels = unit.cellVoxels.zVoxels + side - 1},
+      Data().Stats(unit.kind).visionVoxels);
+  }
+  for (const auto& [id, structure] : m_structures)
+  {
+    const auto visibility = m_visibility.find(structure.owner);
+    const TemplateRules* rules = Data().FindTemplateRules(structure.templateId);
+    const std::optional<Box> box = BoxOf(structure);
+    if (visibility == m_visibility.end() || rules == nullptr || !box.has_value())
+    {
+      continue;
+    }
+    visibility->second.StampBox(
+      box->min, {.xVoxels = box->min.xVoxels + box->widthVoxels - 1, .yVoxels = 0, .zVoxels = box->min.zVoxels + box->depthVoxels - 1},
+      GarrisonedCount(id) > 0 ? rules->garrisonedVisionVoxels : rules->visionVoxels);
+  }
+}
+
+bool World::Fogged() const noexcept
+{
+  return !m_players.empty();
+}
+
+bool World::Revealed(std::uint8_t _player) const
+{
+  const auto player = m_players.find(_player);
+  return player != m_players.end() && player->second.revealed &&
+         m_tick < static_cast<std::uint32_t>(std::max(0, Data().Tuning().revealTicks));
+}
+
+bool World::SeesAny(std::uint8_t _player, std::int32_t _x0, std::int32_t _z0, std::int32_t _x1, std::int32_t _z1) const
+{
+  const auto visibility = m_visibility.find(_player);
+  return visibility != m_visibility.end() && visibility->second.AnyVisible(_x0, _z0, _x1, _z1);
+}
+
+bool World::SeesStructure(std::uint8_t _player, const Structure& _structure) const
+{
+  if (!Fogged() || _structure.owner == _player || Revealed(_player))
+  {
+    return true;
+  }
+  const std::optional<Box> box = BoxOf(_structure);
+  return box.has_value() && SeesAny(_player, box->min.xVoxels, box->min.zVoxels, box->min.xVoxels + box->widthVoxels - 1,
+                                    box->min.zVoxels + box->depthVoxels - 1);
+}
+
+Protocol::StructureView World::StructureViewFor(std::uint8_t _player, const Structure& _structure) const
+{
+  // Its box after its turn: its template's shape, with width and depth swapped by an odd turn.
+  Protocol::VoxelPosition extent{};
+  if (const ServerTemplate* found = Data().FindTemplate(_structure.templateId); found != nullptr)
+  {
+    const TemplateShape shape = found->Shape();
+    const auto width = static_cast<std::int32_t>(shape.widthVoxels);
+    const auto depth = static_cast<std::int32_t>(shape.depthVoxels);
+    const bool across = _structure.quarterTurns % 2 == 1;
+    extent = {across ? depth : width, static_cast<std::int32_t>(shape.heightVoxels), across ? width : depth};
+  }
+  // The figures garrisoned in it, which only its owner's update counts (ADR-024, decision 5).
+  const TemplateRules* rules = Data().FindTemplateRules(_structure.templateId);
+  const std::size_t garrisoned = _structure.owner == _player ? GarrisonedCount(_structure.id) : 0;
+  return {.id = _structure.id,
+          .owner = _structure.owner,
+          .templateId = _structure.templateId,
+          .originVoxels = _structure.originVoxels,
+          .quarterTurns = _structure.quarterTurns,
+          .extentVoxels = extent,
+          .name = _structure.name,
+          .working = _structure.working,
+          .criticalPercent = _structure.criticalPercent,
+          .repairLockTicks = _structure.repairLockTicks,
+          .gateOpen = _structure.gateOpen,
+          .garrisonCount = static_cast<std::uint8_t>(garrisoned),
+          .garrisonCapacity = rules == nullptr ? std::uint8_t{0} : rules->garrisonCapacity,
+          .hitPoints = _structure.hitPoints};
+}
+
+bool World::AnswerVisible(std::uint8_t _player, const Protocol::Query& _query) const
+{
+  // A structure the asker sees, a tile of 32 by 32 cells one of whose cells they see, or a target whose column they see;
+  // anything while their map is revealed.
+  constexpr std::int32_t TILE_EDGE_CELLS = 32; // TileReachReading's
+  if (!Fogged() || Revealed(_player))
+  {
+    return true;
+  }
+  if (const auto* integrity = std::get_if<Protocol::SectionIntegrity>(&_query))
+  {
+    const auto structure = m_structures.find(integrity->structure);
+    return structure == m_structures.end() || SeesStructure(_player, structure->second);
+  }
+  if (const auto* reach = std::get_if<Protocol::TileReach>(&_query))
+  {
+    const std::int32_t x = reach->tileX * TILE_EDGE_CELLS;
+    const std::int32_t z = reach->tileZ * TILE_EDGE_CELLS;
+    return SeesAny(_player, x, z, x + TILE_EDGE_CELLS - 1, z + TILE_EDGE_CELLS - 1);
+  }
+  const Protocol::VoxelPosition target = std::holds_alternative<Protocol::AimCheck>(_query)
+                                           ? std::get<Protocol::AimCheck>(_query).targetVoxels
+                                           : std::get<Protocol::SquadAim>(_query).targetVoxels;
+  return SeesAny(_player, target.xVoxels, target.zVoxels, target.xVoxels, target.zVoxels);
+}
+
+Protocol::Reading World::EmptyReading(const Protocol::Query& _query)
+{
+  if (const auto* integrity = std::get_if<Protocol::SectionIntegrity>(&_query))
+  {
+    return Protocol::IntegrityReading{.structure = integrity->structure,
+                                      .ground = Protocol::GroundKind::Earth,
+                                      .canBeUndermined = false,
+                                      .holeWidthVoxels = 0,
+                                      .holeHeightVoxels = 0,
+                                      .holeFallWidthVoxels = 0,
+                                      .hasOpening = false,
+                                      .openingFloorVoxels = 0,
+                                      .openingFloor = Protocol::OpeningFloor::Stone,
+                                      .openingClearVoxels = 0,
+                                      .routeNow = false,
+                                      .gapRunVoxels = 0,
+                                      .gapFallRunVoxels = 0,
+                                      .falling = false,
+                                      .weakMinVoxels = {},
+                                      .weakMaxVoxels = {}};
+  }
+  if (const auto* reach = std::get_if<Protocol::TileReach>(&_query))
+  {
+    Protocol::TileReachReading reading{.tileX = reach->tileX, .tileZ = reach->tileZ, .usable = {}, .reached = {}, .surfaceVoxels = {}};
+    reading.surfaceVoxels.fill(Protocol::NO_SURFACE_VOXELS);
+    return reading;
+  }
+  return Protocol::AimReading{.verdict = Protocol::AimVerdict::OutOfRange, .distanceMeters = 0, .strikes = false, .strikeVoxels = {}};
+}
+
 const Protocol::StateUpdate& World::State(std::uint8_t _player) const
 {
   static const Protocol::StateUpdate NONE{};
@@ -4112,9 +4297,26 @@ void World::UpdateStructures()
 
 void World::PublishState()
 {
-  // Step 11: the state update for each player, filtered by what they see (ADR-002, decision 4; ADR-020,
-  // decision 3), and for player 1 in a world with no players, as M3's was. Publish() hands the chunks to
-  // whoever asks.
+  // Step 11: each player's visibility, then the state update for each, filtered by what they see (ADR-002, decision 4;
+  // ADR-020, decision 3; ADR-025), and for player 1 in a world with no players, unfiltered, as M3's was. Publish(player)
+  // hands each the chunks they see.
+  RecomputeVisibility();
+  // Each player's sight of the others' structures is remembered as they stand, for when they are out of it (ADR-025,
+  // decision 2); one the world no longer holds is forgotten.
+  for (const auto& [id, player] : m_players)
+  {
+    std::map<Protocol::EntityId, Protocol::StructureView>& seen = m_lastSeen[id];
+    std::erase_if(seen, [this](const auto& _entry) { return !m_structures.contains(_entry.first); });
+    for (const auto& [structureId, structure] : m_structures)
+    {
+      if (structure.owner != id && SeesStructure(id, structure))
+      {
+        Protocol::StructureView view = StructureViewFor(id, structure);
+        view.lastSeen = true;
+        seen.insert_or_assign(structureId, std::move(view));
+      }
+    }
+  }
   m_states.clear();
   if (m_players.empty())
   {
@@ -4143,48 +4345,33 @@ Protocol::StateUpdate World::StateFor(std::uint8_t _player) const
                               .widthCells = m_navigation.WidthCells(),
                               .depthCells = m_navigation.DepthCells(),
                               .visibleCells = {}};
-  // A structure's box after its turn: its template's shape, with width and depth swapped by an odd turn.
-  const auto extentOf = [this](const Structure& _structure)
-  {
-    const ServerTemplate* found = Data().FindTemplate(_structure.templateId);
-    if (found == nullptr)
-    {
-      return Protocol::VoxelPosition{};
-    }
-    const TemplateShape shape = found->Shape();
-    const auto width = static_cast<std::int32_t>(shape.widthVoxels);
-    const auto depth = static_cast<std::int32_t>(shape.depthVoxels);
-    const bool across = _structure.quarterTurns % 2 == 1;
-    return Protocol::VoxelPosition{across ? depth : width, static_cast<std::int32_t>(shape.heightVoxels), across ? width : depth};
-  };
-  // The figures garrisoned in each building, which only its owner's update counts (ADR-024, decision 5).
-  std::map<Protocol::EntityId, std::size_t> garrisoned;
-  for (const auto& [id, squad] : m_squads)
-  {
-    if (squad.garrisonedIn != Protocol::NO_ENTITY && squad.owner == _player)
-    {
-      garrisoned[squad.garrisonedIn] += squad.units.size();
-    }
-  }
+  // Each structure as the player sees it: their own and those they see now as they stand, the others they have seen as
+  // they last saw them (ADR-025, decision 2).
   for (const auto& [id, structure] : m_structures)
   {
-    const TemplateRules* rules = Data().FindTemplateRules(structure.templateId);
-    const auto count = garrisoned.find(id);
-    state.structures.push_back({.id = id,
-                                .owner = structure.owner,
-                                .templateId = structure.templateId,
-                                .originVoxels = structure.originVoxels,
-                                .quarterTurns = structure.quarterTurns,
-                                .extentVoxels = extentOf(structure),
-                                .name = structure.name,
-                                .working = structure.working,
-                                .criticalPercent = structure.criticalPercent,
-                                .repairLockTicks = structure.repairLockTicks,
-                                .gateOpen = structure.gateOpen,
-                                .garrisonCount = static_cast<std::uint8_t>(count == garrisoned.end() ? 0 : count->second),
-                                .garrisonCapacity = rules == nullptr ? std::uint8_t{0} : rules->garrisonCapacity,
-                                .hitPoints = structure.hitPoints});
+    if (!Fogged() || SeesStructure(_player, structure))
+    {
+      state.structures.push_back(StructureViewFor(_player, structure));
+      continue;
+    }
+    if (const auto seen = m_lastSeen.find(_player); seen != m_lastSeen.end())
+    {
+      if (const auto last = seen->second.find(id); last != seen->second.end())
+      {
+        state.structures.push_back(last->second);
+      }
+    }
   }
+  // Another player's engine, unit or shot is in the update while a cell it stands in is seen, never garrisoned and never
+  // while the map is merely revealed; a squad with its figures in sight, and without its goal or target.
+  const std::int32_t machineSide = std::max(1, Data().Tuning().machinesWidthVoxels);
+  const auto seen = [this, _player](Protocol::VoxelPosition _cell, std::int32_t _side)
+  { return !Fogged() || SeesAny(_player, _cell.xVoxels, _cell.zVoxels, _cell.xVoxels + _side - 1, _cell.zVoxels + _side - 1); };
+  const auto unitSeen = [this, _player, &seen, machineSide](const Unit& _unit)
+  {
+    return !Garrisoned(_unit) &&
+           (_unit.owner == _player || seen(_unit.cellVoxels, _unit.navigationClass == NavigationClass::Machines ? machineSide : 1));
+  };
   // An engine's hit points are its body's.
   const auto bodyOf = [this](const SiegeEngine& _engine) -> const Unit*
   {
@@ -4193,6 +4380,10 @@ Protocol::StateUpdate World::StateFor(std::uint8_t _player) const
   };
   for (const auto& [id, engine] : m_siegeEngines)
   {
+    if (engine.owner != _player && !seen(engine.cellVoxels, machineSide))
+    {
+      continue;
+    }
     state.engines.push_back({.id = id,
                              .owner = engine.owner,
                              .kind = engine.kind,
@@ -4208,21 +4399,34 @@ Protocol::StateUpdate World::StateFor(std::uint8_t _player) const
   }
   for (const auto& [id, squad] : m_squads)
   {
+    const bool own = squad.owner == _player || !Fogged();
+    std::vector<Protocol::EntityId> units;
+    for (const Protocol::EntityId unit : squad.units)
+    {
+      if (own || unitSeen(m_units.at(unit)))
+      {
+        units.push_back(unit);
+      }
+    }
+    if (!own && units.empty())
+    {
+      continue;
+    }
     state.squads.push_back({.id = id,
                             .owner = squad.owner,
-                            .units = squad.units,
-                            .hasGoal = squad.hasGoal,
-                            .goalVoxels = squad.goalVoxels,
-                            .shortOfGoal = squad.shortOfGoal,
+                            .units = std::move(units),
+                            .hasGoal = own && squad.hasGoal,
+                            .goalVoxels = own ? squad.goalVoxels : Protocol::VoxelPosition{},
+                            .shortOfGoal = own && squad.shortOfGoal,
                             .garrisonedIn = squad.garrisonedIn,
                             .kind = squad.kind,
                             .order = squad.garrisonedIn != Protocol::NO_ENTITY ? Protocol::SquadOrder::Garrisoned : squad.order,
                             .fullFigures = Data().Stats(squad.kind).squadFigures,
-                            .target = squad.target});
+                            .target = own ? squad.target : Protocol::NO_ENTITY});
   }
   for (const auto& [id, unit] : m_units)
   {
-    if (Garrisoned(unit))
+    if (!unitSeen(unit))
     {
       continue;
     }
@@ -4237,24 +4441,43 @@ Protocol::StateUpdate World::StateFor(std::uint8_t _player) const
   }
   for (const auto& [id, shot] : m_shots)
   {
-    state.shots.push_back({.id = id,
-                           .engine = shot.engine,
-                           .position = std::holds_alternative<ArrowLine>(shot.flight)
-                                         ? ArrowPositionAt(std::get<ArrowLine>(shot.flight), shot.ticksFlown)
-                                         : ShotPositionAt(std::get<ShotArc>(shot.flight), shot.ticksFlown),
-                           .kind = shot.kind,
-                           .owner = shot.owner});
+    const FixedPosition position = std::holds_alternative<ArrowLine>(shot.flight)
+                                     ? ArrowPositionAt(std::get<ArrowLine>(shot.flight), shot.ticksFlown)
+                                     : ShotPositionAt(std::get<ShotArc>(shot.flight), shot.ticksFlown);
+    const Protocol::VoxelPosition cell{.xVoxels = position.xMeters.FloorWhole(), .yVoxels = 0, .zVoxels = position.zMeters.FloorWhole()};
+    if (shot.owner != _player && !seen(cell, 1))
+    {
+      continue;
+    }
+    state.shots.push_back({.id = id, .engine = shot.engine, .position = position, .kind = shot.kind, .owner = shot.owner});
   }
-  // The collapses still running and those whose fall ended this tick, in id order.
+  // The collapses still running and those whose fall ended this tick, in id order, each while a column of its piece or
+  // its strip is seen.
+  const auto collapseSeen = [&seen](const Protocol::CollapseView& _view)
+  {
+    const auto columnSeen = [&seen](const Protocol::VoxelPosition& _voxel) { return seen(_voxel, 1); };
+    return std::ranges::any_of(_view.piece, columnSeen) || std::ranges::any_of(_view.strip, columnSeen);
+  };
   for (const auto& [id, collapse] : m_collapses)
   {
-    state.collapses.push_back(ViewOf(collapse));
+    Protocol::CollapseView view = ViewOf(collapse);
+    if (collapseSeen(view))
+    {
+      state.collapses.push_back(std::move(view));
+    }
   }
-  state.collapses.insert(state.collapses.end(), m_endedCollapses.begin(), m_endedCollapses.end());
+  std::ranges::copy_if(m_endedCollapses, std::back_inserter(state.collapses), collapseSeen);
   std::ranges::sort(state.collapses, {}, &Protocol::CollapseView::id);
   for (const ShotHit& hit : m_tickHits)
   {
-    state.hits.push_back({.shot = hit.shot, .voxel = hit.voxel});
+    if (seen(hit.voxel, 1))
+    {
+      state.hits.push_back({.shot = hit.shot, .voxel = hit.voxel});
+    }
+  }
+  if (const auto visibility = m_visibility.find(_player); visibility != m_visibility.end())
+  {
+    state.visibleCells.assign(visibility->second.Bits().begin(), visibility->second.Bits().end());
   }
   // Every player, with the stockpiles of the update's player alone.
   for (const auto& [id, player] : m_players)
@@ -4340,7 +4563,13 @@ void World::AnswerQueries(std::uint32_t _tick)
       break;
     }
     Core::ByteWriter writer;
-    Protocol::Encode(Protocol::Answer{.queryId = request.id, .tick = _tick, .reading = Answer(asked.player, request.query)}, writer);
+    // An answer about what the asker does not see says so, and reads nothing (ADR-025, decision 6).
+    const bool visible = AnswerVisible(asked.player, request.query);
+    Protocol::Encode(Protocol::Answer{.queryId = request.id,
+                                      .tick = _tick,
+                                      .reading = visible ? Answer(asked.player, request.query) : EmptyReading(request.query),
+                                      .notVisible = !visible},
+                     writer);
     m_answers.push_back(writer.TakeBytes());
     left -= work;
     m_pendingQueries.pop_front();
@@ -4353,7 +4582,7 @@ void World::AnswerQueries(std::uint32_t _tick)
 
 Protocol::Reading World::Answer(std::uint8_t _player, const Protocol::Query& _query) const
 {
-  // Answers pass the state update's filter, which passes everything in M3.
+  // Answers pass the state update's filter first, in AnswerQueries (ADR-025, decision 6).
   if (const auto* integrity = std::get_if<Protocol::SectionIntegrity>(&_query))
   {
     if (m_structures.contains(integrity->structure))
@@ -4361,22 +4590,7 @@ Protocol::Reading World::Answer(std::uint8_t _player, const Protocol::Query& _qu
       return ReadIntegrity(*this, integrity->structure);
     }
     // A structure the world no longer holds reads empty: the client asks about what it last saw.
-    return Protocol::IntegrityReading{.structure = integrity->structure,
-                                      .ground = Protocol::GroundKind::Earth,
-                                      .canBeUndermined = false,
-                                      .holeWidthVoxels = 0,
-                                      .holeHeightVoxels = 0,
-                                      .holeFallWidthVoxels = 0,
-                                      .hasOpening = false,
-                                      .openingFloorVoxels = 0,
-                                      .openingFloor = Protocol::OpeningFloor::Stone,
-                                      .openingClearVoxels = 0,
-                                      .routeNow = false,
-                                      .gapRunVoxels = 0,
-                                      .gapFallRunVoxels = 0,
-                                      .falling = false,
-                                      .weakMinVoxels = {},
-                                      .weakMaxVoxels = {}};
+    return EmptyReading(_query);
   }
   if (const auto* reach = std::get_if<Protocol::TileReach>(&_query))
   {

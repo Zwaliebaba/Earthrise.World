@@ -70,7 +70,7 @@ struct QueryRequest
 
 /// The one record version each query and reading is written at. A new field is a new version.
 /// 2 from M3-F3, which gave the tile reach reading its surfaces.
-inline constexpr std::uint16_t QUERY_RECORD_VERSION = 4; // M3-F3's 2; M4-C4 adds SquadAim; M4-D5 the integrity's lock
+inline constexpr std::uint16_t QUERY_RECORD_VERSION = 5; // M3-F3's 2; M4-C4 adds SquadAim; M4-D5 the integrity's lock; M4-E1 notVisible
 
 /// Hud.md §8's four readings of the attack cursor.
 enum class AimVerdict : std::uint8_t
@@ -155,6 +155,7 @@ struct Answer
   std::uint32_t queryId;
   std::uint32_t tick; // the tick whose end state it was computed on
   Reading reading;
+  bool notVisible = false; // the asker does not see what it asks about, and the reading is empty (ADR-025, decision 6)
 
   friend constexpr bool operator==(const Answer&, const Answer&) = default;
 };

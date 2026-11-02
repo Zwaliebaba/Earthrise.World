@@ -833,9 +833,10 @@ int Run(const Options& _options)
         break;
       }
       Simulation::World& world = run->World();
-      const std::vector<Protocol::ChunkSnapshot> published = world.Publish();
+      // The chunks and the state the player sees (ADR-025): every change and everything, in a world without players.
+      const std::vector<Protocol::ChunkSnapshot> published = world.Publish(PLAYER);
       const std::vector<std::vector<std::byte>> answers = world.TakeAnswers();
-      client.session.Receive(world.State(), published, answers);
+      client.session.Receive(world.State(PLAYER), published, answers);
       client.tally.Observe(client.session.State());
       client.presentation.Update(client.session, static_cast<float>(seconds));
     }
@@ -846,7 +847,7 @@ int Run(const Options& _options)
       const std::vector<std::vector<std::byte>> answers = world.TakeAnswers();
       if (!answers.empty())
       {
-        client.session.Receive(world.State(), {}, answers);
+        client.session.Receive(world.State(PLAYER), {}, answers);
       }
     }
 
