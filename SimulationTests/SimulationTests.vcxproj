@@ -76,6 +76,25 @@
     <ClCompile Include="IntegrityTests.cpp" />
     <ClCompile Include="TileReachTests.cpp" />
     <ClCompile Include="BreachLabTests.cpp" />
+    <ClCompile Include="UnitStatsTests.cpp" />
+    <ClCompile Include="ScenarioTests.cpp" />
+    <ClCompile Include="DamageTests.cpp" />
+    <ClCompile Include="FormationTests.cpp" />
+    <ClCompile Include="MeleeTests.cpp" />
+    <ClCompile Include="ArrowTests.cpp" />
+    <ClCompile Include="EngineTests.cpp" />
+    <ClCompile Include="RamTests.cpp" />
+    <ClCompile Include="StructureWorkTests.cpp" />
+    <ClCompile Include="GateTests.cpp" />
+    <ClCompile Include="GarrisonTests.cpp" />
+    <ClCompile Include="PassageAttackTests.cpp" />
+    <ClCompile Include="RepairTests.cpp" />
+    <ClCompile Include="TrenchTests.cpp" />
+    <ClCompile Include="FogTests.cpp" />
+    <ClCompile Include="TrialRuleTests.cpp" />
+    <ClCompile Include="SiegeDefenderTests.cpp" />
+    <ClCompile Include="ControlTests.cpp" />
+    <ClCompile Include="SiegeTrialTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

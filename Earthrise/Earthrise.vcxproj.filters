@@ -24,7 +24,7 @@
     <ClCompile Include="Earthrise.cpp">
       <Filter>Program</Filter>
     </ClCompile>
-    <ClInclude Include="Scenario.h">
+    <ClInclude Include="Run.h">
       <Filter>Lab</Filter>
     </ClInclude>
     <ClInclude Include="Lab.h">

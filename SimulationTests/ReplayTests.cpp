@@ -42,8 +42,8 @@ std::vector<std::byte> Record()
 {
   Simulation::World world(FlatWorld::Desc());
   const std::array<Protocol::VoxelPosition, 2> cells = {Cell(2, 2), Cell(3, 2)};
-  static_cast<void>(world.AddSquad(PLAYER, Simulation::NavigationClass::Foot, cells));
-  static_cast<void>(world.AddSquad(PLAYER, Simulation::NavigationClass::Foot, cells));
+  static_cast<void>(world.AddSquad(PLAYER, Simulation::UnitKind::Spearman, cells));
+  static_cast<void>(world.AddSquad(PLAYER, Simulation::UnitKind::Spearman, cells));
   world.Voxels().Edit(Cell(30, 30), 6);
   Simulation::ReplayRecorder recorder(world);
   const std::vector<Simulation::ScriptedCommand> script = Script();

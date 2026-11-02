@@ -52,6 +52,7 @@
     <ClCompile Include="FireModeTests.cpp" />
     <ClCompile Include="OverlaysTests.cpp" />
     <ClCompile Include="LabTests.cpp" />
+    <ClCompile Include="GlyphAtlasTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

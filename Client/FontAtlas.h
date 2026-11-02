@@ -12,7 +12,7 @@
 namespace Client
 {
 
-/// The glyph atlas on the GPU (ADR-019, decision 2): GlyphAtlas's 160 x 80 texels in an R8_UNORM texture, built once
+/// The glyph atlas on the GPU (ADR-019, decision 2, amended by M4-B5): GlyphAtlas's 160 x 90 texels in an R8_UNORM texture, built once
 /// and uploaded through the upload ring with the first frame, and never changed.
 class FontAtlas
 {

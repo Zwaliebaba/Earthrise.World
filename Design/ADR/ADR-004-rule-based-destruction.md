@@ -1,6 +1,6 @@
 # ADR-004 — Destruction is resolved by rules in the simulation; debris is cosmetic
 
-**Status:** Accepted, 2026-10-31. Proposed 2026-10-30 and revised the same day after a design review (decisions 2, 3, 4 and 6); accepted by the owner after the review of the game description, which added three consequences below. M1 implements a first support search for decision 2 (`Simulation/SupportSearch.h`), measured in `SimulationBench`; the resolver comes in M2.
+**Status:** Accepted, 2026-10-31. Proposed 2026-10-30 and revised the same day after a design review (decisions 2, 3, 4 and 6); accepted by the owner after the review of the game description, which added three consequences below. M1 implements a first support search for decision 2 (`Simulation/SupportSearch.h`), measured in `SimulationBench`; the resolver comes in M2. Amended 2026-11-02 by M4-F4 ([ADR-028](ADR-028-the-control.md)): the control is a second rule for how structures take hits and fall, beside the voxel version's, behind one seam, `StructureRule`; both bring a structure down through the one resolver.
 
 ## Context
 
@@ -24,7 +24,7 @@ Destruction is the reason the world is made of voxels, and Teardown is the refer
 
 ## Consequences for the code
 
-- The collapse resolver is one interface with one implementation. Nothing else in the simulation knows how a collapse is computed.
+- The collapse resolver is one interface with one implementation. Nothing else in the simulation knows how a collapse is computed. *Amended by M4-F4 (ADR-028):* the rule that decides when a structure's voxels are cut and when it falls has two implementations, `VoxelStructureRule`, which is decisions 1 to 3 as written, and the control's `HealthStructureRule`, under which a structure's voxels stand while its hit points last and, for a wall section at 0, fall together through this resolver. The resolver itself stays one.
 - The support search covers structures and stone terrain, and only the region an edit can affect (decision 2). Nothing searches the world as one connected structure. Earth and rubble carry support but are not judged by span: they follow the slump rule, a material rule (GameDesign.md).
 - Navigation updates from edits, rubble included.
 - Three more callers ask the resolver under decision 5, all from the review of the game description: the integrity view, the preview of where a dig will slump, and the Hold trial's waves when they score the sections they can reach.

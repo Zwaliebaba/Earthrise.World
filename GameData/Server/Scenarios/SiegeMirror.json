@@ -1,0 +1,64 @@
+{
+ "note": "The Siege castle mirrored east to west about its site's centre line, x 339.5 (ADR-026, decision 1; MvpPlan.md, M4, input 28): the same site, ground, earthworks, armies, stockpiles and trial, with the weak section on the west flank, W3, on deep earth with no ditch, and E3 on rock behind the ditch. The templates are not mirrored, only placed: each structure stands on the mirror of its original's footprint, turned so that its front faces the mirror of its original's facing. The bake resolves it into a whole scenario, so the simulation never sees mirrorOf. Each structure is renamed for its mirrored place: sections and towers by their side and their order west to east, south to north, as the original's are; the nearest section, the mirror of S3, is S2.",
+ "id": "SiegeMirror",
+ "seeds": {
+  "world": "1592598566",
+  "resource": "1592598567",
+  "match": "1592598568"
+ },
+ "players": [
+  {
+   "id": 1,
+   "side": "attacker",
+   "stoneCubicMeters": "120",
+   "timberCubicMeters": "0",
+   "commander": "human",
+   "revealed": true
+  },
+  {
+   "id": 2,
+   "side": "defender",
+   "stoneCubicMeters": "200",
+   "timberCubicMeters": "20",
+   "commander": "siegeDefender",
+   "revealed": false
+  }
+ ],
+ "mirrorOf": "Siege",
+ "rename": {
+  "S1": "S4",
+  "S2": "S3",
+  "GH": "GH",
+  "S3": "S2",
+  "ST": "ST",
+  "S4": "S1",
+  "E1": "W1",
+  "E2": "W2",
+  "E3": "W3",
+  "E4": "W4",
+  "E5": "W5",
+  "E6": "W6",
+  "N1": "N6",
+  "N2": "N5",
+  "N3": "N4",
+  "N4": "N3",
+  "N5": "N2",
+  "N6": "N1",
+  "W1": "E1",
+  "W2": "E2",
+  "W3": "E3",
+  "W4": "E4",
+  "W5": "E5",
+  "W6": "E6",
+  "SW": "SE",
+  "SE": "SW",
+  "NW": "NE",
+  "NE": "NW",
+  "KEEP": "KEEP",
+  "HALL": "HALL"
+ },
+ "trial": {
+  "nearest": "S2",
+  "weak": "W3"
+ }
+}

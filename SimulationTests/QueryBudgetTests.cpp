@@ -235,7 +235,7 @@ public:
 
     // A squad walks 14 m, and stands still at the end.
     const std::array<Protocol::VoxelPosition, 2> cells = {At(4, GROUND, 50), At(5, GROUND, 50)};
-    const Protocol::EntityId squad = world.AddSquad(PLAYER, Simulation::NavigationClass::Foot, cells);
+    const Protocol::EntityId squad = world.AddSquad(PLAYER, Simulation::UnitKind::Spearman, cells);
     world.Submit(PLAYER, Bytes(Protocol::MoveSquad{.squad = squad, .goalVoxels = At(19, GROUND, 50)}));
     world.Tick();
     world.Tick();

@@ -48,7 +48,17 @@ struct TileReach
   friend constexpr bool operator==(const TileReach&, const TileReach&) = default;
 };
 
-using Query = std::variant<AimCheck, SectionIntegrity, TileReach>;
+/// The attack cursor for a ranged squad (M4-C4; ADR-023, decision 5): whether its lead, from its loosing point, would reach
+/// a target standing in _targetVoxels's cell, as its arrow would fly. Answered by an AimReading.
+struct SquadAim
+{
+  EntityId squad;
+  VoxelPosition targetVoxels;
+
+  friend constexpr bool operator==(const SquadAim&, const SquadAim&) = default;
+};
+
+using Query = std::variant<AimCheck, SectionIntegrity, TileReach, SquadAim>;
 
 struct QueryRequest
 {
@@ -60,7 +70,7 @@ struct QueryRequest
 
 /// The one record version each query and reading is written at. A new field is a new version.
 /// 2 from M3-F3, which gave the tile reach reading its surfaces.
-inline constexpr std::uint16_t QUERY_RECORD_VERSION = 2;
+inline constexpr std::uint16_t QUERY_RECORD_VERSION = 5; // M3-F3's 2; M4-C4 adds SquadAim; M4-D5 the integrity's lock; M4-E1 notVisible
 
 /// Hud.md §8's four readings of the attack cursor.
 enum class AimVerdict : std::uint8_t
@@ -116,6 +126,7 @@ struct IntegrityReading
   bool falling;                  // a collapse of this structure is in warning or falling
   VoxelPosition weakMinVoxels;   // the weak point's box, the reading nearest its mark, both corners included
   VoxelPosition weakMaxVoxels;
+  std::uint32_t repairLockTicks = 0; // until repair may resume (ADR-024, decision 4; M4-D5)
 
   friend constexpr bool operator==(const IntegrityReading&, const IntegrityReading&) = default;
 };
@@ -144,6 +155,7 @@ struct Answer
   std::uint32_t queryId;
   std::uint32_t tick; // the tick whose end state it was computed on
   Reading reading;
+  bool notVisible = false; // the asker does not see what it asks about, and the reading is empty (ADR-025, decision 6)
 
   friend constexpr bool operator==(const Answer&, const Answer&) = default;
 };

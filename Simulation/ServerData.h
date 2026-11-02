@@ -1,9 +1,13 @@
 #pragma once
 
+#include "EntityKinds.h"
 #include "MaterialRules.h"
 #include "Rules.h"
+#include "TemplateRules.h"
 #include "TestWorld.h"
+#include "UnitStats.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -14,6 +18,8 @@
 
 namespace Simulation
 {
+
+struct Scenario; // Scenario.h
 
 /// A template as the server sees it (ADR-008, decision 2; ADR-016, TMPL): the client's view, its
 /// palette indices x fastest, then z, then y, mirrored in x from the layer file (ADR-017), with each
@@ -45,8 +51,9 @@ struct ServerTemplate
 };
 
 /// The server's data, read from <outputdir>\ServerData\ServerData.bin (ADR-016): each palette
-/// index's rule, the templates and the tuning values, with the server-data hash that saves and
-/// replays record and the shared hash that both halves hold (ADR-008, decision 5).
+/// index's rule, the templates, the tuning values, each unit kind's statistics, each template's
+/// values as a structure at work and the scenarios, with the server-data hash that saves and replays
+/// record and the shared hash that both halves hold (ADR-008, decision 5).
 ///
 /// The reader checks the magic number, the format version, the server-data hash, recomputed over
 /// the body, and each section's version and layout, and refuses anything else with a
@@ -56,6 +63,13 @@ class ServerData
 {
 public:
   static constexpr std::uint32_t FORMAT_VERSION = 1;
+
+  // Out of line, where Scenario is complete.
+  ~ServerData();
+  ServerData(const ServerData& _other);
+  ServerData(ServerData&& _other) noexcept;
+  ServerData& operator=(const ServerData& _other);
+  ServerData& operator=(ServerData&& _other) noexcept;
 
   /// Reads a file's bytes. Throws std::runtime_error naming the failed check.
   [[nodiscard]] static ServerData Read(std::span<const std::byte> _file);
@@ -84,14 +98,27 @@ public:
   /// which must outlive it and not move.
   [[nodiscard]] TemplateLookup Templates() const;
 
+  /// A unit kind's statistics, UNIT's record for it (ADR-023, decision 1).
+  [[nodiscard]] const UnitStats& Stats(Protocol::UnitKind _kind) const;
+
+  /// The template _templateId's values as a structure at work, STRC's record for it (ADR-024, decision 7), or null
+  /// for a template STRC does not list.
+  [[nodiscard]] const TemplateRules* FindTemplateRules(std::string_view _templateId) const noexcept;
+
+  /// The scenario _scenarioId, SCEN's record for it (ADR-026, decision 2), or null.
+  [[nodiscard]] const Scenario* FindScenario(std::string_view _scenarioId) const noexcept;
+
 private:
-  ServerData() = default;
+  ServerData();
 
   std::uint64_t m_hash = 0;
   std::uint64_t m_sharedHash = 0;
   MaterialRules m_materials{};
   Rules m_rules{};
   std::vector<ServerTemplate> m_templates;
+  std::array<UnitStats, Protocol::UNIT_KIND_COUNT> m_units{};
+  std::vector<TemplateRules> m_templateRules; // in ascending template id
+  std::vector<Scenario> m_scenarios;          // in ascending id
 };
 
 } // namespace Simulation

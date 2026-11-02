@@ -9,7 +9,10 @@
 #include "NavigationGrid.h"
 #include "PathSearch.h"
 #include "Save.h"
+#include "Scenario.h"
+#include "FirePattern.h"
 #include "ServerData.h"
+#include "SiegeAttacker.h"
 #include "SupportSearch.h"
 #include "TestWorld.h"
 
@@ -548,6 +551,302 @@ int RunLabItems(const std::filesystem::path& _executable)
   return timedOut ? 2 : 0;
 }
 
+/// The nearest-rank percentile of _times: the smallest time at least _share of them do not exceed.
+double Percentile(std::vector<double> _times, double _share)
+{
+  std::ranges::sort(_times);
+  const auto rank = static_cast<std::size_t>(std::ceil(_share * static_cast<double>(_times.size())));
+  return _times.at(std::max<std::size_t>(rank, 1) - 1);
+}
+
+/// The trial of a world its scenario gave one, as the Siege's always does.
+const Simulation::TrialRules& TrialOf(const Simulation::World& _world)
+{
+  const std::optional<Simulation::TrialRules>& trial = _world.Trial();
+  if (!trial.has_value())
+  {
+    throw std::runtime_error("the world has no trial");
+  }
+  return *trial;
+}
+
+/// The Siege trial played to its end by the scripted attacker against the defender (M4-F5; ADR-027), in the voxel version
+/// or with --control the control's (ADR-028), every tick timed as the breach run's are: the slowest tick of play, tick 0
+/// and the 95th percentile, and the slowest from tick 10, past the first ticks' work after the load, and how many ticks
+/// of play took longer than M2's 25 ms; fog's visibility alone after 100 ticks, as M4-E1 measured it; the outcome and its tick, the
+/// stones thrown and the stone each side spent; when each of the attacker's targets first stopped or opened; and the
+/// attacker's figures through each opened section a minute, from the trial's events.
+int RunSiegeTrial(const std::filesystem::path& _executable, bool _control)
+{
+  constexpr double PERCENTILE = 0.95;
+  constexpr std::uint32_t VISIBILITY_AT_TICK = 100;
+  constexpr std::uint32_t TICKS_PER_MINUTE = 1200;
+  constexpr std::size_t SETTLED_TICK = 10;
+  constexpr double TICK_BUDGET_MILLISECONDS = 25.0;
+  const std::uint64_t buildId = BuildIdOf(_executable);
+  const Simulation::ServerData data = Simulation::ServerData::Load(_executable.parent_path() / "ServerData" / "ServerData.bin");
+  Simulation::World world(Simulation::ScenarioDesc(data, "Siege", buildId));
+  Simulation::LoadScenario(world, "Siege",
+                           {.version = _control ? Protocol::TrialVersion::Control : Protocol::TrialVersion::Voxel, .armies = true});
+  const std::uint8_t attacker = TrialOf(world).attacker;
+  const std::uint8_t defender = TrialOf(world).defender;
+  world.SetCommander(attacker, std::make_unique<Simulation::SiegeAttacker>(nullptr));
+  const std::int32_t attackerStone = world.Players().at(attacker).stoneHundredthsCubicMeters;
+  const std::int32_t defenderStone = world.Players().at(defender).stoneHundredthsCubicMeters;
+  std::vector<double> times;
+  times.reserve(TrialOf(world).timeLimitTicks);
+  Timing visibility{};
+  std::map<std::string, std::uint32_t> first;
+  std::map<Protocol::EntityId, std::map<std::uint32_t, std::int32_t>> passedByMinute;
+  std::uint32_t shots = 0;
+  while (world.State(attacker).trial.outcome == Protocol::TrialOutcome::Running)
+  {
+    const Clock::time_point start = Clock::now();
+    world.Tick();
+    times.push_back(MillisecondsSince(start));
+    if (world.TickCount() == VISIBILITY_AT_TICK)
+    {
+      visibility = Time(REPEATS, [&world] { world.RecomputeVisibility(); });
+    }
+    for (const Simulation::TrialEvent& event : world.LastTickEvents())
+    {
+      // A shot is the stone its engine spends: ShotFired comes with the trial's log (M4-J2).
+      shots +=
+        event.kind == Simulation::TrialEventKind::StoneSpent && event.player == attacker && world.SiegeEngines().contains(event.subject)
+          ? 1
+          : 0;
+      if (event.kind == Simulation::TrialEventKind::FigurePassed && event.player == attacker)
+      {
+        passedByMinute[event.other][event.tick / TICKS_PER_MINUTE] += event.amount;
+      }
+    }
+    for (const auto& [id, structure] : world.Structures())
+    {
+      const Protocol::StructureView& view = *std::ranges::find(world.State(defender).structures, id, &Protocol::StructureView::id);
+      if ((!view.working || view.opened) && !first.contains(structure.name))
+      {
+        first.emplace(structure.name, world.TickCount());
+      }
+    }
+  }
+  const Protocol::TrialView& trial = world.State(attacker).trial;
+  const auto slowestPlay = std::ranges::max_element(times.begin() + 1, times.end());
+  const auto slowestSettled = std::ranges::max_element(times.begin() + SETTLED_TICK, times.end());
+  std::println("The Siege trial, {}, build id {:016x}: the scripted attacker against the defender",
+               _control ? "the control" : "the voxel version", buildId);
+  std::println("outcome {} at tick {} ({} s), {} stones thrown; stone spent: attacker {} m^3, defender {} m^3",
+               static_cast<int>(trial.outcome), world.TickCount(), world.TickCount() / 20, shots,
+               static_cast<double>(attackerStone - world.Players().at(attacker).stoneHundredthsCubicMeters) / 100.0,
+               static_cast<double>(defenderStone - world.Players().at(defender).stoneHundredthsCubicMeters) / 100.0);
+  std::println("the slowest tick of play, {}, took {:.3f} ms; tick 0 {:.3f} ms; the 95th percentile {:.3f} ms", slowestPlay - times.begin(),
+               *slowestPlay, times.front(), Percentile(times, PERCENTILE));
+  std::println("the slowest from tick {}, {}, took {:.3f} ms; {} ticks of play took longer than {} ms", SETTLED_TICK,
+               slowestSettled - times.begin(), *slowestSettled,
+               std::ranges::count_if(times.begin() + 1, times.end(), [](double _ms) { return _ms > TICK_BUDGET_MILLISECONDS; }),
+               TICK_BUDGET_MILLISECONDS);
+  std::println("visibility, every player, at tick {}: {:.3f} ms median, {:.3f} ms slowest", VISIBILITY_AT_TICK,
+               visibility.medianMilliseconds, visibility.slowestMilliseconds);
+  for (const auto& [name, tick] : first)
+  {
+    std::println("  {} first stopped or opened at tick {} ({} s)", name, tick, tick / 20);
+  }
+  for (const auto& [section, minutes] : passedByMinute)
+  {
+    for (const auto& [minute, figures] : minutes)
+    {
+      std::println("  section {}: {} figures through, net inwards, in minute {}", world.Structures().at(section).name, figures, minute);
+    }
+  }
+  std::println("CPU {}, {} logical processors", Environment("PROCESSOR_IDENTIFIER"), Environment("NUMBER_OF_PROCESSORS"));
+  return 0;
+}
+
+/// A template voxel's place across the ground after _turns clockwise quarter turns seen from above, as the world places it.
+std::pair<std::int32_t, std::int32_t> Turned(std::int32_t _x, std::int32_t _z, std::int32_t _width, std::int32_t _depth,
+                                             std::uint32_t _turns)
+{
+  switch (_turns % 4)
+  {
+  case 1:
+    return {_z, _width - 1 - _x};
+  case 2:
+    return {_width - 1 - _x, _depth - 1 - _z};
+  case 3:
+    return {_depth - 1 - _z, _x};
+  default:
+    return {_x, _z};
+  }
+}
+
+/// How many of _structure's critical part's voxels stand.
+std::size_t CriticalStanding(const Simulation::World& _world, const Simulation::Structure& _structure)
+{
+  const Simulation::ServerTemplate& found = *_world.Data().FindTemplate(_structure.templateId);
+  std::size_t standing = 0;
+  std::size_t index = 0;
+  for (std::uint32_t y = 0; y < found.heightVoxels; ++y)
+  {
+    for (std::uint32_t z = 0; z < found.depthVoxels; ++z)
+    {
+      for (std::uint32_t x = 0; x < found.widthVoxels; ++x, ++index)
+      {
+        if (found.parts.at(index) != Simulation::ServerTemplate::Part::Critical || found.indices.at(index) == Protocol::Chunk::EMPTY)
+        {
+          continue;
+        }
+        const auto [turnedX, turnedZ] =
+          Turned(static_cast<std::int32_t>(x), static_cast<std::int32_t>(z), static_cast<std::int32_t>(found.widthVoxels),
+                 static_cast<std::int32_t>(found.depthVoxels), _structure.quarterTurns);
+        const Protocol::VoxelPosition at{.xVoxels = _structure.originVoxels.xVoxels + turnedX,
+                                         .yVoxels = _structure.originVoxels.yVoxels + static_cast<std::int32_t>(y),
+                                         .zVoxels = _structure.originVoxels.zVoxels + turnedZ};
+        standing += _world.Voxels().At(at) != Protocol::Chunk::EMPTY ? 1 : 0;
+      }
+    }
+  }
+  return standing;
+}
+
+/// The control's calibration (M4-F5; ADR-028, decision 5, as the owner amended it on 2026-11-02): on the Siege castle alone,
+/// unopposed and unrepaired, on the voxel version, one structure of each template in it is fired at from a stand by its
+/// template's fixed pattern until it stops, or, for a section, opens; T5 instead takes the ram's blows until its gate breaks,
+/// since stones reach its gate only from inside the bailey. Each template's hit points are its count times the control's
+/// damage for a shot or a blow, written into _structures, GameData/Server/Structures.json, with the measurement in its note.
+int CalibrateControl(const std::filesystem::path& _executable, const std::filesystem::path& _structures)
+{
+  struct Calibration
+  {
+    std::string_view templateId;
+    std::string_view structure;
+    Protocol::VoxelPosition standVoxels; // the trebuchet's, or the ram's start
+    bool ram;
+  };
+  // The stands, measured on the Siege castle: each within the trebuchet's 12 to 50 m of its target's pattern, the keep and
+  // E3 from off the flank, ST from south of the gate, the hall from outside the west curtain; the ram on the causeway.
+  constexpr std::array<Calibration, 5> CALIBRATIONS = {{
+    {.templateId = "T1", .structure = "HALL", .standVoxels = {.xVoxels = 300, .yVoxels = 9, .zVoxels = 270}, .ram = false},
+    {.templateId = "T2", .structure = "KEEP", .standVoxels = {.xVoxels = 389, .yVoxels = 9, .zVoxels = 316}, .ram = false},
+    {.templateId = "T3", .structure = "E3", .standVoxels = {.xVoxels = 389, .yVoxels = 9, .zVoxels = 316}, .ram = false},
+    {.templateId = "T4", .structure = "ST", .standVoxels = {.xVoxels = 359, .yVoxels = 9, .zVoxels = 256}, .ram = false},
+    {.templateId = "T5", .structure = "GH", .standVoxels = {.xVoxels = 335, .yVoxels = 9, .zVoxels = 290}, .ram = true},
+  }};
+  constexpr std::uint32_t TICK_LIMIT = 40000;
+  const std::uint64_t buildId = BuildIdOf(_executable);
+  const Simulation::ServerData data = Simulation::ServerData::Load(_executable.parent_path() / "ServerData" / "ServerData.bin");
+  const Simulation::Rules& rules = data.Tuning();
+  std::println("The control's calibration on the Siege castle alone, unopposed and unrepaired, voxel version, build id {:016x}", buildId);
+  std::vector<std::pair<std::string_view, std::int32_t>> hitPoints;
+  std::string measured;
+  for (const Calibration& calibration : CALIBRATIONS)
+  {
+    Simulation::World world(Simulation::ScenarioDesc(data, "Siege", buildId));
+    Simulation::LoadScenario(world, "Siege", {.version = Protocol::TrialVersion::Voxel, .armies = false});
+    const std::uint8_t attacker = TrialOf(world).attacker;
+    world.Tick();
+    const auto target =
+      std::ranges::find_if(world.Structures(), [&calibration](const auto& _entry) { return _entry.second.name == calibration.structure; });
+    const Protocol::EntityId structure = target->first;
+    const bool section = world.Data().FindTemplate(target->second.templateId)->criticalPart.empty();
+    const auto done = [&world, structure, section]()
+    {
+      const Protocol::StructureView& view = *std::ranges::find(world.State(2).structures, structure, &Protocol::StructureView::id);
+      return section ? view.opened : !view.working;
+    };
+    const auto order = [&world, attacker](const Protocol::Command& _command)
+    {
+      Core::ByteWriter writer;
+      Protocol::Encode(_command, writer);
+      world.Submit(attacker, writer.Bytes());
+    };
+    std::uint32_t count = 0;
+    if (calibration.ram)
+    {
+      // Each blow on the timber gate takes one of its voxels (ramTimberCraterVoxels), so the blows are the gate's voxels gone.
+      const Protocol::EntityId ram = world.AddSiegeEngine(attacker, Simulation::EngineKind::Ram, calibration.standVoxels);
+      world.Tick();
+      order(Protocol::AttackTarget{.squad = world.SiegeEngines().at(ram).squad, .target = structure});
+      const std::size_t whole = CriticalStanding(world, world.Structures().at(structure));
+      for (std::uint32_t tick = 0; tick < TICK_LIMIT && !done(); ++tick)
+      {
+        world.Tick();
+      }
+      count = static_cast<std::uint32_t>(whole - CriticalStanding(world, world.Structures().at(structure)));
+    }
+    else
+    {
+      const Protocol::EntityId engine = world.AddSiegeEngine(attacker, Simulation::EngineKind::Trebuchet, calibration.standVoxels);
+      bool pending = false;
+      for (std::uint32_t tick = 0; tick < TICK_LIMIT && !done(); ++tick)
+      {
+        const Simulation::SiegeEngine& trebuchet = world.SiegeEngines().at(engine);
+        // A shot counts once its stone flew; one refused is aimed again.
+        if (pending && (trebuchet.reloadTicks > 0 || !world.Shots().empty()))
+        {
+          ++count;
+        }
+        pending = false;
+        if (trebuchet.reloadTicks == 0 && world.Shots().empty())
+        {
+          const Protocol::StructureView& view = *std::ranges::find(world.State(2).structures, structure, &Protocol::StructureView::id);
+          order(Protocol::FireEngine{.engine = engine,
+                                     .targetVoxels = Simulation::PatternAim(world.Data(), view, calibration.standVoxels, count)});
+          pending = true;
+        }
+        world.Tick();
+      }
+    }
+    if (!done())
+    {
+      throw std::runtime_error(std::format("{} did not {} within {} ticks", calibration.structure, section ? "open" : "stop", TICK_LIMIT));
+    }
+    const std::int32_t damage = calibration.ram ? rules.controlRamDamage : rules.controlShotDamage;
+    const std::int32_t points = static_cast<std::int32_t>(count) * damage;
+    hitPoints.emplace_back(calibration.templateId, points);
+    measured += std::format("{}{} {} {} {} by tick {}, {} hit points", measured.empty() ? "" : "; ", calibration.templateId, count,
+                            calibration.ram ? "blows" : "shots", section ? "opened" : "stopped", world.TickCount(), points);
+    std::println("  {} ({}): {} after {} {} at tick {}: {} hit points", calibration.templateId, calibration.structure,
+                 section ? "opened" : "stopped", count, calibration.ram ? "ram blows" : "shots", world.TickCount(), points);
+  }
+  // Each template's controlHitPoints, and the note's sentence on them, rewritten in place.
+  std::ifstream input(_structures, std::ios::binary);
+  if (!input)
+  {
+    throw std::runtime_error("cannot read " + _structures.string());
+  }
+  std::string text{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+  input.close();
+  for (const auto& [templateId, points] : hitPoints)
+  {
+    const std::size_t entry = text.find(std::format("\"template\": \"{}\"", templateId));
+    const std::string key = "\"controlHitPoints\": \"";
+    const std::size_t value = entry == std::string::npos ? std::string::npos : text.find(key, entry);
+    if (value == std::string::npos)
+    {
+      throw std::runtime_error(std::format("{} has no controlHitPoints for {}", _structures.string(), templateId));
+    }
+    const std::size_t end = text.find('"', value + key.size());
+    text.replace(value + key.size(), end - (value + key.size()), std::to_string(points));
+  }
+  const std::string from = "The hit points are the control's (ADR-028): ";
+  const std::size_t sentence = text.find(from);
+  const std::size_t sentenceEnd = sentence == std::string::npos ? std::string::npos : text.find(" A cubic metre of repair", sentence);
+  if (sentenceEnd == std::string::npos)
+  {
+    throw std::runtime_error(_structures.string() + "'s note has no sentence on the hit points");
+  }
+  text.replace(sentence, sentenceEnd - sentence,
+               from +
+                 std::format("calibrated by SimulationBench --calibrate-control (M4-F5; ADR-028, decision 5) on the Siege castle alone, "
+                             "unopposed and unrepaired, on the voxel version, each template's shots by its fixed pattern to stop or "
+                             "open it times 100, and T5's ram blows to break its gate times 100, as the owner decided on 2026-11-02: {}. "
+                             "T6 and T7 stand in no castle and keep input 19's first 900.",
+                             measured));
+  std::ofstream output(_structures, std::ios::binary);
+  output << text;
+  std::println("written to {}", _structures.string());
+  return 0;
+}
+
 int Run(const std::filesystem::path& _executable)
 {
   std::println("SimulationBench: the renderer spike's question 6, at 1 m and at 0.5 m (ADR-006). Times are this machine's.");
@@ -600,8 +899,9 @@ int wmain(int _argumentCount, wchar_t** _arguments)
     }
     const std::filesystem::path executable = std::filesystem::absolute(_arguments[0]);
     // SimulationBench --breach-run [file.csv] times the breach run (M2-G2), --integrity the integrity
-    // reading on it (M3-B5), --lab-items the breach lab's items (M3-B7); without any, the M1
-    // measurements and the navigation's run.
+    // reading on it (M3-B5), --lab-items the breach lab's items (M3-B7), --siege [--control] plays the Siege trial out with
+    // the scripted attacker and times it (M4-F5), and --calibrate-control <Structures.json> calibrates the control's hit
+    // points into that file (M4-F5); without any, the M1 measurements and the navigation's run.
     const std::span<wchar_t*> arguments(_arguments, static_cast<std::size_t>(_argumentCount));
     if (arguments.size() >= 2 && std::wstring_view(arguments[1]) == L"--breach-run")
     {
@@ -614,6 +914,14 @@ int wmain(int _argumentCount, wchar_t** _arguments)
     if (arguments.size() >= 2 && std::wstring_view(arguments[1]) == L"--lab-items")
     {
       return RunLabItems(executable);
+    }
+    if (arguments.size() >= 2 && std::wstring_view(arguments[1]) == L"--siege")
+    {
+      return RunSiegeTrial(executable, arguments.size() >= 3 && std::wstring_view(arguments[2]) == L"--control");
+    }
+    if (arguments.size() >= 3 && std::wstring_view(arguments[1]) == L"--calibrate-control")
+    {
+      return CalibrateControl(executable, std::filesystem::path(arguments[2]));
     }
     return Run(executable);
   }

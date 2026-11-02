@@ -102,7 +102,7 @@ It fixes the model and leaves the search algorithm to the navigation orders, whi
    - **Left to the navigation orders:** the search algorithm, and how reach is known without searching the map. Phase F chooses them on M2's measurements, and the commit that implements them records them here.
 6. **Units follow their squad's path, in fixed point.**
    - Figures and engines move between cell centres along links, at their class speed. Positions are `Core::Fixed` (ADR-013), and a figure stands at its cell's height.
-   - How figures arrange about the path, and how they keep apart, comes with combat in M4, which schedules it as *formations and separation* ([MvpPlan.md](../MvpPlan.md), M4). Until then they may pass through each other.
+   - How figures arrange about the path, and how they keep apart, is [ADR-022](ADR-022-formations-and-separation.md)'s, since M4-C2: one figure a cell, ranks where the ground allows and single file where it does not. Until then they passed through each other.
 7. **Units whose cells change are moved in one step, after the rebuild.** The step runs in unit-id order:
    - **Ground gone:** a unit whose cell's height fell drops to it. A drop over 3 m raises a crush event that carries the drop. The damage it does is M4's statistics.
    - **Cell filled:** a unit whose cell's height rose is lifted to the new surface, with the collapse's damage when a collapse filled it.
@@ -134,5 +134,5 @@ It fixes the model and leaves the search algorithm to the navigation orders, whi
 - **A tile-level graph for the search** (Botea, Müller and Schaeffer, *Near optimal hierarchical path-finding*, 2004), if cross-map searches run too far past the budget. M2-F4's components are the first half of one: they answer reach, and the search does not yet use them.
 - ~~**Cavalry's and machines' speeds**~~: 2.8 m/s and 0.7 m/s, the owner's, after M2's report.
 - **Flow fields for many units** with one goal.
-- **Formations and separation,** scheduled in M4 with its own done-when ([MvpPlan.md](../MvpPlan.md), M4). An ADR records how figures keep apart when it is built. Like the rest of movement, it stays inside navigation: nothing pushes a unit (ADR-004, decision 6).
-- ~~**The trebuchet's packed width,** once its packed model is drawn.~~ Drawn 2026-11-01: 3.5 m across its travel, which the machines class's width of 3 does not fit (the table above). The owner decides which changes.
+- ~~**Formations and separation**~~: closed by [ADR-022](ADR-022-formations-and-separation.md), accepted by M4-C2. Like the rest of movement, it stays inside navigation: nothing pushes a unit (ADR-004, decision 6).
+- ~~**The trebuchet's packed width,** once its packed model is drawn.~~ Drawn 2026-11-01: 3.5 m across its travel, which the machines class's width of 3 does not fit (the table above). The owner decided on 2026-11-01 that machines stay 3 wide and the wagon's 0.25 m overhang either side is accepted (MvpPlan.md, M4, input 17), as M4-C5 builds it.

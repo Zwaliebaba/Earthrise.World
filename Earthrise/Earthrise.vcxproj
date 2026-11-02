@@ -44,7 +44,7 @@
     </ClCompile>
     <Manifest Include="Earthrise.manifest" />
     <ClCompile Include="Earthrise.cpp" />
-    <ClInclude Include="Scenario.h" />
+    <ClInclude Include="Run.h" />
     <ClInclude Include="Lab.h" />
     <ClCompile Include="Lab.cpp" />
   </ItemGroup>

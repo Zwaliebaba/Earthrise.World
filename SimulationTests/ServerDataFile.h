@@ -146,4 +146,63 @@ inline std::vector<std::byte> BakedServerDataWithout(std::string_view _key)
   throw std::invalid_argument("the baked server data holds no such RULE key");
 }
 
+/// The baked file's bytes with the section _tag taken out, its directory entry and payload removed and the offsets and
+/// the header's hash rewritten, for a test that the reader refuses a file lacking a section it needs (ADR-016).
+inline std::vector<std::byte> BakedServerDataWithoutSection(std::string_view _tag)
+{
+  std::ifstream stream(ServerDataFile(), std::ios::binary);
+  const std::vector<char> raw{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+  std::vector<std::byte> file(raw.size());
+  std::ranges::transform(raw, file.begin(), [](char _value) { return static_cast<std::byte>(_value); });
+  const auto u32At = [&file](std::size_t _at)
+  {
+    std::uint32_t value = 0;
+    for (std::size_t index = 0; index < 4; ++index)
+    {
+      value |= std::to_integer<std::uint32_t>(file[_at + index]) << (8 * index);
+    }
+    return value;
+  };
+  const auto setU32 = [&file](std::size_t _at, std::uint32_t _value)
+  {
+    for (std::size_t index = 0; index < 4; ++index)
+    {
+      file[_at + index] = static_cast<std::byte>((_value >> (8 * index)) & 0xffU);
+    }
+  };
+  constexpr std::size_t HEADER_BYTES = 16;
+  constexpr std::size_t ENTRY_BYTES = 16;
+  const std::size_t body = HEADER_BYTES;
+  const std::uint32_t sections = u32At(body + 8);
+  for (std::uint32_t section = 0; section < sections; ++section)
+  {
+    const std::size_t entry = body + 12 + (section * ENTRY_BYTES);
+    const bool found = std::equal(_tag.begin(), _tag.end(), file.begin() + static_cast<std::ptrdiff_t>(entry),
+                                  [](char _a, std::byte _b) { return _a == std::to_integer<char>(_b); });
+    if (!found)
+    {
+      continue;
+    }
+    const std::uint32_t offset = u32At(entry + 8);
+    const std::uint32_t length = u32At(entry + 12);
+    file.erase(file.begin() + static_cast<std::ptrdiff_t>(body + offset),
+               file.begin() + static_cast<std::ptrdiff_t>(body + offset + length));
+    file.erase(file.begin() + static_cast<std::ptrdiff_t>(entry), file.begin() + static_cast<std::ptrdiff_t>(entry + ENTRY_BYTES));
+    setU32(body + 8, sections - 1);
+    for (std::uint32_t other = 0; other + 1 < sections; ++other)
+    {
+      const std::size_t at = body + 12 + (other * ENTRY_BYTES);
+      const std::uint32_t moved = u32At(at + 8) - static_cast<std::uint32_t>(ENTRY_BYTES);
+      setU32(at + 8, moved > offset - ENTRY_BYTES ? moved - length : moved);
+    }
+    const std::uint64_t hash = Core::Fnv1a64(std::span<const std::byte>(file).subspan(HEADER_BYTES));
+    for (std::size_t index = 0; index < 8; ++index)
+    {
+      file[8 + index] = static_cast<std::byte>((hash >> (8 * index)) & 0xffU);
+    }
+    return file;
+  }
+  throw std::invalid_argument("the baked server data has no such section");
+}
+
 } // namespace SimulationTests

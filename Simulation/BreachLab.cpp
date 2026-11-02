@@ -226,7 +226,7 @@ LabSetup BuildLabSite(World& _world)
                      .yVoxels = BreachRun::GROUND_VOXELS,
                      .zVoxels = BreachRun::WALL_SOUTH_VOXELS - SQUAD_STANDOFF_VOXELS});
   }
-  const Protocol::EntityId squad = _world.AddSquad(BreachRun::PLAYER, NavigationClass::Foot, cells, UnitKind::ManAtArms);
+  const Protocol::EntityId squad = _world.AddSquad(BreachRun::PLAYER, UnitKind::ManAtArms, cells);
   return {
     .engine = engine,
     .squad = squad,

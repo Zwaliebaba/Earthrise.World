@@ -43,13 +43,13 @@ Protocol::Answer DecodedAnswer(const std::vector<std::byte>& _bytes)
 } // namespace
 
 // Queries and answers as bytes (ADR-009, decision 6; ADR-020, decision 5): a u32 id, a u16 tag, a u16
-// record version, then the fields; an answer adds the tick after its id.
+// record version, then the fields; an answer adds the tick after its id, and whether it was not visible (ADR-025).
 TEST_CLASS(QueryTests)
 {
 public:
   TEST_METHOD(RoundTripsEachQuery)
   {
-    const std::array<Protocol::QueryRequest, 3> requests = {{
+    const std::array<Protocol::QueryRequest, 4> requests = {{
       {.id = 1, .query = Protocol::AimCheck{.engine = 9, .targetVoxels = {.xVoxels = 100, .yVoxels = 9, .zVoxels = -3}}},
       {.id = 2, .query = Protocol::SectionIntegrity{.structure = 4}},
       {.id = 4000000000U,
@@ -57,6 +57,7 @@ public:
                                     .startCellVoxels = {.xVoxels = 5, .yVoxels = 8, .zVoxels = 6},
                                     .tileX = 11,
                                     .tileZ = 5}},
+      {.id = 5, .query = Protocol::SquadAim{.squad = 12, .targetVoxels = {.xVoxels = 40, .yVoxels = 15, .zVoxels = 30}}},
     }};
     for (const Protocol::QueryRequest& request : requests)
     {
@@ -97,8 +98,9 @@ public:
                                              .gapFallRunVoxels = 5,
                                              .falling = true,
                                              .weakMinVoxels = {.xVoxels = 379, .yVoxels = 10, .zVoxels = 180},
-                                             .weakMaxVoxels = {.xVoxels = 383, .yVoxels = 10, .zVoxels = 181}}},
-      {.queryId = 3, .tick = 79, .reading = reach},
+                                             .weakMaxVoxels = {.xVoxels = 383, .yVoxels = 10, .zVoxels = 181},
+                                             .repairLockTicks = 120}},
+      {.queryId = 3, .tick = 79, .reading = reach, .notVisible = true},
     }};
     for (const Protocol::Answer& answer : answers)
     {
@@ -110,7 +112,7 @@ public:
   {
     const std::vector<std::byte> bytes = Encoded(Protocol::QueryRequest{
       .id = 7, .query = Protocol::AimCheck{.engine = 3, .targetVoxels = {.xVoxels = 1, .yVoxels = 2, .zVoxels = 3}}});
-    const std::array<unsigned, 28> expected = {0x07, 0x00, 0x00, 0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00,
+    const std::array<unsigned, 28> expected = {0x07, 0x00, 0x00, 0x00, 0x01, 0x00, 0x05, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00,
                                                0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00};
     Assert::AreEqual(expected.size(), bytes.size());
     for (std::size_t index = 0; index < expected.size(); ++index)
@@ -122,10 +124,10 @@ public:
   TEST_METHOD(RefusesAnUnknownTagOrVersionOrValue)
   {
     std::vector<std::byte> bytes = Encoded(Protocol::QueryRequest{.id = 1, .query = Protocol::SectionIntegrity{.structure = 1}});
-    bytes[4] = std::byte{4};
+    bytes[4] = std::byte{5};
     Assert::ExpectException<std::invalid_argument>([&bytes] { static_cast<void>(DecodedRequest(bytes)); });
     bytes = Encoded(Protocol::QueryRequest{.id = 1, .query = Protocol::SectionIntegrity{.structure = 1}});
-    bytes[6] = std::byte{1}; // version 1, from before M3-F3 gave the tile reach reading its surfaces
+    bytes[6] = std::byte{4}; // version 4, M4-D5's, from before M4-E1 added notVisible
     Assert::ExpectException<std::invalid_argument>([&bytes] { static_cast<void>(DecodedRequest(bytes)); });
     bytes = Encoded(Protocol::QueryRequest{
       .id = 1,

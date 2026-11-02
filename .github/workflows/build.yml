@@ -62,14 +62,27 @@ permissions:
   contents: read
 
 jobs:
+  # The tests, in shards that run side by side, each within 30 minutes (GameDesign.md, M4's phase F, items 4 and 5): at
+  # M4-F3 they took 26 minutes in one job, nearly all SimulationTests, and M4-F5's trials add more. Each shard builds
+  # Debug|x64 and runs a share of every suite: a named shard runs the test classes SHARD_CLASSES lists for it, and the
+  # last runs every test no named shard lists, so that no class is left out, a new one or a renamed one included.
   windows:
-    name: Debug|x64
+    name: Debug|x64 tests ${{ matrix.shard }}
     runs-on: windows-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
 
     env:
       CONFIGURATION: Debug
       PLATFORM: x64
+      # One list a named shard, ';' between shards and spaces between classes, in the order of the matrix's first
+      # shards. A tick of the Siege castle at play costs about 19 times here what it does in a Linux container's -O1
+      # build: SiegeDefenderTests, TrenchTests and BreachLabTests took 25 minutes in one shard, and M4-F5's trial runs,
+      # 69, 58 and 34 s in the container, take about 22, 18 and 11 minutes here, each in a shard of its own.
+      SHARD_CLASSES: SiegeDefenderTests SiegeOutcomeTests;TrenchTests BreachLabTests;SiegeTrialTests;SiegeMirrorTrialTests;SiegeControlTrialTests
 
     steps:
       - uses: actions/checkout@v4
@@ -85,6 +98,8 @@ jobs:
         shell: pwsh
         run: |
           Write-Output "runner image : $env:ImageOS / $env:ImageVersion"
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          Write-Output "visual studio: $(& $vswhere -latest -products * -property installationPath)"
           msbuild -version -nologo
           Write-Output "--- python ---"
           python --version
@@ -119,11 +134,13 @@ jobs:
 
       # One suite per *Tests.vcxproj in the solution, and every one of them must have produced a DLL:
       # vstest reports "no tests found" as a pass, so a suite that did not build is not a suite
-      # that passed, and a solution with no suites at all is a mistake.
+      # that passed, and a solution with no suites at all is a mistake. For the same reason a shard
+      # whose filter ran no test fails.
       - name: Run the tests
         shell: pwsh
         env:
           SOLUTION: ${{ steps.solution.outputs.path }}
+          SHARD: ${{ matrix.shard }}
         run: |
           $solution = [xml](Get-Content -Raw -LiteralPath $env:SOLUTION)
           $projects = @($solution.SelectNodes('//Project') | ForEach-Object { $_.Path } |
@@ -144,14 +161,28 @@ jobs:
           $vstest = Join-Path $install 'Common7\IDE\Extensions\TestPlatform\vstest.console.exe'
           if (-not (Test-Path $vstest)) { throw "vstest.console.exe is not at $vstest." }
           Write-Output "vstest: $vstest, found in $([math]::Round($watch.Elapsed.TotalSeconds, 1)) s"
-          & $vstest $suites /Platform:x64 /Logger:trx /ResultsDirectory:TestResults
+          $lists = @($env:SHARD_CLASSES -split ';')
+          $shard = [int]$env:SHARD
+          if ($shard -le $lists.Count) {
+            $filter = (@($lists[$shard - 1] -split ' ' | Where-Object { $_ }) | ForEach-Object { "FullyQualifiedName~$_" }) -join '|'
+          } else {
+            $filter = (@(($lists -join ' ') -split ' ' | Where-Object { $_ }) | ForEach-Object { "FullyQualifiedName!~$_" }) -join '&'
+          }
+          Write-Output "Shard $shard runs: $filter"
+          & $vstest $suites /Platform:x64 /Logger:trx /ResultsDirectory:TestResults "/TestCaseFilter:$filter"
           if ($LASTEXITCODE -ne 0) { throw "vstest reported failures." }
+          $ran = 0
+          foreach ($trx in Get-ChildItem -Path TestResults -Filter *.trx) {
+            $ran += [int]([xml](Get-Content -Raw -LiteralPath $trx.FullName)).TestRun.ResultSummary.Counters.total
+          }
+          if ($ran -eq 0) { throw "Shard $shard ran no test. A shard that runs nothing is not a shard that passed." }
+          Write-Output "Shard $shard ran $ran tests."
 
       - name: Upload the build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-log
+          name: build-log-${{ matrix.shard }}
           path: build.log
           if-no-files-found: ignore
 
@@ -159,17 +190,18 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: test-results-${{ matrix.shard }}
           path: TestResults
           if-no-files-found: ignore
 
   # ── Why clang-tidy is a job of its own ─────────────────────────────────────────────────────
   #
   # It took six minutes of the Windows job's sixteen on run 237, after the tests' seven and a half,
-  # one after the other. Here it runs beside them on a runner of its own, and needs its own build
-  # first: clang-tidy reads the headers the build generates, the compiled shaders and the bake's
-  # tables, as well as the sources. Two builds cost a public repository nothing, and the slower
-  # job, not the sum of both, is how long a run takes.
+  # one after the other, and seven at M4-F1 after the tests' twenty-one, which no 30-minute job held
+  # (GameDesign.md, M4's phase F, item 4). Here it runs beside the test shards on a runner of its
+  # own, and needs its own build first: clang-tidy reads the headers the build generates, the
+  # compiled shaders and the bake's tables, as well as the sources. Two builds cost a public
+  # repository nothing, and the slowest job, not the sum of them, is how long a run takes.
   tidy:
     name: clang-tidy
     runs-on: windows-latest
@@ -258,7 +290,7 @@ jobs:
           Write-Output "Solution: $($found[0].Name)"
           "path=$($found[0].Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-      # The build is for what clang-tidy reads that the build writes; the other job builds and tests.
+      # The build is for what clang-tidy reads that the build writes; the test shards build and test.
       - name: Build
         shell: pwsh
         run: |

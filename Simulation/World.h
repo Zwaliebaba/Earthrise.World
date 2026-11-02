@@ -2,6 +2,7 @@
 
 #include "ChunkCoordinate.h"
 #include "ChunkSnapshot.h"
+#include "Commander.h"
 #include "CollapsePlan.h"
 #include "Command.h"
 #include "EntityId.h"
@@ -9,11 +10,14 @@
 #include "Fixed.h"
 #include "FixedPosition.h"
 #include "NavigationGrid.h"
+#include "Arrow.h"
 #include "PathSearch.h"
 #include "Query.h"
 #include "ServerData.h"
 #include "Shot.h"
 #include "StateUpdate.h"
+#include "StructureRule.h"
+#include "Visibility.h"
 #include "VoxelWorld.h"
 
 #include <cstddef>
@@ -23,9 +27,11 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <tuple>
 #include <span>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 namespace Simulation
@@ -61,7 +67,27 @@ struct Squad
   /// the cells of the figures ahead of it, to the end of its path. Each figure stops as many cells
   /// short of the end as it stands behind the first.
   std::vector<PathSearch::CellIndex> trail;
+  /// The building it is garrisoned in, or NO_ENTITY (ADR-024, decision 5): its units then stand in no
+  /// cell, move and settle not at all, and are left out of the state update.
+  Protocol::EntityId garrisonedIn;
+  Protocol::UnitKind kind; // its figures', and so its stats (ADR-023, decision 1)
+  std::uint8_t facing;     // the direction of its lead's last step, 0 north and then clockwise in eighths (ADR-022)
+  /// What it was last ordered to do (ADR-023, decision 4): Move and Storm turn Idle when it arrives, Attack when its
+  /// target is gone. Garrisoned is read from garrisonedIn, never held here.
+  Protocol::SquadOrder order = Protocol::SquadOrder::Idle;
+  Protocol::EntityId target = Protocol::NO_ENTITY; // what an Attack names: a squad, or an engine
+  /// A Trench order's box, both corners included, the end of its long axis its ramp is left at (0 its low x, 1 its high x,
+  /// 2 its low z, 3 its high z) and the progress towards the next cubic metre its sappers dig (ADR-029).
+  Protocol::VoxelPosition trenchMinVoxels{};
+  Protocol::VoxelPosition trenchMaxVoxels{};
+  std::uint8_t trenchNearSide = 0;
+  Core::Fixed digProgress{};
 };
+
+/// A unit's trail step when it is not on its squad's trail: in formation, or making for it (ADR-022).
+inline constexpr std::uint32_t OFF_TRAIL = 0xffffffffU;
+/// No cell: a unit standing still has reserved none.
+inline constexpr std::int64_t NO_CELL = -1;
 
 /// One figure of a squad.
 struct Unit
@@ -72,12 +98,21 @@ struct Unit
   Protocol::EntityId squad;
   FixedPosition position;             // the middle of its feet
   Protocol::VoxelPosition cellVoxels; // the cell it stands in
-  std::uint32_t trailStep;            // the cell of its squad's trail it stands in, or steps toward
-  std::int64_t stepEffort;            // how far into that step, in Fixed's raw meters times the ground's factor; 0 when it stands
+  std::uint32_t trailStep;            // the cell of its squad's trail it stands in, or steps toward, or OFF_TRAIL
+  std::int64_t stepEffort;            // how far into its step, in Fixed's raw meters times the ground's factor; 0 when it stands
   Protocol::UnitKind kind;            // which figure it is, and so which model the client draws
+  std::int32_t hitPoints;             // from its kind's stats; it dies at 0 (ADR-023, decision 2)
+  // ADR-022: the cell it steps into, reserved from the step's start, or NO_CELL; the cell it steps from; and the ticks
+  // in a row it has waited for a cell.
+  std::int64_t reservedCell;
+  std::int64_t stepFromCell;
+  std::uint32_t waitTicks;
+  std::uint32_t reloadTicks = 0;                   // until it can strike or loose again; 0 when it can (ADR-023)
+  Protocol::EntityId target = Protocol::NO_ENTITY; // the enemy figure it engages, chosen at the start of each step 3
 };
 
 using Protocol::EngineKind;
+using Protocol::EngineState;
 using Protocol::FixedPosition;
 using Protocol::UnitKind;
 
@@ -91,6 +126,86 @@ struct SiegeEngine
   Protocol::VoxelPosition cellVoxels;
   std::uint32_t reloadTicks;  // until it can fire again; 0 when loaded
   std::uint32_t quarterTurns; // which way its model faces: quarter turns clockwise seen from above, as Engine::VoxelPass::Batch counts them
+  EngineState state;          // a ram stays Packed (MvpPlan.md, M4, input 17)
+  Protocol::EntityId squad;   // its body's squad of one, whose unit it moves as and whose hit points are its (ADR-023)
+  std::uint32_t stateTicksLeft = 0; // until a deploy or a pack is done; 0 when it is neither
+};
+
+/// A player of the match: their side and their stockpiles, in hundredths of a cubic metre (MvpPlan-M4.md,
+/// Contracts).
+struct Player
+{
+  std::uint8_t id;
+  Protocol::Side side;
+  std::int32_t stoneHundredthsCubicMeters;
+  std::int32_t timberHundredthsCubicMeters;
+  bool revealed = false; // the map counts as seen for the first revealTicks, for chunks, structures and answers (ADR-025)
+};
+
+/// What the simulation records happening in a tick for the trial's log and the tests, never the client (ADR-026,
+/// decision 5). M4-C1 raises UnitDied; the rest come with the orders that make them.
+enum class TrialEventKind : std::uint8_t
+{
+  ShotFired,
+  ShotLanded,
+  SectionOpened,
+  FigurePassed,
+  StoneSpent,
+  TimberSpent,
+  StructureStopped,
+  StructureWorks,
+  UnitDied,
+  Outcome
+};
+
+/// One event: UnitDied names its player, the unit, its squad, its kind as the amount and its cell; StoneSpent and
+/// TimberSpent the player, what it was spent on, the engine that fired or the structure repaired, the hundredths of a
+/// cubic metre as the amount, and the engine's cell or the voxel put back.
+struct TrialEvent
+{
+  TrialEventKind kind;
+  std::uint32_t tick;
+  std::uint8_t player;
+  Protocol::EntityId subject;
+  Protocol::EntityId other;
+  std::int32_t amount;
+  Protocol::VoxelPosition voxel;
+};
+
+/// The Siege trial's rules, from a scenario (ADR-026, decision 4).
+struct TrialRules
+{
+  Protocol::TrialVersion version;
+  std::uint8_t attacker;
+  std::uint8_t defender;
+  Protocol::EntityId keep;
+  std::uint32_t timeLimitTicks;
+  std::uint32_t holdTicks;
+  std::int32_t ringCells;                // the keep's foot: cells within this many of its footprint, outside it
+  Protocol::VoxelPosition campMinVoxels; // where "reachable from the camp" starts (ADR-026, decision 5)
+  Protocol::VoxelPosition campMaxVoxels;
+};
+
+/// How the Siege trial stands (ADR-026, decisions 4 and 5): saved after the match, but for the tick's contest, which step
+/// 10 sets afresh.
+struct TrialProgress
+{
+  TrialProgress() = default;
+  ~TrialProgress() = default;
+  TrialProgress(const TrialProgress&) = default;
+  TrialProgress& operator=(const TrialProgress&) = default;
+  // A move may allocate under the debug library's checked containers, whose std::set allocates in its move constructor,
+  // so it is not noexcept (bugprone-exception-escape), as World's is not.
+  TrialProgress(TrialProgress&&) noexcept(false) = default;
+  TrialProgress& operator=(TrialProgress&&) noexcept(false) = default;
+
+  Protocol::TrialOutcome outcome = Protocol::TrialOutcome::Running;
+  std::uint32_t endTick = 0;   // the tick its outcome came on, which stops the clock
+  std::uint32_t holdTicks = 0; // the storming clock
+  bool contested = false;      // this tick's: both sides stood in the keep's ring
+  std::set<Protocol::EntityId> openedSections;
+  /// Each figure standing in a section's footprint: the section, and whether it came in from the section's inner side.
+  std::map<Protocol::EntityId, std::pair<Protocol::EntityId, bool>> passing;
 };
 
 /// A template placed in the world (ADR-005, decision 10, without the built mask, which M4's
@@ -103,16 +218,34 @@ struct Structure
   Protocol::VoxelPosition originVoxels; // the minimum corner of its footprint, after the turn
   std::uint32_t quarterTurns;           // clockwise seen from above, as Engine::VoxelPass::Batch counts them: one turns +z towards +x
   std::string name;                     // the scenario's, such as W2 (Hud.md §10)
+  // At record version 2 (ADR-024; MvpPlan-M4.md, Contracts):
+  /// Which template voxels were built, one bit a voxel in the template's order, x fastest, then z, then y: bit i in
+  /// byte i / 8, from its lowest bit. A scenario's structures start fully built (decision 1).
+  std::vector<std::uint8_t> builtMask;
+  std::uint8_t criticalPercent = 100; // the share of its critical part's built voxels that stand; 100 without a part
+  bool working = true;                // while the share is at least its template's threshold (decision 2)
+  std::uint32_t repairLockTicks = 0;  // until repair may resume (decision 4; M4-D5)
+  Core::Fixed repairProgress{};       // towards the next voxel repair puts back (decision 3; M4-D5)
+  bool gateOpen = false;              // a gatehouse's or a gate's (decision 6; M4-D2)
+  std::int32_t hitPoints = 0;         // the control's pool (ADR-028; M4-F4); 0 in the voxel version
+  // At record version 3 (M4-F2): the share of its built voxels that stand, every part, which the defender repairs by.
+  std::uint8_t standingPercent = 100;
 };
 
 /// A trebuchet's shot in flight (M2-E1), on its arc.
 struct Shot
 {
   Protocol::EntityId id;
-  Protocol::EntityId engine;
+  Protocol::EntityId engine; // its shooter: the engine, or for an arrow the squad of the figure that loosed it
   std::uint8_t owner;
-  ShotArc arc;
+  std::variant<ShotArc, ArrowLine> flight; // a stone's arc, or an arrow's line (ADR-023, decision 5)
   std::uint32_t ticksFlown;
+  Protocol::ShotKind kind = Protocol::ShotKind::Stone;
+  // An arrow's: the figure that loosed it, the figure it was loosed at, and the damage it deals that figure, fixed when it
+  // was loosed by the shooter's stats and the elevation then.
+  Protocol::EntityId shooter = Protocol::NO_ENTITY;
+  Protocol::EntityId target = Protocol::NO_ENTITY;
+  std::int32_t damage = 0;
 };
 
 /// A piece that lost support, warning and then falling (ADR-004, decisions 3 and 4).
@@ -209,8 +342,28 @@ public:
   /// searched in the next step 5, as the tick's own are.
   [[nodiscard]] VoxelWorld& Voxels() noexcept;
 
-  /// The chunks changed since the last call (ADR-002, decision 3).
+  /// The chunks changed since the last call (ADR-002, decision 3), to whoever asks: M3's, for a world without players.
   [[nodiscard]] std::vector<Protocol::ChunkSnapshot> Publish();
+
+  /// The chunks _player is sent now (ADR-025, decision 3): each whose column holds a cell they see, or every one while
+  /// their map is revealed, whose snapshot differs from the one last sent them. In a world without players, Publish().
+  [[nodiscard]] std::vector<Protocol::ChunkSnapshot> Publish(std::uint8_t _player);
+
+  /// Step 11's first part, every player's visibility stamped afresh from their units and structures (ADR-025,
+  /// decision 1); public so that SimulationBench can time it alone.
+  void RecomputeVisibility();
+
+  /// What a query's answer costs in units of work, in step 12 and to a commander (ADR-009, decision 5; ADR-027, decision 4).
+  static constexpr std::int32_t AIM_CHECK_WORK = 1;
+  static constexpr std::int32_t TILE_REACH_WORK = 1;
+  /// The whole budget, so one reading a tick: a reading took up to 10.6 ms on the benchmark (M3-G3).
+  static constexpr std::int32_t SECTION_INTEGRITY_WORK = 16;
+
+  /// Gives _player a commander, before tick 0 (ADR-027, decision 1): it decides in step 13 and its commands reach the
+  /// next tick's step 1. Null takes the commander away, for a human's seat.
+  void SetCommander(std::uint8_t _player, std::unique_ptr<Commander> _commander);
+  /// The commanders' commands the last tick applied, apart from the transport's (ADR-027, decision 2).
+  [[nodiscard]] std::span<const SubmittedCommand> LastTickCommanderCommands() const noexcept;
 
   /// At most this many queries wait; one more drops the oldest (ADR-009, decision 5).
   static constexpr std::size_t MAX_PENDING_QUERIES = 64;
@@ -230,11 +383,21 @@ public:
 
   /// Nothing in flight: no shot, no collapse, no slump or search pending, no edit unsearched, and every
   /// unit standing still. What the breach lab's fast-forward stops on (M3-B7).
-  [[nodiscard]] bool Quiet() const noexcept;
+  [[nodiscard]] bool Quiet() const;
 
-  /// What step 11 published at the end of the last tick: the whole state the player sees, as values
-  /// (ADR-020, decision 3). Empty before the first tick, and after a load until the next.
-  [[nodiscard]] const Protocol::StateUpdate& State() const noexcept;
+  /// What step 11 published at the end of the last tick for _player: the whole state they see, as
+  /// values (ADR-020, decision 3), with the stockpiles of their own alone and the commands of theirs
+  /// the tick refused. Step 11 publishes for every player of the match, and for player 1 in a world
+  /// that has none. Empty before the first tick, after a load until the next, and for a player it
+  /// does not publish for.
+  [[nodiscard]] const Protocol::StateUpdate& State(std::uint8_t _player) const;
+
+  /// M3's: State(1).
+  [[nodiscard]] const Protocol::StateUpdate& State() const;
+
+  /// The last tick's events, unfiltered: for Earthrise's log and the tests, never the client (ADR-026,
+  /// decision 5).
+  [[nodiscard]] std::span<const TrialEvent> LastTickEvents() const noexcept;
 
   [[nodiscard]] const Desc& Description() const noexcept;
   [[nodiscard]] const ServerData& Data() const noexcept;
@@ -263,21 +426,38 @@ public:
   [[nodiscard]] std::span<const Protocol::VoxelPosition> LastTickEdits() const noexcept;
 
   /// Places a squad of _owner's figures of _kind, with one unit standing in each of _cellsVoxels, for
-  /// scenarios and tests. The squad takes the first new id and its units the next, in the order given.
-  Protocol::EntityId AddSquad(std::uint8_t _owner, NavigationClass _class, std::span<const Protocol::VoxelPosition> _cellsVoxels,
-                              UnitKind _kind = UnitKind::Spearman);
+  /// scenarios and tests, their class and hit points their kind's (ADR-023, decision 1). The squad
+  /// takes the first new id and its units the next, in the order given.
+  Protocol::EntityId AddSquad(std::uint8_t _owner, UnitKind _kind, std::span<const Protocol::VoxelPosition> _cellsVoxels);
 
-  /// Places a siege engine of _owner's standing in _cellVoxels, facing _quarterTurns, for scenarios
-  /// and tests.
+  /// Places a siege engine of _owner's standing in _cellVoxels, facing _quarterTurns, in _state, for
+  /// scenarios and tests, and its body, a squad of one of the kind Ram or Trebuchet in the same cell,
+  /// which it moves as while packed (ADR-023). The engine takes the first new id, then its body's
+  /// squad and unit. M2's and M3's engines are deployed.
   Protocol::EntityId AddSiegeEngine(std::uint8_t _owner, EngineKind _kind, Protocol::VoxelPosition _cellVoxels,
-                                    std::uint32_t _quarterTurns = 0);
+                                    std::uint32_t _quarterTurns = 0, EngineState _state = EngineState::Deployed);
 
   /// Stamps the server data's template _templateId with the minimum corner of its footprint at
   /// _originVoxels, turned _quarterTurns clockwise seen from above, by edits between ticks, as a
-  /// scenario places one, and records it as a structure named _name. Its voxels are searched in the
-  /// next step 5, as every edit is. Throws std::invalid_argument for a template the data lacks.
+  /// scenario places one, and records it as a structure named _name. Its foundation course, the
+  /// building stone of the template's bottom layer, is repeated down _foundationDepthVoxels below its
+  /// base (ADR-026, decision 1). Its voxels are searched in the next step 5, as every edit is. Throws
+  /// std::invalid_argument for a template the data lacks.
   Protocol::EntityId AddStructure(std::uint8_t _owner, std::string_view _templateId, Protocol::VoxelPosition _originVoxels,
-                                  std::uint32_t _quarterTurns, std::string_view _name);
+                                  std::uint32_t _quarterTurns, std::string_view _name, std::int32_t _foundationDepthVoxels = 0);
+
+  /// Adds a player of the match, for scenarios before tick 0. Saved.
+  void AddPlayer(const Player& _player);
+  [[nodiscard]] const std::map<std::uint8_t, Player>& Players() const noexcept;
+
+  /// Puts a squad in a building, for scenarios and tests before tick 0 (ADR-024, decision 5): its units
+  /// leave their cells for the building's origin, and move and settle no more. Throws
+  /// std::invalid_argument for a squad or a structure the world does not hold.
+  void PlaceInGarrison(Protocol::EntityId _squad, Protocol::EntityId _structure);
+
+  /// The Siege trial's rules, for scenarios before tick 0 (ADR-026, decision 4). Saved.
+  void SetTrial(const TrialRules& _rules);
+  [[nodiscard]] const std::optional<TrialRules>& Trial() const noexcept;
 
   [[nodiscard]] const std::map<Protocol::EntityId, Structure>& Structures() const noexcept;
 
@@ -289,6 +469,9 @@ private:
   friend std::vector<std::byte> WriteSave(const World& _world);
   friend World LoadSave(std::span<const std::byte> _save, const Desc& _desc);
   friend std::uint64_t StateHash(const World& _world);
+  friend class CommanderView;
+  friend class VoxelStructureRule;
+  friend class HealthStructureRule;
 
   // The tick's steps, in MvpPlan.md's order (*One simulation tick*).
   void ApplyCommands();
@@ -307,6 +490,63 @@ private:
 
   void Apply(std::uint8_t _player, const Protocol::Command& _command);
   void Fire(std::uint8_t _player, const Protocol::FireEngine& _fire);
+  /// A packed trebuchet stops and deploys facing _deploy's way, a deployed one packs (MvpPlan.md, M4, input 17).
+  void Deploy(std::uint8_t _player, const Protocol::DeployEngine& _deploy);
+  void Pack(std::uint8_t _player, const Protocol::PackEngine& _pack);
+  /// A stone's crush where it struck: every unit within a cell of the struck voxel, and an engine whose footprint holds
+  /// its column, each once (ADR-023, decision 7).
+  void CrushAround(Protocol::VoxelPosition _struck);
+
+  // ADR-023, decision 9: the ram at a structure, in step 4.
+  /// A structure's box: its footprint's minimum corner at its base, and its extents.
+  struct Box
+  {
+    Protocol::VoxelPosition min;
+    std::int32_t widthVoxels;
+    std::int32_t heightVoxels;
+    std::int32_t depthVoxels;
+  };
+  /// Where a ram touches a structure from: the cell it stands in and the way it faces, one step across x or z.
+  struct RamContact
+  {
+    Protocol::VoxelPosition cellVoxels;
+    std::int32_t facingX;
+    std::int32_t facingZ;
+  };
+  [[nodiscard]] std::optional<Box> BoxOf(const Structure& _structure) const;
+  /// The three columns before a ram's front, standing in _cellVoxels facing (_facingX, _facingZ): the one before its
+  /// centre, then the one either side, the lower first.
+  [[nodiscard]] std::array<std::pair<std::int32_t, std::int32_t>, 3> FrontColumns(Protocol::VoxelPosition _cellVoxels,
+                                                                                  std::int32_t _facingX, std::int32_t _facingZ) const;
+  /// The lowest voxel of _box in column (_x, _z) at or above _floorVoxels that is not empty, or nothing.
+  [[nodiscard]] std::optional<Protocol::VoxelPosition> LowestIn(const Box& _box, std::int32_t _x, std::int32_t _z,
+                                                                std::int32_t _floorVoxels) const;
+  /// The world voxels of _structure's critical part, at their turned places; none when its template names none.
+  [[nodiscard]] std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> CriticalVoxels(const Structure& _structure) const;
+  /// What a ram's next blow from _cellVoxels would strike: the way it faces, the voxel, how many voxels it takes and how
+  /// many of those are the structure's critical part's.
+  struct RamBlow
+  {
+    std::int32_t facingX;
+    std::int32_t facingZ;
+    Protocol::VoxelPosition voxel;
+    std::size_t takes;
+    std::size_t critical;
+  };
+  /// The blow of the ram's four facings that touch _box, a column before its front holding a voxel of it at the ram's
+  /// floor, that takes most of _critical, then most; ties to the order south, north, west, east. Nothing when it touches
+  /// nothing.
+  [[nodiscard]] std::optional<RamBlow> BestBlow(Protocol::VoxelPosition _cellVoxels, const Box& _box,
+                                                const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _critical) const;
+  /// The cell machines can use and reach from _ram from which its blow takes most of _critical, then most, the nearest by
+  /// octile distance among those, ties to the lower index; nothing when no blow from any takes a voxel.
+  [[nodiscard]] std::optional<RamContact>
+  RamContactFor(const Unit& _ram, const Box& _box, const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _critical) const;
+  /// The voxels a blow at _voxel removes, on input 9's ladder.
+  [[nodiscard]] std::vector<Protocol::VoxelPosition> RamCrater(Protocol::VoxelPosition _voxel, const Box& _box) const;
+  /// Every ram ordered at a structure strikes it on its cadence when it stands touching it, and makes for the nearest
+  /// place it can when it does not.
+  void RamBlows();
   /// Runs one tick of a collapse's fall; returns whether it has ended.
   [[nodiscard]] bool Fall(Collapse& _collapse);
   [[nodiscard]] std::int32_t WidthVoxels() const noexcept;
@@ -320,9 +560,23 @@ private:
   /// or, resting on a structure or too near the top of one beside it, on and away (M2-E6, E7).
   /// Returns the neighbour it went to, or nothing.
   std::optional<std::pair<std::int32_t, std::int32_t>> Slump(std::int32_t _x, std::int32_t _z);
-  /// The state _player may see: the filter of ADR-002, decision 4, through which M4's fog goes. M3
-  /// has one player and no fog, so it passes everything (ADR-020, decision 3).
+  /// The state _player may see: the filter of ADR-002, decision 4 (ADR-025, decision 2). A world without players has no
+  /// fog, so it passes everything, as M3's did (ADR-020, decision 3).
   [[nodiscard]] Protocol::StateUpdate StateFor(std::uint8_t _player) const;
+  /// _structure as _player's update shows it now, its garrison counted for its owner alone.
+  [[nodiscard]] Protocol::StructureView StructureViewFor(std::uint8_t _player, const Structure& _structure) const;
+  /// Whether fog applies: the match has players.
+  [[nodiscard]] bool Fogged() const noexcept;
+  /// Whether _player's map is revealed this tick (ADR-025, decision 5).
+  [[nodiscard]] bool Revealed(std::uint8_t _player) const;
+  /// Whether _player sees a cell of the box _x0 to _x1 by _z0 to _z1 now, by their units and structures alone.
+  [[nodiscard]] bool SeesAny(std::uint8_t _player, std::int32_t _x0, std::int32_t _z0, std::int32_t _x1, std::int32_t _z1) const;
+  /// Whether _player sees a cell of _structure's footprint now, or owns it, or has their map revealed.
+  [[nodiscard]] bool SeesStructure(std::uint8_t _player, const Structure& _structure) const;
+  /// Whether an answer to _query may say what it reads for _player (ADR-025, decision 6).
+  [[nodiscard]] bool AnswerVisible(std::uint8_t _player, const Protocol::Query& _query) const;
+  /// What an answer not visible reads: the query's reading type, empty.
+  [[nodiscard]] static Protocol::Reading EmptyReading(const Protocol::Query& _query);
   /// The reading a query asks for, on the tick's state (ADR-009, decision 3): M3-B4 to B6.
   [[nodiscard]] Protocol::Reading Answer(std::uint8_t _player, const Protocol::Query& _query) const;
   /// The attack cursor's reading for an engine of _player's aimed at a voxel (M3-B4).
@@ -333,6 +587,194 @@ private:
   [[nodiscard]] Protocol::CollapseView ViewOf(const Collapse& _collapse) const;
   /// The structure whose box holds _voxel, the lowest id where boxes overlap, or NO_ENTITY.
   [[nodiscard]] Protocol::EntityId StructureHolding(Protocol::VoxelPosition _voxel) const;
+  /// Whether _unit's squad is in a building.
+  [[nodiscard]] bool Garrisoned(const Unit& _unit) const;
+  /// Records a command refused for _player, which their next update names (ADR-023, decision 10).
+  void Refuse(std::uint8_t _player, const Protocol::Command& _command, Protocol::Refusal _reason);
+  /// The engine whose body _squad is, or null.
+  [[nodiscard]] SiegeEngine* EngineOfBody(Protocol::EntityId _squad);
+  /// Takes _amount of crush from _unit, less its armor against crush, at least 1 (ADR-023, decision 8).
+  void Crush(Unit& _unit, std::int32_t _amount);
+  /// The end of a step that may have killed: every unit at 0 hit points removed in unit-id order, a squad left with no
+  /// figure with it, an engine with its body, each death an event (ADR-023, decision 2).
+  void RemoveDead();
+  /// Puts each engine where its body stands.
+  void FollowBodies();
+
+  // ADR-024, decisions 1 and 2: what stands of a structure, and whether it works.
+  /// Where a template voxel of _structure lies in the world, turned as AddStructure stamps it.
+  [[nodiscard]] Protocol::VoxelPosition TemplateVoxel(const Structure& _structure, const ServerTemplate& _template, std::uint32_t _x,
+                                                      std::uint32_t _y, std::uint32_t _z) const;
+  /// The share of _structure's critical part's built voxels that stand, in whole percent, floored: a voxel stands when the
+  /// world holds its template's index there and no collapse in _held holds it. 100 for a structure with no critical part.
+  /// The share of _structure's built voxels that stand, every part, floored to a whole percent (M4-F2).
+  [[nodiscard]] std::uint8_t StandingShare(const Structure& _structure,
+                                           const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _held) const;
+  /// Step 13: each commander, in player order, on its cadence, offset by its player, decides within its work.
+  void RunCommanders();
+  [[nodiscard]] std::uint8_t CriticalShare(const Structure& _structure,
+                                           const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _held) const;
+  /// Every voxel a collapse still running holds, in warning or falling.
+  [[nodiscard]] std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> HeldByCollapses() const;
+  // ADR-028: the rule structures take hits by, and what each rule does through the world.
+  /// The rule the trial's version names: the control's for a control trial, the voxel version's otherwise.
+  [[nodiscard]] const StructureRule& Rule() const noexcept;
+  /// A stone's crater at _hit as edits to empty, and the repair lock on what it touches; with _keepStructures, a voxel in
+  /// a structure's box stays, as the control's terrain craters leave them (M2-E2; ADR-024, decision 4).
+  void VoxelCrater(const ShotHit& _hit, bool _keepStructures = false);
+  /// A ram's blow on _structure at _voxel, as edits, and its repair lock (ADR-023, decision 9; ADR-024, decision 4).
+  void VoxelRamBlow(Structure& _structure, Protocol::VoxelPosition _voxel);
+  /// A trench's cubic metre at _voxel dug: an edit, its column opened to slump, and the lock of the structures within
+  /// repairLockReachVoxels of it (ADR-029).
+  void DigVoxel(Protocol::VoxelPosition _voxel);
+  /// One tick of the voxel version's repair of _structure: its progress, and a voxel put back for each cubic metre.
+  void VoxelRepair(Structure& _structure);
+  /// Sets whether _structure works, and when that changes, raises its event, shuts its gate and puts its garrison out.
+  void SetWorking(Structure& _structure, bool _working);
+  /// Whether _structure's template is mostly timber, which its repair is paid in.
+  [[nodiscard]] bool TimberTemplate(const Structure& _structure) const;
+  /// Whether _player has a cubic metre of stone, or of timber, to spend; a player the match has none of always has.
+  [[nodiscard]] bool CanPay(std::uint8_t _player, bool _timber) const;
+  /// Spends a cubic metre of it on _subject, and raises StoneSpent or TimberSpent.
+  void Pay(std::uint8_t _player, bool _timber, Protocol::EntityId _subject, Protocol::VoxelPosition _voxel);
+  /// Has step 10 look at _structure this tick, as an edit in its box would.
+  void TouchStructure(Protocol::EntityId _structure);
+  /// The control's section at 0: every voxel of it that stands falls together through the resolver's collapse (ADR-028,
+  /// decision 3).
+  void FallWhole(const Structure& _structure);
+  /// Step 10's part: the structures the tick touched, by an edit in their box or a collapse of theirs starting or ending.
+  void UpdateStructures();
+
+  // ADR-026, decisions 4 and 5: the trial's rules and its events, in step 10.
+  /// Whether _structure is a section: its template names no critical part, as T3's and T6's do not.
+  [[nodiscard]] bool IsSection(const Structure& _structure) const;
+  /// The storming clock and the outcome: won when the keep has not worked and the ring held an attacker's soldier and no
+  /// defender for holdTicks; lost to the clock at the time limit; lost by the army with no unit of the attacker's left.
+  void CheckTrial();
+  /// After a tick that rebuilt navigation, each section not yet opened whose footprint holds a column foot can use, reach
+  /// from the camp and leave by to its inner side opens, and raises SectionOpened.
+  void FindOpenedSections();
+  /// Each figure that leaves a section's footprint on the side across from the one it came in by raises FigurePassed.
+  void TrackPassing();
+
+  // ADR-024, decision 6: gates.
+  /// Whether _structure's template has a gate: its critical part is named Gate, as T5's and T7's are.
+  [[nodiscard]] bool HasGate(const Structure& _structure) const;
+  /// The world voxels of _structure's gate, its critical part's, turned.
+  [[nodiscard]] std::vector<Protocol::VoxelPosition> GateVoxels(const Structure& _structure) const;
+  /// Opens or shuts a gate of _player's (MvpPlan.md, M4, input 13).
+  void SetGate(std::uint8_t _player, const Protocol::SetGate& _gate);
+  /// Opens or shuts _structure's gate: navigation reads every open gate's voxels as air, and the gate's tiles are rebuilt
+  /// in this tick's step 8, or at once when _now, for a gate step 10 shuts.
+  void SwingGate(Structure& _structure, bool _open, bool _now);
+  /// Rebuilds the navigation tiles _tiles, brings reach up to date, and has the squads they matter to search again
+  /// (ADR-015, decisions 4 and 5).
+  void RebuildTiles(const std::vector<std::pair<std::int32_t, std::int32_t>>& _tiles);
+  /// After a load: navigation reads the open gates' voxels as air again, and their tiles are rebuilt.
+  void RestoreGates();
+  /// The world voxels of _structure's passage: its template's empty voxels joined, face to face, to its gate's, turned;
+  /// with T5's gate at the passage's inner end, they are the passage outside the gate. Empty for a template with no gate.
+  [[nodiscard]] std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> PassageVoxels(const Structure& _structure) const;
+  /// Step 4: every passageAttackTicks, each gatehouse that works and holds a garrison deals passageAttackDamage of crush
+  /// to every unit standing in its passage (MvpPlan.md, M4, input 13).
+  void PassageAttacks();
+
+  // ADR-024, decision 5: garrisons.
+  /// Sends a squad of _player's to garrison a building of theirs; it goes in when its lead reaches the footprint.
+  void Garrison(std::uint8_t _player, const Protocol::GarrisonSquad& _garrison);
+  /// Puts a building's garrison out, at its owner's order.
+  void Eject(std::uint8_t _player, const Protocol::EjectGarrison& _eject);
+  /// The units garrisoned in _structure.
+  [[nodiscard]] std::size_t GarrisonedCount(Protocol::EntityId _structure) const;
+  /// Each squad walking to garrison a building goes in once its lead reaches the footprint, or stops when it no longer
+  /// may, the building no longer working or full.
+  void EnterGarrisons();
+  /// Puts every squad garrisoned in _structure out, in squad then unit-id order, on the nearest free cells foot can use,
+  /// on its owner's side first, clear of its footprint and of every falling piece's strip.
+  void PutOut(const Structure& _structure);
+  /// The centre of _owner's keep, doubled so that it is whole, when they have one: the trial's keep, or else their first T2.
+  [[nodiscard]] std::optional<std::pair<std::int64_t, std::int64_t>> KeepCenterTwice(std::uint8_t _owner) const;
+  /// Where a garrison of _structure looses at a target in _targetCellVoxels from: the cell just outside the face of its box
+  /// nearest the target, at the building's stand height (ADR-024, decision 5).
+  [[nodiscard]] Protocol::VoxelPosition LoosingCell(const Box& _box, Protocol::VoxelPosition _targetCellVoxels,
+                                                    std::int32_t _standVoxels) const;
+  /// Step 4: every ranged garrisoned figure whose reload is due looses at the nearest enemy it can reach from its building.
+  void LooseFromGarrisons();
+  /// Step 2: garrisoned figures heal a hit point every garrisonHealTicksPerHitPoint.
+  void HealGarrisons();
+
+  // ADR-029: sappers' trenches and undermining.
+  /// Sets a squad of _player's sappers digging a box, from the top, its ramp at the end of its long axis nearest them.
+  void DigTrench(std::uint8_t _player, const Protocol::DigTrench& _trench);
+  /// Whether _cell stands within TRENCH_REACH_CELLS of _squad's trench box across the ground, inside it included.
+  [[nodiscard]] static bool AtTrench(const Squad& _squad, Protocol::VoxelPosition _cell) noexcept;
+  /// The voxel _squad's sappers dig next, or none: a loose voxel of the box open to the sky that its ramp leaves to dig,
+  /// the highest first, then the farthest from the ramp's end, then the lowest column index.
+  [[nodiscard]] std::optional<Protocol::VoxelPosition> NextDig(const Squad& _squad) const;
+  /// Step 2: every squad digging a trench gains its sappers' rate, those at the box, while it has a voxel to dig, and digs
+  /// one for each cubic metre; each opens its column to slump and locks repair on the structures within reach of it.
+  void AdvanceTrenches();
+  /// Whether a trench has opened the column (_x, _z) to slump from under a structure (ADR-029, decision 3).
+  [[nodiscard]] bool Opened(std::int32_t _x, std::int32_t _z) const;
+  /// The height loose material sees a column at: its top, or, for one a structure tops that a trench has opened, the
+  /// highest solid voxel below the gap under the structure, or -1 when there is no gap. _under says whether a structure
+  /// tops it.
+  [[nodiscard]] std::int32_t LooseHeight(std::int32_t _x, std::int32_t _z, bool* _under) const;
+  /// Slump from under a structure (ADR-029, decision 3): the loose voxel below the structure on (_x, _z), or below the gap
+  /// under it, moves to the lowest neighbour a trench has opened more than a voxel below it, ties north, east, south,
+  /// west, and opens (_x, _z). Returns where it went.
+  std::optional<std::pair<std::int32_t, std::int32_t>> SlumpFromUnder(std::int32_t _x, std::int32_t _z);
+  /// Whether (_x, _z) is on the owner's side of _box: the side of its footprint's centre line, along its longer side or
+  /// across the keep's larger offset when square, that holds the owner's keep, given doubled as _keepTwice, or any side
+  /// when there is none or _box is the keep's (ADR-024, decisions 3 and 5; ADR-026, decision 5).
+  [[nodiscard]] static bool OnOwnersSide(const Box& _box, const std::optional<std::pair<std::int64_t, std::int64_t>>& _keepTwice,
+                                         std::int32_t _x, std::int32_t _z) noexcept;
+
+  // ADR-024, decisions 3 and 4: repair and its lock.
+  /// Sets a laborer of _player's walking to repair a structure of theirs, from the nearest cell it may repair from.
+  void OrderRepair(std::uint8_t _player, const Protocol::RepairStructure& _repair);
+  /// Whether _cell is one a laborer repairs _structure from: within repairReachVoxels of its footprint, outside it, on
+  /// its owner's side.
+  [[nodiscard]] bool AtRepairStand(const Structure& _structure, const Box& _box, Protocol::VoxelPosition _cell) const;
+  /// The voxel repair would put back in _structure next and its palette index, or none: a built voxel whose cell is empty,
+  /// that no unit stands in, and that would not stand on nothing; lowest first, then nearest the footprint's centre, then
+  /// a column through the template's depth at a time along its x, each from its front.
+  [[nodiscard]] std::optional<std::pair<Protocol::VoxelPosition, std::uint8_t>> NextRepair(const Structure& _structure) const;
+  /// Step 2: each structure's lock counts down, and one unlocked with a laborer of its owner's at work gains repair's
+  /// progress while it has a voxel to put back and its owner the material, putting one back for each cubic metre.
+  void AdvanceRepairs();
+  /// Locks repair on every structure whose box holds one of _voxels, for its lock.
+  void LockRepairs(std::span<const Protocol::VoxelPosition> _voxels);
+  /// _structure's lock: repairLockBuildingTicks for a building, whose template names a critical part, and repairLockTicks
+  /// for a section (ADR-024, decision 4, as amended).
+  [[nodiscard]] std::uint32_t LockTicksFor(const Structure& _structure) const;
+  /// Records _amount hundredths of a cubic metre of stone, or of timber, spent by _player on _subject.
+  void NoteSpent(bool _timber, std::uint8_t _player, Protocol::EntityId _subject, std::int32_t _amount, Protocol::VoxelPosition _voxel);
+
+  // ADR-023, decisions 3 and 4: targets and melee, in step 3.
+  /// Each figure's target for the tick, and each squad's order as its target and its arrival leave it.
+  void Acquire();
+  /// The nearest enemy figure to _unit within _rangeVoxels, of _onlySquad unless it is NO_ENTITY, ties to the lower id, or
+  /// NO_ENTITY. A ranged _unit also takes one beyond _rangeVoxels that its reach at the elevation to it covers.
+  [[nodiscard]] Protocol::EntityId Nearest(const Unit& _unit, std::int64_t _rangeVoxels, Protocol::EntityId _onlySquad) const;
+  /// Whether two units' footprints touch: one in a neighbouring cell of the other's.
+  [[nodiscard]] bool Adjacent(const Unit& _first, const Unit& _second) const;
+  /// The tick's melee: worked out from the state before any strike lands, then applied together.
+  void Melee();
+  /// Whether _unit, ranged, can loose at _foe now: in its reach at the elevation, with nothing solid on the line.
+  [[nodiscard]] bool CanLoose(const Unit& _unit, const Unit& _foe) const;
+  /// Every ranged figure whose reload is due looses an arrow at its target when it can (ADR-023, decision 5).
+  void Loose();
+  /// The attack cursor's reading for a ranged squad of _player's, as its lead's arrow would fly (M4-C4).
+  [[nodiscard]] Protocol::AimReading SquadAimReadingFor(std::uint8_t _player, const Protocol::SquadAim& _aim) const;
+  /// The squad an order names when _player may order it, or null after refusing the command.
+  [[nodiscard]] Squad* OrderableSquad(std::uint8_t _player, const Protocol::Command& _command, Protocol::EntityId _squad);
+  /// The squad an AttackTarget's target fights as: the squad, or an engine's body.
+  [[nodiscard]] const Squad* TargetSquad(Protocol::EntityId _target) const;
+  /// Ends a squad's walk where its figures stand, with _order.
+  void Halt(Squad& _squad, Protocol::SquadOrder _order);
+  void Split(std::uint8_t _player, const Protocol::SplitSquad& _split);
+  void Merge(std::uint8_t _player, const Protocol::MergeSquads& _merge);
 
   /// Asks for a squad's search from where its first unit stands, or the cell it is stepping into, to
   /// its goal, replacing any it has.
@@ -341,10 +783,86 @@ private:
   void Strike(Collapse& _collapse, Protocol::EntityId _unit);
   /// Lays a squad's trail along its new path (M2-F5).
   void FormTrail(Squad& _squad);
-  /// Walks a figure along its squad's trail for one tick, at its class's speed (ADR-015, decision 6).
-  void Walk(Unit& _unit, const Squad& _squad, std::size_t _place, bool _holding);
-  /// Sets a figure's position and cell from where it is on its squad's trail.
-  void Place(Unit& _unit, const Squad& _squad) const;
+
+  // ADR-022's movement in step 3. Cells are indexed z * width + x.
+  /// Which units hold and have reserved each cell.
+  struct Occupancy
+  {
+    Occupancy() = default;
+    ~Occupancy() = default;
+    Occupancy(const Occupancy&) = default;
+    Occupancy& operator=(const Occupancy&) = default;
+    // A move may allocate under the debug library's checked containers, so it is not noexcept
+    // (bugprone-exception-escape), as World's is not.
+    Occupancy(Occupancy&&) noexcept(false) = default;
+    Occupancy& operator=(Occupancy&&) noexcept(false) = default;
+
+    std::map<PathSearch::CellIndex, Protocol::EntityId> occupied;
+    std::map<PathSearch::CellIndex, Protocol::EntityId> reserved;
+  };
+  /// Where each figure of a squad makes for this tick: its slot's cell, or NO_CELL to follow the trail.
+  struct SquadPlan
+  {
+    bool moving;  // it has a trail
+    bool arrived; // its lead stands at the trail's end, and its search is done: the slots resolve about the goal
+    std::vector<PathSearch::CellIndex> targets;
+  };
+  /// A figure's next step: the cell, and its index on the trail when the step follows it, or OFF_TRAIL.
+  struct Step
+  {
+    PathSearch::CellIndex cell;
+    std::uint32_t trailStep;
+  };
+  /// Every squad's plan for the tick, and each figure's place in its squad.
+  struct Plans
+  {
+    Plans() = default;
+    ~Plans() = default;
+    Plans(const Plans&) = default;
+    Plans& operator=(const Plans&) = default;
+    // As Occupancy's.
+    Plans(Plans&&) noexcept(false) = default;
+    Plans& operator=(Plans&&) noexcept(false) = default;
+
+    std::map<Protocol::EntityId, SquadPlan> squads;
+    std::map<Protocol::EntityId, std::size_t> places;
+  };
+  static constexpr std::int32_t SLOT_TRAIL_REACH_CELLS = 3; // ADR-022, decision 4
+  static constexpr std::int32_t TRAVEL_FLOOD_CELLS = 4;     // how far from the lead a slot it can reach may lie on the way
+  static constexpr std::int32_t ARRIVAL_FLOOD_CELLS = 8;    // and at the goal
+  static constexpr std::uint32_t TRAIL_BEHIND_CELLS = 16;   // the trail a squad keeps behind its lead
+  static constexpr std::int32_t GREEDY_REACH_STEPS = 8;     // how far a figure's greedy steps are followed to see they arrive
+  static constexpr std::int32_t ATTACK_FOLLOW_CELLS = 4;    // how far an attacked squad's lead strays from the goal before a new search
+
+  [[nodiscard]] PathSearch::CellIndex CellOf(const Protocol::VoxelPosition& _cellVoxels) const noexcept;
+  [[nodiscard]] std::int64_t SpeedOf(const Unit& _unit) const;
+  [[nodiscard]] std::vector<PathSearch::CellIndex> Footprint(const Unit& _unit, PathSearch::CellIndex _cell) const;
+  [[nodiscard]] Occupancy BuildOccupancy() const;
+  [[nodiscard]] bool Free(const Occupancy& _occupancy, const Unit& _unit, PathSearch::CellIndex _cell) const;
+  [[nodiscard]] std::set<PathSearch::CellIndex> Flood(PathSearch::CellIndex _start, NavigationClass _class,
+                                                      std::int32_t _radiusCells) const;
+  [[nodiscard]] SquadPlan PlanFor(const Squad& _squad) const;
+  [[nodiscard]] std::optional<Step> NextStep(const Unit& _unit, const Squad& _squad, std::size_t _place, const SquadPlan& _plan) const;
+  [[nodiscard]] std::optional<PathSearch::CellIndex> Towards(PathSearch::CellIndex _from, NavigationClass _class,
+                                                             PathSearch::CellIndex _target) const;
+  [[nodiscard]] bool GreedyReaches(PathSearch::CellIndex _from, NavigationClass _class, PathSearch::CellIndex _target,
+                                   std::int32_t _steps = GREEDY_REACH_STEPS) const;
+  [[nodiscard]] Plans PlanAll() const;
+  /// The step each standing figure of a squad not holding for its search wants, for the swap.
+  [[nodiscard]] std::map<Protocol::EntityId, PathSearch::CellIndex> Wanted(const Plans& _plans) const;
+  [[nodiscard]] bool Holding(Protocol::EntityId _squad) const;
+  [[nodiscard]] std::optional<Protocol::EntityId> SwapPartner(const Unit& _unit, PathSearch::CellIndex _cell, const Occupancy& _occupancy,
+                                                              const std::map<Protocol::EntityId, PathSearch::CellIndex>& _wanted) const;
+  void StartStep(Unit& _unit, Squad& _squad, std::size_t _place, const Step& _step, Occupancy& _occupancy);
+  void AdvanceStep(Unit& _unit, const Squad& _squad, std::int64_t& _budget, Occupancy& _occupancy);
+  /// Every figure's walk for the tick, in unit-id order.
+  void WalkFigures();
+  /// Drops the trail behind every figure on it, keeping as many cells behind the lead as the squad has figures.
+  void TrimTrail(Squad& _squad);
+  /// Moves a unit to the nearest cell its class can use that no other holds; false when there is none near.
+  bool MoveToFreeCell(Unit& _unit, Occupancy& _occupancy);
+  /// Sets a figure's position and cell from its step.
+  void Place(Unit& _unit) const;
   /// The effort a step between two trail cells takes a class: its length in Fixed's raw meters, times
   /// the factor of the ground it lands on.
   [[nodiscard]] std::int64_t StepEffort(PathSearch::CellIndex _from, PathSearch::CellIndex _to, NavigationClass _class) const;
@@ -359,16 +877,40 @@ private:
   Protocol::EntityId m_nextEntityId = 1;
   std::vector<SubmittedCommand> m_pendingCommands;
   std::vector<SubmittedCommand> m_lastTickCommands;
+  // ADR-027: each player's commander, and the commands they gave in the last step 13, for the next step 1, and the ones
+  // that step applied.
+  std::map<std::uint8_t, CommanderSlot> m_commanders;
+  std::vector<SubmittedCommand> m_commanderCommands;
+  std::vector<SubmittedCommand> m_lastCommanderCommands;
   std::map<Protocol::EntityId, Squad> m_squads;
   std::map<Protocol::EntityId, Unit> m_units;
   std::map<Protocol::EntityId, SiegeEngine> m_siegeEngines;
   std::map<Protocol::EntityId, Shot> m_shots;
   std::map<Protocol::EntityId, Collapse> m_collapses;
   std::map<Protocol::EntityId, Structure> m_structures;
+  std::map<std::uint8_t, Player> m_players;
+  /// The voxels of gates opened or shut in this tick's step 1, whose tiles step 8 rebuilds; empty between ticks.
+  std::vector<Protocol::VoxelPosition> m_gateTouches;
+  std::optional<TrialRules> m_trial;
+  TrialProgress m_trialProgress;
+  // This tick's, cleared as it starts: whether step 8 or a gate shut in step 10 rebuilt a navigation tile (ADR-026,
+  // decision 5).
+  bool m_tilesRebuilt = false;
+  // This tick's too: the structures whose pool of hit points changed in the control, which step 10 looks at as it does
+  // one with an edit in its box (ADR-028).
+  std::set<Protocol::EntityId> m_touchedStructures;
   // The collapses whose fall ended this tick, as their last view: step 11 publishes them once more,
   // so the client sees the last of their landing land. Not saved: the next tick reads nothing of it.
   std::vector<Protocol::CollapseView> m_endedCollapses;
-  Protocol::StateUpdate m_state;
+  std::map<std::uint8_t, Protocol::StateUpdate> m_states; // step 11's, by player
+  // ADR-025: each player's visibility, derived each step 11 and rebuilt on a load; the version of each chunk last sent to
+  // each player, by packed key, saved but not hashed, since the client's calls set it; and each player's structures as
+  // they stood when last seen, saved and hashed.
+  std::map<std::uint8_t, Visibility> m_visibility;
+  std::map<std::uint8_t, std::map<std::uint64_t, std::uint64_t>> m_chunksSent;
+  std::map<std::uint8_t, std::map<Protocol::EntityId, Protocol::StructureView>> m_lastSeen;
+  std::vector<std::pair<std::uint8_t, Protocol::RefusalView>> m_tickRefusals; // the tick's step 1's, by player, in order
+  std::vector<TrialEvent> m_tickEvents;
   std::deque<SubmittedCommand> m_pendingQueries; // a query is bytes from a player, as a command is
   std::vector<std::vector<std::byte>> m_answers;
   std::vector<ShotHit> m_tickHits;
@@ -379,6 +921,9 @@ private:
   std::size_t m_searchedThrough = 0; // how many of this tick's edits step 5 searched
   // The columns waiting for slump, by column index, z * width + x (M2-E6).
   std::set<std::int64_t> m_slumpQueue;
+  // The columns a trench has opened to slump from under a structure, by column index (ADR-029, decision 3): those it dug,
+  // and those under a structure that slumped towards one.
+  std::set<std::int64_t> m_openedColumns;
   std::vector<Protocol::VoxelPosition> m_lastTickEdits;
 };
 

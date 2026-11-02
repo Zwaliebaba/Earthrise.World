@@ -96,6 +96,19 @@ NavigationGrid::NavigationGrid(const Desc& _desc, const MaterialRules& _material
   m_tileChanged.assign(tiles, 1);
 }
 
+void NavigationGrid::SetAir(std::span<const Protocol::VoxelPosition> _voxels)
+{
+  m_air.clear();
+  for (const Protocol::VoxelPosition& voxel : _voxels)
+  {
+    if (Inside(voxel.xVoxels, voxel.zVoxels))
+    {
+      m_air.emplace_back(Index(voxel.xVoxels, voxel.zVoxels), voxel.yVoxels);
+    }
+  }
+  std::ranges::sort(m_air);
+}
+
 void NavigationGrid::RebuildAll(const ChunkStore& _store)
 {
   for (std::int32_t z = 0; z < m_desc.depthCells; ++z)
@@ -633,9 +646,18 @@ void NavigationGrid::RebuildCell(const ChunkStore& _store, std::int32_t _x, std:
       m_column[static_cast<std::size_t>(height)] = chunk->At(inside.xVoxels, y, inside.zVoxels);
     }
   }
+  const std::size_t at = Index(_x, _z);
+  // An open gate's voxels are air to every unit (ADR-024, decision 6).
+  for (auto air = std::ranges::lower_bound(m_air, std::pair<std::size_t, std::int32_t>{at, INT32_MIN});
+       air != m_air.end() && air->first == at; ++air)
+  {
+    if (air->second >= 0 && air->second < m_desc.heightVoxels)
+    {
+      m_column[static_cast<std::size_t>(air->second)] = Protocol::Chunk::EMPTY;
+    }
+  }
   const auto rule = [this](std::int32_t _y) -> const MaterialRule&
   { return (*m_materials)[_y >= m_desc.heightVoxels ? Protocol::Chunk::EMPTY : m_column[static_cast<std::size_t>(_y)]]; };
-  const std::size_t at = Index(_x, _z);
   m_heights[at] = NOT_WALKABLE;
   m_headroom[at] = 0;
   m_ground[at] = Ground::Plain;

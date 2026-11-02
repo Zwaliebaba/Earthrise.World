@@ -14,7 +14,6 @@ namespace
 {
 
 constexpr std::array<std::byte, 4> SAVE_MAGIC = {std::byte{'E'}, std::byte{'R'}, std::byte{'S'}, std::byte{'V'}};
-constexpr std::uint16_t RECORD_VERSION = 1;
 
 [[noreturn]] void Refuse(const std::string& _check)
 {
@@ -43,6 +42,16 @@ void WritePosition(Core::ByteWriter& _writer, Protocol::VoxelPosition _position)
 Protocol::VoxelPosition ReadPosition(Core::ByteReader& _reader)
 {
   return {.xVoxels = _reader.ReadI32(), .yVoxels = _reader.ReadI32(), .zVoxels = _reader.ReadI32()};
+}
+
+void WriteFixed(Core::ByteWriter& _writer, Core::Fixed _value)
+{
+  _writer.WriteI32(_value.Raw());
+}
+
+Core::Fixed ReadFixed(Core::ByteReader& _reader)
+{
+  return Core::Fixed::FromRaw(_reader.ReadI32());
 }
 
 void WriteFixedPosition(Core::ByteWriter& _writer, const FixedPosition& _position)
@@ -128,6 +137,15 @@ void WriteRecord(Core::ByteWriter& _writer, const Squad& _squad)
   {
     _writer.WriteI64(cell);
   }
+  _writer.WriteU64(_squad.garrisonedIn);
+  _writer.WriteU8(static_cast<std::uint8_t>(_squad.kind));
+  _writer.WriteU8(_squad.facing);
+  _writer.WriteU8(static_cast<std::uint8_t>(_squad.order));
+  _writer.WriteU64(_squad.target);
+  WritePosition(_writer, _squad.trenchMinVoxels);
+  WritePosition(_writer, _squad.trenchMaxVoxels);
+  _writer.WriteU8(_squad.trenchNearSide);
+  WriteFixed(_writer, _squad.digProgress);
 }
 
 Squad ReadSquad(Core::ByteReader& _reader)
@@ -140,7 +158,16 @@ Squad ReadSquad(Core::ByteReader& _reader)
               .goalVoxels = ReadPosition(_reader),
               .path = {},
               .shortOfGoal = false,
-              .trail = {}};
+              .trail = {},
+              .garrisonedIn = Protocol::NO_ENTITY,
+              .kind = UnitKind::Spearman,
+              .facing = 0,
+              .order = Protocol::SquadOrder::Idle,
+              .target = Protocol::NO_ENTITY,
+              .trenchMinVoxels = {},
+              .trenchMaxVoxels = {},
+              .trenchNearSide = 0,
+              .digProgress = {}};
   const std::uint32_t units = _reader.ReadU32();
   for (std::uint32_t number = 0; number < units; ++number)
   {
@@ -157,6 +184,23 @@ Squad ReadSquad(Core::ByteReader& _reader)
   {
     squad.trail.push_back(_reader.ReadI64());
   }
+  squad.garrisonedIn = _reader.ReadU64();
+  squad.kind = ReadEnum(_reader, UnitKind::Trebuchet, "kind of unit");
+  squad.facing = _reader.ReadU8();
+  if (squad.facing > 7)
+  {
+    Refuse("a squad faces a direction this build does not know");
+  }
+  squad.order = ReadEnum(_reader, Protocol::SquadOrder::Garrisoned, "squad's order");
+  squad.target = _reader.ReadU64();
+  squad.trenchMinVoxels = ReadPosition(_reader);
+  squad.trenchMaxVoxels = ReadPosition(_reader);
+  squad.trenchNearSide = _reader.ReadU8();
+  if (squad.trenchNearSide > 3)
+  {
+    Refuse("a squad's trench has its ramp at an end this build does not know");
+  }
+  squad.digProgress = ReadFixed(_reader);
   return squad;
 }
 
@@ -171,6 +215,12 @@ void WriteRecord(Core::ByteWriter& _writer, const Unit& _unit)
   _writer.WriteU32(_unit.trailStep);
   _writer.WriteI64(_unit.stepEffort);
   _writer.WriteU8(static_cast<std::uint8_t>(_unit.kind));
+  _writer.WriteI32(_unit.hitPoints);
+  _writer.WriteI64(_unit.reservedCell);
+  _writer.WriteI64(_unit.stepFromCell);
+  _writer.WriteU32(_unit.waitTicks);
+  _writer.WriteU32(_unit.reloadTicks);
+  _writer.WriteU64(_unit.target);
 }
 
 Unit ReadUnit(Core::ByteReader& _reader)
@@ -183,7 +233,13 @@ Unit ReadUnit(Core::ByteReader& _reader)
           .cellVoxels = ReadPosition(_reader),
           .trailStep = _reader.ReadU32(),
           .stepEffort = _reader.ReadI64(),
-          .kind = ReadEnum(_reader, UnitKind::Sapper, "kind of unit")};
+          .kind = ReadEnum(_reader, UnitKind::Trebuchet, "kind of unit"),
+          .hitPoints = _reader.ReadI32(),
+          .reservedCell = _reader.ReadI64(),
+          .stepFromCell = _reader.ReadI64(),
+          .waitTicks = _reader.ReadU32(),
+          .reloadTicks = _reader.ReadU32(),
+          .target = _reader.ReadU64()};
 }
 
 void WriteRecord(Core::ByteWriter& _writer, const SiegeEngine& _engine)
@@ -195,55 +251,86 @@ void WriteRecord(Core::ByteWriter& _writer, const SiegeEngine& _engine)
   WritePosition(_writer, _engine.cellVoxels);
   _writer.WriteU32(_engine.reloadTicks);
   _writer.WriteU8(static_cast<std::uint8_t>(_engine.quarterTurns));
+  _writer.WriteU8(static_cast<std::uint8_t>(_engine.state));
+  _writer.WriteU64(_engine.squad);
+  _writer.WriteU32(_engine.stateTicksLeft);
 }
 
 SiegeEngine ReadSiegeEngine(Core::ByteReader& _reader)
 {
   return {.id = _reader.ReadU64(),
           .owner = _reader.ReadU8(),
-          .kind = ReadEnum(_reader, EngineKind::Trebuchet, "kind of engine"),
+          .kind = ReadEnum(_reader, EngineKind::Ram, "kind of engine"),
           .position = ReadFixedPosition(_reader),
           .cellVoxels = ReadPosition(_reader),
           .reloadTicks = _reader.ReadU32(),
-          .quarterTurns = ReadQuarterTurns(_reader)};
-}
-
-void WriteFixed(Core::ByteWriter& _writer, Core::Fixed _value)
-{
-  _writer.WriteI32(_value.Raw());
-}
-
-Core::Fixed ReadFixed(Core::ByteReader& _reader)
-{
-  return Core::Fixed::FromRaw(_reader.ReadI32());
+          .quarterTurns = ReadQuarterTurns(_reader),
+          .state = ReadEnum(_reader, EngineState::Packing, "engine state"),
+          .squad = _reader.ReadU64(),
+          .stateTicksLeft = _reader.ReadU32()};
 }
 
 void WriteRecord(Core::ByteWriter& _writer, const Shot& _shot)
 {
+  // Version 2 (M4-C4): the kind, then a stone's arc or an arrow's line, then an arrow's shooter, target and damage.
   _writer.WriteU64(_shot.id);
   _writer.WriteU64(_shot.engine);
   _writer.WriteU8(_shot.owner);
-  WriteFixedPosition(_writer, _shot.arc.start);
-  WriteFixed(_writer, _shot.arc.acrossXMeters);
-  WriteFixed(_writer, _shot.arc.acrossZMeters);
-  WriteFixed(_writer, _shot.arc.flightTicks);
-  WriteFixed(_writer, _shot.arc.riseMetersPerTick);
-  WriteFixed(_writer, _shot.arc.gravityMetersPerTickSquared);
+  _writer.WriteU8(static_cast<std::uint8_t>(_shot.kind));
+  if (const auto* line = std::get_if<ArrowLine>(&_shot.flight))
+  {
+    WriteFixedPosition(_writer, line->start);
+    WriteFixedPosition(_writer, line->end);
+    WriteFixed(_writer, line->flightTicks);
+  }
+  else
+  {
+    const ShotArc& arc = std::get<ShotArc>(_shot.flight);
+    WriteFixedPosition(_writer, arc.start);
+    WriteFixed(_writer, arc.acrossXMeters);
+    WriteFixed(_writer, arc.acrossZMeters);
+    WriteFixed(_writer, arc.flightTicks);
+    WriteFixed(_writer, arc.riseMetersPerTick);
+    WriteFixed(_writer, arc.gravityMetersPerTickSquared);
+  }
   _writer.WriteU32(_shot.ticksFlown);
+  _writer.WriteU64(_shot.shooter);
+  _writer.WriteU64(_shot.target);
+  _writer.WriteI32(_shot.damage);
 }
 
 Shot ReadShot(Core::ByteReader& _reader)
 {
-  return {.id = _reader.ReadU64(),
-          .engine = _reader.ReadU64(),
-          .owner = _reader.ReadU8(),
-          .arc = {.start = ReadFixedPosition(_reader),
-                  .acrossXMeters = ReadFixed(_reader),
-                  .acrossZMeters = ReadFixed(_reader),
-                  .flightTicks = ReadFixed(_reader),
-                  .riseMetersPerTick = ReadFixed(_reader),
-                  .gravityMetersPerTickSquared = ReadFixed(_reader)},
-          .ticksFlown = _reader.ReadU32()};
+  Shot shot{.id = _reader.ReadU64(),
+            .engine = _reader.ReadU64(),
+            .owner = _reader.ReadU8(),
+            .flight = ShotArc{},
+            .ticksFlown = 0,
+            .kind = ReadEnum(_reader, Protocol::ShotKind::Arrow, "kind of shot"),
+            .shooter = Protocol::NO_ENTITY,
+            .target = Protocol::NO_ENTITY,
+            .damage = 0};
+  if (shot.kind == Protocol::ShotKind::Arrow)
+  {
+    ArrowLine line{.start = ReadFixedPosition(_reader), .end = {}, .flightTicks = {}};
+    line.end = ReadFixedPosition(_reader);
+    line.flightTicks = ReadFixed(_reader);
+    shot.flight = line;
+  }
+  else
+  {
+    shot.flight = ShotArc{.start = ReadFixedPosition(_reader),
+                          .acrossXMeters = ReadFixed(_reader),
+                          .acrossZMeters = ReadFixed(_reader),
+                          .flightTicks = ReadFixed(_reader),
+                          .riseMetersPerTick = ReadFixed(_reader),
+                          .gravityMetersPerTickSquared = ReadFixed(_reader)};
+  }
+  shot.ticksFlown = _reader.ReadU32();
+  shot.shooter = _reader.ReadU64();
+  shot.target = _reader.ReadU64();
+  shot.damage = _reader.ReadI32();
+  return shot;
 }
 
 void WritePositions(Core::ByteWriter& _writer, std::span<const Protocol::VoxelPosition> _positions)
@@ -343,16 +430,58 @@ void WriteRecord(Core::ByteWriter& _writer, const Structure& _structure)
   WritePosition(_writer, _structure.originVoxels);
   _writer.WriteU8(static_cast<std::uint8_t>(_structure.quarterTurns));
   WriteText(_writer, _structure.name);
+  // Version 2 (M4-D1; ADR-024): the built mask, then what it is at work.
+  _writer.WriteU32(static_cast<std::uint32_t>(_structure.builtMask.size()));
+  for (const std::uint8_t byte : _structure.builtMask)
+  {
+    _writer.WriteU8(byte);
+  }
+  _writer.WriteU8(_structure.criticalPercent);
+  _writer.WriteU8(_structure.working ? std::uint8_t{1} : std::uint8_t{0});
+  _writer.WriteU32(_structure.repairLockTicks);
+  WriteFixed(_writer, _structure.repairProgress);
+  _writer.WriteU8(_structure.gateOpen ? std::uint8_t{1} : std::uint8_t{0});
+  _writer.WriteI32(_structure.hitPoints);
+  _writer.WriteU8(_structure.standingPercent);
 }
 
 Structure ReadStructure(Core::ByteReader& _reader)
 {
-  Structure structure{
-    .id = _reader.ReadU64(), .owner = _reader.ReadU8(), .templateId = {}, .originVoxels = {}, .quarterTurns = 0, .name = {}};
+  Structure structure{.id = _reader.ReadU64(),
+                      .owner = _reader.ReadU8(),
+                      .templateId = {},
+                      .originVoxels = {},
+                      .quarterTurns = 0,
+                      .name = {},
+                      .builtMask = {},
+                      .criticalPercent = 100,
+                      .working = true,
+                      .repairLockTicks = 0,
+                      .repairProgress = {},
+                      .gateOpen = false,
+                      .hitPoints = 0};
   structure.templateId = ReadText(_reader);
   structure.originVoxels = ReadPosition(_reader);
   structure.quarterTurns = ReadQuarterTurns(_reader);
   structure.name = ReadText(_reader);
+  const std::uint32_t maskBytes = _reader.ReadU32();
+  for (std::uint32_t byte = 0; byte < maskBytes; ++byte)
+  {
+    structure.builtMask.push_back(_reader.ReadU8());
+  }
+  structure.criticalPercent = _reader.ReadU8();
+  const std::uint8_t working = _reader.ReadU8();
+  structure.repairLockTicks = _reader.ReadU32();
+  structure.repairProgress = ReadFixed(_reader);
+  const std::uint8_t gateOpen = _reader.ReadU8();
+  structure.hitPoints = _reader.ReadI32();
+  structure.standingPercent = _reader.ReadU8();
+  if (structure.criticalPercent > 100 || working > 1 || gateOpen > 1)
+  {
+    Refuse("a structure's share, working or gate holds a value it cannot");
+  }
+  structure.working = working == 1;
+  structure.gateOpen = gateOpen == 1;
   return structure;
 }
 
@@ -362,12 +491,68 @@ template <typename Kind> void WriteEntity(Core::ByteWriter& _writer, SaveEntityT
   Core::ByteWriter record;
   WriteRecord(record, _entity);
   _writer.WriteU16(static_cast<std::uint16_t>(_tag));
-  _writer.WriteU16(RECORD_VERSION);
+  _writer.WriteU16(RecordVersion(_tag));
   _writer.WriteU32(static_cast<std::uint32_t>(record.Bytes().size()));
   _writer.WriteBytes(record.Bytes());
 }
 
 // The sections a save and the state hash share.
+
+void WriteMatch(Core::ByteWriter& _writer, const World& _world)
+{
+  _writer.WriteU32(static_cast<std::uint32_t>(_world.Players().size()));
+  for (const auto& [id, player] : _world.Players())
+  {
+    _writer.WriteU8(player.id);
+    _writer.WriteU8(static_cast<std::uint8_t>(player.side));
+    _writer.WriteI32(player.stoneHundredthsCubicMeters);
+    _writer.WriteI32(player.timberHundredthsCubicMeters);
+    _writer.WriteU8(player.revealed ? std::uint8_t{1} : std::uint8_t{0});
+  }
+  const std::optional<TrialRules>& trial = _world.Trial();
+  _writer.WriteU8(trial.has_value() ? std::uint8_t{1} : std::uint8_t{0});
+  if (trial.has_value())
+  {
+    _writer.WriteU8(static_cast<std::uint8_t>(trial->version));
+    _writer.WriteU8(trial->attacker);
+    _writer.WriteU8(trial->defender);
+    _writer.WriteU64(trial->keep);
+    _writer.WriteU32(trial->timeLimitTicks);
+    _writer.WriteU32(trial->holdTicks);
+    _writer.WriteI32(trial->ringCells);
+    WritePosition(_writer, trial->campMinVoxels);
+    WritePosition(_writer, trial->campMaxVoxels);
+  }
+}
+
+void ReadMatch(Core::ByteReader& _reader, World& _world)
+{
+  const std::uint32_t players = _reader.ReadU32();
+  for (std::uint32_t number = 0; number < players; ++number)
+  {
+    const std::uint8_t id = _reader.ReadU8();
+    const Protocol::Side side = ReadEnum(_reader, Protocol::Side::Defender, "side");
+    const std::int32_t stone = _reader.ReadI32();
+    const std::int32_t timber = _reader.ReadI32();
+    _world.AddPlayer(
+      {.id = id, .side = side, .stoneHundredthsCubicMeters = stone, .timberHundredthsCubicMeters = timber, .revealed = ReadBool(_reader)});
+  }
+  if (ReadBool(_reader))
+  {
+    TrialRules trial{.version = ReadEnum(_reader, Protocol::TrialVersion::Control, "trial version"),
+                     .attacker = _reader.ReadU8(),
+                     .defender = _reader.ReadU8(),
+                     .keep = _reader.ReadU64(),
+                     .timeLimitTicks = _reader.ReadU32(),
+                     .holdTicks = _reader.ReadU32(),
+                     .ringCells = _reader.ReadI32(),
+                     .campMinVoxels = {},
+                     .campMaxVoxels = {}};
+    trial.campMinVoxels = ReadPosition(_reader);
+    trial.campMaxVoxels = ReadPosition(_reader);
+    _world.SetTrial(trial);
+  }
+}
 
 void WriteEntities(Core::ByteWriter& _writer, const World& _world)
 {
@@ -434,7 +619,7 @@ void WriteEntities(Core::ByteWriter& _writer, const World& _world)
 
 void WritePendingWork(Core::ByteWriter& _writer, std::span<const SubmittedCommand> _commands,
                       std::span<const Protocol::VoxelPosition> _unsearched, std::span<const Protocol::VoxelPosition> _betweenTicks,
-                      const std::set<std::int64_t>& _slumpQueue,
+                      const std::set<std::int64_t>& _slumpQueue, const std::set<std::int64_t>& _openedColumns,
                       const std::map<std::pair<std::uint32_t, Protocol::EntityId>, PathSearch>& _searches)
 {
   _writer.WriteU32(static_cast<std::uint32_t>(_commands.size()));
@@ -451,6 +636,11 @@ void WritePendingWork(Core::ByteWriter& _writer, std::span<const SubmittedComman
   {
     _writer.WriteI64(column);
   }
+  _writer.WriteU32(static_cast<std::uint32_t>(_openedColumns.size()));
+  for (const std::int64_t column : _openedColumns)
+  {
+    _writer.WriteI64(column);
+  }
   _writer.WriteU32(static_cast<std::uint32_t>(_searches.size()));
   for (const auto& [key, search] : _searches)
   {
@@ -460,7 +650,155 @@ void WritePendingWork(Core::ByteWriter& _writer, std::span<const SubmittedComman
   }
 }
 
+/// Commands as they wait for a step 1: u32 their count, then each as its u8 player, u32 length and bytes, in order.
+void WriteCommands(Core::ByteWriter& _writer, std::span<const SubmittedCommand> _commands)
+{
+  _writer.WriteU32(static_cast<std::uint32_t>(_commands.size()));
+  for (const SubmittedCommand& command : _commands)
+  {
+    _writer.WriteU8(command.player);
+    _writer.WriteU32(static_cast<std::uint32_t>(command.bytes.size()));
+    _writer.WriteBytes(command.bytes);
+  }
+}
+
+std::vector<SubmittedCommand> ReadCommands(Core::ByteReader& _reader)
+{
+  std::vector<SubmittedCommand> commands;
+  const std::uint32_t count = _reader.ReadU32();
+  for (std::uint32_t number = 0; number < count; ++number)
+  {
+    const std::uint8_t player = _reader.ReadU8();
+    const std::span<const std::byte> bytes = _reader.ReadBytes(_reader.ReadU32());
+    commands.push_back({.player = player, .bytes = {bytes.begin(), bytes.end()}});
+  }
+  return commands;
+}
+
+/// How the trial stands (M4-F1): its outcome, the tick of it and the storming clock, the sections opened in id order,
+/// and each figure in a section's footprint, in figure order, with its section and the side it came in by.
+void WriteTrialProgress(Core::ByteWriter& _writer, const TrialProgress& _progress)
+{
+  _writer.WriteU8(static_cast<std::uint8_t>(_progress.outcome));
+  _writer.WriteU32(_progress.endTick);
+  _writer.WriteU32(_progress.holdTicks);
+  _writer.WriteU32(static_cast<std::uint32_t>(_progress.openedSections.size()));
+  for (const Protocol::EntityId section : _progress.openedSections)
+  {
+    _writer.WriteU64(section);
+  }
+  _writer.WriteU32(static_cast<std::uint32_t>(_progress.passing.size()));
+  for (const auto& [unit, passing] : _progress.passing)
+  {
+    _writer.WriteU64(unit);
+    _writer.WriteU64(passing.first);
+    _writer.WriteU8(passing.second ? std::uint8_t{1} : std::uint8_t{0});
+  }
+}
+
+TrialProgress ReadTrialProgress(Core::ByteReader& _reader)
+{
+  TrialProgress progress;
+  progress.outcome = ReadEnum(_reader, Protocol::TrialOutcome::LostArmy, "trial's outcome");
+  progress.endTick = _reader.ReadU32();
+  progress.holdTicks = _reader.ReadU32();
+  const std::uint32_t opened = _reader.ReadU32();
+  for (std::uint32_t number = 0; number < opened; ++number)
+  {
+    progress.openedSections.insert(_reader.ReadU64());
+  }
+  const std::uint32_t passing = _reader.ReadU32();
+  for (std::uint32_t number = 0; number < passing; ++number)
+  {
+    const Protocol::EntityId unit = _reader.ReadU64();
+    const Protocol::EntityId section = _reader.ReadU64();
+    progress.passing.emplace(unit, std::pair{section, ReadBool(_reader)});
+  }
+  return progress;
+}
+
+void WriteStructureView(Core::ByteWriter& _writer, const Protocol::StructureView& _view)
+{
+  _writer.WriteU64(_view.id);
+  _writer.WriteU8(_view.owner);
+  WriteText(_writer, _view.templateId);
+  WritePosition(_writer, _view.originVoxels);
+  _writer.WriteU32(_view.quarterTurns);
+  WritePosition(_writer, _view.extentVoxels);
+  WriteText(_writer, _view.name);
+  _writer.WriteU8(_view.working ? std::uint8_t{1} : std::uint8_t{0});
+  _writer.WriteU8(_view.criticalPercent);
+  _writer.WriteU32(_view.repairLockTicks);
+  _writer.WriteU8(_view.gateOpen ? std::uint8_t{1} : std::uint8_t{0});
+  _writer.WriteU8(_view.garrisonCount);
+  _writer.WriteU8(_view.garrisonCapacity);
+  _writer.WriteI32(_view.hitPoints);
+  _writer.WriteI32(_view.maxHitPoints);
+  _writer.WriteU8(_view.opened ? std::uint8_t{1} : std::uint8_t{0});
+  _writer.WriteU8(_view.lastSeen ? std::uint8_t{1} : std::uint8_t{0});
+  _writer.WriteU8(_view.standingPercent);
+}
+
+Protocol::StructureView ReadStructureView(Core::ByteReader& _reader)
+{
+  Protocol::StructureView view{.id = _reader.ReadU64(),
+                               .owner = _reader.ReadU8(),
+                               .templateId = ReadText(_reader),
+                               .originVoxels = ReadPosition(_reader),
+                               .quarterTurns = _reader.ReadU32(),
+                               .extentVoxels = ReadPosition(_reader),
+                               .name = ReadText(_reader)};
+  view.working = ReadBool(_reader);
+  view.criticalPercent = _reader.ReadU8();
+  view.repairLockTicks = _reader.ReadU32();
+  view.gateOpen = ReadBool(_reader);
+  view.garrisonCount = _reader.ReadU8();
+  view.garrisonCapacity = _reader.ReadU8();
+  view.hitPoints = _reader.ReadI32();
+  view.maxHitPoints = _reader.ReadI32();
+  view.opened = ReadBool(_reader);
+  view.lastSeen = ReadBool(_reader);
+  view.standingPercent = _reader.ReadU8();
+  return view;
+}
+
+/// Each player's structures as they last saw them, in player then id order (ADR-025).
+void WriteLastSeen(Core::ByteWriter& _writer,
+                   const std::map<std::uint8_t, std::map<Protocol::EntityId, Protocol::StructureView>>& _lastSeen)
+{
+  _writer.WriteU32(static_cast<std::uint32_t>(_lastSeen.size()));
+  for (const auto& [player, views] : _lastSeen)
+  {
+    _writer.WriteU8(player);
+    _writer.WriteU32(static_cast<std::uint32_t>(views.size()));
+    for (const auto& [id, view] : views)
+    {
+      WriteStructureView(_writer, view);
+    }
+  }
+}
+
 } // namespace
+
+std::uint16_t RecordVersion(SaveEntityTag _tag) noexcept
+{
+  switch (_tag)
+  {
+  case SaveEntityTag::Squad: // M4-B4: the building it is garrisoned in; M4-C1: its kind; M4-C2: its facing; M4-C3: its order;
+                             // M4-D6: its trench
+    return 6;
+  case SaveEntityTag::Unit:        // M4-C1: its hit points; M4-C2: its reservation, its step and its wait; M4-C3: its reload and target
+  case SaveEntityTag::SiegeEngine: // M4-B4: its state; M4-C1: its body's squad; M4-C5: its deploy's or pack's ticks left
+    return 4;
+  case SaveEntityTag::Structure: // M4-D1: its built mask, share, working, lock, repair's progress, gate and hit points; M4-F2: its
+                                 // standing share
+    return 3;
+  case SaveEntityTag::Shot: // M4-C4: its kind, an arrow's line, shooter, target and damage
+    return 2;
+  default:
+    return 1;
+  }
+}
 
 std::vector<std::byte> WriteSave(const World& _world)
 {
@@ -476,6 +814,19 @@ std::vector<std::byte> WriteSave(const World& _world)
   writer.WriteU64(desc.matchSeed);
   writer.WriteU32(_world.m_tick);
   writer.WriteU64(_world.m_nextEntityId);
+  WriteMatch(writer, _world);
+  WriteTrialProgress(writer, _world.m_trialProgress);
+  writer.WriteU32(static_cast<std::uint32_t>(_world.m_commanders.size()));
+  for (const auto& [player, slot] : _world.m_commanders)
+  {
+    writer.WriteU8(player);
+    WriteText(writer, slot.Get().Kind());
+    Core::ByteWriter state;
+    slot.Get().Write(state);
+    writer.WriteU32(static_cast<std::uint32_t>(state.Bytes().size()));
+    writer.WriteBytes(state.Bytes());
+  }
+  WriteCommands(writer, _world.m_commanderCommands);
 
   // The edited chunks that still differ from their base, in rising key order.
   std::vector<std::pair<std::uint64_t, std::vector<std::byte>>> chunks;
@@ -498,7 +849,19 @@ std::vector<std::byte> WriteSave(const World& _world)
 
   WriteEntities(writer, _world);
   WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits(), _world.m_slumpQueue,
-                   _world.m_searches);
+                   _world.m_openedColumns, _world.m_searches);
+  WriteLastSeen(writer, _world.m_lastSeen);
+  writer.WriteU32(static_cast<std::uint32_t>(_world.m_chunksSent.size()));
+  for (const auto& [player, sent] : _world.m_chunksSent)
+  {
+    writer.WriteU8(player);
+    writer.WriteU32(static_cast<std::uint32_t>(sent.size()));
+    for (const auto& [key, version] : sent)
+    {
+      writer.WriteU64(key);
+      writer.WriteU64(version);
+    }
+  }
   return writer.TakeBytes();
 }
 
@@ -541,6 +904,21 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
     World world(desc);
     world.m_tick = reader.ReadU32();
     world.m_nextEntityId = reader.ReadU64();
+    ReadMatch(reader, world);
+    world.m_trialProgress = ReadTrialProgress(reader);
+    const std::uint32_t commanders = reader.ReadU32();
+    for (std::uint32_t number = 0; number < commanders; ++number)
+    {
+      const std::uint8_t player = reader.ReadU8();
+      const std::string kind = ReadText(reader);
+      Core::ByteReader state(reader.ReadBytes(reader.ReadU32()));
+      world.SetCommander(player, MakeCommander(kind, &state));
+      if (!state.AtEnd())
+      {
+        Refuse("a commander's record runs on past its state");
+      }
+    }
+    world.m_commanderCommands = ReadCommands(reader);
 
     const std::uint32_t chunks = reader.ReadU32();
     for (std::uint32_t number = 0; number < chunks; ++number)
@@ -561,10 +939,11 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
       const std::uint16_t tag = reader.ReadU16();
       const std::uint16_t recordVersion = reader.ReadU16();
       const std::uint32_t length = reader.ReadU32();
-      if (recordVersion != RECORD_VERSION)
+      if (tag >= static_cast<std::uint16_t>(SaveEntityTag::Squad) && tag <= static_cast<std::uint16_t>(SaveEntityTag::Structure) &&
+          recordVersion != RecordVersion(static_cast<SaveEntityTag>(tag)))
       {
         Refuse("an entity's record is at version " + std::to_string(recordVersion) + ", and this build reads " +
-               std::to_string(RECORD_VERSION));
+               std::to_string(RecordVersion(static_cast<SaveEntityTag>(tag))));
       }
       Core::ByteReader record(reader.ReadBytes(length));
       switch (static_cast<SaveEntityTag>(tag))
@@ -613,6 +992,8 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
         Refuse("an entity's record runs on past its fields");
       }
     }
+    // An open gate's voxels are air to navigation, which the structures' records say (ADR-024, decision 6).
+    world.RestoreGates();
 
     const std::uint32_t commands = reader.ReadU32();
     for (std::uint32_t number = 0; number < commands; ++number)
@@ -631,6 +1012,11 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
     {
       world.m_slumpQueue.insert(reader.ReadI64());
     }
+    const std::uint32_t opened = reader.ReadU32();
+    for (std::uint32_t number = 0; number < opened; ++number)
+    {
+      world.m_openedColumns.insert(reader.ReadI64());
+    }
     const std::uint32_t searches = reader.ReadU32();
     for (std::uint32_t number = 0; number < searches; ++number)
     {
@@ -638,6 +1024,31 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
       const Protocol::EntityId squad = reader.ReadU64();
       world.m_searches.emplace(std::pair{tick, squad}, PathSearch::Read(reader));
     }
+    // Fog's (ADR-025): the structures each player last saw, then the chunk versions each was last sent; visibility
+    // itself is rebuilt from the units and structures.
+    const std::uint32_t seeing = reader.ReadU32();
+    for (std::uint32_t number = 0; number < seeing; ++number)
+    {
+      std::map<Protocol::EntityId, Protocol::StructureView>& views = world.m_lastSeen[reader.ReadU8()];
+      const std::uint32_t count = reader.ReadU32();
+      for (std::uint32_t view = 0; view < count; ++view)
+      {
+        Protocol::StructureView read = ReadStructureView(reader);
+        views.insert_or_assign(read.id, std::move(read));
+      }
+    }
+    const std::uint32_t sending = reader.ReadU32();
+    for (std::uint32_t number = 0; number < sending; ++number)
+    {
+      std::map<std::uint64_t, std::uint64_t>& sent = world.m_chunksSent[reader.ReadU8()];
+      const std::uint32_t count = reader.ReadU32();
+      for (std::uint32_t chunk = 0; chunk < count; ++chunk)
+      {
+        const std::uint64_t key = reader.ReadU64();
+        sent.insert_or_assign(key, reader.ReadU64());
+      }
+    }
+    world.RecomputeVisibility();
     if (!reader.AtEnd())
     {
       Refuse("it holds bytes after its last section");
@@ -659,9 +1070,24 @@ std::uint64_t StateHash(const World& _world)
   Core::ByteWriter writer;
   writer.WriteU32(_world.m_tick);
   writer.WriteU64(_world.m_nextEntityId);
+  WriteMatch(writer, _world);
+  WriteTrialProgress(writer, _world.m_trialProgress);
+  writer.WriteU32(static_cast<std::uint32_t>(_world.m_commanders.size()));
+  for (const auto& [player, slot] : _world.m_commanders)
+  {
+    writer.WriteU8(player);
+    WriteText(writer, slot.Get().Kind());
+    Core::ByteWriter state;
+    slot.Get().Write(state);
+    writer.WriteU32(static_cast<std::uint32_t>(state.Bytes().size()));
+    writer.WriteBytes(state.Bytes());
+  }
+  WriteCommands(writer, _world.m_commanderCommands);
   WriteEntities(writer, _world);
   WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits(), _world.m_slumpQueue,
-                   _world.m_searches);
+                   _world.m_openedColumns, _world.m_searches);
+  // The chunk versions sent are the client's calls' doing, not the simulation's, so the hash leaves them out.
+  WriteLastSeen(writer, _world.m_lastSeen);
   return Core::Fnv1a64(writer.Bytes(), _world.m_voxels.VoxelHash());
 }
 

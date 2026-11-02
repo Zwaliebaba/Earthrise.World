@@ -103,7 +103,7 @@ void Check(const Simulation::World& _world, std::uint32_t _tick, const std::set<
   for (const Protocol::ShotView& view : state.shots)
   {
     const Simulation::Shot& shot = _world.Shots().at(view.id);
-    if (!(view.position == Simulation::ShotPositionAt(shot.arc, shot.ticksFlown)))
+    if (!(view.position == Simulation::ShotPositionAt(std::get<Simulation::ShotArc>(shot.flight), shot.ticksFlown)))
     {
       fault("shot " + std::to_string(view.id) + " is not where its arc puts it");
     }
@@ -236,12 +236,40 @@ public:
     Assert::IsTrue(findings.collapseEndedWithItsLandingLanded);
   }
 
+  TEST_METHOD(CarriesThePlayersTheEnginesStatesAndTheGarrisons)
+  {
+    // M4-B4: the update names each player's stockpiles, each engine's state, and the building a squad is garrisoned
+    // in, whose units it leaves out.
+    Simulation::World world(FlatWorld::Desc());
+    world.AddPlayer({.id = 2, .side = Protocol::Side::Defender, .stoneHundredthsCubicMeters = 20000, .timberHundredthsCubicMeters = 2000});
+    const Protocol::EntityId tower =
+      world.AddStructure(2, "T4", {.xVoxels = 20, .yVoxels = FlatWorld::GROUND_VOXELS, .zVoxels = 20}, 0, "SW", 1);
+    const std::array<Protocol::VoxelPosition, 2> cells = {{{.xVoxels = 4, .yVoxels = FlatWorld::GROUND_VOXELS, .zVoxels = 4},
+                                                           {.xVoxels = 5, .yVoxels = FlatWorld::GROUND_VOXELS, .zVoxels = 4}}};
+    const Protocol::EntityId garrison = world.AddSquad(2, Protocol::UnitKind::Archer, cells);
+    world.PlaceInGarrison(garrison, tower);
+    static_cast<void>(world.AddSiegeEngine(1, Simulation::EngineKind::Ram,
+                                           {.xVoxels = 40, .yVoxels = FlatWorld::GROUND_VOXELS, .zVoxels = 4}, 0,
+                                           Protocol::EngineState::Packed));
+    world.Tick();
+    const Protocol::StateUpdate& state = world.State(2);
+    Assert::AreEqual(std::uint8_t{2}, state.player);
+    Assert::AreEqual(std::size_t{1}, state.players.size());
+    Assert::AreEqual(std::uint8_t{2}, state.players.front().player);
+    Assert::AreEqual(std::int32_t{20000}, state.players.front().stoneHundredthsCubicMeters);
+    Assert::IsTrue(state.engines.front().state == Protocol::EngineState::Packed);
+    Assert::AreEqual(tower, state.squads.front().garrisonedIn);
+    // The ram's body is the one unit the update holds: the garrison's are in no cell.
+    Assert::AreEqual(std::size_t{1}, state.units.size());
+    Assert::IsTrue(state.units.front().kind == Protocol::UnitKind::Ram);
+  }
+
   TEST_METHOD(AFlatWorldsFirstUpdateNamesItsTickAndItsSquad)
   {
     Simulation::World world(FlatWorld::Desc());
     const std::array<Protocol::VoxelPosition, 2> cells = {{{.xVoxels = 4, .yVoxels = FlatWorld::GROUND_VOXELS, .zVoxels = 4},
                                                            {.xVoxels = 5, .yVoxels = FlatWorld::GROUND_VOXELS, .zVoxels = 4}}};
-    const Protocol::EntityId squad = world.AddSquad(1, Simulation::NavigationClass::Foot, cells, Protocol::UnitKind::Archer);
+    const Protocol::EntityId squad = world.AddSquad(1, Protocol::UnitKind::Archer, cells);
     world.Tick();
     world.Tick();
     const Protocol::StateUpdate& state = world.State();
@@ -250,6 +278,12 @@ public:
     Assert::AreEqual(squad, state.squads.front().id);
     Assert::AreEqual(std::size_t{2}, state.units.size());
     Assert::IsTrue(state.units.front().kind == Protocol::UnitKind::Archer);
+    // M4-C1: each unit's hit points out of its kind's, and the squad's kind and full size.
+    Assert::AreEqual(std::int32_t{30}, state.units.front().hitPoints);
+    Assert::AreEqual(std::int32_t{30}, state.units.front().maxHitPoints);
+    Assert::IsTrue(state.squads.front().kind == Protocol::UnitKind::Archer);
+    Assert::AreEqual(std::uint8_t{6}, state.squads.front().fullFigures);
+    Assert::AreEqual(std::uint8_t{1}, state.player);
   }
 };
 

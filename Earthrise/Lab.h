@@ -2,7 +2,7 @@
 
 #include "BreachLab.h"
 #include "LabModel.h"
-#include "Scenario.h"
+#include "Run.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -33,7 +33,7 @@ struct LabOptions
 /// site: the prior shots and the asked ones run through Simulation::LabShots, a tick at a time between frames, so the
 /// live world reaches the headless run's ticks and its state hash. The log, one CSV a run in Logs\ beside the
 /// executable, has each item's live and headless hashes (MvpPlan-M3.md, *The lab's log*).
-class Lab final : public Scenario
+class Lab final : public Run
 {
 public:
   /// Builds the site and opens the log. Throws std::runtime_error when the log cannot be written.
@@ -42,8 +42,9 @@ public:
   [[nodiscard]] Simulation::World& World() override;
   [[nodiscard]] std::size_t Generation() const noexcept override;
   [[nodiscard]] Protocol::VoxelPosition Goal() const noexcept override;
+  [[nodiscard]] Protocol::VoxelPosition CameraTarget() const noexcept override;
   bool Tick(Client::Session& _session, double _seconds) override;
-  void Frame(const ScenarioInput& _input, Client::Session& _session) override;
+  void Frame(const RunInput& _input, Client::Session& _session) override;
   [[nodiscard]] double Speed() const noexcept override;
   [[nodiscard]] bool Paused() const noexcept override;
   [[nodiscard]] bool FireAllowed() const noexcept override;
