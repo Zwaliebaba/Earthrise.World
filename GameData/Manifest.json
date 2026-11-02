@@ -83,7 +83,7 @@
     "timber": 188,
     "foundation": 0
    },
-   "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2; openings win any block they touch) — redraw natively at 1 m before final",
+   "authoring": "reviewed at 1 m in M4-B2 (2026-11-02) and kept as converted: its four corners stand open for 3 m, where the 0.5 m drawing's corner posts lost the vote; filling them adds 12 m³ of timber, 6 % of its 188, past input 3's 2 %, so the corners are the owner's to judge from the preview",
    "files": {
     "json": "Server/Templates/earthrise-t1-hall-1m.json"
    },
@@ -95,7 +95,7 @@
    },
    "knownIssues": [
     "Openings from the render-fix package (2026-11-01), whose conversion lets an opening win any 2 x 2 x 2 block it touches, so 0.5 m slits survive at 1 m. An opening costs as the material it sits in (ADR-005), so the package's lower figure is not used.",
-    "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before the M4 Siege castle is final."
+    "Its four corners stand open for 3 m, where the 0.5 m drawing's corner posts lost the 2 x 2 x 2 vote. Filling them adds 12 m³ of timber, 6 % of its 188 m³, past the 2 % that M4's input 3 allows a redraw, so M4-B2 left them for the owner to judge from the preview, or to redraw in Claude Design."
    ]
   },
   {
@@ -123,7 +123,7 @@
     "timber": 120,
     "foundation": 0
    },
-   "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2; openings win any block they touch) — redraw natively at 1 m before final",
+   "authoring": "redrawn natively at 1 m in M4-B2 (2026-11-02) from the render-fix package's conversion: its outline, openings, pier and floors kept, at exactly 1,650 m³ of stone and 120 m³ of timber",
    "files": {
     "json": "Server/Templates/earthrise-t2-keep-1m.json"
    },
@@ -134,11 +134,11 @@
     "foundation": 0
    },
    "knownIssues": [
-    "The two floors are timber, 120 voxels, and the roof is stone, carried by a 2 x 2 m stone pier up the middle, so no roof voxel is more than 2 m from support: stone spans 2 m (the owner's decision on the M0 paper tests), and the owner chose the pier over a timber roof on 2026-11-01. Its preview in Design/Previews/ shows a stone roof and no pier.",
+    "The two floors are timber, 120 voxels, and the roof is stone, carried by a 2 x 2 m stone pier up the middle, so no roof voxel is more than 2 m from support: stone spans 2 m (the owner's decision on the M0 paper tests), and the owner chose the pier over a timber roof on 2026-11-01.",
     "Openings from the render-fix package (2026-11-01), whose conversion lets an opening win any 2 x 2 x 2 block it touches, so 0.5 m slits survive at 1 m. An opening costs as the material it sits in (ADR-005), so the package's lower figure is not used.",
     "Slits on all four faces: the two its asset sheet leaves bare carry the same pattern as the other two (the owner's choice of 2026-11-01).",
-    "Two banner voxels removed: the conversion to 1 m dropped the pole and left them floating. Banners are 0.5 m models (ADR-006). Its preview in Design/Previews/ still shows them.",
-    "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before the M4 Siege castle is final."
+    "Two banner voxels removed: the conversion to 1 m dropped the pole and left them floating. Banners are 0.5 m models (ADR-006).",
+    "M4-B2 redrew the battlements the conversion left ragged and lopsided: a 1 m parapet about the roof at 16 m, 2 x 2 m corner turrets rising to 19 m, four merlons a side between them, and a parapet about the forebuilding's roof at 7 m, symmetric, at the same 1,650 m³."
    ]
   },
   {
@@ -281,14 +281,11 @@
     "timber": 35,
     "foundation": 0
    },
-   "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
+   "authoring": "reviewed at 1 m in M4-B2 (2026-11-02) and kept as converted: its three braces at the foot of its back face, at 1, 4 and 7 m, are not symmetric across its 8 m, but they tile with the palisade's run and removing one takes its cost past input 3's 2 %",
    "files": {
     "json": "Server/Templates/earthrise-t6-palisade-1m.json"
    },
-   "kind": "template",
-   "knownIssues": [
-    "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before the M4 Siege castle is final."
-   ]
+   "kind": "template"
   },
   {
    "id": "T7",
@@ -315,7 +312,7 @@
     "timber": 32,
     "foundation": 0
    },
-   "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2) — redraw natively at 1 m before final",
+   "authoring": "reviewed at 1 m in M4-B2 (2026-11-02) and kept as converted: the gate is 4 m by 3 m between posts that rise to 5 m, as drawn",
    "files": {
     "json": "Server/Templates/earthrise-t7-palisade-gate-1m.json"
    },
@@ -326,7 +323,6 @@
     "foundation": 0
    },
    "knownIssues": [
-    "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before the M4 Siege castle is final.",
     "The grid has one empty row in front (z); the baker trims to the occupied voxels (ADR-005)."
    ]
   },
