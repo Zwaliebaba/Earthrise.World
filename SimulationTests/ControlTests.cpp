@@ -8,7 +8,8 @@ using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 // stone on a structure takes 100 and cuts nothing; a ram's blow 100, a fourth of it on stone; at 0 a section falls whole,
 // a building stops and stands, and stones past 0 take its pool on down to minus its full pool, so that repair must bring
 // it back above 0 before it works; a gate goes; repair puts back 50 a cubic metre of stone at the voxel version's rate.
-// Every structure starts with 900, input 19's first value, until M4-F5 calibrates them.
+// Each template's pool is M4-F5's calibration in Structures.json, read here from the data: T3 500, T4 1000, T5 700 and T2
+// 1700 at its values, and T7 its first 900, so the shots to 0 are its pool over 100.
 
 namespace SimulationTests
 {
@@ -19,7 +20,6 @@ namespace
 constexpr std::uint8_t ATTACKER = 1;
 constexpr std::uint8_t DEFENDER = 2;
 constexpr std::int32_t GROUND = FlatWorld::GROUND_VOXELS;
-constexpr std::int32_t FULL = 900;
 
 Protocol::VoxelPosition At(std::int32_t _x, std::int32_t _y, std::int32_t _z)
 {
@@ -109,7 +109,7 @@ std::size_t Solid(const Simulation::World& _world, Protocol::VoxelPosition _min,
   return solid;
 }
 
-/// _template's pool in the control (ADR-028, decision 5).
+/// _template's pool in the control, as calibrated (ADR-028, decision 5).
 std::int32_t PoolOf(const Simulation::World& _world, std::string_view _template)
 {
   return _world.Data().FindTemplateRules(_template)->controlHitPoints;
@@ -138,16 +138,17 @@ public:
     // A T3, x 40 to 47 and z 60 to 61, and a trebuchet 31 m north of it.
     Site site("T3", At(40, GROUND, 60));
     Simulation::World& world = site.world;
-    Assert::AreEqual(FULL, site.Of().hitPoints);
+    const std::int32_t full = PoolOf(world, "T3");
+    Assert::AreEqual(full, site.Of().hitPoints);
     const std::size_t before = Solid(world, At(40, GROUND, 60), At(47, GROUND + 6, 61));
     const Protocol::EntityId engine = world.AddSiegeEngine(ATTACKER, Simulation::EngineKind::Trebuchet, At(43, GROUND, 92));
     Pound(world, engine, At(44, GROUND + 3, 61), 1);
     Assert::AreEqual(before, Solid(world, At(40, GROUND, 60), At(47, GROUND + 6, 61)));
-    Assert::AreEqual(FULL - 100, site.Of().hitPoints);
+    Assert::AreEqual(full - 100, site.Of().hitPoints);
     Assert::IsTrue(site.Of().repairLockTicks > 0);
     const Protocol::StructureView& view = world.State(DEFENDER).structures.front();
-    Assert::AreEqual(FULL - 100, view.hitPoints);
-    Assert::AreEqual(FULL, view.maxHitPoints);
+    Assert::AreEqual(full - 100, view.hitPoints);
+    Assert::AreEqual(full, view.maxHitPoints);
   }
 
   TEST_METHOD(ARamsBlowTakes100AFourthOfItOnStone)
@@ -155,15 +156,16 @@ public:
     // A ram at a T3's foot strikes its stone: 25 of the pool, and no voxel.
     Site site("T3", At(40, GROUND, 60));
     Simulation::World& world = site.world;
+    const std::int32_t full = PoolOf(world, "T3");
     const std::size_t before = Solid(world, At(40, GROUND, 60), At(47, GROUND + 6, 61));
     const Protocol::EntityId ram =
       world.AddSiegeEngine(ATTACKER, Simulation::EngineKind::Ram, At(42, GROUND, 62), 0, Simulation::EngineState::Packed);
     Order(world, ATTACKER, Protocol::AttackTarget{.squad = world.SiegeEngines().at(ram).squad, .target = site.structure});
-    for (std::uint32_t tick = 0; tick < 600 && site.Of().hitPoints == FULL; ++tick)
+    for (std::uint32_t tick = 0; tick < 600 && site.Of().hitPoints == full; ++tick)
     {
       world.Tick();
     }
-    Assert::AreEqual(FULL - 25, site.Of().hitPoints);
+    Assert::AreEqual(full - 25, site.Of().hitPoints);
     Assert::AreEqual(before, Solid(world, At(40, GROUND, 60), At(47, GROUND + 6, 61)));
   }
 
@@ -172,7 +174,7 @@ public:
     Site site("T3", At(40, GROUND, 60));
     Simulation::World& world = site.world;
     const Protocol::EntityId engine = world.AddSiegeEngine(ATTACKER, Simulation::EngineKind::Trebuchet, At(43, GROUND, 92));
-    Pound(world, engine, At(44, GROUND + 3, 61), 8);
+    Pound(world, engine, At(44, GROUND + 3, 61), ShotsToZero(world, "T3") - 1);
     Assert::AreEqual(100, site.Of().hitPoints);
     Assert::IsTrue(world.Collapses().empty());
     Pound(world, engine, At(44, GROUND + 3, 61), 1);
@@ -223,7 +225,7 @@ public:
     Simulation::World& world = site.world;
     const std::size_t before = Solid(world, At(40, GROUND, 60), At(46, GROUND + 12, 66));
     const Protocol::EntityId engine = world.AddSiegeEngine(ATTACKER, Simulation::EngineKind::Trebuchet, At(42, GROUND, 98));
-    Pound(world, engine, At(43, GROUND + 4, 66), 9);
+    Pound(world, engine, At(43, GROUND + 4, 66), ShotsToZero(world, "T4"));
     Assert::AreEqual(0, site.Of().hitPoints);
     world.Tick();
     Assert::IsFalse(site.Of().working);
@@ -284,7 +286,7 @@ public:
     const auto gate = [&world] { return Solid(world, At(30, GROUND, 28), At(32, GROUND + 3, 28)); };
     Assert::AreEqual(std::size_t{12}, gate());
     const Protocol::EntityId engine = world.AddSiegeEngine(ATTACKER, Simulation::EngineKind::Trebuchet, At(30, GROUND, 66));
-    const std::vector<Protocol::VoxelPosition> struck = Pound(world, engine, At(31, GROUND + 5, 34), 8);
+    const std::vector<Protocol::VoxelPosition> struck = Pound(world, engine, At(31, GROUND + 5, 34), ShotsToZero(world, "T5") - 1);
     Assert::AreEqual(std::size_t{12}, gate());
     Assert::AreEqual(100, site.Of().hitPoints);
     Assert::IsTrue(site.Of().working);
@@ -318,7 +320,7 @@ public:
     }
     Assert::IsFalse(gate.empty());
     const Protocol::EntityId engine = world.AddSiegeEngine(ATTACKER, Simulation::EngineKind::Trebuchet, At(41, GROUND, 92));
-    Pound(world, engine, gate.front(), 9);
+    Pound(world, engine, gate.front(), ShotsToZero(world, "T7"));
     world.Tick();
     Assert::AreEqual(0, site.Of().hitPoints);
     Assert::IsTrue(std::ranges::all_of(gate, [&world](const Protocol::VoxelPosition& _voxel) { return world.Voxels().At(_voxel) == 0; }));
@@ -347,9 +349,10 @@ public:
     const std::array<Protocol::VoxelPosition, 1> cell = {At(43, GROUND, 58)};
     const Protocol::EntityId laborer = world.AddSquad(DEFENDER, Simulation::UnitKind::Laborer, cell);
     Order(world, DEFENDER, Protocol::RepairStructure{.laborer = laborer, .structure = site.structure});
+    const std::int32_t full = PoolOf(world, "T3");
     const Protocol::EntityId engine = world.AddSiegeEngine(ATTACKER, Simulation::EngineKind::Trebuchet, At(43, GROUND, 92));
     Pound(world, engine, At(44, GROUND + 3, 61), 1);
-    Assert::AreEqual(FULL - 100, site.Of().hitPoints);
+    Assert::AreEqual(full - 100, site.Of().hitPoints);
     for (std::uint32_t tick = 0; tick < 200; ++tick)
     {
       world.Tick();
@@ -358,10 +361,10 @@ public:
     const std::int32_t stone = world.Players().at(DEFENDER).stoneHundredthsCubicMeters;
     for (std::uint32_t tick = 0; tick < TicksForACubicMeter(world); ++tick)
     {
-      Assert::AreEqual(FULL - 100, site.Of().hitPoints);
+      Assert::AreEqual(full - 100, site.Of().hitPoints);
       world.Tick();
     }
-    Assert::AreEqual(FULL - 50, site.Of().hitPoints);
+    Assert::AreEqual(full - 50, site.Of().hitPoints);
     Assert::AreEqual(stone - 100, world.Players().at(DEFENDER).stoneHundredthsCubicMeters);
   }
 
@@ -418,7 +421,7 @@ public:
     Site site("T2", At(50, GROUND, 60), Protocol::TrialVersion::Control, 0, true);
     Simulation::World& world = site.world;
     const Protocol::EntityId engine = world.AddSiegeEngine(ATTACKER, Simulation::EngineKind::Trebuchet, At(54, GROUND, 105));
-    Pound(world, engine, At(55, GROUND + 6, 74), 9);
+    Pound(world, engine, At(55, GROUND + 6, 74), ShotsToZero(world, "T2"));
     world.Tick();
     Assert::IsFalse(site.Of().working);
     const std::array<Protocol::VoxelPosition, 1> soldier = {At(48, GROUND, 65)};

@@ -585,7 +585,7 @@ M4 is carried out as 43 work orders in ten phases, written out in [MvpPlan-M4.md
 
 **Done when** all of the following hold:
 - **Headless, in CI:**
-  - in both versions, `SiegeAttacker` wins by storming against `SiegeDefender` inside the time limit, and in the voxel version on the mirrored castle too; with no commands the attacker loses to the clock; with every unit spent it loses by the army; each run replays with every state hash equal, and saves at three ticks each continue identically for 1,000 ticks;
+  - in both versions, `SiegeAttacker` wins by storming against `SiegeDefender` inside the time limit, and in the voxel version on the mirrored castle too; with no commands the attacker loses to the clock; with every unit spent it loses by the army; each run replays with every state hash equal, and saves at three ticks each continue identically for 1,000 ticks (in CI, the voxel run's first 2,000 ticks and saves at two ticks, the owner's bounds of 2026-11-02, GameDesign.md, *M4's phase F*, item 9);
   - two squads sent through a 1 m breach pass it with no two units in one cell on any tick, at a rate the trial's events record, and the run replays identically;
   - every command and query round-trips as bytes;
   - the line pass, the silhouettes, the column shade and the image atlas pass their render tests on WARP;

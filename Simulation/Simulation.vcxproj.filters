@@ -225,5 +225,17 @@
     <ClCompile Include="HealthStructureRule.cpp">
       <Filter>Structures</Filter>
     </ClCompile>
+    <ClInclude Include="FirePattern.h">
+      <Filter>Commanders</Filter>
+    </ClInclude>
+    <ClCompile Include="FirePattern.cpp">
+      <Filter>Commanders</Filter>
+    </ClCompile>
+    <ClInclude Include="SiegeAttacker.h">
+      <Filter>Commanders</Filter>
+    </ClInclude>
+    <ClCompile Include="SiegeAttacker.cpp">
+      <Filter>Commanders</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

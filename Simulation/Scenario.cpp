@@ -232,7 +232,7 @@ World::Desc ScenarioDesc(const ServerData& _data, std::string_view _scenarioId, 
           { return _x >= minX && _x <= maxX && _z >= minZ && _z <= maxZ ? level : generator->SurfaceAt(_x, _z); }};
 }
 
-void LoadScenario(World& _world, std::string_view _scenarioId)
+void LoadScenario(World& _world, std::string_view _scenarioId, const ScenarioOptions& _options)
 {
   const Scenario& scenario = Find(_world.Data(), _scenarioId);
   BuildSite(_world, scenario);
@@ -249,27 +249,30 @@ void LoadScenario(World& _world, std::string_view _scenarioId)
                       .stoneHundredthsCubicMeters = player.stoneHundredthsCubicMeters,
                       .timberHundredthsCubicMeters = player.timberHundredthsCubicMeters,
                       .revealed = player.revealed});
-    _world.SetCommander(player.id, MakeCommander(player.commander, nullptr));
+    _world.SetCommander(player.id, _options.armies ? MakeCommander(player.commander, nullptr) : nullptr);
   }
-  for (const ScenarioSquad& squad : scenario.squads)
+  if (_options.armies)
   {
-    static_cast<void>(_world.AddSquad(squad.owner, squad.kind, squad.cellsVoxels));
-  }
-  for (const ScenarioEngine& engine : scenario.engines)
-  {
-    static_cast<void>(_world.AddSiegeEngine(engine.owner, engine.kind, engine.cellVoxels, engine.quarterTurns, engine.state));
-  }
-  for (const ScenarioGarrison& garrison : scenario.garrisons)
-  {
-    // Its figures start at the building's origin, which they leave the grid at (ADR-024, decision 5).
-    const Protocol::EntityId building = named.at(garrison.structure);
-    const Structure& structure = _world.Structures().at(building);
-    const std::vector<Protocol::VoxelPosition> cells(_world.Data().Stats(garrison.kind).squadFigures, structure.originVoxels);
-    const Protocol::EntityId squad = _world.AddSquad(garrison.owner, garrison.kind, cells);
-    _world.PlaceInGarrison(squad, building);
+    for (const ScenarioSquad& squad : scenario.squads)
+    {
+      static_cast<void>(_world.AddSquad(squad.owner, squad.kind, squad.cellsVoxels));
+    }
+    for (const ScenarioEngine& engine : scenario.engines)
+    {
+      static_cast<void>(_world.AddSiegeEngine(engine.owner, engine.kind, engine.cellVoxels, engine.quarterTurns, engine.state));
+    }
+    for (const ScenarioGarrison& garrison : scenario.garrisons)
+    {
+      // Its figures start at the building's origin, which they leave the grid at (ADR-024, decision 5).
+      const Protocol::EntityId building = named.at(garrison.structure);
+      const Structure& structure = _world.Structures().at(building);
+      const std::vector<Protocol::VoxelPosition> cells(_world.Data().Stats(garrison.kind).squadFigures, structure.originVoxels);
+      const Protocol::EntityId squad = _world.AddSquad(garrison.owner, garrison.kind, cells);
+      _world.PlaceInGarrison(squad, building);
+    }
   }
   const ScenarioTrial& trial = scenario.trial;
-  _world.SetTrial({.version = trial.version,
+  _world.SetTrial({.version = _options.version.value_or(trial.version),
                    .attacker = trial.attacker,
                    .defender = trial.defender,
                    .keep = named.at(trial.keep),

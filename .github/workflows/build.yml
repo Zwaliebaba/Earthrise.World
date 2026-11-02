@@ -67,15 +67,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4, 5, 6]
 
     env:
       CONFIGURATION: Debug
       PLATFORM: x64
       # One list a named shard, ';' between shards and spaces between classes, in the order of the matrix's first
-      # shards. In one shard these three took 25 minutes of tests, a 28-minute job, on the run of 2026-11-02 that
-      # first sharded them; the last shard took 15.
-      SHARD_CLASSES: SiegeDefenderTests;TrenchTests BreachLabTests
+      # shards. A tick of the Siege castle at play costs about 19 times here what it does in a Linux container's -O1
+      # build: SiegeDefenderTests, TrenchTests and BreachLabTests took 25 minutes in one shard, and M4-F5's trial runs,
+      # 69, 58 and 34 s in the container, take about 22, 18 and 11 minutes here, each in a shard of its own.
+      SHARD_CLASSES: SiegeDefenderTests SiegeOutcomeTests;TrenchTests BreachLabTests;SiegeTrialTests;SiegeMirrorTrialTests;SiegeControlTrialTests
 
     steps:
       - uses: actions/checkout@v4

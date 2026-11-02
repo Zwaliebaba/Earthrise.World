@@ -7,6 +7,7 @@
 #include "World.h"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -116,10 +117,20 @@ struct Scenario
 /// lives as long as the Desc's functions do. Throws std::invalid_argument for a scenario _data lacks.
 [[nodiscard]] World::Desc ScenarioDesc(const ServerData& _data, std::string_view _scenarioId, std::uint64_t _buildId);
 
+/// How LoadScenario builds a scenario (M4-F5).
+struct ScenarioOptions
+{
+  /// The trial's version, in place of the scenario's: the bench and the tests play the control by it (ADR-028, decision 1).
+  std::optional<Protocol::TrialVersion> version;
+  /// False leaves out the squads, the engines and the garrisons: the castle alone, which the control's calibration fires
+  /// at unopposed and unrepaired (ADR-028, decision 5).
+  bool armies = true;
+};
+
 /// Builds the scenario on a world made from ScenarioDesc and not yet ticked, in the source's order (ADR-026, decision 3):
 /// the site levelled and filled from its ground boxes, the earthworks, the structures, the players, the squads, the
 /// engines and the garrisons, and the trial's rules, all by edits and between ticks. Throws std::invalid_argument for
 /// an unknown id.
-void LoadScenario(World& _world, std::string_view _scenarioId);
+void LoadScenario(World& _world, std::string_view _scenarioId, const ScenarioOptions& _options = {});
 
 } // namespace Simulation

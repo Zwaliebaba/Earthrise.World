@@ -3,6 +3,7 @@
 #include "Commander.h"
 
 #include "Integrity.h"
+#include "SiegeAttacker.h"
 #include "SiegeDefender.h"
 #include "SplitMix64.h"
 #include "World.h"
@@ -81,6 +82,10 @@ std::unique_ptr<Commander> MakeCommander(std::string_view _kind, Core::ByteReade
   if (_kind == SiegeDefender::KIND)
   {
     return std::make_unique<SiegeDefender>(_saved);
+  }
+  if (_kind == SiegeAttacker::KIND)
+  {
+    return std::make_unique<SiegeAttacker>(_saved);
   }
   throw std::invalid_argument("no commander of kind " + std::string(_kind));
 }
