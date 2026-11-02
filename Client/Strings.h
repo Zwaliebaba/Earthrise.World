@@ -26,7 +26,7 @@ inline constexpr std::string_view TURN_RIGHT = "↻";
 inline constexpr std::string_view ZOOM_OUT = "-";
 inline constexpr std::string_view ZOOM_IN = "+";
 
-// The objective line names the selection (M3-E3), with FIRE's key, or RELOADING in off text (M3-E4).
+// The selection's chip names it (M3-E3; M3-H3), with FIRE's key, or RELOADING in off text (M3-E4).
 inline constexpr std::string_view TREBUCHET_NAME = "TREBUCHET";
 inline constexpr std::string_view FIRE_READY_DETAIL = "F FIRE";
 inline constexpr std::string_view RELOADING_DETAIL = "RELOADING";
@@ -78,8 +78,24 @@ inline constexpr std::string_view BREACH_OPEN_ALERT = "BREACH OPEN AT W2";
 
 // The breach lab (M3-G1; GameDesign.md, M3's values, item 2): its banners, its answers and its objective.
 inline constexpr std::string_view FREE_FIRE_BANNER = "FREE FIRE · {}:{:02} LEFT";
-inline constexpr std::string_view WATCH_BANNER = "WATCH";
+// Free fire's banner's hint, until the trebuchet is first selected (M3-H3).
+inline constexpr std::string_view FREE_FIRE_HINT = "CLICK THE TREBUCHET · F TO FIRE";
+// What runs at ten times (M3-H2): the prior shots, SETTING UP ITEM 3 · 2 SHOTS · 10×, and the asked ones,
+// 2 SHOTS AT THE MARK · 10×, the pieces joined by BANNER_SEPARATOR.
+inline constexpr std::string_view SETTING_UP_ITEM = "SETTING UP ITEM {}";
+inline constexpr std::string_view SETTING_UP_PRACTICE = "SETTING UP THE PRACTICE ITEM";
+inline constexpr std::string_view PRIOR_SHOTS = "{} SHOTS";
+inline constexpr std::string_view PRIOR_ONE_SHOT = "1 SHOT";
+inline constexpr std::string_view ASKED_SHOTS = "{} SHOTS AT THE MARK";
+inline constexpr std::string_view ASKED_ONE_SHOT = "1 SHOT AT THE MARK";
+inline constexpr std::string_view FAST_FORWARD = "{}×";
+inline constexpr std::string_view BANNER_SEPARATOR = " · ";
 inline constexpr std::string_view QUESTION_BANNER = "WILL W2 BE OPEN TO FOOT AFTER {} SHOTS AT THE MARK?";
+// After the question's buttons, the keys of the views, which with the camera are all a participant may use (M3-H4).
+inline constexpr std::string_view VIEWS_HINT = "F1 F2 VIEWS";
+// In an item, the top bar's one resource while the asked shots run, and at the result (M3-H4).
+inline constexpr std::string_view ASKED_SHOTS_KEY = "SHOTS AT THE MARK";
+inline constexpr std::string_view ASKED_SHOTS_VALUE = "{} OF {}";
 inline constexpr std::string_view QUESTION_ONE_SHOT_BANNER = "WILL W2 BE OPEN TO FOOT AFTER 1 SHOT AT THE MARK?";
 inline constexpr std::string_view OPEN_BUTTON = "OPEN · O";
 inline constexpr std::string_view SHUT_BUTTON = "SHUT · H"; // not S, which pans (Hud.md §7)
@@ -140,8 +156,19 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      FALLS,
                                                                      BREACH_OPEN_ALERT,
                                                                      FREE_FIRE_BANNER,
-                                                                     WATCH_BANNER,
+                                                                     FREE_FIRE_HINT,
+                                                                     SETTING_UP_ITEM,
+                                                                     SETTING_UP_PRACTICE,
+                                                                     PRIOR_SHOTS,
+                                                                     PRIOR_ONE_SHOT,
+                                                                     ASKED_SHOTS,
+                                                                     ASKED_ONE_SHOT,
+                                                                     FAST_FORWARD,
+                                                                     BANNER_SEPARATOR,
                                                                      QUESTION_BANNER,
+                                                                     VIEWS_HINT,
+                                                                     ASKED_SHOTS_KEY,
+                                                                     ASKED_SHOTS_VALUE,
                                                                      QUESTION_ONE_SHOT_BANNER,
                                                                      OPEN_BUTTON,
                                                                      SHUT_BUTTON,

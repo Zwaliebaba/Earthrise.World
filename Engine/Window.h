@@ -10,6 +10,14 @@ namespace Engine
 class KeyboardInput;
 class PointerInput;
 
+/// What the pointer looks like over the client area.
+enum class PointerShape : std::uint8_t
+{
+  Arrow,
+  Crosshair, // a targeting mode (Hud.md §8)
+  Hand       // over something a click selects
+};
+
 /// A top-level window for the renderer: resizable, sized for the monitor's DPI, and closed by the
 /// user or the system. It is borderless over the whole monitor at full screen, never exclusive
 /// (ADR-011, decision 1). Per-monitor DPI awareness comes from the executable's manifest.
@@ -56,8 +64,9 @@ public:
   /// The DPI of the monitor the window is on, through GetDpiForWindow: 96 at 100 %.
   [[nodiscard]] std::uint32_t Dpi() const noexcept;
 
-  /// The pointer over the client area: the crosshair of a targeting mode (Hud.md §8), or the arrow.
-  void ShowCrosshair(bool _crosshair) noexcept;
+  /// The pointer over the client area: the arrow, a targeting mode's crosshair (Hud.md §8), or the hand over something a
+  /// click selects (M3-H3).
+  void ShowPointer(PointerShape _shape) noexcept;
 
   /// Handles every pending message. Returns false once the application has been asked to quit.
   [[nodiscard]] static bool PumpMessages() noexcept;
@@ -75,7 +84,7 @@ private:
   HWND m_handle = nullptr;
   WINDOWPLACEMENT m_windowedPlacement{.length = sizeof(WINDOWPLACEMENT)}; // where to go back to from full screen
   bool m_fullScreen = false;
-  bool m_crosshair = false;
+  PointerShape m_pointerShape = PointerShape::Arrow;
 };
 
 } // namespace Engine

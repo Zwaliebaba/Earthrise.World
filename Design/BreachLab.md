@@ -27,8 +27,8 @@ Earthrise --lab P03
 
 ## What the participant sees
 
-1. **Free fire, two minutes,** on the intact site: the trebuchet 40 m south of W2, the middle of the enclosure's south side, and six men-at-arms south of the wall, sent into the courtyard. Select the trebuchet with a left click, press F for FIRE, and right-click a target; Shift keeps FIRE on. The banner counts down.
-2. **The practice item, P0,** then the sixteen in the participant's order. Each item is a fresh copy of the site, with prior damage the lab fires first, under the banner WATCH, at ten times speed.
+1. **Free fire, two minutes,** on the intact site: the trebuchet 40 m south of W2, the middle of the enclosure's south side, and six men-at-arms south of the wall, sent into the courtyard. Select the trebuchet with a left click anywhere on it: the pointer turns to a hand over it, and its chip beside the resources shows F FIRE, or RELOADING. Then press F for FIRE, and right-click a target; Shift keeps FIRE on. The banner counts down, and says CLICK THE TREBUCHET · F TO FIRE until the first selection. In the items the lab fires, and a click selects nothing.
+2. **The practice item, P0,** then the sixteen in the participant's order. Each item is a fresh copy of the site, with prior damage the lab fires first at ten times speed, under a banner that says so: `SETTING UP ITEM 3 · 4 SHOTS · 10×`. The asked shots run the same way, under `2 SHOTS AT THE MARK · 10×`.
 3. **The question:** WILL W2 BE OPEN TO FOOT AFTER N SHOTS AT THE MARK? The clock is paused. The mark is drawn on the wall in the accent colour, with the voxel the shot's arc strikes beside it. The camera, the views and the HUD all work; FIRE does not.
 4. **The answer:** O, or OPEN · O on the banner, for open; H, or SHUT · H, for shut. S pans the camera, so it is not an answer. There is no time limit, and no going back.
 5. **The result:** the lab fires the N shots at the mark at ten times, with the passability view on, and shows W2 IS OPEN or W2 IS SHUT. Space goes on to the next item. Between items the lab runs the same item again with no screen, to check the live run against it, so the next item takes a moment to come up.
@@ -38,7 +38,7 @@ Earthrise --lab P03
 **Say:**
 - what *open* means: foot soldiers have a route into the courtyard through W2 once everything has settled. It is what the passability view shows, its cells in good;
 - that no more shots will be fired than the question says, all of them at the mark;
-- what the views are and how to toggle them: F1 the integrity view, on by default, with each section's HOLE, OPENING, GAP and GROUND and its weak point; F2 the passability view, the cells foot can reach in good and the rest it could stand in, in dim;
+- what the views are and how to toggle them: F1 the integrity view, on by default: the readout in the bottom-left corner, with HOLE, OPENING, GAP and GROUND for W2, or for the section under the pointer, or the one clicked last, and each section's weak point tinted in the world; F2 the passability view, the cells foot can reach in good and the rest it could stand in, in dim;
 - how to move the camera: W, A, S and D or the arrows to pan, the wheel or + and - to zoom, [ and ] to turn, or the top bar's buttons;
 - during free fire, how FIRE works, as above.
 

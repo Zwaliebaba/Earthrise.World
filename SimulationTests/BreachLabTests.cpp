@@ -88,8 +88,13 @@ struct Phase
 Phase Play(Simulation::World& _world, const Simulation::LabSetup& _setup, std::span<const Protocol::VoxelPosition> _aims)
 {
   Simulation::LabShots shots(_setup, _aims);
+  Assert::AreEqual(std::size_t{0}, shots.Fired());
   while (!shots.Advance(_world))
   {
+  }
+  if (!shots.TimedOut())
+  {
+    Assert::AreEqual(_aims.size(), shots.Fired());
   }
   return {.timedOut = shots.TimedOut(), .quiet = _world.Quiet() && _world.SiegeEngines().at(_setup.engine).reloadTicks == 0};
 }

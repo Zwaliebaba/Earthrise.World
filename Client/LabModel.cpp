@@ -28,6 +28,12 @@ std::string_view Word(bool _open) noexcept
   return _open ? OPEN : SHUT;
 }
 
+/// _several with the count in it, or _one for a single shot.
+std::string Shots(std::uint32_t _count, std::string_view _several, std::string_view _one)
+{
+  return _count == 1 ? std::string(_one) : std::vformat(_several, std::make_format_args(_count));
+}
+
 } // namespace
 
 bool LabItemRow::Correct() const noexcept
@@ -175,18 +181,43 @@ HudMode LabModel::Mode(std::uint32_t _tick) const
   {
     const std::uint32_t left = _tick >= FREE_FIRE_TICKS ? 0 : FREE_FIRE_TICKS - _tick;
     const std::uint32_t seconds = (left + TickClock::TICKS_PER_SECOND - 1) / TickClock::TICKS_PER_SECOND;
-    return {.command = std::string(FREE_FIRE_COMMAND), .banner = std::format(FREE_FIRE_BANNER, seconds / 60, seconds % 60), .buttons = {}};
+    return {.command = std::string(FREE_FIRE_COMMAND),
+            .banner = std::format(FREE_FIRE_BANNER, seconds / 60, seconds % 60),
+            .buttons = {},
+            .hint = m_selectedOnce ? std::string() : std::string(FREE_FIRE_HINT)};
   }
   case LabPhase::Watching:
+  {
+    // SETTING UP ITEM 3 · 2 SHOTS · 10×, numbered as the objective numbers the items, the practice item first.
+    const auto speed = static_cast<std::uint32_t>(FAST_FORWARD_SPEED);
+    std::string banner = m_started <= 1 ? std::string(SETTING_UP_PRACTICE) : std::format(SETTING_UP_ITEM, m_started - 1);
+    const std::uint32_t prior = Current() != nullptr ? Current()->priorShots : 0;
+    if (prior != 0)
+    {
+      banner += BANNER_SEPARATOR;
+      banner += Shots(prior, PRIOR_SHOTS, PRIOR_ONE_SHOT);
+    }
+    banner += BANNER_SEPARATOR;
+    banner += std::format(FAST_FORWARD, speed);
+    return {.command = std::string(WATCH_COMMAND), .banner = std::move(banner), .buttons = {}};
+  }
   case LabPhase::Shooting:
-    return {.command = std::string(WATCH_COMMAND), .banner = std::string(WATCH_BANNER), .buttons = {}};
+  {
+    const auto speed = static_cast<std::uint32_t>(FAST_FORWARD_SPEED);
+    const std::uint32_t asked = Current() != nullptr ? Current()->shotsAsked : 0;
+    std::string banner = Shots(asked, ASKED_SHOTS, ASKED_ONE_SHOT);
+    banner += BANNER_SEPARATOR;
+    banner += std::format(FAST_FORWARD, speed);
+    return {.command = std::string(WATCH_COMMAND), .banner = std::move(banner), .buttons = {}};
+  }
   case LabPhase::Question:
   {
     const std::uint32_t shots = Current() != nullptr ? Current()->shotsAsked : 0;
     return {.command = std::string(QUESTION_COMMAND),
             .banner = shots == 1 ? std::string(QUESTION_ONE_SHOT_BANNER) : std::format(QUESTION_BANNER, shots),
             .buttons = {{.control = HudControl::AnswerOpen, .label = std::string(OPEN_BUTTON)},
-                        {.control = HudControl::AnswerShut, .label = std::string(SHUT_BUTTON)}}};
+                        {.control = HudControl::AnswerShut, .label = std::string(SHUT_BUTTON)}},
+            .hint = std::string(VIEWS_HINT)};
   }
   case LabPhase::Result:
     return {
@@ -215,9 +246,40 @@ std::optional<HudObjective> LabModel::Objective() const
   return HudObjective{.title = std::format(ITEM_OBJECTIVE, m_started - 1, m_order.size() - 1), .detail = "", .detailOff = false};
 }
 
+std::vector<HudResource> LabModel::Resources(std::uint32_t _tick, std::uint32_t _shotsFired, std::uint32_t _askedFired) const
+{
+  switch (m_phase)
+  {
+  case LabPhase::FreeFire:
+    return BreachResources(_tick, _shotsFired);
+  case LabPhase::Shooting:
+  case LabPhase::Result:
+  {
+    const std::uint32_t asked = Current() != nullptr ? Current()->shotsAsked : 0;
+    return {
+      {.key = std::string(ASKED_SHOTS_KEY), .value = std::format(ASKED_SHOTS_VALUE, std::min(_askedFired, asked), asked), .warn = false}};
+  }
+  case LabPhase::Watching:
+  case LabPhase::Question:
+  case LabPhase::Finished:
+    break;
+  }
+  return {};
+}
+
 bool LabModel::FireAllowed() const noexcept
 {
   return m_phase == LabPhase::FreeFire;
+}
+
+bool LabModel::SelectionAllowed() const noexcept
+{
+  return m_phase == LabPhase::FreeFire;
+}
+
+void LabModel::Selected() noexcept
+{
+  m_selectedOnce = true;
 }
 
 bool LabModel::PassabilityForced() const noexcept

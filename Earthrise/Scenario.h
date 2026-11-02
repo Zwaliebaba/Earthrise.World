@@ -25,6 +25,7 @@ struct ScenarioInput
   float zoomNotches;
   bool integrityOn; // the views as shown
   bool passabilityOn;
+  bool engineSelected; // an engine is selected at the frame's end (M3-H3)
 };
 
 /// What Earthrise runs (ADR-020): the M2 breach run live, or the breach lab (M3-G1). It owns the world and decides
@@ -55,12 +56,19 @@ public:
   [[nodiscard]] virtual double Speed() const noexcept = 0;
   [[nodiscard]] virtual bool Paused() const noexcept = 0;
   [[nodiscard]] virtual bool FireAllowed() const noexcept = 0;
+  /// Whether a click selects an engine (M3-H3): never in the lab's items.
+  [[nodiscard]] virtual bool SelectionAllowed() const noexcept = 0;
   [[nodiscard]] virtual bool PassabilityForced() const noexcept = 0;
   /// Whether Space is the scenario's this frame, and not the jump to the newest alert.
   [[nodiscard]] virtual bool TakesSpace() const noexcept = 0;
   /// The banner and the objective over the HUD's own, or nothing.
   [[nodiscard]] virtual std::optional<Client::HudMode> Mode() const = 0;
   [[nodiscard]] virtual std::optional<Client::HudObjective> Objective() const = 0;
+  /// The top bar's resources, from the client's _tick and the player's _shotsFired as the client counts them.
+  [[nodiscard]] virtual std::vector<Client::HudResource> Resources(std::uint32_t _tick, std::uint32_t _shotsFired) const = 0;
+  /// Whether the frame's figures are drawn in the bottom-left corner as well as in the title bar: never to a
+  /// participant (M3-H4).
+  [[nodiscard]] virtual bool ShowsFigures() const noexcept = 0;
   /// Boxes the scenario marks the world with: the lab's mark.
   [[nodiscard]] virtual std::vector<Client::OverlayBox> Marks(const Client::Session& _session) const = 0;
 };

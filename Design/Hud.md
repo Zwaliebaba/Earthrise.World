@@ -75,6 +75,8 @@ All sizes are logical px. The deck is fixed to the bottom of the screen.
 | · Selection | Deck, centre | Takes the rest, at least 340 | §5; scrolls if its content overflows |
 | · Command card | Deck, right | 4 × 3 cells, each 100–112 × 60, gap 4 | §7 |
 
+**M3's integrity readout** (M3-H1; ADR-021, decision 4, amended) docks in the bottom-left corner, left 8 and bottom 8, while M3 has no deck: as wide as its longest row and at least 340, laid out at a smaller UI scale where it would take more than 30 % of the screen's height. The readout place above is for M4, once the deck is there to stand on.
+
 **The HUD covers about a third of the screen's height** with the deck and top bar together. The game's central bet is reading breaches, so two rules follow:
 - **The camera frames the uncovered area** (Decided 2026-11-01, GameDesign.md, *M3's values*, item 14). Its default look-at point, and where JUMP and control-group centring put things, is the centre of the area above the deck and below the top bar, not the centre of the screen. M3 has the top bar alone, and M4 adds the deck.
 - **M4 measures it** (Decided 2026-11-01, GameDesign.md, *M4's values*, item 25). The Siege trial's log records, for each section that opens and each collapse that starts its warning, whether it was above the deck, under it, under the top bar or off screen, and how long the player took to frame it. The M5 playtest reads that to say whether players lose breaches under the deck. If they do, the deck gets slimmer before the verdict.
@@ -85,7 +87,7 @@ The package's touch-first layout puts the minimap and camera buttons top right, 
 
 ## 5. Selection panel
 
-**The player selects squads** (GameDesign.md, 2026-10-31). Laborers are the exception: they are not in squads, and clicking one selects that laborer. Clicking any other figure selects its squad. The click is tested against the squad's footprint on the ground, not against a figure's voxels: a figure is 6–7 px wide at the default zoom (Decided 2026-11-01, GameDesign.md, *M4's values*).
+**The player selects squads** (GameDesign.md, 2026-10-31). Laborers are the exception: they are not in squads, and clicking one selects that laborer. Clicking any other figure selects its squad. The click is tested against the squad's footprint on the ground, not against a figure's voxels: a figure is 6–7 px wide at the default zoom (Decided 2026-11-01, GameDesign.md, *M4's values*). **An engine is picked by its model's box** as placed and turned, its full height, the nearest along the ray (the owner, 2026-11-02; M3-H3): most of a trebuchet on screen is frame and arm, over the ground behind its footprint, where a footprint test misses it. The pointer over a pickable engine turns to the hand and outlines its footprint in accent on the ground, one cell out; a selected engine keeps the outline.
 
 - **Nothing selected:** NOTHING SELECTED, and three hint lines: CLICK A SQUAD, DRAG TO BOX-SELECT, 1–9 GROUPS. Each fits the panel's 340 px minimum.
 - **One squad, laborer, engine or structure:**

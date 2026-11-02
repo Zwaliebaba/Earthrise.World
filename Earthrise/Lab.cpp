@@ -26,7 +26,10 @@ std::vector<Client::LabItemSpec> Specs()
   std::vector<Client::LabItemSpec> specs;
   for (const Simulation::LabItem& item : Simulation::LabItems())
   {
-    specs.push_back({.id = item.id, .shotsAsked = item.shotsAsked, .markVoxels = item.markVoxels});
+    specs.push_back({.id = item.id,
+                     .shotsAsked = item.shotsAsked,
+                     .markVoxels = item.markVoxels,
+                     .priorShots = static_cast<std::uint32_t>(item.priorAimVoxels.size())});
   }
   return specs;
 }
@@ -151,6 +154,10 @@ bool Lab::Tick(Client::Session& _session, double _seconds)
 
 void Lab::Frame(const ScenarioInput& _input, Client::Session& /* _session */)
 {
+  if (_input.engineSelected)
+  {
+    m_model.Selected();
+  }
   switch (m_model.Phase())
   {
   case Client::LabPhase::Question:
@@ -248,6 +255,11 @@ bool Lab::FireAllowed() const noexcept
   return m_model.FireAllowed();
 }
 
+bool Lab::SelectionAllowed() const noexcept
+{
+  return m_model.SelectionAllowed();
+}
+
 bool Lab::PassabilityForced() const noexcept
 {
   return m_model.PassabilityForced();
@@ -266,6 +278,18 @@ std::optional<Client::HudMode> Lab::Mode() const
 std::optional<Client::HudObjective> Lab::Objective() const
 {
   return m_model.Objective();
+}
+
+std::vector<Client::HudResource> Lab::Resources(std::uint32_t _tick, std::uint32_t _shotsFired) const
+{
+  // In an item m_shots runs the prior shots, then the asked ones; the model reads the count only for the asked.
+  const auto fired = static_cast<std::uint32_t>(m_shots.has_value() ? m_shots->Fired() : 0);
+  return m_model.Resources(_tick, _shotsFired, fired);
+}
+
+bool Lab::ShowsFigures() const noexcept
+{
+  return false;
 }
 
 std::vector<Client::OverlayBox> Lab::Marks(const Client::Session& _session) const
