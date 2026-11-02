@@ -637,7 +637,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 - **Tests:** `Tools/TestScoreBreachLab.py`, run here and in CI.
 
 ### M3-G3 — The session and the report
-- **Waits on:** G2, and the six-person session, which the owner runs on the benchmark machine.
+- **Waits on:** G2, phase H, and the six-person session, which the owner runs on the benchmark machine.
 - **Read first:** MvpPlan.md, M3, *Done when*; GameDesign.md, *Kill criteria*; ADR-006, *To be measured in M1 and M3*; the M2 report's shape.
 - **Changes:**
   - **The logs** of the session go to `Design/Review/BreachLab/`, one CSV a participant, with the facilitator's reasons as `Reasons.md` beside them.
@@ -645,3 +645,42 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
   - **ADR-006**'s M3 row takes the median; the owner accepts ADR-006 on a pass, by its own terms.
   - **GameDesign.md,** *M3's values*, item 10 becomes Decided at the measured budget.
   - **MvpPlan.md:** the M3 record is complete, and what M4 inherits from M3 is written.
+
+## Phase H — The owner's first lab run
+
+The owner ran `Earthrise --lab P00 --windowed` and `Earthrise --windowed` on 2026-11-02, before the session. What they found, and why:
+
+- **The target's integrity label is not shown.** F2 places the labels nearest the camera first, and drops one whose rows would cover a nearer label. W1, the south-west corner, is nearest at the default framing, so its label takes the space above the enclosure and W2's is dropped. The label on screen never changes, because the shots land on W2. It also covers the enclosure, which is what the participant reads, and with W5 the screen shows two labels about walls nobody asked about.
+- **GROUND is red on every section.** Every section stands on earth, so the colour that means danger shows on each label and never changes. Nothing in the lab undermines a wall.
+- **Selecting the trebuchet is unclear.** E3 tests a click against the engine's footprint on the ground, as Hud.md §5 proposes for squads of figures 6 to 7 px wide. Most of a trebuchet on screen is frame and arm, and a click on them meets the ground behind its footprint. Nothing answers the pointer: no cursor, no hover, no ring. In the lab's items the objective line shows the item, so a selection shows nothing at all.
+- **The WATCH banner reads off centre.** The banner pads 14 px on the left and 6 on the right, for a button after its text; with none, the text sits right of the middle. The objective is centred in the room between the resources and the camera buttons, about 15 px from the screen's middle, under a banner centred on the screen. WATCH does not say what runs.
+- **The participant sees the developer's figures,** the voxel pass's time, the tick and the speed, and TIME, which is the item world's game time and means nothing to the question.
+
+Each order is one commit, in one pull request, before G3's session. H1 and H3 wait on the owner's answers, which this plan records when they are given.
+
+### M3-H1 — The integrity readout follows W2
+- **Waits on:** the owner's answers on where the readout sits, and on GROUND.
+- **Read first:** ADR-021, decision 4; Hud.md §3, the readout; F2's order; GameDesign.md, *M3's values*, item 5.
+- **Changes:** one readout, of the focused section: W2 by default, the section under the pointer while it is over one, the selected section after a click on one. Its rows are the paper test's words, unchanged (item 5). HOLE and GAP each gain a bar of their width against the width at which the stone falls. A row that changed with the latest shot flashes in accent. GROUND is dim unless a gap lies under the foundation. The weak point's tint stays in the world. Where the readout sits is the owner's answer: docked in Hud.md §3's readout place, which amends ADR-021, decision 4; or in the world for the focused section alone, beside the wall and not over it.
+- **Tests:** **`OverlaysTests`:** W2 is focused with the pointer over nothing; the pointer over W5 focuses W5; a bar's fill is the width over the fall width; a row that changed flashes and one that did not does not; GROUND reads dim on earth with no gap, and bad with one; the readout never covers W2's box on screen at 1280 × 720 and 1920 × 1080, at each UI scale.
+- **Owner runs:** `Earthrise --lab P00 --windowed`, items with damage to W2: the readout is W2's, changes shot by shot, and covers none of the enclosure.
+
+### M3-H2 — The banner and the objective centred, and the banner says what runs
+- **Waits on:** nothing.
+- **Read first:** Hud.md §3; E2's order; G1's order.
+- **Changes:** the mode banner pads its text evenly when no button follows it. The objective is centred on the screen, and moves aside only when the resources or the camera buttons would meet it. WATCH becomes `SETTING UP ITEM n · k SHOTS · 10×` for the prior shots, and `n SHOTS AT THE MARK · 10×` for the asked ones.
+- **Tests:** **`HudTests`:** a banner with no button has its text in its middle, to a pixel; the objective's middle is the screen's at 1280 and 1920 px and each scale, where it fits; every string still fits its element. **`LabTests`:** the banner reads as above for an item with 3 prior shots and N = 2.
+
+### M3-H3 — An engine is picked by its model, and the pointer answers
+- **Waits on:** the owner's answer on picking engines by their model's box.
+- **Read first:** Hud.md §5 and §8; E3's order; `Client/WorldPicker.h`.
+- **Changes:** an engine is picked by the box of its model as placed and turned, its full height, nearest along the ray; squads keep the footprint, when M4 brings them. Hovering a pickable engine shows its footprint's outline in accent and the hand cursor. A selected engine keeps the outline, and a chip beside the resources names it with F FIRE, or RELOADING in off text; the objective line stays the objective. In free fire the banner adds `CLICK THE TREBUCHET · F TO FIRE` until the first selection. In the lab's items selection is off.
+- **Tests:** **`WorldPickerTests`:** a pixel over the model's arm, above the ground behind its footprint, picks the engine; one beside the model does not; a wall in front of the model hides it. **`HudTests`:** the chip fits beside the resources at every size the owner runs. **`LabTests`:** selection is off in an item and on in free fire.
+- **Owner runs:** `Earthrise --windowed`: hover and click the trebuchet anywhere on its model.
+
+### M3-H4 — The participant's screen holds only the lab
+- **Waits on:** nothing.
+- **Read first:** G1's order; `Design/BreachLab.md`.
+- **Changes:** under `--lab`, the frame's figures are left off the screen and stay in the title bar. In an item, TIME gives way to `SHOTS AT THE MARK k OF N` while the asked shots run, and to nothing before. The question's banner names the views' keys after its two buttons, `F1 F2 VIEWS`, since selection, the only other thing a click did, is off.
+- **Tests:** **`LabTests`:** the resources read as above in each phase; the question's banner fits at every size the owner runs.
+- **Owner runs:** `Earthrise --lab P00 --windowed` through free fire, the practice item and two items.
