@@ -79,6 +79,7 @@
     <ClCompile Include="UnitStatsTests.cpp" />
     <ClCompile Include="ScenarioTests.cpp" />
     <ClCompile Include="DamageTests.cpp" />
+    <ClCompile Include="FormationTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

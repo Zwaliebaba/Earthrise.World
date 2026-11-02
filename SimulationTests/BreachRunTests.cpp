@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include "BreachLab.h"
 #include "BreachRun.h"
 #include "FlatWorld.h"
 #include "Generator.h"
@@ -50,6 +51,7 @@ struct Outcome
   std::vector<std::int64_t> pathThrough;          // its path then
   std::vector<std::string> standingFaults;        // a unit on a structure, or outside its cell
   std::vector<Protocol::VoxelPosition> finalCells;
+  std::map<Protocol::EntityId, std::uint32_t> inside; // the tick each figure first stood north of the wall's south face
   std::uint64_t finalHash = 0;
   std::size_t stoneRubble = 0;                                         // in the footprint at the end
   std::vector<std::pair<std::uint32_t, std::vector<std::byte>>> saves; // before the breach, mid-fall, mid-walk
@@ -72,6 +74,19 @@ void CheckStanding(const Simulation::World& _world, std::uint32_t _tick, Outcome
       _outcome.standingFaults.push_back("tick " + std::to_string(_tick) + ": unit " + std::to_string(id) + " at (" +
                                         std::to_string(cell.xVoxels) + ", " + std::to_string(cell.yVoxels) + ", " +
                                         std::to_string(cell.zVoxels) + ")");
+    }
+  }
+}
+
+/// Notes the tick each of _squad's figures first stands north of the wall's south face.
+void NoteInside(const Simulation::World& _world, Protocol::EntityId _squad, std::uint32_t _tick,
+                std::map<Protocol::EntityId, std::uint32_t>& _inside)
+{
+  for (const Protocol::EntityId id : _world.Squads().at(_squad).units)
+  {
+    if (_world.Units().at(id).cellVoxels.zVoxels > Simulation::BreachRun::WALL_SOUTH_VOXELS)
+    {
+      _inside.emplace(id, _tick);
     }
   }
 }
@@ -161,6 +176,7 @@ Outcome RunBreach()
       }
     }
     CheckStanding(world, tick, outcome);
+    NoteInside(world, run.squad, tick, outcome.inside);
   }
   for (const Protocol::EntityId id : world.Squads().at(run.squad).units)
   {
@@ -186,6 +202,65 @@ const Outcome& Breach()
 {
   static const Outcome OUTCOME = RunBreach();
   return OUTCOME;
+}
+
+/// The breach run with a second squad of six men-at-arms a row behind the first, ordered on the same
+/// tick to 4 m beyond the first's goal, and run on until both have come to rest.
+struct TwoSquads
+{
+  std::vector<std::string> sharedCells; // each tick two units stood in one cell, and which
+  bool quiet = false;
+  std::vector<Protocol::VoxelPosition> finalCells; // both squads' figures, the first's first
+  Protocol::VoxelPosition firstLead{};
+  Protocol::VoxelPosition secondLead{};
+  Protocol::VoxelPosition firstGoal{};
+  Protocol::VoxelPosition secondGoal{};
+};
+
+TwoSquads RunTwoSquads()
+{
+  TwoSquads outcome;
+  Simulation::World world(Simulation::BreachRunDesc(BakedServerData(), FlatWorld::BUILD_ID));
+  const Simulation::BreachRun run = Simulation::BuildBreachRun(world);
+  std::vector<Protocol::VoxelPosition> cells;
+  for (const Protocol::EntityId id : world.Squads().at(run.squad).units)
+  {
+    const Protocol::VoxelPosition cell = world.Units().at(id).cellVoxels;
+    cells.push_back({.xVoxels = cell.xVoxels, .yVoxels = cell.yVoxels, .zVoxels = cell.zVoxels - 1});
+  }
+  const Protocol::EntityId second = world.AddSquad(Simulation::BreachRun::PLAYER, Simulation::UnitKind::ManAtArms, cells);
+  outcome.firstGoal = run.goalVoxels;
+  outcome.secondGoal = {.xVoxels = run.goalVoxels.xVoxels, .yVoxels = run.goalVoxels.yVoxels, .zVoxels = run.goalVoxels.zVoxels + 4};
+  std::vector<Simulation::ScriptedCommand> script = run.script;
+  script.push_back({.tick = Simulation::LAB_ORDER_TICK,
+                    .player = Simulation::BreachRun::PLAYER,
+                    .command = Protocol::MoveSquad{.squad = second, .goalVoxels = outcome.secondGoal}});
+  constexpr std::uint32_t MORE_TICKS = 1200; // a minute more, for the second squad to follow the first
+  for (std::uint32_t tick = 0; tick < run.ticks + MORE_TICKS && !outcome.quiet; ++tick)
+  {
+    Simulation::RunScript(world, script, 1);
+    std::map<std::pair<std::int32_t, std::int32_t>, Protocol::EntityId> held;
+    for (const auto& [id, unit] : world.Units())
+    {
+      const auto [at, inserted] = held.emplace(std::pair{unit.cellVoxels.xVoxels, unit.cellVoxels.zVoxels}, id);
+      if (!inserted)
+      {
+        outcome.sharedCells.push_back("tick " + std::to_string(tick) + ": units " + std::to_string(at->second) + " and " +
+                                      std::to_string(id));
+      }
+    }
+    outcome.quiet = tick >= run.ticks && world.Quiet();
+  }
+  for (const Protocol::EntityId squad : {run.squad, second})
+  {
+    for (const Protocol::EntityId id : world.Squads().at(squad).units)
+    {
+      outcome.finalCells.push_back(world.Units().at(id).cellVoxels);
+    }
+  }
+  outcome.firstLead = world.Units().at(world.Squads().at(run.squad).units.front()).cellVoxels;
+  outcome.secondLead = world.Units().at(world.Squads().at(second).units.front()).cellVoxels;
+  return outcome;
 }
 
 std::int64_t Cell(std::int32_t _x, std::int32_t _z)
@@ -322,6 +397,53 @@ public:
       Assert::AreEqual(tick, loaded.TickCount());
       Simulation::RunScript(loaded, outcome.run.script, outcome.run.ticks - tick);
       Assert::AreEqual(outcome.finalHash, Simulation::StateHash(loaded));
+    }
+  }
+
+  TEST_METHOD(RecordsTheRateThroughTheBreachAndReplaysItToTheSameTicks)
+  {
+    // ADR-022, decision 7: the rate through the breach falls out of the rule, and is measured. The
+    // tick each figure first stands inside is recorded, and the run continued from the save before
+    // the breach brings each inside on the same tick.
+    const Outcome& outcome = Breach();
+    Assert::AreEqual(Simulation::BreachRun::SQUAD_FIGURES, outcome.inside.size());
+    std::uint32_t first = UINT32_MAX;
+    std::uint32_t last = 0;
+    for (const auto& [id, tick] : outcome.inside)
+    {
+      first = std::min(first, tick);
+      last = std::max(last, tick);
+    }
+    Logger::WriteMessage(("six figures inside from tick " + std::to_string(first) + " to tick " + std::to_string(last)).c_str());
+    Assert::IsTrue(last > first);
+    const auto& [saved, save] = outcome.saves.front();
+    Simulation::World loaded = Simulation::LoadSave(save, outcome.desc);
+    std::map<Protocol::EntityId, std::uint32_t> inside;
+    for (std::uint32_t tick = saved; tick < outcome.run.ticks; ++tick)
+    {
+      Simulation::RunScript(loaded, outcome.run.script, 1);
+      NoteInside(loaded, outcome.run.squad, tick, inside);
+    }
+    Assert::IsTrue(inside == outcome.inside);
+  }
+
+  TEST_METHOD(KeepsTwoSquadsOneToACellThroughTheBreach)
+  {
+    // ADR-022, *Consequences*: no two units in one cell on any tick of the breach run with two squads
+    // ordered through it; both come to rest inside, each lead at its goal.
+    const TwoSquads outcome = RunTwoSquads();
+    for (const std::string& shared : outcome.sharedCells)
+    {
+      Logger::WriteMessage(shared.c_str());
+    }
+    Assert::IsTrue(outcome.sharedCells.empty());
+    Assert::IsTrue(outcome.quiet);
+    Assert::IsTrue(outcome.firstLead == outcome.firstGoal);
+    Assert::IsTrue(outcome.secondLead == outcome.secondGoal);
+    Assert::AreEqual(2 * Simulation::BreachRun::SQUAD_FIGURES, outcome.finalCells.size());
+    for (const Protocol::VoxelPosition& cell : outcome.finalCells)
+    {
+      Assert::IsTrue(cell.zVoxels > Simulation::BreachRun::WALL_SOUTH_VOXELS);
     }
   }
 };

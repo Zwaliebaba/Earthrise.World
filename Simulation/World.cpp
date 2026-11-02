@@ -2,6 +2,7 @@
 
 #include "World.h"
 
+#include "Formation.h"
 #include "Generator.h"
 #include "IntegerMath.h"
 #include "Integrity.h"
@@ -82,28 +83,29 @@ std::vector<std::vector<std::byte>> World::TakeAnswers()
   return std::exchange(m_answers, {});
 }
 
-bool World::Quiet() const noexcept
+bool World::Quiet() const
 {
   if (!m_shots.empty() || !m_collapses.empty() || !m_slumpQueue.empty() || !m_searches.empty() || !m_unsearchedEdits.empty() ||
       !m_voxels.TickEdits().empty() || !m_pendingCommands.empty())
   {
     return false;
   }
-  // A unit stands still at its place in its squad's file: in no step, and at the cell it stops in.
-  for (const auto& [id, squad] : m_squads)
+  // Every figure stands still: in no step, and with no step its squad's plan gives it that it could take now, into a
+  // free cell or by a swap (ADR-022).
+  const Occupancy occupancy = BuildOccupancy();
+  const Plans plans = PlanAll();
+  const std::map<Protocol::EntityId, PathSearch::CellIndex> wanted = Wanted(plans);
+  for (const auto& [id, place] : plans.places)
   {
-    for (std::size_t place = 0; place < squad.units.size(); ++place)
+    const Unit& unit = m_units.at(id);
+    if (unit.reservedCell >= 0 || unit.stepEffort > 0)
     {
-      const auto unit = m_units.find(squad.units[place]);
-      if (unit == m_units.end() || squad.trail.empty())
-      {
-        continue;
-      }
-      const std::size_t end = squad.trail.size() - 1 - std::min(place, squad.trail.size() - 1);
-      if (unit->second.stepEffort > 0 || unit->second.trailStep < end)
-      {
-        return false;
-      }
+      return false;
+    }
+    const auto step = wanted.find(id);
+    if (step != wanted.end() && (Free(occupancy, unit, step->second) || SwapPartner(unit, step->second, occupancy, wanted).has_value()))
+    {
+      return false;
     }
   }
   return true;
@@ -244,11 +246,8 @@ void World::RequestSearch(Squad& _squad)
   const std::int32_t width = m_navigation.WidthCells();
   const std::int32_t goalX = std::clamp(_squad.goalVoxels.xVoxels, 0, width - 1);
   const std::int32_t goalZ = std::clamp(_squad.goalVoxels.zVoxels, 0, m_navigation.DepthCells() - 1);
-  // From the trail cell the lead stands in or is stepping into, which its squad holds to until the
-  // path arrives; or, before the squad has a trail, from the lead's own cell.
-  const PathSearch::CellIndex start = lead.trailStep < _squad.trail.size()
-                                        ? _squad.trail[lead.trailStep]
-                                        : std::int64_t{lead.cellVoxels.zVoxels} * width + lead.cellVoxels.xVoxels;
+  // From the cell the lead stands in or is stepping into, which its squad holds to until the path arrives.
+  const PathSearch::CellIndex start = lead.reservedCell >= 0 ? lead.reservedCell : CellOf(lead.cellVoxels);
   const PathSearch::CellIndex goal = std::int64_t{goalZ} * width + goalX;
   // Reach is known without searching the map (M2-F4): the search goes for the goal, or for the
   // reachable cell nearest it when the goal is out of reach.
@@ -282,7 +281,8 @@ Protocol::EntityId World::AddSquad(std::uint8_t _owner, UnitKind _kind, std::spa
               .shortOfGoal = false,
               .trail = {},
               .garrisonedIn = Protocol::NO_ENTITY,
-              .kind = _kind};
+              .kind = _kind,
+              .facing = 0};
   for (const Protocol::VoxelPosition& cell : _cellsVoxels)
   {
     const Protocol::EntityId unitId = NewEntityId();
@@ -295,7 +295,10 @@ Protocol::EntityId World::AddSquad(std::uint8_t _owner, UnitKind _kind, std::spa
                                  .trailStep = 0,
                                  .stepEffort = 0,
                                  .kind = _kind,
-                                 .hitPoints = stats.hitPoints});
+                                 .hitPoints = stats.hitPoints,
+                                 .reservedCell = NO_CELL,
+                                 .stepFromCell = CellOf(cell),
+                                 .waitTicks = 0});
     squad.units.push_back(unitId);
   }
   m_squads.emplace(squadId, std::move(squad));
@@ -426,8 +429,11 @@ void World::PlaceInGarrison(Protocol::EntityId _squad, Protocol::EntityId _struc
     Unit& unit = m_units.at(unitId);
     unit.cellVoxels = structure->second.originVoxels;
     unit.position = CellFloorMiddle(unit.cellVoxels);
-    unit.trailStep = 0;
+    unit.trailStep = OFF_TRAIL;
     unit.stepEffort = 0;
+    unit.reservedCell = NO_CELL;
+    unit.stepFromCell = CellOf(unit.cellVoxels);
+    unit.waitTicks = 0;
   }
 }
 
@@ -650,7 +656,7 @@ void World::MoveUnits()
 {
   // Step 3: the searches, served in the order they were asked for, then squad id, within
   // pathNodesPerTick nodes; one the budget cuts short goes on next tick (M2-F3; ADR-015, decision
-  // 5). Then movement along paths (M2-F5).
+  // 5). Then movement (ADR-022).
   auto budget = static_cast<std::uint32_t>(std::max(0, Data().Tuning().pathNodesPerTick));
   while (budget > 0 && !m_searches.empty())
   {
@@ -669,38 +675,7 @@ void World::MoveUnits()
     }
     m_searches.erase(m_searches.begin());
   }
-  // Then each squad's figures walk its trail, in squad-id order and each squad's own (ADR-015,
-  // decision 6). A squad whose search is not done holds: its figures finish the step they are in and
-  // start no other, so the search's start, the cell its lead was stepping into, is still the lead's
-  // when the path arrives.
-  for (auto& [id, squad] : m_squads)
-  {
-    if (squad.trail.empty())
-    {
-      continue;
-    }
-    const bool holding = std::ranges::any_of(m_searches, [id](const auto& _search) { return _search.first.second == id; });
-    for (std::size_t place = 0; place < squad.units.size(); ++place)
-    {
-      Walk(m_units.at(squad.units[place]), squad, place, holding);
-    }
-    // The cells behind every figure are walked: the trail keeps only the one a figure is stepping
-    // from.
-    std::size_t behind = squad.trail.size();
-    for (const Protocol::EntityId unitId : squad.units)
-    {
-      const Unit& unit = m_units.at(unitId);
-      behind = std::min<std::size_t>(behind, unit.stepEffort > 0 ? unit.trailStep - 1 : unit.trailStep);
-    }
-    if (behind > 0 && behind < squad.trail.size())
-    {
-      squad.trail.erase(squad.trail.begin(), squad.trail.begin() + static_cast<std::ptrdiff_t>(behind));
-      for (const Protocol::EntityId unitId : squad.units)
-      {
-        m_units.at(unitId).trailStep -= static_cast<std::uint32_t>(behind);
-      }
-    }
-  }
+  WalkFigures();
   FollowBodies();
 }
 
@@ -711,90 +686,631 @@ void World::FormTrail(Squad& _squad)
   {
     return;
   }
-  const std::uint32_t leadStep = m_units.at(_squad.units.front()).trailStep;
-  const bool fileBehindLead =
-    std::ranges::all_of(_squad.units, [&](Protocol::EntityId _unit) { return m_units.at(_unit).trailStep <= leadStep; });
-  if (leadStep < _squad.trail.size() && _squad.trail[leadStep] == path.front() && fileBehindLead)
+  // The lead walks the path from where it stands, or the cell it is stepping into, which its search
+  // started from. When that is the trail cell it is at, the trail behind it stays, so that the
+  // figures following it stay on it, and the path takes the place of what lay ahead.
+  Unit& lead = m_units.at(_squad.units.front());
+  if (lead.trailStep != OFF_TRAIL && lead.trailStep < _squad.trail.size() && _squad.trail[lead.trailStep] == path.front())
   {
-    // The path starts where the lead stands or is stepping: the trail behind it stays, and the path
-    // takes the place of what lay ahead.
-    _squad.trail.resize(std::size_t{leadStep} + 1);
+    _squad.trail.resize(std::size_t{lead.trailStep} + 1);
     _squad.trail.insert(_squad.trail.end(), path.begin() + 1, path.end());
     return;
   }
-  // The file forms behind the lead: the figures' own cells, the rearmost first, then the path, which
-  // starts at the lead's. Each figure stands at its own cell.
-  const std::int32_t width = m_navigation.WidthCells();
-  std::vector<PathSearch::CellIndex> trail;
-  trail.reserve(_squad.units.size() + path.size());
-  for (std::size_t place = _squad.units.size() - 1; place > 0; --place)
+  _squad.trail = path;
+  lead.trailStep = 0;
+  for (std::size_t place = 1; place < _squad.units.size(); ++place)
   {
-    const Protocol::VoxelPosition cell = m_units.at(_squad.units[place]).cellVoxels;
-    trail.push_back(std::int64_t{cell.zVoxels} * width + cell.xVoxels);
+    m_units.at(_squad.units[place]).trailStep = OFF_TRAIL;
   }
-  trail.insert(trail.end(), path.begin(), path.end());
-  for (std::size_t place = 0; place < _squad.units.size(); ++place)
-  {
-    Unit& unit = m_units.at(_squad.units[place]);
-    unit.trailStep = static_cast<std::uint32_t>(_squad.units.size() - 1 - place);
-    unit.stepEffort = 0;
-  }
-  _squad.trail = std::move(trail);
 }
 
-void World::Walk(Unit& _unit, const Squad& _squad, std::size_t _place, bool _holding)
+PathSearch::CellIndex World::CellOf(const Protocol::VoxelPosition& _cellVoxels) const noexcept
+{
+  return (std::int64_t{_cellVoxels.zVoxels} * m_navigation.WidthCells()) + _cellVoxels.xVoxels;
+}
+
+std::int64_t World::SpeedOf(const Unit& _unit) const
 {
   // Each kind's own speed, from UNIT (ADR-023, decision 1).
-  const std::int64_t speed = Data().Stats(_unit.kind).speedMetersPerTick.Raw();
+  return Data().Stats(_unit.kind).speedMetersPerTick.Raw();
+}
+
+std::vector<PathSearch::CellIndex> World::Footprint(const Unit& _unit, PathSearch::CellIndex _cell) const
+{
+  // A machine occupies the square of cells its class's width covers, its cell the minimum corner (ADR-022, decision 1).
+  const std::int32_t width = m_navigation.WidthCells();
+  const std::int32_t side = _unit.navigationClass == NavigationClass::Machines ? std::max(1, Data().Tuning().machinesWidthVoxels) : 1;
+  std::vector<PathSearch::CellIndex> cells;
+  cells.reserve(static_cast<std::size_t>(side) * static_cast<std::size_t>(side));
+  for (std::int32_t dz = 0; dz < side; ++dz)
+  {
+    for (std::int32_t dx = 0; dx < side; ++dx)
+    {
+      cells.push_back(_cell + (std::int64_t{dz} * width) + dx);
+    }
+  }
+  return cells;
+}
+
+World::Occupancy World::BuildOccupancy() const
+{
+  // Every unit outside a building holds the cells it stands in, which for one in a step is the cell it
+  // left until it is halfway, and has reserved the cells it steps into.
+  Occupancy occupancy;
+  for (const auto& [id, unit] : m_units)
+  {
+    if (Garrisoned(unit))
+    {
+      continue;
+    }
+    for (const PathSearch::CellIndex cell : Footprint(unit, CellOf(unit.cellVoxels)))
+    {
+      occupancy.occupied.emplace(cell, id);
+    }
+    if (unit.reservedCell >= 0)
+    {
+      for (const PathSearch::CellIndex cell : Footprint(unit, unit.reservedCell))
+      {
+        occupancy.reserved.emplace(cell, id);
+      }
+    }
+  }
+  return occupancy;
+}
+
+bool World::Free(const Occupancy& _occupancy, const Unit& _unit, PathSearch::CellIndex _cell) const
+{
+  for (const PathSearch::CellIndex cell : Footprint(_unit, _cell))
+  {
+    const auto occupied = _occupancy.occupied.find(cell);
+    const auto reserved = _occupancy.reserved.find(cell);
+    if ((occupied != _occupancy.occupied.end() && occupied->second != _unit.id) ||
+        (reserved != _occupancy.reserved.end() && reserved->second != _unit.id))
+    {
+      return false;
+    }
+  }
+  return true;
+}
+
+std::set<PathSearch::CellIndex> World::Flood(PathSearch::CellIndex _start, NavigationClass _class, std::int32_t _radiusCells) const
+{
+  // The cells a class can reach from _start along its links without going more than _radiusCells from it, across or
+  // along: where its figures can take their slots.
+  const std::int32_t width = m_navigation.WidthCells();
+  const auto startX = static_cast<std::int32_t>(_start % width);
+  const auto startZ = static_cast<std::int32_t>(_start / width);
+  std::set<PathSearch::CellIndex> reached{_start};
+  std::deque<PathSearch::CellIndex> open{_start};
+  while (!open.empty())
+  {
+    const PathSearch::CellIndex cell = open.front();
+    open.pop_front();
+    const auto x = static_cast<std::int32_t>(cell % width);
+    const auto z = static_cast<std::int32_t>(cell / width);
+    const std::uint8_t links = m_navigation.Links(x, z, _class);
+    for (std::size_t direction = 0; direction < NavigationGrid::NEIGHBORS.size(); ++direction)
+    {
+      const std::int32_t nextX = x + NavigationGrid::NEIGHBORS.at(direction)[0];
+      const std::int32_t nextZ = z + NavigationGrid::NEIGHBORS.at(direction)[1];
+      if ((links & (1U << direction)) == 0 || std::abs(nextX - startX) > _radiusCells || std::abs(nextZ - startZ) > _radiusCells)
+      {
+        continue;
+      }
+      const PathSearch::CellIndex next = (std::int64_t{nextZ} * width) + nextX;
+      if (reached.insert(next).second)
+      {
+        open.push_back(next);
+      }
+    }
+  }
+  return reached;
+}
+
+World::SquadPlan World::PlanFor(const Squad& _squad) const
+{
+  // ADR-022, decisions 4 and 5: each follower's target, its slot about the lead or, where the slot is dropped, the
+  // trail. On the way a slot its class cannot use, that it cannot reach from the lead within a few cells, or more than
+  // SLOT_TRAIL_REACH_CELLS from the lead's trail is dropped. At the goal every slot takes a cell: when its own will not
+  // do, the trail cell its figure would stop at in single file, and when a slot before it holds that, the nearest usable
+  // and reachable one no slot before it holds.
+  SquadPlan plan{.moving = false, .arrived = false, .targets = std::vector<PathSearch::CellIndex>(_squad.units.size(), NO_CELL)};
+  if (_squad.units.empty() || _squad.trail.empty())
+  {
+    return plan;
+  }
+  plan.moving = true;
+  const std::int32_t width = m_navigation.WidthCells();
+  const Unit& lead = m_units.at(_squad.units.front());
+  const PathSearch::CellIndex leadCell = CellOf(lead.cellVoxels);
+  plan.arrived =
+    !Holding(_squad.id) && lead.reservedCell < 0 && lead.trailStep != OFF_TRAIL && std::size_t{lead.trailStep} + 1 >= _squad.trail.size();
+  if (_squad.units.size() < 2)
+  {
+    return plan;
+  }
+  const UnitStats& stats = Data().Stats(_squad.kind);
+  const std::uint8_t ranks = _squad.navigationClass == NavigationClass::Cavalry || stats.squadFigures < 2 ? 1 : 2;
+  const std::vector<Protocol::VoxelPosition> slots =
+    FormationSlots(lead.cellVoxels, _squad.facing, static_cast<std::uint8_t>(_squad.units.size()), ranks, stats.squadFigures);
+  const auto usable = [this, &_squad](const Protocol::VoxelPosition& _slot)
+  {
+    return _slot.xVoxels >= 0 && _slot.zVoxels >= 0 && _slot.xVoxels < m_navigation.WidthCells() &&
+           _slot.zVoxels < m_navigation.DepthCells() && m_navigation.Usable(_slot.xVoxels, _slot.zVoxels, _squad.navigationClass);
+  };
+  if (plan.arrived)
+  {
+    const std::set<PathSearch::CellIndex> reach = Flood(leadCell, _squad.navigationClass, ARRIVAL_FLOOD_CELLS);
+    std::set<PathSearch::CellIndex> held{leadCell};
+    for (std::size_t place = 1; place < slots.size(); ++place)
+    {
+      const PathSearch::CellIndex slot = CellOf(slots[place]);
+      PathSearch::CellIndex chosen = NO_CELL;
+      const PathSearch::CellIndex file = lead.trailStep >= place ? _squad.trail[lead.trailStep - place] : NO_CELL;
+      if (usable(slots[place]) && reach.contains(slot) && !held.contains(slot))
+      {
+        chosen = slot;
+      }
+      else if (file != NO_CELL && reach.contains(file) && !held.contains(file))
+      {
+        chosen = file;
+      }
+      else
+      {
+        std::int64_t best = std::numeric_limits<std::int64_t>::max();
+        for (const PathSearch::CellIndex cell : reach)
+        {
+          const std::int64_t distance = PathSearch::Octile(cell, slot, width);
+          if (!held.contains(cell) && distance < best)
+          {
+            best = distance;
+            chosen = cell;
+          }
+        }
+      }
+      if (chosen != NO_CELL)
+      {
+        held.insert(chosen);
+      }
+      plan.targets[place] = chosen;
+    }
+    return plan;
+  }
+  const std::set<PathSearch::CellIndex> reach = Flood(leadCell, _squad.navigationClass, TRAVEL_FLOOD_CELLS);
+  const std::size_t leadStep = lead.trailStep == OFF_TRAIL ? 0 : lead.trailStep;
+  const std::size_t figures = _squad.units.size();
+  const std::size_t windowFirst = leadStep > figures + 2 ? leadStep - figures - 2 : 0;
+  const std::size_t windowEnd = std::min(_squad.trail.size(), leadStep + figures + 3);
+  for (std::size_t place = 1; place < slots.size(); ++place)
+  {
+    const PathSearch::CellIndex slot = CellOf(slots[place]);
+    bool nearTrail = false;
+    for (std::size_t step = windowFirst; step < windowEnd && !nearTrail; ++step)
+    {
+      const PathSearch::CellIndex cell = _squad.trail[step];
+      nearTrail = std::abs((cell % width) - (slot % width)) <= SLOT_TRAIL_REACH_CELLS &&
+                  std::abs((cell / width) - (slot / width)) <= SLOT_TRAIL_REACH_CELLS;
+    }
+    if (usable(slots[place]) && reach.contains(slot) && nearTrail)
+    {
+      plan.targets[place] = slot;
+    }
+  }
+  return plan;
+}
+
+std::optional<World::Step> World::NextStep(const Unit& _unit, const Squad& _squad, std::size_t _place, const SquadPlan& _plan) const
+{
+  if (!_plan.moving)
+  {
+    return std::nullopt;
+  }
   const std::vector<PathSearch::CellIndex>& trail = _squad.trail;
-  if (speed <= 0 || _unit.trailStep >= trail.size())
+  const auto alongTrail = [&](std::uint32_t _step) -> std::optional<Step>
+  {
+    if (std::size_t{_step} + 1 >= trail.size() || !Linked(trail[_step], trail[std::size_t{_step} + 1], _unit.navigationClass))
+    {
+      return std::nullopt;
+    }
+    return Step{.cell = trail[std::size_t{_step} + 1], .trailStep = _step + 1};
+  };
+  if (_place == 0)
+  {
+    // The lead walks the trail to its end (M2-F5).
+    return _unit.trailStep == OFF_TRAIL ? std::nullopt : alongTrail(_unit.trailStep);
+  }
+  const PathSearch::CellIndex here = CellOf(_unit.cellVoxels);
+  const PathSearch::CellIndex target = _plan.targets.at(_place);
+  if (target == here)
+  {
+    return std::nullopt;
+  }
+  // It makes for its slot when its greedy steps arrive there; a slot they do not reach, behind a wall from it, is
+  // dropped as one far off the trail is (ADR-022, decision 4, amended).
+  if (target != NO_CELL && GreedyReaches(here, _unit.navigationClass, target))
+  {
+    if (const std::optional<PathSearch::CellIndex> next = Towards(here, _unit.navigationClass, target); next.has_value())
+    {
+      return Step{.cell = *next, .trailStep = OFF_TRAIL};
+    }
+  }
+  // Its slot dropped: it follows the trail as in M2, stopping as many cells behind the lead as it stands behind it in
+  // the squad, and makes for the trail when it is off it.
+  const std::uint32_t leadStep = m_units.at(_squad.units.front()).trailStep;
+  const std::uint32_t stop = leadStep == OFF_TRAIL || leadStep < _place ? 0 : leadStep - static_cast<std::uint32_t>(_place);
+  std::uint32_t onTrail = _unit.trailStep;
+  for (std::size_t step = std::min<std::size_t>(stop + 1, trail.size()); onTrail == OFF_TRAIL && step-- > 0;)
+  {
+    // A figure that stands on the trail without knowing its place there, as after a new trail is laid, takes it.
+    if (trail[step] == here)
+    {
+      onTrail = static_cast<std::uint32_t>(step);
+    }
+  }
+  if (onTrail != OFF_TRAIL)
+  {
+    return onTrail < stop ? alongTrail(onTrail) : std::nullopt;
+  }
+  // Off it: the trail cell up to its stop that its greedy steps reach, the nearest by octile distance, ties to the later.
+  const std::int32_t width = m_navigation.WidthCells();
+  std::optional<PathSearch::CellIndex> nearest;
+  std::int64_t best = std::numeric_limits<std::int64_t>::max();
+  for (std::size_t step = 0; step <= stop && step < trail.size(); ++step)
+  {
+    const std::int64_t distance = PathSearch::Octile(here, trail[step], width);
+    if (distance <= best && GreedyReaches(here, _unit.navigationClass, trail[step]))
+    {
+      best = distance;
+      nearest = trail[step];
+    }
+  }
+  if (!nearest.has_value())
+  {
+    return std::nullopt;
+  }
+  const std::optional<PathSearch::CellIndex> next = Towards(here, _unit.navigationClass, *nearest);
+  return next.has_value() ? std::optional<Step>(Step{.cell = *next, .trailStep = OFF_TRAIL}) : std::nullopt;
+}
+
+std::optional<PathSearch::CellIndex> World::Towards(PathSearch::CellIndex _from, NavigationClass _class,
+                                                    PathSearch::CellIndex _target) const
+{
+  // The step among its eight neighbours that most reduces the octile distance to _target, along a link open to its
+  // class, ties to the lower link index (ADR-022, decision 4); none when none does.
+  const std::int32_t width = m_navigation.WidthCells();
+  std::int64_t best = PathSearch::Octile(_from, _target, width);
+  std::optional<PathSearch::CellIndex> step;
+  const std::uint8_t links = m_navigation.Links(static_cast<std::int32_t>(_from % width), static_cast<std::int32_t>(_from / width), _class);
+  for (std::size_t direction = 0; direction < NavigationGrid::NEIGHBORS.size(); ++direction)
+  {
+    if ((links & (1U << direction)) == 0)
+    {
+      continue;
+    }
+    const PathSearch::CellIndex next =
+      _from + (std::int64_t{NavigationGrid::NEIGHBORS.at(direction)[1]} * width) + NavigationGrid::NEIGHBORS.at(direction)[0];
+    const std::int64_t distance = PathSearch::Octile(next, _target, width);
+    if (distance < best)
+    {
+      best = distance;
+      step = next;
+    }
+  }
+  return step;
+}
+
+bool World::GreedyReaches(PathSearch::CellIndex _from, NavigationClass _class, PathSearch::CellIndex _target) const
+{
+  // Whether greedy steps from _from arrive at _target within GREEDY_REACH_STEPS. Each step brings it nearer, so they
+  // cannot circle; they stop against a wall between the two.
+  const std::int32_t width = m_navigation.WidthCells();
+  if (std::abs((_from % width) - (_target % width)) > GREEDY_REACH_STEPS ||
+      std::abs((_from / width) - (_target / width)) > GREEDY_REACH_STEPS)
+  {
+    return false;
+  }
+  PathSearch::CellIndex cell = _from;
+  for (std::int32_t step = 0; step < GREEDY_REACH_STEPS && cell != _target; ++step)
+  {
+    const std::optional<PathSearch::CellIndex> next = Towards(cell, _class, _target);
+    if (!next.has_value())
+    {
+      return false;
+    }
+    cell = *next;
+  }
+  return cell == _target;
+}
+
+World::Plans World::PlanAll() const
+{
+  Plans plans;
+  for (const auto& [id, squad] : m_squads)
+  {
+    if (squad.garrisonedIn != Protocol::NO_ENTITY)
+    {
+      continue;
+    }
+    plans.squads.emplace(id, PlanFor(squad));
+    for (std::size_t place = 0; place < squad.units.size(); ++place)
+    {
+      plans.places.emplace(squad.units[place], place);
+    }
+  }
+  return plans;
+}
+
+std::map<Protocol::EntityId, PathSearch::CellIndex> World::Wanted(const Plans& _plans) const
+{
+  std::map<Protocol::EntityId, PathSearch::CellIndex> wanted;
+  for (const auto& [id, place] : _plans.places)
+  {
+    const Unit& unit = m_units.at(id);
+    if (unit.reservedCell >= 0 || Holding(unit.squad))
+    {
+      continue;
+    }
+    if (const std::optional<Step> step = NextStep(unit, m_squads.at(unit.squad), place, _plans.squads.at(unit.squad)); step.has_value())
+    {
+      wanted.emplace(id, step->cell);
+    }
+  }
+  return wanted;
+}
+
+bool World::Holding(Protocol::EntityId _squad) const
+{
+  return std::ranges::any_of(m_searches, [_squad](const auto& _search) { return _search.first.second == _squad; });
+}
+
+void World::StartStep(Unit& _unit, Squad& _squad, std::size_t _place, const Step& _step, Occupancy& _occupancy)
+{
+  // A step is reserved before it is taken (ADR-022, decision 2).
+  const std::int32_t width = m_navigation.WidthCells();
+  const PathSearch::CellIndex from = CellOf(_unit.cellVoxels);
+  _unit.stepFromCell = from;
+  _unit.reservedCell = _step.cell;
+  _unit.stepEffort = 0;
+  _unit.waitTicks = 0;
+  // Its trail step is the trail cell it stands in or steps towards, as M2's figures' were.
+  _unit.trailStep = _step.trailStep;
+  for (const PathSearch::CellIndex cell : Footprint(_unit, _step.cell))
+  {
+    _occupancy.reserved.insert_or_assign(cell, _unit.id);
+  }
+  if (_place == 0)
+  {
+    // A squad faces the way its lead last stepped.
+    const auto dx = static_cast<std::int32_t>((_step.cell % width) - (from % width));
+    const auto dz = static_cast<std::int32_t>((_step.cell / width) - (from / width));
+    _squad.facing = FacingOf(std::clamp(dx, -1, 1), std::clamp(dz, -1, 1));
+  }
+}
+
+void World::AdvanceStep(Unit& _unit, const Squad& _squad, std::int64_t& _budget, Occupancy& _occupancy)
+{
+  const std::int64_t need = StepEffort(_unit.stepFromCell, _unit.reservedCell, _unit.navigationClass);
+  const std::int64_t before = _unit.stepEffort;
+  const std::int64_t spent = std::min(_budget, std::max<std::int64_t>(need - before, 0));
+  _unit.stepEffort += spent;
+  _budget -= spent;
+  // It holds the cell it left until it is halfway, and the one it steps into after.
+  if (2 * before < need && 2 * _unit.stepEffort >= need)
+  {
+    for (const PathSearch::CellIndex cell : Footprint(_unit, _unit.stepFromCell))
+    {
+      const auto held = _occupancy.occupied.find(cell);
+      if (held != _occupancy.occupied.end() && held->second == _unit.id)
+      {
+        _occupancy.occupied.erase(held);
+      }
+    }
+    for (const PathSearch::CellIndex cell : Footprint(_unit, _unit.reservedCell))
+    {
+      _occupancy.occupied.insert_or_assign(cell, _unit.id);
+    }
+  }
+  if (_unit.stepEffort < need)
+  {
+    Place(_unit);
+    return;
+  }
+  // Arrived: the reservation is spent, and a figure that stepped onto its squad's trail follows it from there.
+  for (const PathSearch::CellIndex cell : Footprint(_unit, _unit.reservedCell))
+  {
+    const auto reserved = _occupancy.reserved.find(cell);
+    if (reserved != _occupancy.reserved.end() && reserved->second == _unit.id)
+    {
+      _occupancy.reserved.erase(reserved);
+    }
+  }
+  const PathSearch::CellIndex arrived = _unit.reservedCell;
+  _unit.reservedCell = NO_CELL;
+  _unit.stepFromCell = arrived;
+  _unit.stepEffort = 0;
+  if (_unit.trailStep == OFF_TRAIL && !_squad.trail.empty())
+  {
+    // The trail may pass a cell twice: it takes the latest pass at or behind its lead.
+    const std::uint32_t leadStep = m_units.at(_squad.units.front()).trailStep;
+    const std::size_t last = std::min<std::size_t>(leadStep == OFF_TRAIL ? _squad.trail.size() - 1 : leadStep, _squad.trail.size() - 1);
+    for (std::size_t step = last + 1; step-- > 0;)
+    {
+      if (_squad.trail[step] == arrived)
+      {
+        _unit.trailStep = static_cast<std::uint32_t>(step);
+        break;
+      }
+    }
+  }
+  Place(_unit);
+}
+
+void World::WalkFigures()
+{
+  // ADR-022: one figure a cell. In unit-id order each figure takes the step its squad's plan gives it when the cell is
+  // free, two friendly figures that want each other's cells swap, and one that cannot waits, spending nothing; a
+  // figure that waits waitBeforeSearchTicks in a row has its squad search again.
+  Occupancy occupancy = BuildOccupancy();
+  const Plans plans = PlanAll();
+  std::map<Protocol::EntityId, PathSearch::CellIndex> wanted = Wanted(plans);
+  std::set<Protocol::EntityId> walked;
+  for (auto& [id, unit] : m_units)
+  {
+    const auto place = plans.places.find(id);
+    if (place == plans.places.end())
+    {
+      continue;
+    }
+    Squad& squad = m_squads.at(unit.squad);
+    const bool holding = Holding(unit.squad);
+    std::int64_t budget = SpeedOf(unit);
+    bool waited = false;
+    while (budget > 0)
+    {
+      if (unit.reservedCell < 0)
+      {
+        // It stands at a cell: a squad still searching starts no step (M2-F3).
+        if (holding)
+        {
+          break;
+        }
+        const std::optional<Step> step = NextStep(unit, squad, place->second, plans.squads.at(unit.squad));
+        if (!step.has_value())
+        {
+          break;
+        }
+        if (Free(occupancy, unit, step->cell))
+        {
+          StartStep(unit, squad, place->second, *step, occupancy);
+        }
+        else if (const std::optional<Protocol::EntityId> partner = SwapPartner(unit, step->cell, occupancy, wanted); partner.has_value())
+        {
+          // ADR-022, decision 3: both start the step together, each with this tick's effort.
+          Unit& other = m_units.at(*partner);
+          Squad& otherSquad = m_squads.at(other.squad);
+          const PathSearch::CellIndex back = CellOf(unit.cellVoxels);
+          const bool otherAlong = other.trailStep != OFF_TRAIL && std::size_t{other.trailStep} + 1 < otherSquad.trail.size() &&
+                                  otherSquad.trail[std::size_t{other.trailStep} + 1] == back;
+          const Step otherStep{.cell = back, .trailStep = otherAlong ? other.trailStep + 1 : OFF_TRAIL};
+          StartStep(unit, squad, place->second, *step, occupancy);
+          StartStep(other, otherSquad, plans.places.at(*partner), otherStep, occupancy);
+          wanted.erase(*partner);
+          if (walked.contains(*partner))
+          {
+            std::int64_t otherBudget = SpeedOf(other);
+            AdvanceStep(other, otherSquad, otherBudget, occupancy);
+          }
+        }
+        else
+        {
+          waited = true;
+          break;
+        }
+      }
+      AdvanceStep(unit, squad, budget, occupancy);
+    }
+    walked.insert(id);
+    // It counts the ticks it has waited in a row.
+    unit.waitTicks = waited ? unit.waitTicks + 1 : 0;
+  }
+  // A squad blocked for long searches again from its lead's cell (ADR-022, decision 6).
+  const auto patience = static_cast<std::uint32_t>(std::max(1, Data().Tuning().waitBeforeSearchTicks));
+  for (auto& [id, squad] : m_squads)
+  {
+    const bool blocked =
+      std::ranges::any_of(squad.units, [this, patience](Protocol::EntityId _unit) { return m_units.at(_unit).waitTicks >= patience; });
+    if (blocked && squad.hasGoal)
+    {
+      for (const Protocol::EntityId unit : squad.units)
+      {
+        m_units.at(unit).waitTicks = 0;
+      }
+      RequestSearch(squad);
+    }
+    TrimTrail(squad);
+  }
+}
+
+std::optional<Protocol::EntityId> World::SwapPartner(const Unit& _unit, PathSearch::CellIndex _cell, const Occupancy& _occupancy,
+                                                     const std::map<Protocol::EntityId, PathSearch::CellIndex>& _wanted) const
+{
+  // The figure standing still in _cell, of _unit's owner and a cell's width, that wants _unit's cell (ADR-022, decision
+  // 3); or, when _unit leads its squad, any of its squad standing there, which gives way to it.
+  const auto occupant = _occupancy.occupied.find(_cell);
+  if (occupant == _occupancy.occupied.end() || occupant->second == _unit.id || _unit.navigationClass == NavigationClass::Machines)
+  {
+    return std::nullopt;
+  }
+  const Unit& other = m_units.at(occupant->second);
+  const auto wants = _wanted.find(other.id);
+  if (other.owner != _unit.owner || other.reservedCell >= 0 || other.navigationClass == NavigationClass::Machines ||
+      _occupancy.reserved.contains(_cell))
+  {
+    return std::nullopt;
+  }
+  const bool mutual = wants != _wanted.end() && wants->second == CellOf(_unit.cellVoxels);
+  // A squad never blocks its own lead, whatever its figures want, and the lead only goes on along its trail, so the two
+  // never trade back. Between followers only the mutual swap: two that each gave way to the other would trade cells
+  // for ever, and a ring of them each waiting on the next waits until the lead moves.
+  const bool givesWay = other.squad == _unit.squad && m_squads.at(_unit.squad).units.front() == _unit.id;
+  return mutual || givesWay ? std::optional<Protocol::EntityId>(other.id) : std::nullopt;
+}
+
+void World::TrimTrail(Squad& _squad)
+{
+  // The cells behind every figure on the trail are walked, but the lead keeps TRAIL_BEHIND_CELLS behind it, and as many
+  // as its squad has figures, for those that leave their slots to follow it.
+  if (_squad.trail.empty() || _squad.units.empty())
   {
     return;
   }
-  // The figure _place behind the lead stops that many cells short of the trail's end.
-  const std::size_t end = trail.size() - 1 - std::min(_place, trail.size() - 1);
-  std::int64_t budget = speed;
-  while (budget > 0)
+  const std::uint32_t leadStep = m_units.at(_squad.units.front()).trailStep;
+  if (leadStep == OFF_TRAIL)
   {
-    if (_unit.stepEffort == 0)
+    return;
+  }
+  const std::uint32_t behind = std::max<std::uint32_t>(TRAIL_BEHIND_CELLS, static_cast<std::uint32_t>(_squad.units.size()));
+  std::uint32_t keep = leadStep > behind ? leadStep - behind : 0;
+  for (const Protocol::EntityId id : _squad.units)
+  {
+    const Unit& unit = m_units.at(id);
+    if (unit.trailStep != OFF_TRAIL)
     {
-      // It stands at a cell: it steps on only while its squad is not holding, it has not reached its
-      // place in the file, and the step is still open to its class.
-      if (_holding || _unit.trailStep >= end || !Linked(trail[_unit.trailStep], trail[_unit.trailStep + 1], _unit.navigationClass))
-      {
-        break;
-      }
-      ++_unit.trailStep;
-    }
-    const std::int64_t need = StepEffort(trail[_unit.trailStep - 1], trail[_unit.trailStep], _unit.navigationClass);
-    const std::int64_t spent = std::min(budget, need - _unit.stepEffort);
-    _unit.stepEffort += spent;
-    budget -= spent;
-    if (_unit.stepEffort >= need)
-    {
-      _unit.stepEffort = 0;
+      keep = std::min(keep, unit.reservedCell >= 0 && unit.trailStep > 0 ? unit.trailStep - 1 : unit.trailStep);
     }
   }
-  Place(_unit, _squad);
+  if (keep == 0 || keep >= _squad.trail.size())
+  {
+    return;
+  }
+  _squad.trail.erase(_squad.trail.begin(), _squad.trail.begin() + static_cast<std::ptrdiff_t>(keep));
+  for (const Protocol::EntityId id : _squad.units)
+  {
+    Unit& unit = m_units.at(id);
+    if (unit.trailStep != OFF_TRAIL)
+    {
+      unit.trailStep -= keep;
+    }
+  }
 }
 
-void World::Place(Unit& _unit, const Squad& _squad) const
+void World::Place(Unit& _unit) const
 {
   const std::int32_t width = m_navigation.WidthCells();
-  const std::vector<PathSearch::CellIndex>& trail = _squad.trail;
-  const PathSearch::CellIndex to = trail[_unit.trailStep];
-  const PathSearch::CellIndex from = _unit.stepEffort > 0 ? trail[_unit.trailStep - 1] : to;
-  const std::int64_t need = _unit.stepEffort > 0 ? StepEffort(from, to, _unit.navigationClass) : 1;
+  const PathSearch::CellIndex to = _unit.reservedCell >= 0 ? _unit.reservedCell : CellOf(_unit.cellVoxels);
+  const PathSearch::CellIndex from = _unit.reservedCell >= 0 ? _unit.stepFromCell : to;
+  const std::int64_t need = _unit.reservedCell >= 0 ? std::max<std::int64_t>(StepEffort(from, to, _unit.navigationClass), 1) : 1;
+  const std::int64_t effort = _unit.reservedCell >= 0 ? _unit.stepEffort : 0;
   // Between the two cells' middles in proportion to the effort spent. It stands in the cell it left
   // until it is halfway, and at that cell's height (ADR-015, decision 6).
-  const auto along = [&_unit, need](std::int64_t _fromCell, std::int64_t _toCell)
+  const auto along = [effort, need](std::int64_t _fromCell, std::int64_t _toCell)
   {
     const std::int64_t half = Core::Fixed::ONE_RAW / 2;
     const std::int64_t start = _fromCell * Core::Fixed::ONE_RAW + half;
     const std::int64_t finish = _toCell * Core::Fixed::ONE_RAW + half;
-    return Core::Fixed::FromRaw(static_cast<std::int32_t>(start + Core::FloorDivide((finish - start) * _unit.stepEffort, need)));
+    return Core::Fixed::FromRaw(static_cast<std::int32_t>(start + Core::FloorDivide((finish - start) * effort, need)));
   };
-  const PathSearch::CellIndex cell = 2 * _unit.stepEffort < need ? from : to;
+  const PathSearch::CellIndex cell = 2 * effort < need ? from : to;
   const auto cellX = static_cast<std::int32_t>(cell % width);
   const auto cellZ = static_cast<std::int32_t>(cell / width);
   const std::int16_t height = m_navigation.WalkableHeight(cellX, cellZ);
@@ -1264,8 +1780,8 @@ void World::SettleUnits()
   // Step 9: units whose cells changed drop, rise or move, in unit-id order (M2-F6; ADR-015, decision
   // 7). A drop over 3 m, three of the 1 m world's voxels, raises a crush event carrying it.
   constexpr std::int32_t CRUSHING_DROP_VOXELS = 3;
-  const std::int32_t width = m_navigation.WidthCells();
   std::set<Protocol::EntityId> displaced;
+  Occupancy occupancy = BuildOccupancy();
   for (auto& [id, unit] : m_units)
   {
     if (Garrisoned(unit))
@@ -1277,18 +1793,12 @@ void World::SettleUnits()
     const std::int16_t height = m_navigation.WalkableHeight(x, z);
     if (height == NavigationGrid::NOT_WALKABLE || !m_navigation.Usable(x, z, unit.navigationClass))
     {
-      // No longer walkable: to the nearest cell its class can use, ties to the lower index. Its squad
-      // forms its file again from where its figures stand.
-      const std::int64_t nearest = m_navigation.NearestUsable(x, z, unit.navigationClass);
-      if (nearest < 0)
+      // No longer walkable: to the nearest cell its class can use that no other unit holds, ties to the lower index
+      // (ADR-022, *Consequences*). Its squad forms again from where its figures stand.
+      if (MoveToFreeCell(unit, occupancy))
       {
-        continue;
+        displaced.insert(unit.squad);
       }
-      const auto nearestX = static_cast<std::int32_t>(nearest % width);
-      const auto nearestZ = static_cast<std::int32_t>(nearest / width);
-      unit.cellVoxels = {.xVoxels = nearestX, .yVoxels = m_navigation.WalkableHeight(nearestX, nearestZ), .zVoxels = nearestZ};
-      unit.position = CellFloorMiddle(unit.cellVoxels);
-      displaced.insert(unit.squad);
       continue;
     }
     if (height == unit.cellVoxels.yVoxels)
@@ -1307,6 +1817,25 @@ void World::SettleUnits()
     unit.cellVoxels.yVoxels = height;
     unit.position.yMeters = Core::Fixed::FromWhole(height);
   }
+  // Two units lifted into one cell are moved apart, the higher id to the nearest free cell (ADR-022, *Consequences*).
+  std::map<PathSearch::CellIndex, Protocol::EntityId> standing;
+  for (auto& [id, unit] : m_units)
+  {
+    if (Garrisoned(unit))
+    {
+      continue;
+    }
+    const std::vector<PathSearch::CellIndex> cells = Footprint(unit, CellOf(unit.cellVoxels));
+    const bool shared = std::ranges::any_of(cells, [&standing](PathSearch::CellIndex _cell) { return standing.contains(_cell); });
+    if (shared && MoveToFreeCell(unit, occupancy))
+    {
+      displaced.insert(unit.squad);
+    }
+    for (const PathSearch::CellIndex cell : Footprint(unit, CellOf(unit.cellVoxels)))
+    {
+      standing.emplace(cell, id);
+    }
+  }
   for (const Protocol::EntityId squadId : displaced)
   {
     const auto squad = m_squads.find(squadId);
@@ -1318,14 +1847,77 @@ void World::SettleUnits()
     for (const Protocol::EntityId unitId : squad->second.units)
     {
       Unit& unit = m_units.at(unitId);
-      unit.trailStep = 0;
+      unit.trailStep = OFF_TRAIL;
       unit.stepEffort = 0;
+      unit.reservedCell = NO_CELL;
+      unit.stepFromCell = CellOf(unit.cellVoxels);
       unit.position = CellFloorMiddle(unit.cellVoxels);
     }
     RequestSearch(squad->second);
   }
   RemoveDead();
   FollowBodies();
+}
+
+bool World::MoveToFreeCell(Unit& _unit, Occupancy& _occupancy)
+{
+  // The nearest cell by octile distance, ties to the lower index, that the unit's class can use and no other unit holds
+  // or has reserved, within a widening square about it.
+  constexpr std::int32_t SEARCH_CELLS = 24;
+  const std::int32_t width = m_navigation.WidthCells();
+  const PathSearch::CellIndex here = CellOf(_unit.cellVoxels);
+  std::optional<PathSearch::CellIndex> best;
+  std::int64_t bestDistance = std::numeric_limits<std::int64_t>::max();
+  for (std::int32_t ring = 0; ring <= SEARCH_CELLS && !best.has_value(); ++ring)
+  {
+    for (std::int32_t dz = -ring; dz <= ring; ++dz)
+    {
+      for (std::int32_t dx = -ring; dx <= ring; ++dx)
+      {
+        if (std::max(std::abs(dx), std::abs(dz)) != ring)
+        {
+          continue;
+        }
+        const std::int32_t x = _unit.cellVoxels.xVoxels + dx;
+        const std::int32_t z = _unit.cellVoxels.zVoxels + dz;
+        if (x < 0 || z < 0 || x >= width || z >= m_navigation.DepthCells() || !m_navigation.Usable(x, z, _unit.navigationClass))
+        {
+          continue;
+        }
+        const PathSearch::CellIndex cell = (std::int64_t{z} * width) + x;
+        const std::int64_t distance = PathSearch::Octile(here, cell, width);
+        if (Free(_occupancy, _unit, cell) && (distance < bestDistance || (distance == bestDistance && best.has_value() && cell < *best)))
+        {
+          best = cell;
+          bestDistance = distance;
+        }
+      }
+    }
+  }
+  if (!best.has_value())
+  {
+    return false;
+  }
+  for (auto held = _occupancy.occupied.begin(); held != _occupancy.occupied.end();)
+  {
+    held = held->second == _unit.id ? _occupancy.occupied.erase(held) : std::next(held);
+  }
+  for (auto held = _occupancy.reserved.begin(); held != _occupancy.reserved.end();)
+  {
+    held = held->second == _unit.id ? _occupancy.reserved.erase(held) : std::next(held);
+  }
+  const auto x = static_cast<std::int32_t>(*best % width);
+  const auto z = static_cast<std::int32_t>(*best / width);
+  _unit.cellVoxels = {.xVoxels = x, .yVoxels = m_navigation.WalkableHeight(x, z), .zVoxels = z};
+  _unit.position = CellFloorMiddle(_unit.cellVoxels);
+  _unit.reservedCell = NO_CELL;
+  _unit.stepFromCell = *best;
+  _unit.stepEffort = 0;
+  for (const PathSearch::CellIndex cell : Footprint(_unit, *best))
+  {
+    _occupancy.occupied.insert_or_assign(cell, _unit.id);
+  }
+  return true;
 }
 
 void World::CheckRules()

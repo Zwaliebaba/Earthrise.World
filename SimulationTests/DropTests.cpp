@@ -136,15 +136,17 @@ public:
 
   TEST_METHOD(MovesOffACellThatLostItsHeadroom)
   {
-    // A masonry overhang 2 m up over (20, 20), held by a pillar east of it, leaves foot their 2 m of
-    // headroom and cavalry less than their 3. The horseman goes to the nearest cell he can use: west,
-    // south and north are all 1 m off, and south, (20, 19), has the lowest index.
+    // A masonry overhang 2 m up over (19, 20) and (20, 20), held by a pillar east of it, leaves foot
+    // their 2 m of headroom and cavalry less than their 3. The footman under its west end stays; the
+    // horseman under its east end goes to the nearest cell he can use and no other unit holds (ADR-022,
+    // *Consequences*): west is the footman's and under the overhang, south and north are 1 m off, and
+    // south, (20, 19), has the lower index.
     Simulation::World world(FlatWorld::Desc());
     const Protocol::EntityId horseman = Place(world, Simulation::NavigationClass::Cavalry, At(20, GROUND, 20));
-    const Protocol::EntityId footman = Place(world, Simulation::NavigationClass::Foot, At(20, GROUND, 20));
+    const Protocol::EntityId footman = Place(world, Simulation::NavigationClass::Foot, At(19, GROUND, 20));
     world.Tick();
     Fill(world, At(21, GROUND, 20), At(21, GROUND + 2, 20), MASONRY);
-    Fill(world, At(20, GROUND + 2, 20), At(20, GROUND + 2, 20), MASONRY);
+    Fill(world, At(19, GROUND + 2, 20), At(20, GROUND + 2, 20), MASONRY);
     world.Tick();
     Assert::IsTrue(world.Collapses().empty());
     Assert::AreEqual(std::uint8_t{2}, world.Navigation().Headroom(20, 20));
@@ -153,6 +155,7 @@ public:
     Assert::AreEqual(GROUND, moved.yVoxels);
     Assert::AreEqual(19, moved.zVoxels);
     Assert::IsTrue(world.Units().at(horseman).position == Simulation::CellFloorMiddle(At(20, GROUND, 19)));
+    Assert::AreEqual(19, world.Units().at(footman).cellVoxels.xVoxels);
     Assert::AreEqual(20, world.Units().at(footman).cellVoxels.zVoxels);
     Assert::IsTrue(world.LastTickCrushes().empty());
   }

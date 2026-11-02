@@ -1,13 +1,15 @@
 #include "pch.h"
 
 #include "FlatWorld.h"
+#include "Formation.h"
 #include "Save.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
-// Squads moving (M2-F5; ADR-015, decision 6): figures follow their squad's path in single file, in
-// Core::Fixed, at foot's 1.4 m/s, halved on rubble, standing at their cell's height. 14 m at
-// 0.07 m a tick is 200 ticks; Fixed's floor makes it 201.
+// Squads moving (M2-F5; ADR-015, decision 6): figures follow their squad's path, in Core::Fixed, at
+// foot's 1.4 m/s, halved on rubble, standing at their cell's height. 14 m at 0.07 m a tick is 200
+// ticks; Fixed's floor makes it 201. Since M4-C2 (ADR-022) they keep one to a cell, in ranks where
+// the ground allows and in single file where it does not.
 
 namespace SimulationTests
 {
@@ -21,6 +23,7 @@ constexpr std::uint8_t STONE_RUBBLE = 8;
 constexpr std::int32_t GROUND = FlatWorld::GROUND_VOXELS;
 constexpr std::int32_t WIDTH = 64;
 constexpr std::uint32_t PLAIN_TICKS = 200;
+constexpr std::uint8_t EAST = 2; // Simulation::FACINGS' +x
 
 Protocol::VoxelPosition Cell(std::int32_t _x, std::int32_t _z)
 {
@@ -95,6 +98,67 @@ bool InOrder(Core::Fixed _behind, Core::Fixed _ahead)
   return _behind <= _ahead;
 }
 
+/// A 1 m corridor along z = _z from x _west to x _east, walled 3 m high at z - 1 and z + 1, and closed
+/// at x _west - 1 and x _east + 1 when _closed.
+void Corridor(Simulation::World& _world, std::int32_t _west, std::int32_t _east, std::int32_t _z, bool _closed)
+{
+  const std::int32_t top = GROUND + 2;
+  Fill(_world, Cell(_west - 1, _z - 1), {.xVoxels = _east + 1, .yVoxels = top, .zVoxels = _z - 1}, MASONRY);
+  Fill(_world, Cell(_west - 1, _z + 1), {.xVoxels = _east + 1, .yVoxels = top, .zVoxels = _z + 1}, MASONRY);
+  if (_closed)
+  {
+    Fill(_world, Cell(_west - 1, _z), {.xVoxels = _west - 1, .yVoxels = top, .zVoxels = _z}, MASONRY);
+    Fill(_world, Cell(_east + 1, _z), {.xVoxels = _east + 1, .yVoxels = top, .zVoxels = _z}, MASONRY);
+  }
+}
+
+/// Whether two units stand in one cell.
+bool Shared(const Simulation::World& _world)
+{
+  std::set<std::pair<std::int32_t, std::int32_t>> cells;
+  for (const auto& [id, unit] : _world.Units())
+  {
+    if (!cells.emplace(unit.cellVoxels.xVoxels, unit.cellVoxels.zVoxels).second)
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
+/// Ticks _world until it is quiet, at most _ticks, asserting on every tick that no two units share a cell.
+void Settle(Simulation::World& _world, std::uint32_t _ticks)
+{
+  for (std::uint32_t tick = 0; tick < _ticks; ++tick)
+  {
+    _world.Tick();
+    Assert::IsFalse(Shared(_world));
+    if (_world.Quiet())
+    {
+      return;
+    }
+  }
+  Assert::Fail(L"the world did not come to rest");
+}
+
+/// Whether each figure of _squad stands in the cell _cells gives its place.
+bool StandsIn(const Simulation::World& _world, Protocol::EntityId _squad, std::span<const Protocol::VoxelPosition> _cells)
+{
+  const std::vector<Protocol::EntityId>& units = _world.Squads().at(_squad).units;
+  if (units.size() != _cells.size())
+  {
+    return false;
+  }
+  for (std::size_t place = 0; place < units.size(); ++place)
+  {
+    if (_world.Units().at(units[place]).cellVoxels != _cells[place])
+    {
+      return false;
+    }
+  }
+  return true;
+}
+
 } // namespace
 
 TEST_CLASS(MovementTests)
@@ -134,9 +198,12 @@ public:
 
   TEST_METHOD(FollowsInSingleFile)
   {
-    // Three figures in a row, the lead at the east end, walk 10 m east: on every tick none passes the
-    // one ahead, and at the end they stand in the last three cells of the path.
+    // Three figures in a row in a 1 m corridor, where no slot beside the lead can be used (ADR-022,
+    // decision 4), the lead at the east end, walk 10 m east: on every tick none passes the one ahead,
+    // and at the end they stand in the last three cells of the path.
     Simulation::World world(FlatWorld::Desc());
+    Corridor(world, 5, 30, 30, false);
+    world.Tick();
     const std::array<Protocol::VoxelPosition, 3> cells = {Cell(12, 30), Cell(11, 30), Cell(10, 30)};
     const Protocol::EntityId squad = Order(world, cells, Cell(22, 30));
     const std::vector<Protocol::EntityId> units = [&]
@@ -155,6 +222,99 @@ public:
     Assert::IsTrue(world.Units().at(units[0]).position == Simulation::CellFloorMiddle(Cell(22, 30)));
     Assert::IsTrue(world.Units().at(units[1]).position == Simulation::CellFloorMiddle(Cell(21, 30)));
     Assert::IsTrue(world.Units().at(units[2]).position == Simulation::CellFloorMiddle(Cell(20, 30)));
+  }
+
+  TEST_METHOD(ArrivesInTwoRanksAboutItsGoalOnOpenGround)
+  {
+    // Six spearmen in their slots facing east walk 19 m east, keeping one to a cell, and stand in the
+    // same slots about the goal, still facing east (ADR-022, decisions 4 and 5).
+    Simulation::World world(FlatWorld::Desc());
+    const std::vector<Protocol::VoxelPosition> start = Simulation::FormationSlots(Cell(11, 30), EAST, 6, 2);
+    const Protocol::EntityId squad = Order(world, start, Cell(30, 30));
+    Settle(world, 3 * PLAIN_TICKS);
+    Assert::IsTrue(StandsIn(world, squad, Simulation::FormationSlots(Cell(30, 30), EAST, 6, 2)));
+    Assert::AreEqual(EAST, world.Squads().at(squad).facing);
+  }
+
+  TEST_METHOD(PassesAOneMeterGapInSingleFileAndReforms)
+  {
+    // A masonry wall 2 m thick and 3 m high across the map at x 20 and 21, open only at z 30. Six
+    // spearmen in two ranks facing east walk through it to (32, 30): every figure inside the wall's
+    // thickness is in the gap, so they pass one behind another, and they re-form about the goal.
+    Simulation::World world(FlatWorld::Desc());
+    Fill(world, Cell(20, 0), {.xVoxels = 21, .yVoxels = GROUND + 2, .zVoxels = 29}, MASONRY);
+    Fill(world, Cell(20, 31), {.xVoxels = 21, .yVoxels = GROUND + 2, .zVoxels = WIDTH - 1}, MASONRY);
+    world.Tick();
+    const std::vector<Protocol::VoxelPosition> start = Simulation::FormationSlots(Cell(14, 30), EAST, 6, 2);
+    const Protocol::EntityId squad = Order(world, start, Cell(32, 30));
+    std::set<Protocol::EntityId> through;
+    bool quiet = false;
+    for (std::uint32_t tick = 0; tick < 4 * PLAIN_TICKS && !quiet; ++tick)
+    {
+      world.Tick();
+      Assert::IsFalse(Shared(world));
+      for (const Protocol::EntityId id : world.Squads().at(squad).units)
+      {
+        const Protocol::VoxelPosition cell = world.Units().at(id).cellVoxels;
+        if (cell.xVoxels == 20 || cell.xVoxels == 21)
+        {
+          Assert::AreEqual(30, cell.zVoxels);
+          through.insert(id);
+        }
+      }
+      quiet = world.Quiet();
+    }
+    Assert::IsTrue(quiet);
+    Assert::AreEqual(std::size_t{6}, through.size());
+    Assert::IsTrue(StandsIn(world, squad, Simulation::FormationSlots(Cell(32, 30), EAST, 6, 2)));
+  }
+
+  TEST_METHOD(PassesASquadMeetingItHeadOnInAOneMeterCorridor)
+  {
+    // Two squads of three of one player, at either end of a 1 m corridor closed at both, each ordered
+    // to the other's end. Where they meet, figures that want each other's cells swap (ADR-022,
+    // decision 3), and both arrive in single file, no two in one cell on any tick.
+    Simulation::World world(FlatWorld::Desc());
+    Corridor(world, 12, 38, 30, true);
+    world.Tick();
+    const std::array<Protocol::VoxelPosition, 3> west = {Cell(14, 30), Cell(13, 30), Cell(12, 30)};
+    const std::array<Protocol::VoxelPosition, 3> east = {Cell(36, 30), Cell(37, 30), Cell(38, 30)};
+    const Protocol::EntityId eastward = Order(world, west, Cell(38, 30));
+    const Protocol::EntityId westward = Order(world, east, Cell(12, 30));
+    Settle(world, 6 * PLAIN_TICKS);
+    const std::array<Protocol::VoxelPosition, 3> eastEnd = {Cell(38, 30), Cell(37, 30), Cell(36, 30)};
+    const std::array<Protocol::VoxelPosition, 3> westEnd = {Cell(12, 30), Cell(13, 30), Cell(14, 30)};
+    Assert::IsTrue(StandsIn(world, eastward, eastEnd));
+    Assert::IsTrue(StandsIn(world, westward, westEnd));
+  }
+
+  TEST_METHOD(SearchesAgainWhenBlockedForWaitTicksBeforeSearch)
+  {
+    // A figure of another squad, with no order, stands on a squad of one's way. The walker waits
+    // behind it, and on the tick it has waited waitTicksBeforeSearch ticks in a row its squad
+    // searches again (ADR-022, decision 6), its count starting over.
+    Simulation::World world(FlatWorld::Desc());
+    const std::array<Protocol::VoxelPosition, 1> blocker = {Cell(15, 30)};
+    world.AddSquad(PLAYER, Simulation::UnitKind::Spearman, blocker);
+    const std::array<Protocol::VoxelPosition, 1> cells = {Cell(10, 30)};
+    const Protocol::EntityId squad = Order(world, cells, Cell(20, 30));
+    const auto searching = [&world, squad]
+    { return std::ranges::any_of(world.Searches(), [squad](const auto& _search) { return _search.first.second == squad; }); };
+    const auto patience = static_cast<std::uint32_t>(world.Data().Tuning().waitBeforeSearchTicks);
+    Assert::AreEqual(40U, patience);
+    for (std::uint32_t tick = 0; tick < 2 * PLAIN_TICKS && Lead(world, squad).waitTicks == 0; ++tick)
+    {
+      world.Tick();
+    }
+    Assert::IsTrue(Lead(world, squad).cellVoxels == Cell(14, 30));
+    for (std::uint32_t waited = 1; waited < patience; ++waited)
+    {
+      Assert::AreEqual(waited, Lead(world, squad).waitTicks);
+      Assert::IsFalse(searching());
+      world.Tick();
+    }
+    Assert::IsTrue(searching());
+    Assert::AreEqual(0U, Lead(world, squad).waitTicks);
   }
 
   TEST_METHOD(NeverStandsOnAStructure)

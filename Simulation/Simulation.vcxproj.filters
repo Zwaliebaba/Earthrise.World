@@ -168,5 +168,11 @@
     <ClCompile Include="Scenario.cpp">
       <Filter>World</Filter>
     </ClCompile>
+    <ClInclude Include="Formation.h">
+      <Filter>Navigation</Filter>
+    </ClInclude>
+    <ClCompile Include="Formation.cpp">
+      <Filter>Navigation</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

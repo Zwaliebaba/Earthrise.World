@@ -65,7 +65,13 @@ struct Squad
   /// cell, move and settle not at all, and are left out of the state update.
   Protocol::EntityId garrisonedIn;
   Protocol::UnitKind kind; // its figures', and so its stats (ADR-023, decision 1)
+  std::uint8_t facing;     // the direction of its lead's last step, 0 north and then clockwise in eighths (ADR-022)
 };
+
+/// A unit's trail step when it is not on its squad's trail: in formation, or making for it (ADR-022).
+inline constexpr std::uint32_t OFF_TRAIL = 0xffffffffU;
+/// No cell: a unit standing still has reserved none.
+inline constexpr std::int64_t NO_CELL = -1;
 
 /// One figure of a squad.
 struct Unit
@@ -76,10 +82,15 @@ struct Unit
   Protocol::EntityId squad;
   FixedPosition position;             // the middle of its feet
   Protocol::VoxelPosition cellVoxels; // the cell it stands in
-  std::uint32_t trailStep;            // the cell of its squad's trail it stands in, or steps toward
-  std::int64_t stepEffort;            // how far into that step, in Fixed's raw meters times the ground's factor; 0 when it stands
+  std::uint32_t trailStep;            // the cell of its squad's trail it stands in, or steps toward, or OFF_TRAIL
+  std::int64_t stepEffort;            // how far into its step, in Fixed's raw meters times the ground's factor; 0 when it stands
   Protocol::UnitKind kind;            // which figure it is, and so which model the client draws
   std::int32_t hitPoints;             // from its kind's stats; it dies at 0 (ADR-023, decision 2)
+  // ADR-022: the cell it steps into, reserved from the step's start, or NO_CELL; the cell it steps from; and the ticks
+  // in a row it has waited for a cell.
+  std::int64_t reservedCell;
+  std::int64_t stepFromCell;
+  std::uint32_t waitTicks;
 };
 
 using Protocol::EngineKind;
@@ -290,7 +301,7 @@ public:
 
   /// Nothing in flight: no shot, no collapse, no slump or search pending, no edit unsearched, and every
   /// unit standing still. What the breach lab's fast-forward stops on (M3-B7).
-  [[nodiscard]] bool Quiet() const noexcept;
+  [[nodiscard]] bool Quiet() const;
 
   /// What step 11 published at the end of the last tick for _player: the whole state they see, as
   /// values (ADR-020, decision 3), with the stockpiles of their own alone and the commands of theirs
@@ -441,10 +452,67 @@ private:
   void Strike(Collapse& _collapse, Protocol::EntityId _unit);
   /// Lays a squad's trail along its new path (M2-F5).
   void FormTrail(Squad& _squad);
-  /// Walks a figure along its squad's trail for one tick, at its class's speed (ADR-015, decision 6).
-  void Walk(Unit& _unit, const Squad& _squad, std::size_t _place, bool _holding);
-  /// Sets a figure's position and cell from where it is on its squad's trail.
-  void Place(Unit& _unit, const Squad& _squad) const;
+
+  // ADR-022's movement in step 3. Cells are indexed z * width + x.
+  /// Which units hold and have reserved each cell.
+  struct Occupancy
+  {
+    std::map<PathSearch::CellIndex, Protocol::EntityId> occupied;
+    std::map<PathSearch::CellIndex, Protocol::EntityId> reserved;
+  };
+  /// Where each figure of a squad makes for this tick: its slot's cell, or NO_CELL to follow the trail.
+  struct SquadPlan
+  {
+    bool moving;  // it has a trail
+    bool arrived; // its lead stands at the trail's end, and its search is done: the slots resolve about the goal
+    std::vector<PathSearch::CellIndex> targets;
+  };
+  /// A figure's next step: the cell, and its index on the trail when the step follows it, or OFF_TRAIL.
+  struct Step
+  {
+    PathSearch::CellIndex cell;
+    std::uint32_t trailStep;
+  };
+  /// Every squad's plan for the tick, and each figure's place in its squad.
+  struct Plans
+  {
+    std::map<Protocol::EntityId, SquadPlan> squads;
+    std::map<Protocol::EntityId, std::size_t> places;
+  };
+  static constexpr std::int32_t SLOT_TRAIL_REACH_CELLS = 3; // ADR-022, decision 4
+  static constexpr std::int32_t TRAVEL_FLOOD_CELLS = 4;     // how far from the lead a slot it can reach may lie on the way
+  static constexpr std::int32_t ARRIVAL_FLOOD_CELLS = 8;    // and at the goal
+  static constexpr std::uint32_t TRAIL_BEHIND_CELLS = 16;   // the trail a squad keeps behind its lead
+  static constexpr std::int32_t GREEDY_REACH_STEPS = 8;     // how far a figure's greedy steps are followed to see they arrive
+
+  [[nodiscard]] PathSearch::CellIndex CellOf(const Protocol::VoxelPosition& _cellVoxels) const noexcept;
+  [[nodiscard]] std::int64_t SpeedOf(const Unit& _unit) const;
+  [[nodiscard]] std::vector<PathSearch::CellIndex> Footprint(const Unit& _unit, PathSearch::CellIndex _cell) const;
+  [[nodiscard]] Occupancy BuildOccupancy() const;
+  [[nodiscard]] bool Free(const Occupancy& _occupancy, const Unit& _unit, PathSearch::CellIndex _cell) const;
+  [[nodiscard]] std::set<PathSearch::CellIndex> Flood(PathSearch::CellIndex _start, NavigationClass _class,
+                                                      std::int32_t _radiusCells) const;
+  [[nodiscard]] SquadPlan PlanFor(const Squad& _squad) const;
+  [[nodiscard]] std::optional<Step> NextStep(const Unit& _unit, const Squad& _squad, std::size_t _place, const SquadPlan& _plan) const;
+  [[nodiscard]] std::optional<PathSearch::CellIndex> Towards(PathSearch::CellIndex _from, NavigationClass _class,
+                                                             PathSearch::CellIndex _target) const;
+  [[nodiscard]] bool GreedyReaches(PathSearch::CellIndex _from, NavigationClass _class, PathSearch::CellIndex _target) const;
+  [[nodiscard]] Plans PlanAll() const;
+  /// The step each standing figure of a squad not holding for its search wants, for the swap.
+  [[nodiscard]] std::map<Protocol::EntityId, PathSearch::CellIndex> Wanted(const Plans& _plans) const;
+  [[nodiscard]] bool Holding(Protocol::EntityId _squad) const;
+  [[nodiscard]] std::optional<Protocol::EntityId> SwapPartner(const Unit& _unit, PathSearch::CellIndex _cell, const Occupancy& _occupancy,
+                                                              const std::map<Protocol::EntityId, PathSearch::CellIndex>& _wanted) const;
+  void StartStep(Unit& _unit, Squad& _squad, std::size_t _place, const Step& _step, Occupancy& _occupancy);
+  void AdvanceStep(Unit& _unit, const Squad& _squad, std::int64_t& _budget, Occupancy& _occupancy);
+  /// Every figure's walk for the tick, in unit-id order.
+  void WalkFigures();
+  /// Drops the trail behind every figure on it, keeping as many cells behind the lead as the squad has figures.
+  void TrimTrail(Squad& _squad);
+  /// Moves a unit to the nearest cell its class can use that no other holds; false when there is none near.
+  bool MoveToFreeCell(Unit& _unit, Occupancy& _occupancy);
+  /// Sets a figure's position and cell from its step.
+  void Place(Unit& _unit) const;
   /// The effort a step between two trail cells takes a class: its length in Fixed's raw meters, times
   /// the factor of the ground it lands on.
   [[nodiscard]] std::int64_t StepEffort(PathSearch::CellIndex _from, PathSearch::CellIndex _to, NavigationClass _class) const;

@@ -29,7 +29,8 @@ namespace Simulation
 //      origin and u8 quarter turns; M4-D1 adds its built mask as version 2. A squad's version 2 adds
 //      the u64 building it is garrisoned in, and an engine's version 2 its u8 state (M4-B4); a
 //      squad's version 3 its u8 kind, an engine's version 3 its u64 body's squad, and a unit's
-//      version 2 its i32 hit points (M4-C1);
+//      version 2 its i32 hit points (M4-C1); a squad's version 4 its u8 facing, and a unit's version
+//      3 its i64 reserved cell, its i64 step's first cell and its u32 wait (M4-C2);
 //   4. the pending work, each queue in its own stated order: u32 the commands that arrived for the
 //      next tick, then each as its u8 player, u32 length and bytes, in arrival order; u32 the edits
 //      the last tick made after its step 5, then each voxel, in edit order; and u32 the edits made
