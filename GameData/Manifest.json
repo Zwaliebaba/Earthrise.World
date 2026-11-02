@@ -77,13 +77,13 @@
     "y": 7,
     "z": 7
    },
-   "voxelCount": 188,
+   "voxelCount": 200,
    "costM3": {
     "stone": 0,
-    "timber": 188,
+    "timber": 200,
     "foundation": 0
    },
-   "authoring": "reviewed at 1 m in M4-B2 (2026-11-02) and kept as converted: its four corners stand open for 3 m, where the 0.5 m drawing's corner posts lost the vote; filling them adds 12 m³ of timber, 6 % of its 188, past input 3's 2 %, so the corners are the owner's to judge from the preview",
+   "authoring": "reviewed at 1 m in M4-B2 (2026-11-02); its four corners, which the 0.5 m drawing's corner posts lost to the conversion's vote, are filled by the owner's decision of 2026-11-02, 12 m³ of timber more, past input 3's 2 %",
    "files": {
     "json": "Server/Templates/earthrise-t1-hall-1m.json"
    },
@@ -94,8 +94,7 @@
     "foundation": 0
    },
    "knownIssues": [
-    "Openings from the render-fix package (2026-11-01), whose conversion lets an opening win any 2 x 2 x 2 block it touches, so 0.5 m slits survive at 1 m. An opening costs as the material it sits in (ADR-005), so the package's lower figure is not used.",
-    "Its four corners stand open for 3 m, where the 0.5 m drawing's corner posts lost the 2 x 2 x 2 vote. Filling them adds 12 m³ of timber, 6 % of its 188 m³, past the 2 % that M4's input 3 allows a redraw, so M4-B2 left them for the owner to judge from the preview, or to redraw in Claude Design."
+    "Openings from the render-fix package (2026-11-01), whose conversion lets an opening win any 2 x 2 x 2 block it touches, so 0.5 m slits survive at 1 m. An opening costs as the material it sits in (ADR-005), so the package's lower figure is not used."
    ]
   },
   {

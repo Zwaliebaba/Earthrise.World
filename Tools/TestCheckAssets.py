@@ -208,7 +208,7 @@ BROKEN = {
                                    "but Manifest.json says stone 589, timber 13"),
   "the package's cost, decorations left out": (
     lambda r: Change(r, MANIFEST, lambda m: Entry(m, "T1").update(costM3=Entry(m, "T1")["packageCostM3"])),
-    "counts stone 0, timber 188, foundation 0 m3, but Manifest.json says stone 0, timber 185"),
+    "counts stone 0, timber 200, foundation 0 m3, but Manifest.json says stone 0, timber 185"),
   "stock costed in the manifest": (lambda r: Change(r, MANIFEST, lambda m: Entry(m, "T8")["costM3"].update(stone=11)),
                                    "but Manifest.json says stone 11"),
   "T3 off 96 m3": (T3OffItsCost, "T3 counts 95 m3, not the 96 m3"),
