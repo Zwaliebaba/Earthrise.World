@@ -1256,7 +1256,8 @@ void World::AnswerQueries(std::uint32_t _tick)
   // budget cannot block the queue for good.
   constexpr std::int32_t AIM_CHECK_WORK = 1;
   constexpr std::int32_t TILE_REACH_WORK = 1;
-  constexpr std::int32_t SECTION_INTEGRITY_WORK = 8; // the most support searches it runs (M3-B5)
+  // The whole budget, so one reading a tick: a reading took up to 10.6 ms on the benchmark (M3-G3).
+  constexpr std::int32_t SECTION_INTEGRITY_WORK = 16;
   const std::int32_t budget = Data().Tuning().queryWorkPerTick;
   std::int32_t left = budget;
   while (!m_pendingQueries.empty())
