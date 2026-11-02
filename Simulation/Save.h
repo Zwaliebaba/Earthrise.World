@@ -11,17 +11,23 @@ namespace Simulation
 {
 
 // A save holds everything the next tick reads, and nothing it can rebuild (ADR-014, decision 4).
-// Little-endian throughout, written with Core's byte writer, in four sections:
+// Little-endian throughout, written with Core's byte writer, in five sections:
 //   1. the header: the four bytes ERSV; u32 SAVE_FORMAT_VERSION; u64 the build id; u64 the
 //      server-data hash; u32 the generator version; u64 the world, resource and match seeds; u32 the
 //      tick; u64 the next entity id;
+//   1a. the match (M4-B4): u32 the players, then each as u8 its id and its side (Protocol::Side) and
+//      i32 its stone and its timber in hundredths of a cubic metre, in player order; then u8 1 and the
+//      trial's rules, or u8 0 for none: u8 its version, its attacker and its defender, u64 its keep,
+//      u32 its time limit and its hold in ticks, i32 its ring in cells, and the camp's two corners;
 //   2. the edited chunks: u32 their count, then in rising key order each chunk that differs from its
 //      generated base, as its u64 packed key and its edits in ChunkEdits.h's shorter form;
 //   3. the entities: u32 their count, then every entity in id order, each as a u16 type tag, a u16
-//      record version, a u32 length and the record (SaveEntityTag). Each record is at version 1 as
-//      M3 leaves it: a save is tied to its build anyway (ADR-014, decision 6). A structure's record
-//      is its id, u8 owner, template id and name each as a u32 length and UTF-8, origin and u8
-//      quarter turns; M4's construction adds its built mask as version 2;
+//      record version, a u32 length and the record (SaveEntityTag). Each kind has its own record
+//      version (RecordVersion), and an order that adds a field raises its kind's; a save is tied to
+//      its build anyway (ADR-014, decision 6), so an older version is refused, never migrated. A
+//      structure's record is its id, u8 owner, template id and name each as a u32 length and UTF-8,
+//      origin and u8 quarter turns; M4-D1 adds its built mask as version 2. A squad's version 2 adds
+//      the u64 building it is garrisoned in, and an engine's version 2 its u8 state (M4-B4);
 //   4. the pending work, each queue in its own stated order: u32 the commands that arrived for the
 //      next tick, then each as its u8 player, u32 length and bytes, in arrival order; u32 the edits
 //      the last tick made after its step 5, then each voxel, in edit order; and u32 the edits made
@@ -32,7 +38,8 @@ namespace Simulation
 // Navigation tiles, chunk hashes and anything else computed from the voxels are not saved: a load
 // rebuilds them.
 
-inline constexpr std::uint32_t SAVE_FORMAT_VERSION = 1;
+/// 2 from M4-B4, which gave the save its match.
+inline constexpr std::uint32_t SAVE_FORMAT_VERSION = 2;
 
 /// The type tag each kind of entity is saved under.
 enum class SaveEntityTag : std::uint16_t
@@ -45,6 +52,9 @@ enum class SaveEntityTag : std::uint16_t
   Structure = 6
 };
 
+/// The record version each kind of entity is written at.
+[[nodiscard]] std::uint16_t RecordVersion(SaveEntityTag _tag) noexcept;
+
 /// Writes _world, between ticks.
 [[nodiscard]] std::vector<std::byte> WriteSave(const World& _world);
 
@@ -55,8 +65,8 @@ enum class SaveEntityTag : std::uint16_t
 [[nodiscard]] World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc);
 
 /// The state hash (ADR-014, decision 5): Core::Fnv1a64, starting from the voxels' VoxelHash, over
-/// the tick and the next entity id as the header writes them, then the entities and the pending work
-/// as a save writes them. Two worlds with equal hashes run on identically.
+/// the tick and the next entity id as the header writes them, then the match, the entities and the
+/// pending work as a save writes them. Two worlds with equal hashes run on identically.
 [[nodiscard]] std::uint64_t StateHash(const World& _world);
 
 } // namespace Simulation

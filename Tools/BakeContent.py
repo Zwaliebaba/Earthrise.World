@@ -43,7 +43,7 @@ The server's file (ADR-016) is a header and a body, little-endian and unpadded t
   the header: the four bytes ERSD; u32 the format version, 1; u64 Core::Fnv1a64 over every byte of the body;
   the body: u64 the shared hash, as above; u32 the number of sections; for each section a directory entry of its
     four-character tag, u32 its version, u32 its offset from the start of the body and u32 its length; then the
-    sections, in the directory's order: MATL, TMPL, RULE, UNIT and STRC, each at version 1.
+    sections, in the directory's order: MATL, TMPL, RULE, UNIT, STRC and SCEN, each at version 1.
   MATL: for each palette index from 0 to 255, six u8: 1 if the palette has the index and 0 if not; its behaviour,
     numbered as Simulation::Behavior declares them (BEHAVIORS below); its support, numbered as Simulation::Support
     (SUPPORT below); its span in voxels, from RULE's value for its behaviour, 0 for a behaviour that is not judged by
@@ -69,6 +69,21 @@ The server's file (ADR-016) is a header and a body, little-endian and unpadded t
     critical part; u8 its garrison's capacity; i32 its stand height, its vision and its garrisoned vision in voxels, and
     its hit points and its hit points a cubic metre in the control (ADR-028). GameData/Server/Structures.json's values,
     read and converted by Tools/CheckAssets.py (its check 15).
+  SCEN: u32 the number of scenarios; then each in ascending id (ADR-026, decision 2), GameData/Server/Scenarios/'s, read,
+    converted and checked by Tools/CheckAssets.py (its check 16). A text is a u32 byte length and its UTF-8 bytes, and a
+    position three i32, x, y and z; a box is u8 its palette index, 0 for empty, and its two corners, both included:
+    its id as a text; u64 its world, resource and match seeds; its site as i32 the least x and z, the greatest x and z,
+    and the level its ground is brought to, the first empty voxel; u32 the number of ground boxes and each box; u32 the
+    number of structures and each as its template's id and its name as texts, u8 its owner, its origin, u8 its quarter
+    turns and i32 its foundation's depth in voxels; u32 the number of earthworks and each box; u32 the number of
+    players and each as u8 its id and its side (Protocol::Side), i32 its stone and its timber in hundredths of a cubic
+    metre, its commander's kind as a text, and u8 1 when its map starts revealed; u32 the number of squads and each as
+    u8 its kind (Protocol::UnitKind) and its owner, u32 the number of its cells and each cell; u32 the number of engines
+    and each as u8 its kind (Protocol::EngineKind) and its owner, its cell, u8 its quarter turns and its state
+    (Protocol::EngineState); u32 the number of garrisons and each as u8 its kind and its owner and its structure's name
+    as a text; then its trial: u8 its version (Protocol::TrialVersion), its attacker and its defender, the keep's name,
+    u32 its time limit and its hold in ticks, i32 its ring in cells, the camp's two corners, and the nearest and the
+    weak sections' names.
 Nothing under GameData/Client/ reaches it, which check 11 of the asset check proves. It is rewritten only when its
 bytes change.
 
@@ -471,7 +486,7 @@ def SharedHashHeader(_hash):
 SERVER_FILE = "ServerData.bin"
 SERVER_MAGIC = b"ERSD"
 SERVER_FORMAT_VERSION = 1
-SECTION_VERSIONS = {"MATL": 1, "TMPL": 1, "RULE": 1, "UNIT": 1, "STRC": 1}  # in the file's order
+SECTION_VERSIONS = {"MATL": 1, "TMPL": 1, "RULE": 1, "UNIT": 1, "STRC": 1, "SCEN": 1}  # in the file's order
 # Simulation::Behavior, in its declared order, by Palette.json's behaviour names; 0 is none.
 BEHAVIORS = ("none", "earth", "commonRock", "buildingStone", "bedrock", "timber", "leaves", "water", "stoneRubble",
              "wasteRubble")
@@ -565,6 +580,46 @@ def ServerStructures(_structures):
   return bytes(out)
 
 
+def ServerScenarios(_scenarios):
+  """SCEN: each scenario, converted, in ascending id."""
+
+  def Position(_position):
+    return struct.pack("<3i", *_position)
+
+  def Box(_box):
+    material, low, high = _box
+    return struct.pack("<B", material) + Position(low) + Position(high)
+
+  out = bytearray(struct.pack("<I", len(_scenarios)))
+  for scenario in _scenarios:
+    out += LengthPrefixed(scenario["id"]) + struct.pack("<3Q", *scenario["seeds"]) + struct.pack("<5i", *scenario["site"])
+    out += struct.pack("<I", len(scenario["ground"])) + b"".join(Box(box) for box in scenario["ground"])
+    out += struct.pack("<I", len(scenario["structures"]))
+    for structure in scenario["structures"]:
+      out += LengthPrefixed(structure["template"]) + LengthPrefixed(structure["name"]) + struct.pack("<B", structure["owner"])
+      out += Position(structure["origin"]) + struct.pack("<Bi", structure["quarterTurns"], structure["foundationDepthVoxels"])
+    out += struct.pack("<I", len(scenario["earthworks"])) + b"".join(Box(box) for box in scenario["earthworks"])
+    out += struct.pack("<I", len(scenario["players"]))
+    for player in scenario["players"]:
+      out += struct.pack("<2B2i", player["id"], player["side"], player["stone"], player["timber"])
+      out += LengthPrefixed(player["commander"]) + struct.pack("<B", 1 if player["revealed"] else 0)
+    out += struct.pack("<I", len(scenario["squads"]))
+    for squad in scenario["squads"]:
+      out += struct.pack("<2BI", squad["kind"], squad["owner"], len(squad["cells"])) + b"".join(Position(cell) for cell in squad["cells"])
+    out += struct.pack("<I", len(scenario["engines"]))
+    for engine in scenario["engines"]:
+      out += struct.pack("<2B", engine["kind"], engine["owner"]) + Position(engine["cell"])
+      out += struct.pack("<2B", engine["quarterTurns"], engine["state"])
+    out += struct.pack("<I", len(scenario["garrisons"]))
+    for garrison in scenario["garrisons"]:
+      out += struct.pack("<2B", garrison["kind"], garrison["owner"]) + LengthPrefixed(garrison["structure"])
+    trial = scenario["trial"]
+    out += struct.pack("<3B", trial["version"], trial["attacker"], trial["defender"]) + LengthPrefixed(trial["keep"])
+    out += struct.pack("<2Ii", trial["timeLimitTicks"], trial["holdTicks"], trial["ringCells"])
+    out += Position(trial["campMin"]) + Position(trial["campMax"]) + LengthPrefixed(trial["nearest"]) + LengthPrefixed(trial["weak"])
+  return bytes(out)
+
+
 def ServerFile(_sharedHash, _sections):
   """The whole file: the header, then the body of the shared hash, the directory and _sections ({tag: bytes})."""
   directorySize = 8 + 4 + 16 * len(_sections)
@@ -582,10 +637,12 @@ def BakeServer(_report, _palette, _templates, _sharedHash):
   materials = Materials(_report, _palette, rules)
   units = CheckAssets.ReadUnits(_report, ROOT)
   structures = CheckAssets.ReadStructures(_report, ROOT, {view.id: view.criticalPart for view in _templates})
+  scenarios = CheckAssets.ReadScenarios(_report, ROOT, _palette, units, structures, rules)
   if _report.problems:
     return None
   return ServerFile(_sharedHash, {"MATL": materials, "TMPL": ServerTemplates(_templates), "RULE": ServerRules(rules),
-                                  "UNIT": ServerUnits(units), "STRC": ServerStructures(structures)})
+                                  "UNIT": ServerUnits(units), "STRC": ServerStructures(structures),
+                                  "SCEN": ServerScenarios(scenarios)})
 
 
 def WriteBytesIfChanged(_path, _bytes):

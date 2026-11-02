@@ -108,6 +108,13 @@ class ServerFile:
     self.structuresEndExactly = at == len(data)
     return structures
 
+  def ScenarioIds(self):
+    """The scenarios' ids, in the file's order: each record begins with its id."""
+    data = self.sections["SCEN"]
+    (count,) = struct.unpack_from("<I", data, 0)
+    (length,) = struct.unpack_from("<I", data, 4)
+    return count, data[8 : 8 + length].decode("utf-8")
+
   def Rules(self):
     data, at, rules = self.sections["RULE"], 4, {}
     for _ in range(struct.unpack_from("<I", data, 0)[0]):
@@ -148,8 +155,8 @@ class ServerBakeTests(unittest.TestCase):
     self.assertEqual(clientHash, self.file.sharedHash)
 
   def test_the_sections_come_in_order_at_version_one(self):
-    self.assertEqual(["MATL", "TMPL", "RULE", "UNIT", "STRC"], list(self.file.sections))
-    self.assertEqual({"MATL": 1, "TMPL": 1, "RULE": 1, "UNIT": 1, "STRC": 1}, self.file.versions)
+    self.assertEqual(["MATL", "TMPL", "RULE", "UNIT", "STRC", "SCEN"], list(self.file.sections))
+    self.assertEqual({"MATL": 1, "TMPL": 1, "RULE": 1, "UNIT": 1, "STRC": 1, "SCEN": 1}, self.file.versions)
     self.assertEqual(256 * 6, len(self.file.sections["MATL"]))
 
   def test_a_second_bake_leaves_the_file_untouched(self):
@@ -271,6 +278,29 @@ class ServerBakeTests(unittest.TestCase):
     self.assertEqual((50, 6, 11, 10, 80, 900, 50), structures["T5"])
     self.assertEqual((90, 6, 16, 10, 80, 900, 50), structures["T2"])
     self.assertEqual(0, structures["T3"][0])  # T3 names no critical part
+
+  # ── SCEN ────────────────────────────────────────────────────────────────────────────────────────
+
+  def test_the_siege_castle_bakes_as_the_scenarios(self):
+    count, first = self.file.ScenarioIds()
+    self.assertEqual("Siege", first)
+    self.assertGreaterEqual(count, 1)
+
+  def test_a_scenario_round_trips_through_its_encoding(self):
+    report = CheckAssets.Report(ROOT)
+    palette, _ = CheckAssets.ReadPalette(report, ROOT)
+    rules = CheckAssets.ReadRules(report, ROOT)
+    units = CheckAssets.ReadUnits(report, ROOT)
+    structures = CheckAssets.ReadStructures(report, ROOT, CheckAssets.TemplateCriticalParts(report, ROOT))
+    scenarios = CheckAssets.ReadScenarios(report, ROOT, palette, units, structures, rules)
+    self.assertEqual([], report.problems)
+    self.assertEqual(self.file.sections["SCEN"], BakeContent.ServerScenarios(scenarios))
+    siege = scenarios[0]
+    self.assertEqual((240, 182, 439, 381, 9), siege["site"])
+    self.assertEqual(4, next(s for s in siege["structures"] if s["name"] == "E3")["foundationDepthVoxels"])
+    self.assertEqual({"version": 0, "attacker": 1, "defender": 2, "keep": "KEEP", "timeLimitTicks": 48000, "holdTicks": 2400,
+                      "ringCells": 3, "campMin": (325, 9, 192), "campMax": (355, 9, 212), "nearest": "S3", "weak": "E3"}, siege["trial"])
+    self.assertEqual(12000, siege["players"][0]["stone"])
 
   def test_a_span_that_is_not_a_whole_number_of_voxels_fails(self):
     with tempfile.TemporaryDirectory() as folder:

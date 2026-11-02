@@ -120,5 +120,8 @@
     <ClCompile Include="UnitStatsTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="ScenarioTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

@@ -42,6 +42,7 @@ PALETTE = "Server/Palette.json"
 RULES = "Server/Rules.json"
 UNITS = "Server/Units.json"
 STRUCTURES = "Server/Structures.json"
+SIEGE = "Server/Scenarios/Siege.json"
 BAKE = "Tools/BakeContent.py"
 BAKE_IMPORTS = ("Tools/CheckAssets.py", "Tools/VoxFile.py")  # the bake counts costs with the asset check's code
 
@@ -174,6 +175,10 @@ def UnitOf(_units, _kind):
 
 def StructureOf(_structures, _template):
   return next(structure for structure in _structures["structures"] if structure["template"] == _template)
+
+
+def NamedStructure(_scenario, _name):
+  return next(structure for structure in _scenario["structures"] if structure["name"] == _name)
 
 
 def Legend(_char, _index):
@@ -314,6 +319,31 @@ BROKEN = {
                                        "T3 names no critical part, so it gives no criticalThresholdPercent"),
   "a structure value that does not convert": (lambda r: Change(r, STRUCTURES, lambda s: StructureOf(s, "T5").update(standHeightMeters="11.5")),
                                               "T5's standHeightMeters: 11.5 comes to 11.5 voxels, not a whole number"),
+  # 16. Scenarios.
+  "a scenario's structure naming no template": (lambda r: Change(r, SIEGE, lambda s: NamedStructure(s, "S3").update(template="T10")),
+                                                "structure 4 names the template 'T10'"),
+  "two structures overlapping": (lambda r: Change(r, SIEGE, lambda s: NamedStructure(s, "S3").update(origin=NamedStructure(s, "S2")["origin"])),
+                                 "the structures S2 and S3 overlap"),
+  "two structures of one name": (lambda r: Change(r, SIEGE, lambda s: NamedStructure(s, "S3").update(name="S2")),
+                                 "has the name 'S2', which is empty or another structure's"),
+  "a squad on a structure": (lambda r: Change(r, SIEGE, lambda s: s["squads"][0]["cells"].__setitem__(0, list(NamedStructure(s, "S3")["origin"]))),
+                             "squad 1's cell"),
+  "a squad in the ditch": (lambda r: Change(r, SIEGE, lambda s: s["squads"][0]["cells"].__setitem__(0, [340, 9, 296])),
+                           "squad 1's cell (340, 9, 296) is not a walkable cell"),
+  "two squads in one cell": (lambda r: Change(r, SIEGE, lambda s: s["squads"][1]["cells"].__setitem__(0, s["squads"][0]["cells"][0])),
+                             "squad 2's cell"),
+  "a squad short of its figures": (lambda r: Change(r, SIEGE, lambda s: s["squads"][0]["cells"].pop()),
+                                   "squad 1, of manAtArms, has 5 cells, and a squad of manAtArms has 6 figures"),
+  "a garrison with no room": (lambda r: Change(r, SIEGE, lambda s: s["garrisons"].append(dict(s["garrisons"][0]))),
+                              "puts 12 figures in SW, which holds 6"),
+  "a garrison in a wall": (lambda r: Change(r, SIEGE, lambda s: s["garrisons"][0].update(structure="S1")), "puts 6 figures in S1, which holds 0"),
+  "a keep that is no T2": (lambda r: Change(r, SIEGE, lambda s: s["trial"].update(keep="HALL")), "its trial's keep 'HALL' is not a T2"),
+  "a site its ground does not fill": (lambda r: Change(r, SIEGE, lambda s: s["ground"][1]["max"].__setitem__(1, 6)),
+                                      "its ground boxes leave the site's voxel (240, 7, 182) below its level without a material"),
+  "an earthwork leaving the site": (lambda r: Change(r, SIEGE, lambda s: s["earthworks"][0]["min"].__setitem__(0, 100)),
+                                    "its earthworks box 1 leaves its site"),
+  "a commander no ADR names": (lambda r: Change(r, SIEGE, lambda s: s["players"][1].update(commander="cleverDefender")),
+                               "the player 2 needs an id of its own"),
 }
 
 

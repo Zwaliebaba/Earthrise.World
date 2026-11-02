@@ -132,6 +132,48 @@ public:
     Assert::IsTrue(Simulation::WriteSave(unedited) == Simulation::WriteSave(world));
   }
 
+  TEST_METHOD(KeepsTheMatchItsGarrisonsAndItsEnginesStates)
+  {
+    // M4-B4: the players, the trial's rules, a squad in a building and a packed engine are saved and hashed.
+    Simulation::World world = Start();
+    world.AddPlayer(
+      {.id = PLAYER, .side = Protocol::Side::Attacker, .stoneHundredthsCubicMeters = 12000, .timberHundredthsCubicMeters = 0});
+    world.AddPlayer(
+      {.id = PLAYER + 1, .side = Protocol::Side::Defender, .stoneHundredthsCubicMeters = 20000, .timberHundredthsCubicMeters = 2000});
+    const Protocol::EntityId tower = world.AddStructure(PLAYER + 1, "T4", Cell(30, 30), 0, "SW", 1);
+    const std::array<Protocol::VoxelPosition, 2> archers = {Cell(50, 50), Cell(51, 50)};
+    const Protocol::EntityId garrison =
+      world.AddSquad(PLAYER + 1, Simulation::NavigationClass::Foot, archers, Simulation::UnitKind::Archer);
+    world.PlaceInGarrison(garrison, tower);
+    static_cast<void>(world.AddSiegeEngine(PLAYER, Simulation::EngineKind::Ram, Cell(20, 50), 1, Protocol::EngineState::Packed));
+    world.SetTrial({.version = Protocol::TrialVersion::Voxel,
+                    .attacker = PLAYER,
+                    .defender = PLAYER + 1,
+                    .keep = tower,
+                    .timeLimitTicks = 48000,
+                    .holdTicks = 2400,
+                    .ringCells = 3,
+                    .campMinVoxels = Cell(1, 1),
+                    .campMaxVoxels = Cell(9, 9)});
+    RunTo(world, 12);
+    Simulation::World loaded = Simulation::LoadSave(Simulation::WriteSave(world), FlatWorld::Desc());
+    Assert::AreEqual(Simulation::StateHash(world), Simulation::StateHash(loaded));
+    Assert::AreEqual(std::int32_t{2000}, loaded.Players().at(PLAYER + 1).timberHundredthsCubicMeters);
+    Assert::AreEqual(tower, loaded.Squads().at(garrison).garrisonedIn);
+    const std::optional<Simulation::TrialRules>& trial = loaded.Trial();
+    Assert::IsTrue(trial.has_value() && trial->keep == tower);
+    Assert::IsTrue(std::ranges::any_of(loaded.SiegeEngines(),
+                                       [](const auto& _engine) { return _engine.second.state == Protocol::EngineState::Packed; }));
+    RunTo(world, 40);
+    RunTo(loaded, 40);
+    Assert::AreEqual(Simulation::StateHash(world), Simulation::StateHash(loaded));
+    // The garrison stayed in its building: its figures neither moved nor settled.
+    for (const Protocol::EntityId unit : loaded.Squads().at(garrison).units)
+    {
+      Assert::IsTrue(loaded.Units().at(unit).cellVoxels == Cell(30, 30));
+    }
+  }
+
   TEST_METHOD(RefusesASaveFromAnotherBuildDataGeneratorOrFormat)
   {
     Simulation::World world = Start();
@@ -150,9 +192,9 @@ public:
     Assert::IsTrue(Refusal(save, FlatWorld::Desc()).find("server data") != std::string::npos);
     save[16] ^= std::byte{1};
 
-    save[4] = std::byte{2}; // the format version
-    Assert::IsTrue(Refusal(save, FlatWorld::Desc()).find("format version is 2") != std::string::npos);
-    save[4] = std::byte{1};
+    save[4] = std::byte{3}; // the format version, 2 from M4-B4
+    Assert::IsTrue(Refusal(save, FlatWorld::Desc()).find("format version is 3") != std::string::npos);
+    save[4] = std::byte{2};
 
     Assert::IsTrue(Refusal(save, FlatWorld::Desc()).empty());
     save.pop_back();

@@ -4,6 +4,7 @@
 
 #include "ByteReader.h"
 #include "Hash.h"
+#include "Scenario.h"
 
 namespace Simulation
 {
@@ -23,7 +24,7 @@ constexpr std::uint8_t LAST_SUPPORT = static_cast<std::uint8_t>(Support::Anchors
 constexpr std::uint8_t LAST_PART = static_cast<std::uint8_t>(ServerTemplate::Part::Stock);
 constexpr std::uint8_t LAST_CLASS = static_cast<std::uint8_t>(NavigationClass::Machines);
 constexpr std::uint8_t LAST_DAMAGE_TYPE = static_cast<std::uint8_t>(Protocol::DamageType::Crush);
-constexpr std::array<const char*, 5> SECTIONS = {"MATL", "TMPL", "RULE", "UNIT", "STRC"};
+constexpr std::array<const char*, 6> SECTIONS = {"MATL", "TMPL", "RULE", "UNIT", "STRC", "SCEN"};
 
 /// One RULE key and the field it sets: a whole number, or a Core::Fixed raw value.
 struct RuleField
@@ -350,7 +351,35 @@ std::vector<TemplateRules> ReadTemplateRules(std::span<const std::byte> _section
   return records;
 }
 
+std::vector<Scenario> ReadScenarios(std::span<const std::byte> _section)
+{
+  Core::ByteReader reader(_section);
+  const std::uint32_t count = reader.ReadU32();
+  std::vector<Scenario> scenarios;
+  for (std::uint32_t number = 0; number < count; ++number)
+  {
+    Scenario scenario = ReadScenario(reader);
+    if (!scenarios.empty() && scenarios.back().id >= scenario.id)
+    {
+      Refuse("SCEN's scenarios are not in ascending id at " + scenario.id);
+    }
+    scenarios.push_back(std::move(scenario));
+  }
+  if (!reader.AtEnd())
+  {
+    Refuse("SCEN holds bytes after its last scenario");
+  }
+  return scenarios;
+}
+
 } // namespace
+
+ServerData::ServerData() = default;
+ServerData::~ServerData() = default;
+ServerData::ServerData(const ServerData& _other) = default;
+ServerData::ServerData(ServerData&& _other) noexcept = default;
+ServerData& ServerData::operator=(const ServerData& _other) = default;
+ServerData& ServerData::operator=(ServerData&& _other) noexcept = default;
 
 TemplateShape ServerTemplate::Shape() const noexcept
 {
@@ -422,6 +451,7 @@ ServerData ServerData::Read(std::span<const std::byte> _file)
     data.m_rules = ReadRules(sections.at("RULE"));
     data.m_units = ReadUnits(sections.at("UNIT"));
     data.m_templateRules = ReadTemplateRules(sections.at("STRC"));
+    data.m_scenarios = ReadScenarios(sections.at("SCEN"));
   }
   catch (const std::out_of_range&)
   {
@@ -485,6 +515,12 @@ const TemplateRules* ServerData::FindTemplateRules(std::string_view _templateId)
 {
   const auto found = std::ranges::find(m_templateRules, _templateId, &TemplateRules::templateId);
   return found == m_templateRules.end() ? nullptr : &*found;
+}
+
+const Scenario* ServerData::FindScenario(std::string_view _scenarioId) const noexcept
+{
+  const auto found = std::ranges::find(m_scenarios, _scenarioId, &Scenario::id);
+  return found == m_scenarios.end() ? nullptr : &*found;
 }
 
 TemplateLookup ServerData::Templates() const

@@ -73,6 +73,14 @@ What it checks, and how each rule is read against the files:
    a value without a unit being a whole number; hit points, figures and vision are at least 1. A template that names a
    critical part gives a criticalThresholdPercent from 1 to 100, and one that names none gives none. The bake reads both
    with this check's code.
+16. Every scenario in GameData/Server/Scenarios/ (ADR-026, decision 2) has an identifier for its id, three 64-bit seeds, a
+   site on the map whose voxels below its level its ground boxes cover, and ground boxes and earthworks within the site.
+   Its structures name templates the server holds, have names of their own and do not overlap; its players have ids
+   of their own, a side and a commander ADR-027 names; every squad has its kind's figures, and every squad's cell and
+   every machine's footprint is walkable on the levelled site, outside every structure, held by no other unit; every
+   garrison names a structure it places with room for it (check 15's capacities); and its trial's keep is a T2, its
+   nearest and weak sections T3s, and its attacker and defender its players on those sides. Each value with a unit
+   converts as check 10's do. The bake reads scenarios with this check's code.
 Usage:
   python3 Tools/CheckAssets.py              the repository this script sits in
   python3 Tools/CheckAssets.py --root DIR   another tree, such as a mutated copy of it
@@ -1012,6 +1020,322 @@ def TemplateCriticalParts(_report, _root):
   return parts
 
 
+# ── Check 16, scenarios ──────────────────────────────────────────────────────────────────────────
+
+# Protocol::EngineKind, EngineState, Side and TrialVersion, in their declared order, by the names a scenario gives them.
+ENGINE_KINDS = ("trebuchet", "ram")
+ENGINE_STATES = ("packed", "deploying", "deployed", "packing")
+SIDES = ("attacker", "defender")
+TRIAL_VERSIONS = ("voxel", "control")
+COMMANDERS = ("human", "siegeDefender", "siegeAttacker")  # ADR-027, decision 1
+MAP_VOXELS = (512, 64, 512)  # the MVP map, Simulation::Generator's MAP_WIDTH_VOXELS, MAP_HEIGHT_VOXELS and MAP_DEPTH_VOXELS
+MAX_SEED = (1 << 64) - 1
+
+
+def TemplateSizes(_report, _root):
+  """{template id: (width, height, depth) in voxels, its occupied box}, from the layer files in GameData/Server/Templates/."""
+  sizes = {}
+  for path in sorted((_root / "GameData" / "Server" / "Templates").glob("*.json")):
+    data = ReadJson(_report, path)
+    if not isinstance(data, dict) or not isinstance(data.get("id"), str) or not IsLayerFile(data):
+      continue
+    cells = [(x, y, z) for y, layer in enumerate(data["layers"]) for z, row in enumerate(layer) for x, char in enumerate(row)
+             if char != "."]
+    if cells:
+      sizes[data["id"]] = tuple(max(cell[axis] for cell in cells) - min(cell[axis] for cell in cells) + 1 for axis in range(3))
+  return sizes
+
+
+def IsPosition(_value):
+  return isinstance(_value, list) and len(_value) == 3 and all(isinstance(v, int) and not isinstance(v, bool) for v in _value)
+
+
+def Within(_point, _low, _high):
+  return all(_low[axis] <= _point[axis] <= _high[axis] for axis in range(len(_low)))
+
+
+class ScenarioReader:
+  """Reads one scenario source for check 16, reporting each problem against its file, and gives it converted."""
+
+  def __init__(self, _report, _path, _data, _templates, _structureRules, _units, _rules):
+    self.report, self.path, self.data = _report, _path, _data
+    self.templates, self.structureRules, self.rules = _templates, _structureRules, _rules
+    self.figures = {UNIT_KINDS[unit["kind"]]: unit["squadFigures"] for unit in _units}
+
+  def Problem(self, _message):
+    self.report.Problem(self.path, _message)
+
+  def Number(self, _key, _value, _what, _least=0):
+    """A decimal string with a unit in its key, converted as check 10's values are."""
+    number, reason = ConvertField(_key, _value)
+    if number is None:
+      self.Problem(f"{_what}'s {_key}: {reason}")
+    elif number < _least:
+      self.Problem(f"{_what}'s {_key} is {_value}, below {_least}")
+      number = None
+    return number
+
+  def Box(self, _entry, _what):
+    low, high = _entry.get("min") if isinstance(_entry, dict) else None, _entry.get("max") if isinstance(_entry, dict) else None
+    material = _entry.get("material") if isinstance(_entry, dict) else None
+    if not IsPosition(low) or not IsPosition(high) or any(low[axis] > high[axis] for axis in range(3)):
+      self.Problem(f"{_what} is not a box of two corners, min no greater than max")
+      return None
+    if not isinstance(material, int) or isinstance(material, bool) or not 0 <= material <= 255:
+      self.Problem(f"{_what}'s material {material!r} is not a palette index or 0")
+      return None
+    return (material, tuple(low), tuple(high))
+
+  def Read(self):
+    data, scenario = self.data, {}
+    scenario["id"] = data.get("id")
+    if not isinstance(scenario["id"], str) or not ASSET_ID.fullmatch(scenario["id"]):
+      self.Problem(f"its id {scenario['id']!r} is not an identifier such as Siege")
+      return None
+    seeds = data.get("seeds") if isinstance(data.get("seeds"), dict) else {}
+    scenario["seeds"] = []
+    for name in ("world", "resource", "match"):
+      value = seeds.get(name)
+      if not isinstance(value, str) or not re.fullmatch(r"\d+", value) or int(value) > MAX_SEED:
+        self.Problem(f"its {name} seed {value!r} is not a whole number of 64 bits as a decimal string")
+        return None
+      scenario["seeds"].append(int(value))
+    site = data.get("site") if isinstance(data.get("site"), dict) else {}
+    low, high = site.get("min"), site.get("max")
+    level = self.Number("groundMeters", site.get("groundMeters"), "its site", 1)
+    if not (isinstance(low, list) and isinstance(high, list) and len(low) == len(high) == 2 and all(isinstance(v, int) for v in low + high)
+            and 0 <= low[0] <= high[0] < MAP_VOXELS[0] and 0 <= low[1] <= high[1] < MAP_VOXELS[2]) or level is None:
+      self.Problem("its site is not a box of x and z on the map with its groundMeters")
+      return None
+    scenario["site"] = (low[0], low[1], high[0], high[1], level)
+    siteLow, siteHigh = (low[0], 0, low[1]), (high[0], MAP_VOXELS[1] - 1, high[1])
+    scenario["ground"] = [self.Box(entry, f"ground box {number + 1}") for number, entry in enumerate(data.get("ground") or [])]
+    scenario["earthworks"] = [self.Box(entry, f"earthwork {number + 1}") for number, entry in enumerate(data.get("earthworks") or [])]
+    if None in scenario["ground"] or None in scenario["earthworks"]:
+      return None
+    for kind in ("ground", "earthworks"):
+      for number, (_, boxLow, boxHigh) in enumerate(scenario[kind]):
+        if not Within(boxLow, siteLow, siteHigh) or not Within(boxHigh, siteLow, siteHigh):
+          self.Problem(f"its {kind} box {number + 1} leaves its site")
+    if not self.GroundCovers(scenario):
+      return None
+    if not self.ReadStructures(scenario) or not self.ReadPlayers(scenario) or not self.ReadUnits(scenario) or not self.ReadTrial(scenario):
+      return None
+    return scenario
+
+  def GroundCovers(self, _scenario):
+    """Every voxel of the site below its level takes a material from a ground box, so the site is the scenario's, not the
+    generator's (ADR-026, decision 1)."""
+    x0, z0, x1, z1, level = _scenario["site"]
+    layers = [[] for _ in range(level)]
+    for material, low, high in _scenario["ground"]:
+      for y in range(max(low[1], 0), min(high[1], level - 1) + 1):
+        layers[y].append((low[0], low[2], high[0], high[2]))
+    for y, boxes in enumerate(layers):
+      # A layer is covered when the boxes' union is the site's rectangle: count the cells each covers once.
+      covered = set()
+      for bx0, bz0, bx1, bz1 in boxes:
+        for z in range(max(bz0, z0), min(bz1, z1) + 1):
+          covered.add((z, max(bx0, x0), min(bx1, x1)))
+      rows = {}
+      for z, a, b in covered:
+        rows.setdefault(z, []).append((a, b))
+      for z in range(z0, z1 + 1):
+        reach = x0
+        for a, b in sorted(rows.get(z, [])):
+          if a > reach:
+            break
+          reach = max(reach, b + 1)
+        if reach <= x1:
+          self.Problem(f"its ground boxes leave the site's voxel ({reach}, {y}, {z}) below its level without a material")
+          return False
+    return True
+
+  def ReadStructures(self, _scenario):
+    structures, names = [], set()
+    for number, entry in enumerate(self.data.get("structures") or []):
+      what = f"structure {number + 1}"
+      template, name, owner = entry.get("template"), entry.get("name"), entry.get("owner")
+      origin, turns = entry.get("origin"), entry.get("quarterTurns")
+      depth = self.Number("foundationDepthMeters", entry.get("foundationDepthMeters"), what)
+      if template not in self.templates:
+        self.Problem(f"{what} names the template {template!r}, which GameData/Server/Templates/ does not hold")
+        return False
+      if not isinstance(name, str) or not name or name in names:
+        self.Problem(f"{what} has the name {name!r}, which is empty or another structure's")
+        return False
+      if not isinstance(owner, int) or not 1 <= owner <= 255 or not IsPosition(origin) or turns not in (0, 1, 2, 3) or depth is None:
+        self.Problem(f"{what}, {name}, needs an owner from 1 to 255, an origin, a quarter turn from 0 to 3 and its foundationDepthMeters")
+        return False
+      names.add(name)
+      width, height, depthVoxels = self.templates[template]
+      extent = (depthVoxels, height, width) if turns % 2 == 1 else (width, height, depthVoxels)
+      structures.append({"template": template, "name": name, "owner": owner, "origin": tuple(origin), "quarterTurns": turns,
+                         "foundationDepthVoxels": depth, "extent": extent})
+    for index, first in enumerate(structures):
+      for second in structures[index + 1 :]:
+        if all(first["origin"][axis] < second["origin"][axis] + second["extent"][axis] and
+               second["origin"][axis] < first["origin"][axis] + first["extent"][axis] for axis in range(3)):
+          self.Problem(f"the structures {first['name']} and {second['name']} overlap")
+          return False
+    _scenario["structures"] = structures
+    return True
+
+  def ReadPlayers(self, _scenario):
+    players, ids = [], set()
+    for entry in self.data.get("players") or []:
+      playerId, side, commander = entry.get("id"), entry.get("side"), entry.get("commander")
+      stone = self.Number("stoneCubicMeters", entry.get("stoneCubicMeters"), f"player {playerId}")
+      timber = self.Number("timberCubicMeters", entry.get("timberCubicMeters"), f"player {playerId}")
+      if not isinstance(playerId, int) or not 1 <= playerId <= 255 or playerId in ids or side not in SIDES or commander not in COMMANDERS \
+         or not isinstance(entry.get("revealed"), bool) or stone is None or timber is None:
+        self.Problem(f"the player {playerId!r} needs an id of its own from 1 to 255, a side of {', '.join(SIDES)}, a commander of "
+                     f"{', '.join(COMMANDERS)}, whether its map is revealed, and its stockpiles")
+        return False
+      ids.add(playerId)
+      players.append({"id": playerId, "side": SIDES.index(side), "stone": stone, "timber": timber, "commander": commander,
+                      "revealed": entry["revealed"]})
+    _scenario["players"] = players
+    return bool(players)
+
+  def Top(self, _scenario, _x, _z):
+    """The first empty voxel above the levelled site's ground at (_x, _z), after the earthworks, and the material under it."""
+    level = _scenario["site"][4]
+    column = {}
+    for material, low, high in _scenario["ground"]:
+      if low[0] <= _x <= high[0] and low[2] <= _z <= high[2]:
+        for y in range(low[1], min(high[1], level - 1) + 1):
+          column[y] = material
+    for material, low, high in _scenario["earthworks"]:
+      if low[0] <= _x <= high[0] and low[2] <= _z <= high[2]:
+        for y in range(low[1], high[1] + 1):
+          column[y] = material
+    solid = [y for y, material in column.items() if material != 0]
+    top = max(solid) + 1 if solid else 0
+    return top, column.get(top - 1, 0)
+
+  def Walkable(self, _scenario, _cell, _palette):
+    x, y, z = _cell
+    x0, z0, x1, z1, _ = _scenario["site"]
+    if not (x0 <= x <= x1 and z0 <= z <= z1):
+      return False
+    for structure in _scenario["structures"]:
+      origin, extent = structure["origin"], structure["extent"]
+      if origin[0] <= x < origin[0] + extent[0] and origin[2] <= z < origin[2] + extent[2]:
+        return False
+    top, under = self.Top(_scenario, x, z)
+    return top == y and bool(_palette.get(under, {}).get("ground"))
+
+  def ReadUnits(self, _scenario):
+    palette = self.palette
+    taken, squads, engines, garrisons = set(), [], [], []
+    for number, entry in enumerate(self.data.get("squads") or []):
+      kind, owner, cells = entry.get("kind"), entry.get("owner"), entry.get("cells")
+      if kind not in UNIT_KINDS or kind in ("ram", "trebuchet") or not isinstance(cells, list) or not all(IsPosition(c) for c in cells):
+        self.Problem(f"squad {number + 1} needs a kind of soldier or laborer and its cells")
+        return False
+      if len(cells) != self.figures.get(kind):
+        self.Problem(f"squad {number + 1}, of {kind}, has {len(cells)} cells, and a squad of {kind} has {self.figures.get(kind)} figures")
+        return False
+      for cell in cells:
+        if not self.Walkable(_scenario, cell, palette) or tuple(cell) in taken:
+          self.Problem(f"squad {number + 1}'s cell {tuple(cell)} is not a walkable cell of the levelled site that no other unit holds")
+          return False
+        taken.add(tuple(cell))
+      squads.append({"kind": UNIT_KINDS.index(kind), "owner": owner, "cells": [tuple(cell) for cell in cells]})
+    width = self.rules.get("machinesWidthVoxels", 1)
+    for number, entry in enumerate(self.data.get("engines") or []):
+      kind, cell, turns, state = entry.get("kind"), entry.get("cell"), entry.get("quarterTurns"), entry.get("state")
+      if kind not in ENGINE_KINDS or not IsPosition(cell) or turns not in (0, 1, 2, 3) or state not in ENGINE_STATES:
+        self.Problem(f"engine {number + 1} needs a kind of {', '.join(ENGINE_KINDS)}, a cell, a quarter turn and a state")
+        return False
+      for dx in range(width):
+        for dz in range(width):
+          footprint = (cell[0] + dx, cell[1], cell[2] + dz)
+          if not self.Walkable(_scenario, footprint, palette) or footprint in taken:
+            self.Problem(f"engine {number + 1}'s footprint cell {footprint} is not a walkable cell of the levelled site that no other unit holds")
+            return False
+          taken.add(footprint)
+      engines.append({"kind": ENGINE_KINDS.index(kind), "owner": entry.get("owner"), "cell": tuple(cell), "quarterTurns": turns,
+                      "state": ENGINE_STATES.index(state)})
+    held = {}
+    byName = {structure["name"]: structure for structure in _scenario["structures"]}
+    for number, entry in enumerate(self.data.get("garrisons") or []):
+      kind, name = entry.get("kind"), entry.get("structure")
+      structure = byName.get(name)
+      rules = self.structureRules.get(structure["template"]) if structure else None
+      if kind not in UNIT_KINDS or kind in ("ram", "trebuchet") or structure is None:
+        self.Problem(f"garrison {number + 1} needs a kind of soldier and a structure the scenario places, and names {name!r}")
+        return False
+      held[name] = held.get(name, 0) + self.figures[kind]
+      if rules is None or held[name] > rules["garrisonCapacity"]:
+        self.Problem(f"garrison {number + 1} puts {held[name]} figures in {name}, which holds "
+                     f"{rules['garrisonCapacity'] if rules else 0} (ADR-024, decision 5)")
+        return False
+      garrisons.append({"kind": UNIT_KINDS.index(kind), "owner": entry.get("owner"), "structure": name})
+    owners = {player["id"] for player in _scenario["players"]}
+    for thing in squads + engines + garrisons:
+      if thing["owner"] not in owners:
+        self.Problem(f"a squad, an engine or a garrison belongs to {thing['owner']!r}, which is not one of its players")
+        return False
+    _scenario.update(squads=squads, engines=engines, garrisons=garrisons)
+    return True
+
+  def ReadTrial(self, _scenario):
+    trial = self.data.get("trial")
+    if not isinstance(trial, dict):
+      self.Problem("has no trial (ADR-026, decision 4)")
+      return False
+    byName = {structure["name"]: structure for structure in _scenario["structures"]}
+    keep, nearest, weak = byName.get(trial.get("keep")), byName.get(trial.get("nearest")), byName.get(trial.get("weak"))
+    if keep is None or keep["template"] != "T2":
+      self.Problem(f"its trial's keep {trial.get('keep')!r} is not a T2 it places (ADR-026, decision 2)")
+      return False
+    if nearest is None or weak is None or nearest["template"] != "T3" or weak["template"] != "T3":
+      self.Problem("its trial's nearest and weak sections must be T3 sections it places")
+      return False
+    sides = {player["id"]: player["side"] for player in _scenario["players"]}
+    attacker, defender = trial.get("attacker"), trial.get("defender")
+    if sides.get(attacker) != SIDES.index("attacker") or sides.get(defender) != SIDES.index("defender"):
+      self.Problem("its trial's attacker and defender must be its players on those sides")
+      return False
+    limit = self.Number("timeLimitSeconds", trial.get("timeLimitSeconds"), "its trial", 1)
+    hold = self.Number("holdSeconds", trial.get("holdSeconds"), "its trial", 1)
+    ring = self.Number("ringMeters", trial.get("ringMeters"), "its trial", 1)
+    low, high = trial.get("campMin"), trial.get("campMax")
+    version = trial.get("version")
+    if None in (limit, hold, ring) or version not in TRIAL_VERSIONS or not IsPosition(low) or not IsPosition(high):
+      self.Problem(f"its trial needs a version of {', '.join(TRIAL_VERSIONS)}, its limit, hold and ring, and the camp's box")
+      return False
+    _scenario["trial"] = {"version": TRIAL_VERSIONS.index(version), "attacker": attacker, "defender": defender, "keep": keep["name"],
+                          "timeLimitTicks": limit, "holdTicks": hold, "ringCells": ring, "campMin": tuple(low), "campMax": tuple(high),
+                          "nearest": nearest["name"], "weak": weak["name"]}
+    return True
+
+
+def ReadScenarios(_report, _root, _palette, _units, _structures, _rules):
+  """Check 16: every scenario in GameData/Server/Scenarios/ (ADR-026, decision 2), read and converted, in ascending id.
+  _units and _structures are check 15's, and _rules check 10's."""
+  folder = _root / "GameData" / "Server" / "Scenarios"
+  templates = TemplateSizes(_report, _root)
+  structureRules = {structure["template"]: structure for structure in _structures}
+  scenarios = {}
+  for path in sorted(folder.glob("*.json")) if folder.is_dir() else []:
+    data = ReadJson(_report, path)
+    if not isinstance(data, dict):
+      continue
+    reader = ScenarioReader(_report, path, data, templates, structureRules, _units, _rules)
+    reader.palette = _palette
+    scenario = reader.Read()
+    if scenario is None:
+      continue
+    if scenario["id"] in scenarios:
+      _report.Problem(path, f"has the id {scenario['id']}, as another scenario does")
+      continue
+    scenarios[scenario["id"]] = scenario
+  return [scenarios[key] for key in sorted(scenarios)]
+
+
 SERVER_ONLY_TREE = ("Tools", "GameData/Server")
 
 
@@ -1072,9 +1396,10 @@ def Check(_root):
     if isinstance(entry.get("figure"), dict):
       CheckFigure(report, _root, entry, assets)
   outputs = CheckClientBake(report, _root, behaviors)
-  ReadRules(report, _root)
-  ReadUnits(report, _root)
-  ReadStructures(report, _root, TemplateCriticalParts(report, _root))
+  rules = ReadRules(report, _root)
+  units = ReadUnits(report, _root)
+  structures = ReadStructures(report, _root, TemplateCriticalParts(report, _root))
+  ReadScenarios(report, _root, palette, units, structures, rules)
   CheckServerBake(report, _root)
   return report, assets, outputs, lineModels
 
