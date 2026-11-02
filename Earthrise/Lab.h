@@ -51,6 +51,8 @@ public:
   [[nodiscard]] bool TakesSpace() const noexcept override;
   [[nodiscard]] std::optional<Client::HudMode> Mode() const override;
   [[nodiscard]] std::optional<Client::HudObjective> Objective() const override;
+  [[nodiscard]] std::vector<Client::HudResource> Resources(std::uint32_t _tick, std::uint32_t _shotsFired) const override;
+  [[nodiscard]] bool ShowsFigures() const noexcept override;
   [[nodiscard]] std::vector<Client::OverlayBox> Marks(const Client::Session& _session) const override;
 
 private:

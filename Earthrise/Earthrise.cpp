@@ -526,6 +526,16 @@ public:
     return std::nullopt;
   }
 
+  [[nodiscard]] std::vector<Client::HudResource> Resources(std::uint32_t _tick, std::uint32_t _shotsFired) const override
+  {
+    return Client::BreachResources(_tick, _shotsFired);
+  }
+
+  [[nodiscard]] bool ShowsFigures() const noexcept override
+  {
+    return true;
+  }
+
   [[nodiscard]] std::vector<Client::OverlayBox> Marks(const Client::Session& /* _session */) const override
   {
     return {};
@@ -837,7 +847,7 @@ int Run(const Options& _options)
       viewProjection, swapChain.WidthPixels(), swapChain.HeightPixels(), static_cast<float>(Simulation::BreachRun::GROUND_VOXELS));
     client.views.AskReach(client.session, snapshots, visibleTiles, PLAYER, passabilityShown);
     // The HUD, built from the session (M3-E2), and the frame's figures under it in the bottom-left corner, over the
-    // integrity view's labels (M3-F2).
+    // integrity view's labels (M3-F2), outside the lab (M3-H4).
     client.views.Update(client.session, seconds, client.alerts);
     client.alerts.Expire(seconds);
     // The objective line: the scenario's, or the selection while there is one, with FIRE's key, or RELOADING in off
@@ -853,7 +863,7 @@ int Run(const Options& _options)
                                .detailOff = false});
     // The banner: FIRE's while it is on, else the scenario's.
     const Client::HudMode mode = client.fire.Active() ? client.fire.Mode() : scenario->Mode().value_or(client.fire.Mode());
-    hudModel = {.resources = Client::BreachResources(client.session.State().tick, client.tally.Fired(PLAYER)),
+    hudModel = {.resources = scenario->Resources(client.session.State().tick, client.tally.Fired(PLAYER)),
                 .objective = objective,
                 .mode = mode,
                 .alerts = client.alerts.Shown(),
@@ -861,13 +871,16 @@ int Run(const Options& _options)
                 .integrityView = integrityView,
                 .passabilityView = passabilityShown};
     interfaceQuads.clear();
-    const std::uint32_t figuresScale = Client::TextLayout::PixelsPerFontPixel(Client::TextSize::Label, uiScale);
-    const std::int32_t margin = Client::ScaledPixels(FIGURES_MARGIN_LOGICAL_PIXELS, uiScale);
-    Client::TextLayout::Lay(std::format(Client::FIGURES, renderer.VoxelPassMilliseconds(), client.session.State().tick, scenario->Speed()),
-                            margin,
-                            static_cast<std::int32_t>(swapChain.HeightPixels()) - margin -
-                              static_cast<std::int32_t>(Client::TextLayout::CellPixels(figuresScale)),
-                            figuresScale, figuresColor, interfaceQuads);
+    if (scenario->ShowsFigures())
+    {
+      const std::uint32_t figuresScale = Client::TextLayout::PixelsPerFontPixel(Client::TextSize::Label, uiScale);
+      const std::int32_t margin = Client::ScaledPixels(FIGURES_MARGIN_LOGICAL_PIXELS, uiScale);
+      Client::TextLayout::Lay(
+        std::format(Client::FIGURES, renderer.VoxelPassMilliseconds(), client.session.State().tick, scenario->Speed()), margin,
+        static_cast<std::int32_t>(swapChain.HeightPixels()) - margin -
+          static_cast<std::int32_t>(Client::TextLayout::CellPixels(figuresScale)),
+        figuresScale, figuresColor, interfaceQuads);
+    }
     client.views.LayLabels(client.session, viewProjection, swapChain.WidthPixels(), swapChain.HeightPixels(),
                            static_cast<std::int32_t>(std::lround(topBarPixels)), uiScale, integrityView, interfaceQuads);
     hud.Build(hudModel, swapChain.WidthPixels(), uiScale, interfaceQuads);

@@ -119,6 +119,10 @@ public:
   [[nodiscard]] HudMode Mode(std::uint32_t _tick) const;
   /// PRACTICE, ITEM k OF 16 or DONE, or nothing in free fire.
   [[nodiscard]] std::optional<HudObjective> Objective() const;
+  /// The top bar's resources (M3-H4): in free fire the breach run's, TIME at _tick and SHOTS at _shotsFired; in an
+  /// item, SHOTS AT THE MARK k OF N while the asked shots run and at the result, _askedFired of them fired, and nothing
+  /// before. The item world's time means nothing to the question, and the shots that set it up are the banner's.
+  [[nodiscard]] std::vector<HudResource> Resources(std::uint32_t _tick, std::uint32_t _shotsFired, std::uint32_t _askedFired) const;
   [[nodiscard]] bool FireAllowed() const noexcept;
   /// The passability view is forced on from the answer to the next item.
   [[nodiscard]] bool PassabilityForced() const noexcept;

@@ -213,7 +213,8 @@ HudMode LabModel::Mode(std::uint32_t _tick) const
     return {.command = std::string(QUESTION_COMMAND),
             .banner = shots == 1 ? std::string(QUESTION_ONE_SHOT_BANNER) : std::format(QUESTION_BANNER, shots),
             .buttons = {{.control = HudControl::AnswerOpen, .label = std::string(OPEN_BUTTON)},
-                        {.control = HudControl::AnswerShut, .label = std::string(SHUT_BUTTON)}}};
+                        {.control = HudControl::AnswerShut, .label = std::string(SHUT_BUTTON)}},
+            .hint = std::string(VIEWS_HINT)};
   }
   case LabPhase::Result:
     return {
@@ -240,6 +241,27 @@ std::optional<HudObjective> LabModel::Objective() const
     return HudObjective{.title = std::string(PRACTICE_OBJECTIVE), .detail = "", .detailOff = false};
   }
   return HudObjective{.title = std::format(ITEM_OBJECTIVE, m_started - 1, m_order.size() - 1), .detail = "", .detailOff = false};
+}
+
+std::vector<HudResource> LabModel::Resources(std::uint32_t _tick, std::uint32_t _shotsFired, std::uint32_t _askedFired) const
+{
+  switch (m_phase)
+  {
+  case LabPhase::FreeFire:
+    return BreachResources(_tick, _shotsFired);
+  case LabPhase::Shooting:
+  case LabPhase::Result:
+  {
+    const std::uint32_t asked = Current() != nullptr ? Current()->shotsAsked : 0;
+    return {
+      {.key = std::string(ASKED_SHOTS_KEY), .value = std::format(ASKED_SHOTS_VALUE, std::min(_askedFired, asked), asked), .warn = false}};
+  }
+  case LabPhase::Watching:
+  case LabPhase::Question:
+  case LabPhase::Finished:
+    break;
+  }
+  return {};
 }
 
 bool LabModel::FireAllowed() const noexcept

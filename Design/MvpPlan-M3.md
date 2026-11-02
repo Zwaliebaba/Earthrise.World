@@ -681,6 +681,6 @@ Each order is one commit, in one pull request, before G3's session. The owner an
 ### M3-H4 — The participant's screen holds only the lab
 - **Waits on:** nothing.
 - **Read first:** G1's order; `Design/BreachLab.md`.
-- **Changes:** under `--lab`, the frame's figures are left off the screen and stay in the title bar. In an item, TIME gives way to `SHOTS AT THE MARK k OF N` while the asked shots run, and to nothing before. The question's banner names the views' keys after its two buttons, `F1 F2 VIEWS`, since selection, the only other thing a click did, is off.
+- **Changes:** under `--lab`, the frame's figures are left off the screen and stay in the title bar. In an item, TIME gives way to `SHOTS AT THE MARK k OF N` while the asked shots run and at the result, and to nothing before. SHOTS goes with it: in an item it would count the shots that set the item up, beside the asked ones, and the banner names those (H2). The question's banner names the views' keys after its two buttons, `F1 F2 VIEWS`, since selection, the only other thing a click did, is off.
 - **Tests:** **`LabTests`:** the resources read as above in each phase; the question's banner fits at every size the owner runs.
 - **Owner runs:** `Earthrise --lab P00 --windowed` through free fire, the practice item and two items.

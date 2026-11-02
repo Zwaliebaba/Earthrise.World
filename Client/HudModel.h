@@ -52,7 +52,8 @@ struct HudMode
 {
   std::string command; // empty when no mode is on
   std::string banner;
-  std::vector<HudModeButton> buttons; // CANCEL · ESC for FIRE, OPEN · O and SHUT · S for the lab's question
+  std::vector<HudModeButton> buttons; // CANCEL · ESC for FIRE, OPEN · O and SHUT · H for the lab's question
+  std::string hint = {};              // after the buttons, in dim: the question's F1 F2 VIEWS (M3-H4)
 };
 
 struct HudAlert

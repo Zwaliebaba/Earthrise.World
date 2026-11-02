@@ -222,8 +222,8 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, float _uiSca
     }
   }
 
-  // The mode banner, centred under the top bar: its text in accent and its buttons after it, or under it, centred,
-  // when one row would not fit the screen.
+  // The mode banner, centred under the top bar: its text in accent, then its buttons and its hint in dim, after the
+  // text or under it, centred, when one row would not fit the screen.
   if (!_model.mode.command.empty())
   {
     const std::int32_t control = paint.Pixels(CONTROL_HEIGHT_LOGICAL_PIXELS);
@@ -239,12 +239,17 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, float _uiSca
       buttonsWidth += buttonWidths.back() + (buttonWidths.size() > 1 ? gap : 0);
     }
     const bool hasButtons = !buttonWidths.empty();
-    // The right's narrower padding is for a button after the text; with none, the text sits in the middle.
-    const std::int32_t paddingRight = hasButtons ? paint.Pixels(BANNER_PADDING_RIGHT_LOGICAL_PIXELS) : paddingLeft;
+    const bool hasHint = !_model.mode.hint.empty();
+    const std::int32_t hintWidth = hasHint ? paint.Width(_model.mode.hint) : 0;
+    // What follows the text: the buttons, then the hint.
+    const std::int32_t tailWidth = buttonsWidth + (hasHint ? (hasButtons ? gap : 0) + hintWidth : 0);
+    const bool hasTail = hasButtons || hasHint;
+    // The right's narrower padding is for a row that ends with a button; one that ends with text has the left's.
+    const std::int32_t paddingRight = hasButtons && !hasHint ? paint.Pixels(BANNER_PADDING_RIGHT_LOGICAL_PIXELS) : paddingLeft;
     const std::int32_t chrome = (2 * border) + paddingLeft + paddingRight;
-    const std::int32_t oneRow = textWidth + (hasButtons ? gap + buttonsWidth : 0);
-    const bool stacked = hasButtons && chrome + oneRow > width - (2 * paint.Pixels(ALERTS_LEFT_LOGICAL_PIXELS));
-    const std::int32_t contentWidth = stacked ? std::max(textWidth, buttonsWidth) : oneRow;
+    const std::int32_t oneRow = textWidth + (hasTail ? gap + tailWidth : 0);
+    const bool stacked = hasTail && chrome + oneRow > width - (2 * paint.Pixels(ALERTS_LEFT_LOGICAL_PIXELS));
+    const std::int32_t contentWidth = stacked ? std::max(textWidth, tailWidth) : oneRow;
     const std::int32_t rowsHeight = stacked ? (2 * control) + paddingY : control;
     const std::int32_t bannerWidth = chrome + contentWidth;
     const PixelRect banner{(width - bannerWidth) / 2, paint.Pixels(BANNER_TOP_LOGICAL_PIXELS), bannerWidth,
@@ -255,7 +260,7 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, float _uiSca
     const std::int32_t contentLeft = inside.xPixels + paddingLeft;
     paint.Text(_model.mode.banner, contentLeft + (stacked ? (contentWidth - textWidth) / 2 : 0), paint.CenteredCellTop(textTop, control),
                ACCENT_SRGB, inside);
-    std::int32_t buttonX = stacked ? contentLeft + ((contentWidth - buttonsWidth) / 2) : contentLeft + textWidth + gap;
+    std::int32_t buttonX = stacked ? contentLeft + ((contentWidth - tailWidth) / 2) : contentLeft + textWidth + gap;
     const std::int32_t buttonsTop = stacked ? textTop + control + paddingY : textTop;
     for (std::size_t index = 0; index < buttonWidths.size(); ++index)
     {
@@ -263,6 +268,10 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, float _uiSca
       paint.Button(buttonRect, _model.mode.buttons.at(index).label);
       m_targets.push_back({.control = _model.mode.buttons.at(index).control, .alert = 0, .rect = buttonRect});
       buttonX += buttonWidths.at(index) + gap;
+    }
+    if (hasHint)
+    {
+      paint.Text(_model.mode.hint, buttonX, paint.CenteredCellTop(buttonsTop, control), DIM_SRGB, inside);
     }
   }
 

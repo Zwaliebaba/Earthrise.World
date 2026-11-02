@@ -89,6 +89,11 @@ inline constexpr std::string_view ASKED_ONE_SHOT = "1 SHOT AT THE MARK";
 inline constexpr std::string_view FAST_FORWARD = "{}×";
 inline constexpr std::string_view BANNER_SEPARATOR = " · ";
 inline constexpr std::string_view QUESTION_BANNER = "WILL W2 BE OPEN TO FOOT AFTER {} SHOTS AT THE MARK?";
+// After the question's buttons, the keys of the views, which with the camera are all a participant may use (M3-H4).
+inline constexpr std::string_view VIEWS_HINT = "F1 F2 VIEWS";
+// In an item, the top bar's one resource while the asked shots run, and at the result (M3-H4).
+inline constexpr std::string_view ASKED_SHOTS_KEY = "SHOTS AT THE MARK";
+inline constexpr std::string_view ASKED_SHOTS_VALUE = "{} OF {}";
 inline constexpr std::string_view QUESTION_ONE_SHOT_BANNER = "WILL W2 BE OPEN TO FOOT AFTER 1 SHOT AT THE MARK?";
 inline constexpr std::string_view OPEN_BUTTON = "OPEN · O";
 inline constexpr std::string_view SHUT_BUTTON = "SHUT · H"; // not S, which pans (Hud.md §7)
@@ -158,6 +163,9 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      FAST_FORWARD,
                                                                      BANNER_SEPARATOR,
                                                                      QUESTION_BANNER,
+                                                                     VIEWS_HINT,
+                                                                     ASKED_SHOTS_KEY,
+                                                                     ASKED_SHOTS_VALUE,
                                                                      QUESTION_ONE_SHOT_BANNER,
                                                                      OPEN_BUTTON,
                                                                      SHUT_BUTTON,

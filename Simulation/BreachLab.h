@@ -83,6 +83,8 @@ public:
   /// ticks passed.
   [[nodiscard]] bool Done() const noexcept;
   [[nodiscard]] bool TimedOut() const noexcept;
+  /// The shots submitted so far: the lab's top bar counts the asked ones (M3-H4).
+  [[nodiscard]] std::size_t Fired() const noexcept;
 
 private:
   LabSetup m_setup;

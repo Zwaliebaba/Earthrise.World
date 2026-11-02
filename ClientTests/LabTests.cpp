@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include "Hud.h"
 #include "LabModel.h"
 
 #include <set>
@@ -143,6 +144,73 @@ public:
     bare.PriorShotsDone(1.0);
     Assert::IsTrue(bare.Answer(Client::LabAnswer::Open, 2.0, true, false));
     Assert::AreEqual(std::string("1 SHOT AT THE MARK · 10×"), bare.Mode(0).banner);
+  }
+
+  TEST_METHOD(ShowsTheAskedShotsInTheTopBarAndNothingElseInAnItem)
+  {
+    // M3-H4: free fire has the breach run's TIME and SHOTS; an item has SHOTS AT THE MARK k OF N while the asked shots
+    // run and at the result, and nothing while the prior shots run or the question is up.
+    Client::LabModel lab(Items(2, 3), 1);
+    const std::vector<Client::HudResource> freeFire = lab.Resources(1200, 4, 0);
+    Assert::AreEqual(std::size_t{2}, freeFire.size());
+    Assert::AreEqual(std::string("TIME"), freeFire.at(0).key);
+    Assert::AreEqual(std::string("1:00"), freeFire.at(0).value);
+    Assert::AreEqual(std::string("SHOTS"), freeFire.at(1).key);
+    Assert::AreEqual(std::string("4"), freeFire.at(1).value);
+    lab.FreeFireTicked(Client::LabModel::FREE_FIRE_TICKS);
+    RunItem(lab, Client::LabAnswer::Open); // the practice item
+    Assert::IsTrue(lab.Phase() == Client::LabPhase::Watching);
+    Assert::IsTrue(lab.Resources(100, 2, 2).empty()); // the prior shots' count is the banner's
+    lab.PriorShotsDone(10.0);
+    Assert::IsTrue(lab.Resources(200, 3, 3).empty());
+    Assert::IsTrue(lab.Answer(Client::LabAnswer::Open, 11.0, true, false));
+    const std::vector<Client::HudResource> shooting = lab.Resources(210, 4, 1);
+    Assert::AreEqual(std::size_t{1}, shooting.size());
+    Assert::AreEqual(std::string("SHOTS AT THE MARK"), shooting.at(0).key);
+    Assert::AreEqual(std::string("1 OF 2"), shooting.at(0).value);
+    lab.AskedShotsDone(true);
+    Assert::AreEqual(std::string("2 OF 2"), lab.Resources(300, 5, 2).at(0).value);
+  }
+
+  TEST_METHOD(FitsTheQuestionsBannerWithTheViewsKeysAtEverySize)
+  {
+    // M3-H4: the question names F1 F2 VIEWS after its two buttons, in one row or two, and every string of the lab's
+    // top bar and banner fits its element at the owner's sizes, nothing over anything.
+    Client::LabModel lab(Items(5), 1);
+    lab.FreeFireTicked(Client::LabModel::FREE_FIRE_TICKS);
+    RunItem(lab, Client::LabAnswer::Open);
+    lab.PriorShotsDone(1.0);
+    const Client::HudMode mode = lab.Mode(0);
+    Assert::AreEqual(std::string("F1 F2 VIEWS"), mode.hint);
+    const Client::HudModel model{.resources = lab.Resources(0, 0, 0),
+                                 .objective = lab.Objective().value_or(Client::HudObjective{}),
+                                 .mode = mode,
+                                 .alerts = {},
+                                 .selectedEngine = Protocol::NO_ENTITY,
+                                 .integrityView = true,
+                                 .passabilityView = false};
+    for (const float scale : {1.0F, 1.5F, 2.0F})
+    {
+      for (const std::uint32_t width : {1280U, 1920U})
+      {
+        Client::Hud hud;
+        std::vector<Client::ScreenQuad> quads;
+        hud.Build(model, width, scale, quads);
+        const std::span<const Client::HudText> texts = hud.Texts();
+        // The camera buttons' four, the objective, and the banner's text, two buttons and hint.
+        Assert::AreEqual(std::size_t{4 + 1 + 4}, texts.size());
+        const Client::PixelRect screen{0, 0, static_cast<std::int32_t>(width), 720};
+        for (std::size_t index = 0; index < texts.size(); ++index)
+        {
+          Assert::IsTrue(texts[index].cell.Inside(texts[index].element));
+          Assert::IsTrue(texts[index].element.Inside(screen));
+          for (std::size_t other = index + 1; other < texts.size(); ++other)
+          {
+            Assert::IsFalse(texts[index].cell.Overlaps(texts[other].cell));
+          }
+        }
+      }
+    }
   }
 
   TEST_METHOD(WritesAnAnsweredItemsRowWithEveryColumn)

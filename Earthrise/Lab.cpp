@@ -271,6 +271,18 @@ std::optional<Client::HudObjective> Lab::Objective() const
   return m_model.Objective();
 }
 
+std::vector<Client::HudResource> Lab::Resources(std::uint32_t _tick, std::uint32_t _shotsFired) const
+{
+  // In an item m_shots runs the prior shots, then the asked ones; the model reads the count only for the asked.
+  const auto fired = static_cast<std::uint32_t>(m_shots.has_value() ? m_shots->Fired() : 0);
+  return m_model.Resources(_tick, _shotsFired, fired);
+}
+
+bool Lab::ShowsFigures() const noexcept
+{
+  return false;
+}
+
 std::vector<Client::OverlayBox> Lab::Marks(const Client::Session& _session) const
 {
   // The mark in accent at the aim voxel, and the voxel the arc strikes beside it in the text's colour.
