@@ -2215,6 +2215,7 @@ void World::AdvanceShots()
   }
   RamBlows();
   LooseFromGarrisons();
+  PassageAttacks();
   std::vector<Protocol::EntityId> landed;
   for (auto& [id, shot] : m_shots)
   {
@@ -3303,6 +3304,110 @@ void World::SwingGate(Structure& _structure, bool _open, bool _now)
   else
   {
     m_gateTouches.insert(m_gateTouches.end(), swung.begin(), swung.end());
+  }
+}
+
+std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> World::PassageVoxels(const Structure& _structure) const
+{
+  std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> passage;
+  const ServerTemplate* found = Data().FindTemplate(_structure.templateId);
+  if (found == nullptr || !HasGate(_structure))
+  {
+    return passage;
+  }
+  const auto width = static_cast<std::int32_t>(found->widthVoxels);
+  const auto height = static_cast<std::int32_t>(found->heightVoxels);
+  const auto depth = static_cast<std::int32_t>(found->depthVoxels);
+  // Called only inside the template's bounds, so no coordinate is negative.
+  const std::size_t rowVoxels = found->widthVoxels;
+  const std::size_t layerRows = found->depthVoxels;
+  const auto index = [rowVoxels, layerRows](std::int32_t _x, std::int32_t _y, std::int32_t _z)
+  { return static_cast<std::size_t>(_x) + (rowVoxels * (static_cast<std::size_t>(_z) + (layerRows * static_cast<std::size_t>(_y)))); };
+  const auto inside = [width, height, depth](std::int32_t _x, std::int32_t _y, std::int32_t _z)
+  { return _x >= 0 && _x < width && _y >= 0 && _y < height && _z >= 0 && _z < depth; };
+  constexpr std::array<std::array<std::int32_t, 3>, 6> FACES = {{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}}};
+  // A fill through the template's empty voxels, face to face, from the gate's.
+  std::vector<std::uint8_t> seen(found->indices.size(), 0);
+  std::vector<std::array<std::int32_t, 3>> open;
+  const auto reach = [&](std::int32_t _x, std::int32_t _y, std::int32_t _z)
+  {
+    if (inside(_x, _y, _z) && seen.at(index(_x, _y, _z)) == 0 && found->indices.at(index(_x, _y, _z)) == Protocol::Chunk::EMPTY)
+    {
+      seen.at(index(_x, _y, _z)) = 1;
+      open.push_back({_x, _y, _z});
+    }
+  };
+  for (std::int32_t y = 0; y < height; ++y)
+  {
+    for (std::int32_t z = 0; z < depth; ++z)
+    {
+      for (std::int32_t x = 0; x < width; ++x)
+      {
+        if (found->parts.at(index(x, y, z)) == ServerTemplate::Part::Critical &&
+            found->indices.at(index(x, y, z)) != Protocol::Chunk::EMPTY)
+        {
+          for (const auto& [dx, dy, dz] : FACES)
+          {
+            reach(x + dx, y + dy, z + dz);
+          }
+        }
+      }
+    }
+  }
+  while (!open.empty())
+  {
+    const auto [x, y, z] = open.back();
+    open.pop_back();
+    const Protocol::VoxelPosition at =
+      TemplateVoxel(_structure, *found, static_cast<std::uint32_t>(x), static_cast<std::uint32_t>(y), static_cast<std::uint32_t>(z));
+    passage.emplace(at.xVoxels, at.yVoxels, at.zVoxels);
+    for (const auto& [dx, dy, dz] : FACES)
+    {
+      reach(x + dx, y + dy, z + dz);
+    }
+  }
+  return passage;
+}
+
+void World::PassageAttacks()
+{
+  // While a gatehouse works and holds at least one garrisoned figure, every passageAttackTicks it deals
+  // passageAttackDamage of crush to every unit standing in its passage, the ram included, whose roof is pierce armor and
+  // does not stop it (ADR-024, decision 6; MvpPlan.md, M4, input 13). A unit is in the passage when a cell of its
+  // footprint is, at the height it stands at.
+  const Rules& rules = Data().Tuning();
+  if (rules.passageAttackTicks <= 0 || m_tick % static_cast<std::uint32_t>(rules.passageAttackTicks) != 0)
+  {
+    return;
+  }
+  const std::int32_t machineSide = std::max(1, rules.machinesWidthVoxels);
+  for (const auto& [id, structure] : m_structures)
+  {
+    if (!structure.working || GarrisonedCount(id) == 0)
+    {
+      continue;
+    }
+    const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> passage = PassageVoxels(structure);
+    for (auto& [unitId, unit] : m_units)
+    {
+      if (passage.empty() || Garrisoned(unit))
+      {
+        continue;
+      }
+      const std::int32_t side = unit.navigationClass == NavigationClass::Machines ? machineSide : 1;
+      bool inPassage = false;
+      for (std::int32_t dz = 0; dz < side && !inPassage; ++dz)
+      {
+        for (std::int32_t dx = 0; dx < side && !inPassage; ++dx)
+        {
+          inPassage = passage.contains({unit.cellVoxels.xVoxels + dx, unit.cellVoxels.yVoxels, unit.cellVoxels.zVoxels + dz});
+        }
+      }
+      if (inPassage)
+      {
+        Crush(unit, rules.passageAttackDamage);
+      }
+    }
   }
 }
 

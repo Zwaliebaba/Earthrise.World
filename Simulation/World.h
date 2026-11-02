@@ -551,6 +551,12 @@ private:
   void RebuildTiles(const std::vector<std::pair<std::int32_t, std::int32_t>>& _tiles);
   /// After a load: navigation reads the open gates' voxels as air again, and their tiles are rebuilt.
   void RestoreGates();
+  /// The world voxels of _structure's passage: its template's empty voxels joined, face to face, to its gate's, turned;
+  /// with T5's gate at the passage's inner end, they are the passage outside the gate. Empty for a template with no gate.
+  [[nodiscard]] std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> PassageVoxels(const Structure& _structure) const;
+  /// Step 4: every passageAttackTicks, each gatehouse that works and holds a garrison deals passageAttackDamage of crush
+  /// to every unit standing in its passage (MvpPlan.md, M4, input 13).
+  void PassageAttacks();
 
   // ADR-024, decision 5: garrisons.
   /// Sends a squad of _player's to garrison a building of theirs; it goes in when its lead reaches the footprint.
