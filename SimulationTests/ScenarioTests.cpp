@@ -6,7 +6,7 @@
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
-// The Siege castle as a scenario (M4-B4; ADR-026, decisions 1 to 3), loaded from the baked file.
+// The Siege castle as a scenario (M4-B4; ADR-026, decisions 1 to 3), and its mirror (M4-B6), loaded from the baked file.
 
 namespace SimulationTests
 {
@@ -21,22 +21,28 @@ constexpr std::uint8_t COMMON_ROCK = 3;
 constexpr std::uint8_t MASONRY = 6;
 constexpr std::uint8_t TIMBER = 7;
 
-const Simulation::Scenario& Siege()
+const Simulation::Scenario& Siege(std::string_view _id = "Siege")
 {
-  const Simulation::Scenario* scenario = BakedServerData().FindScenario("Siege");
+  const Simulation::Scenario* scenario = BakedServerData().FindScenario(_id);
   if (scenario == nullptr)
   {
-    throw std::runtime_error("the baked server data holds no Siege scenario");
+    throw std::runtime_error("the baked server data holds no scenario " + std::string(_id));
   }
   return *scenario;
 }
 
-/// The castle, loaded on a world from its Desc and not yet ticked.
-Simulation::World Castle()
+/// The castle, or its mirror, loaded on a world from its Desc and not yet ticked.
+Simulation::World Castle(std::string_view _id = "Siege")
 {
-  Simulation::World world(Simulation::ScenarioDesc(BakedServerData(), "Siege", BUILD_ID));
-  Simulation::LoadScenario(world, "Siege");
+  Simulation::World world(Simulation::ScenarioDesc(BakedServerData(), _id, BUILD_ID));
+  Simulation::LoadScenario(world, _id);
   return world;
+}
+
+/// x as the mirror sees it: the site's columns turned about its centre line.
+std::int32_t Mirrored(std::int32_t _x)
+{
+  return Siege().siteMinXVoxels + Siege().siteMaxXVoxels - _x;
 }
 
 const Simulation::TrialRules& TrialOf(const Simulation::World& _world)
@@ -233,6 +239,101 @@ public:
         Assert::IsTrue(taken.contains({unit.cellVoxels.xVoxels, unit.cellVoxels.yVoxels, unit.cellVoxels.zVoxels}));
       }
     }
+  }
+
+  TEST_METHOD(StandsEveryMirroredStructureOnTheMirrorOfItsOriginalsFootprint)
+  {
+    // M4-B6 (input 28): the same structures, each on the mirror of its original's footprint, turned to face the mirror of
+    // its original's facing, and none elsewhere.
+    const Simulation::World castle = Castle();
+    const Simulation::World mirror = Castle("SiegeMirror");
+    Assert::AreEqual(castle.Structures().size(), mirror.Structures().size());
+    for (const auto& [id, original] : castle.Structures())
+    {
+      const auto [minX, minZ, maxX, maxZ] = Footprint(castle, original);
+      const auto match = std::ranges::find_if(mirror.Structures(),
+                                              [&](const auto& _entry)
+                                              {
+                                                const auto [otherMinX, otherMinZ, otherMaxX, otherMaxZ] = Footprint(mirror, _entry.second);
+                                                return _entry.second.templateId == original.templateId && otherMinX == Mirrored(maxX) &&
+                                                       otherMaxX == Mirrored(minX) && otherMinZ == minZ && otherMaxZ == maxZ;
+                                              });
+      Assert::IsTrue(match != mirror.Structures().end(), std::wstring(original.name.begin(), original.name.end()).c_str());
+      const std::uint32_t facing = original.quarterTurns % 2 == 1 ? (4 - original.quarterTurns) % 4 : original.quarterTurns;
+      Assert::AreEqual(facing, match->second.quarterTurns);
+    }
+  }
+
+  TEST_METHOD(PutsTheMirrorsWeakSectionW3OnEarthAndE3OnRock)
+  {
+    const Simulation::World mirror = Castle("SiegeMirror");
+    const std::int32_t ground = Siege("SiegeMirror").groundVoxels;
+    const auto [westMinX, westMinZ, westMaxX, westMaxZ] = Footprint(mirror, Named(mirror, "W3"));
+    for (std::int32_t z = westMinZ; z <= westMaxZ; ++z)
+    {
+      Assert::AreEqual(MASONRY, At(mirror, westMinX, ground - 4, z)); // its 4 m foundation, on earth
+      Assert::AreEqual(EARTH, At(mirror, westMinX, ground - 5, z));
+      for (std::int32_t x = westMinX - 12; x < westMinX; ++x)
+      {
+        Assert::AreEqual(GRASS, At(mirror, x, ground - 1, z)); // no ditch and no rampart before it
+      }
+    }
+    const auto [eastMinX, eastMinZ, eastMaxX, eastMaxZ] = Footprint(mirror, Named(mirror, "E3"));
+    for (std::int32_t z = eastMinZ; z <= eastMaxZ; ++z)
+    {
+      Assert::AreEqual(COMMON_ROCK, At(mirror, eastMinX, ground - 2, z));
+      Assert::AreEqual(Protocol::Chunk::EMPTY, At(mirror, eastMaxX + 8, ground - 1, z)); // the ditch, 4 to 8 m out
+    }
+    Assert::AreEqual(std::string("W3"), Siege("SiegeMirror").trial.weak);
+  }
+
+  TEST_METHOD(PutsTheMirrorsNearestSectionWhereS3sMirrorIsAsFarFromTheCamp)
+  {
+    const Simulation::World castle = Castle();
+    const Simulation::World mirror = Castle("SiegeMirror");
+    const Simulation::Structure& nearest = Named(mirror, Siege("SiegeMirror").trial.nearest);
+    const auto [minX, minZ, maxX, maxZ] = Footprint(castle, Named(castle, "S3"));
+    const auto [mirrorMinX, mirrorMinZ, mirrorMaxX, mirrorMaxZ] = Footprint(mirror, nearest);
+    Assert::AreEqual(Mirrored(maxX), mirrorMinX);
+    Assert::AreEqual(minZ, mirrorMinZ);
+    Assert::AreEqual(SquaredDistanceFromCamp(castle, Named(castle, "S3")), SquaredDistanceFromCamp(mirror, nearest));
+    for (const auto& [id, structure] : mirror.Structures())
+    {
+      if (structure.templateId == "T3" && id != nearest.id)
+      {
+        Assert::IsTrue(SquaredDistanceFromCamp(mirror, nearest) < SquaredDistanceFromCamp(mirror, structure));
+      }
+    }
+  }
+
+  TEST_METHOD(GivesTheMirrorTheSameArmiesStockpilesAndTrial)
+  {
+    const Simulation::Scenario& castle = Siege();
+    const Simulation::Scenario& mirror = Siege("SiegeMirror");
+    Assert::AreEqual(castle.squads.size(), mirror.squads.size());
+    for (std::size_t squad = 0; squad < castle.squads.size(); ++squad)
+    {
+      Assert::IsTrue(castle.squads.at(squad).kind == mirror.squads.at(squad).kind);
+      Assert::AreEqual(castle.squads.at(squad).owner, mirror.squads.at(squad).owner);
+      Assert::AreEqual(castle.squads.at(squad).cellsVoxels.size(), mirror.squads.at(squad).cellsVoxels.size());
+    }
+    Assert::AreEqual(castle.engines.size(), mirror.engines.size());
+    Assert::AreEqual(castle.garrisons.size(), mirror.garrisons.size());
+    for (std::size_t player = 0; player < castle.players.size(); ++player)
+    {
+      Assert::AreEqual(castle.players.at(player).stoneHundredthsCubicMeters, mirror.players.at(player).stoneHundredthsCubicMeters);
+      Assert::AreEqual(castle.players.at(player).timberHundredthsCubicMeters, mirror.players.at(player).timberHundredthsCubicMeters);
+      Assert::AreEqual(castle.players.at(player).commander, mirror.players.at(player).commander);
+    }
+    Assert::AreEqual(castle.trial.timeLimitTicks, mirror.trial.timeLimitTicks);
+    Assert::AreEqual(castle.trial.holdTicks, mirror.trial.holdTicks);
+    Assert::AreEqual(castle.trial.ringCells, mirror.trial.ringCells);
+    Assert::AreEqual(castle.trial.keep, mirror.trial.keep);
+  }
+
+  TEST_METHOD(LoadsTheMirrorTwiceToOneStateHash)
+  {
+    Assert::AreEqual(Simulation::StateHash(Castle("SiegeMirror")), Simulation::StateHash(Castle("SiegeMirror")));
   }
 
   TEST_METHOD(HoldsInputFivesArmiesAndGarrisons)

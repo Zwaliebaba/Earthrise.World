@@ -80,7 +80,12 @@ What it checks, and how each rule is read against the files:
    every machine's footprint is walkable on the levelled site, outside every structure, held by no other unit; every
    garrison names a structure it places with room for it (check 15's capacities); and its trial's keep is a T2, its
    nearest and weak sections T3s, and its attacker and defender its players on those sides. Each value with a unit
-   converts as check 10's do. The bake reads scenarios with this check's code.
+   converts as check 10's do. A scenario that gives mirrorOf (MvpPlan.md, M4, input 28) takes its seeds and players
+   from its own source and the rest from the scenario it names, mirrored east to west about the site's centre line:
+   the structures it mirrors must stand symmetric about that line, its rename table renames each structure once to a
+   name of its own, each section's side letter matches the side it faces out to and each corner tower's its side of the
+   keep, and its trial names T3 sections nearest and weak. The bake reads scenarios with this check's code, and writes a
+   mirror whole.
 Usage:
   python3 Tools/CheckAssets.py              the repository this script sits in
   python3 Tools/CheckAssets.py --root DIR   another tree, such as a mutated copy of it
@@ -1313,16 +1318,106 @@ class ScenarioReader:
     return True
 
 
+# Which way each kind faces: a template's front, and the ram's, is its +z; the trebuchet throws towards its +x (MvpAssets.md).
+# A turn takes +z to +x, so mirroring east to west maps a +z facing's turns 1 and 3 onto each other, and a +x facing's 0 and 2.
+FACES_X = ("trebuchet",)
+SECTION_SIDES = {2: "S", 1: "E", 0: "N", 3: "W"}  # the side a section faces out to, by its quarter turns
+
+
+def MirrorTurns(_turns, _facesX):
+  return (2 - _turns) % 4 if _facesX else (4 - _turns) % 4
+
+
+def ReadMirror(_report, _path, _data, _original, _machinesWidth):
+  """A scenario that gives mirrorOf (ADR-026, decision 1; MvpPlan.md, M4, input 28): _original mirrored east to west about
+  its site's centre line, each structure renamed by its rename table, with its own id, seeds and players and its trial's
+  nearest and weak sections. Returns it whole, as the bake writes it, or None after reporting each problem."""
+
+  def Problem(_message):
+    _report.Problem(_path, _message)
+
+  x0, z0, x1, z1, level = _original["site"]
+  span = x0 + x1  # x maps to span - x
+  rename = _data.get("rename")
+  names = [structure["name"] for structure in _original["structures"]]
+  if not isinstance(rename, dict) or sorted(rename) != sorted(names) or len(set(rename.values())) != len(names) or \
+     not all(isinstance(value, str) and value for value in rename.values()):
+    Problem(f"its rename table must rename each of {_original['id']}'s structures once, to names of their own")
+    return None
+  # The castle stands on its site's centre line, or its mirror would not stand where it does.
+  low = min(structure["origin"][0] for structure in _original["structures"])
+  high = max(structure["origin"][0] + structure["extent"][0] - 1 for structure in _original["structures"])
+  if low + high != span:
+    Problem(f"{_original['id']}'s structures span x {low} to {high}, which is not symmetric about its site's centre line "
+            f"at {span / 2}")
+    return None
+
+  def Box(_box):
+    material, boxLow, boxHigh = _box
+    return (material, (span - boxHigh[0], boxLow[1], boxLow[2]), (span - boxLow[0], boxHigh[1], boxHigh[2]))
+
+  def Cell(_cell):
+    return (span - _cell[0], _cell[1], _cell[2])
+
+  scenario = {"id": _data.get("id"), "site": _original["site"], "players": None}
+  scenario["ground"] = [Box(box) for box in _original["ground"]]
+  scenario["earthworks"] = [Box(box) for box in _original["earthworks"]]
+  scenario["structures"] = []
+  for structure in _original["structures"]:
+    origin, extent = structure["origin"], structure["extent"]
+    scenario["structures"].append({**structure, "name": rename[structure["name"]],
+                                   "origin": (span - origin[0] - extent[0] + 1, origin[1], origin[2]),
+                                   "quarterTurns": MirrorTurns(structure["quarterTurns"], False)})
+  scenario["squads"] = [{**squad, "cells": [Cell(cell) for cell in squad["cells"]]} for squad in _original["squads"]]
+  scenario["engines"] = []
+  for engine in _original["engines"]:
+    cell = engine["cell"]
+    scenario["engines"].append({**engine, "cell": (span - cell[0] - _machinesWidth + 1, cell[1], cell[2]),
+                                "quarterTurns": MirrorTurns(engine["quarterTurns"], ENGINE_KINDS[engine["kind"]] in FACES_X)})
+  scenario["garrisons"] = [{**garrison, "structure": rename[garrison["structure"]]} for garrison in _original["garrisons"]]
+  trial = dict(_original["trial"])
+  roles = _data.get("trial") if isinstance(_data.get("trial"), dict) else {}
+  campLow, campHigh = trial["campMin"], trial["campMax"]
+  trial.update(keep=rename[trial["keep"]], campMin=(span - campHigh[0], campLow[1], campLow[2]),
+               campMax=(span - campLow[0], campHigh[1], campHigh[2]), nearest=roles.get("nearest"), weak=roles.get("weak"))
+  byName = {structure["name"]: structure for structure in scenario["structures"]}
+  if byName.get(trial["nearest"], {}).get("template") != "T3" or byName.get(trial["weak"], {}).get("template") != "T3":
+    Problem("its trial's nearest and weak sections must be T3 sections its mirror places")
+    return None
+  scenario["trial"] = trial
+  # Each name's side letter matches the side it stands on: a section's the side it faces out to, and a corner tower's
+  # its side of the keep's middle, north or south and then east or west.
+  keep = byName[trial["keep"]]
+  keepX = keep["origin"][0] + keep["extent"][0] / 2
+  keepZ = keep["origin"][2] + keep["extent"][2] / 2
+  for structure in scenario["structures"]:
+    name = structure["name"]
+    middleX = structure["origin"][0] + structure["extent"][0] / 2
+    middleZ = structure["origin"][2] + structure["extent"][2] / 2
+    if structure["template"] == "T3" and re.fullmatch(r"[SENW]\d+", name) and name[0] != SECTION_SIDES[structure["quarterTurns"]]:
+      Problem(f"its section {name} faces {SECTION_SIDES[structure['quarterTurns']]}, so its name's side letter is wrong")
+      return None
+    if structure["template"] == "T4" and re.fullmatch(r"[SN][EWT]", name):
+      south, east = middleZ < keepZ, middleX > keepX
+      if (name[0] == "S") != south or (name[1] != "T" and (name[1] == "E") != east):
+        Problem(f"its tower {name} stands {'south' if south else 'north'}-{'east' if east else 'west'} of the keep")
+        return None
+  return scenario
+
+
 def ReadScenarios(_report, _root, _palette, _units, _structures, _rules):
   """Check 16: every scenario in GameData/Server/Scenarios/ (ADR-026, decision 2), read and converted, in ascending id.
   _units and _structures are check 15's, and _rules check 10's."""
   folder = _root / "GameData" / "Server" / "Scenarios"
   templates = TemplateSizes(_report, _root)
   structureRules = {structure["template"]: structure for structure in _structures}
-  scenarios = {}
+  scenarios, mirrors = {}, []
   for path in sorted(folder.glob("*.json")) if folder.is_dir() else []:
     data = ReadJson(_report, path)
     if not isinstance(data, dict):
+      continue
+    if "mirrorOf" in data:
+      mirrors.append((path, data))
       continue
     reader = ScenarioReader(_report, path, data, templates, structureRules, _units, _rules)
     reader.palette = _palette
@@ -1331,6 +1426,30 @@ def ReadScenarios(_report, _root, _palette, _units, _structures, _rules):
       continue
     if scenario["id"] in scenarios:
       _report.Problem(path, f"has the id {scenario['id']}, as another scenario does")
+      continue
+    scenarios[scenario["id"]] = scenario
+  # A mirror takes its seeds and players from its own source and everything else from the scenario it mirrors, which the
+  # bake resolves, so the simulation never sees mirrorOf (ADR-026, decision 2).
+  for path, data in mirrors:
+    original = scenarios.get(data.get("mirrorOf"))
+    if original is None:
+      _report.Problem(path, f"mirrors {data.get('mirrorOf')!r}, which is no scenario that does not mirror another")
+      continue
+    reader = ScenarioReader(_report, path, data, templates, structureRules, _units, _rules)
+    reader.palette = _palette
+    scenario = ReadMirror(_report, path, data, original, _rules.get("machinesWidthVoxels", 1))
+    if scenario is None:
+      continue
+    seeds = data.get("seeds") if isinstance(data.get("seeds"), dict) else {}
+    if not isinstance(scenario["id"], str) or not ASSET_ID.fullmatch(scenario["id"]) or scenario["id"] in scenarios:
+      _report.Problem(path, f"its id {scenario['id']!r} is not an identifier of its own")
+      continue
+    if not all(isinstance(seeds.get(name), str) and re.fullmatch(r"\d+", seeds.get(name)) and int(seeds[name]) <= MAX_SEED
+               for name in ("world", "resource", "match")):
+      _report.Problem(path, "its seeds are not three whole numbers of 64 bits as decimal strings")
+      continue
+    scenario["seeds"] = [int(seeds[name]) for name in ("world", "resource", "match")]
+    if not reader.ReadPlayers(scenario):
       continue
     scenarios[scenario["id"]] = scenario
   return [scenarios[key] for key in sorted(scenarios)]

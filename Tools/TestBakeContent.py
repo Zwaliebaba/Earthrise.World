@@ -284,7 +284,7 @@ class ServerBakeTests(unittest.TestCase):
   def test_the_siege_castle_bakes_as_the_scenarios(self):
     count, first = self.file.ScenarioIds()
     self.assertEqual("Siege", first)
-    self.assertGreaterEqual(count, 1)
+    self.assertEqual(2, count)  # Siege and its mirror, which the bake writes whole (M4-B6)
 
   def test_a_scenario_round_trips_through_its_encoding(self):
     report = CheckAssets.Report(ROOT)
@@ -301,6 +301,11 @@ class ServerBakeTests(unittest.TestCase):
     self.assertEqual({"version": 0, "attacker": 1, "defender": 2, "keep": "KEEP", "timeLimitTicks": 48000, "holdTicks": 2400,
                       "ringCells": 3, "campMin": (325, 9, 192), "campMax": (355, 9, 212), "nearest": "S3", "weak": "E3"}, siege["trial"])
     self.assertEqual(12000, siege["players"][0]["stone"])
+    mirror = scenarios[1]
+    self.assertEqual("SiegeMirror", mirror["id"])
+    self.assertEqual(("S2", "W3"), (mirror["trial"]["nearest"], mirror["trial"]["weak"]))
+    self.assertEqual(4, next(s for s in mirror["structures"] if s["name"] == "W3")["foundationDepthVoxels"])
+    self.assertEqual(siege["seeds"], mirror["seeds"])
 
   def test_a_span_that_is_not_a_whole_number_of_voxels_fails(self):
     with tempfile.TemporaryDirectory() as folder:

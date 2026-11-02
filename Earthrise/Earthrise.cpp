@@ -52,7 +52,8 @@
 //
 // `--lab <participant> [--seed n]` runs the breach lab (M3-G1, Lab.h) instead, and writes its log to Logs\ beside the
 // executable. `--siege` loads the Siege castle (M4-B4; ADR-026) instead and runs it with nothing ordered, so that the
-// castle, its earthworks, the camp and the armies can be seen; M4-J1 builds the trial on it.
+// castle, its earthworks, the camp and the armies can be seen; M4-J1 builds the trial on it. `--siege --mirror` loads the
+// mirrored castle, SiegeMirror, whose weak section is on the west (M4-B6).
 //
 // It starts borderless over the whole monitor (ADR-011, decision 1), and Alt+Enter switches between that and a window.
 // `--windowed` starts it in a window. `--speed 10` runs the clock at ten times. `--ui-scale 1.5` sets the UI scale over
@@ -69,6 +70,7 @@ constexpr double LONGEST_FRAME_SECONDS = 0.25;
 constexpr double MAX_SPEED = 100.0;
 constexpr std::uint8_t PLAYER = Simulation::BreachRun::PLAYER; // the Siege castle's attacker too
 constexpr std::string_view SIEGE_SCENARIO = "Siege";
+constexpr std::string_view SIEGE_MIRROR_SCENARIO = "SiegeMirror";
 constexpr float CELL_CENTER_METERS = 0.5F;
 constexpr std::uint32_t QUARTER_TURNS = 4;
 // The frame's figures, in the bottom-left corner (M3-E1), in logical pixels.
@@ -83,6 +85,7 @@ struct Options
   std::optional<std::string> participant; // --lab: the breach lab, for this participant (M3-G1)
   std::uint64_t seed;                     // --seed, the lab's item order; by default the participant's hash
   bool siege;                             // --siege: the Siege castle (M4-B4)
+  bool mirror;                            // --mirror, with --siege: the mirrored castle (M4-B6)
 };
 
 /// Whether the command line holds _flag as a word of its own.
@@ -572,11 +575,11 @@ private:
 class SiegeRun final : public Earthrise::Run
 {
 public:
-  SiegeRun(const Simulation::World::Desc& _desc, double _speed)
+  SiegeRun(const Simulation::World::Desc& _desc, std::string_view _scenarioId, double _speed)
     : m_world(_desc),
       m_speed(_speed)
   {
-    Simulation::LoadScenario(m_world, SIEGE_SCENARIO);
+    Simulation::LoadScenario(m_world, _scenarioId);
     const std::optional<Simulation::TrialRules>& trial = m_world.Trial();
     if (!trial.has_value())
     {
@@ -704,9 +707,10 @@ int Run(const Options& _options)
   const std::filesystem::path executable = ExecutablePath();
   const std::uint64_t buildId = BuildIdOf(executable);
   const Simulation::ServerData serverData = LoadServerData(executable.parent_path());
-  // The lab's site, the breach run's map and seeds (M3-B7), or the Siege castle's (M4-B4).
+  // The lab's site, the breach run's map and seeds (M3-B7), or the Siege castle's (M4-B4) or its mirror's (M4-B6).
+  const std::string_view siegeScenario = _options.mirror ? SIEGE_MIRROR_SCENARIO : SIEGE_SCENARIO;
   const Simulation::World::Desc desc =
-    _options.siege ? Simulation::ScenarioDesc(serverData, SIEGE_SCENARIO, buildId) : Simulation::LabDesc(serverData, buildId);
+    _options.siege ? Simulation::ScenarioDesc(serverData, siegeScenario, buildId) : Simulation::LabDesc(serverData, buildId);
 
   Engine::Window window({.title = TITLE, .clientWidthPixels = 1280, .clientHeightPixels = 720, .fullScreen = !_options.windowed});
   Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = false});
@@ -726,7 +730,7 @@ int Run(const Options& _options)
   std::unique_ptr<Earthrise::Run> run;
   if (_options.siege)
   {
-    run = std::make_unique<SiegeRun>(desc, _options.speed);
+    run = std::make_unique<SiegeRun>(desc, siegeScenario, _options.speed);
   }
   else if (_options.participant.has_value())
   {
@@ -1081,7 +1085,8 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
                 .scripted = HasFlag(commandLine, L"--script"),
                 .participant = participant,
                 .seed = SeedFrom(commandLine, participant.value_or("")),
-                .siege = HasFlag(commandLine, L"--siege")});
+                .siege = HasFlag(commandLine, L"--siege"),
+                .mirror = HasFlag(commandLine, L"--mirror")});
   }
   catch (const winrt::hresult_error& error)
   {

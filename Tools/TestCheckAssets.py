@@ -43,6 +43,7 @@ RULES = "Server/Rules.json"
 UNITS = "Server/Units.json"
 STRUCTURES = "Server/Structures.json"
 SIEGE = "Server/Scenarios/Siege.json"
+SIEGE_MIRROR = "Server/Scenarios/SiegeMirror.json"
 BAKE = "Tools/BakeContent.py"
 BAKE_IMPORTS = ("Tools/CheckAssets.py", "Tools/VoxFile.py")  # the bake counts costs with the asset check's code
 
@@ -345,6 +346,15 @@ BROKEN = {
                                     "its earthworks box 1 leaves its site"),
   "a commander no ADR names": (lambda r: Change(r, SIEGE, lambda s: s["players"][1].update(commander="cleverDefender")),
                                "the player 2 needs an id of its own"),
+  "a mirror renaming two structures alike": (lambda r: Change(r, SIEGE_MIRROR, lambda m: m["rename"].update(S1="S3")),
+                                             "its rename table must rename each of Siege's structures once"),
+  "a mirrored section named for the wrong side": (lambda r: Change(r, SIEGE_MIRROR, lambda m: m["rename"].update(E1="E1", W1="W1")),
+                                                  "its section E1 faces W, so its name's side letter is wrong"),
+  "a mirror of nothing": (lambda r: Change(r, SIEGE_MIRROR, lambda m: m.update(mirrorOf="Hold")), "mirrors 'Hold'"),
+  "a castle off its site's centre line": (
+    lambda r: Change(r, SIEGE, lambda s: s["site"].update(min=[230, 182], max=[439, 381])) or
+              Change(r, SIEGE, lambda s: [box["min"].__setitem__(0, 230) for box in s["ground"][:3]]),
+    "which is not symmetric about its site's centre line"),
 }
 
 
