@@ -457,6 +457,15 @@ private:
   /// Which units hold and have reserved each cell.
   struct Occupancy
   {
+    Occupancy() = default;
+    ~Occupancy() = default;
+    Occupancy(const Occupancy&) = default;
+    Occupancy& operator=(const Occupancy&) = default;
+    // A move may allocate under the debug library's checked containers, so it is not noexcept
+    // (bugprone-exception-escape), as World's is not.
+    Occupancy(Occupancy&&) noexcept(false) = default;
+    Occupancy& operator=(Occupancy&&) noexcept(false) = default;
+
     std::map<PathSearch::CellIndex, Protocol::EntityId> occupied;
     std::map<PathSearch::CellIndex, Protocol::EntityId> reserved;
   };
@@ -476,6 +485,14 @@ private:
   /// Every squad's plan for the tick, and each figure's place in its squad.
   struct Plans
   {
+    Plans() = default;
+    ~Plans() = default;
+    Plans(const Plans&) = default;
+    Plans& operator=(const Plans&) = default;
+    // As Occupancy's.
+    Plans(Plans&&) noexcept(false) = default;
+    Plans& operator=(Plans&&) noexcept(false) = default;
+
     std::map<Protocol::EntityId, SquadPlan> squads;
     std::map<Protocol::EntityId, std::size_t> places;
   };
