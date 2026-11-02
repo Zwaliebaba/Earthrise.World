@@ -26,7 +26,8 @@ namespace Simulation
 //      version (RecordVersion), and an order that adds a field raises its kind's; a save is tied to
 //      its build anyway (ADR-014, decision 6), so an older version is refused, never migrated. A
 //      structure's record is its id, u8 owner, template id and name each as a u32 length and UTF-8,
-//      origin and u8 quarter turns; M4-D1 adds its built mask as version 2. A squad's version 2 adds
+//      origin and u8 quarter turns; M4-D1's version 2 adds its built mask, as a u32 byte count and the
+//      bytes, its u8 share, u8 working, u32 lock, Fixed repair progress, u8 gate and i32 hit points. A squad's version 2 adds
 //      the u64 building it is garrisoned in, and an engine's version 2 its u8 state (M4-B4); a
 //      squad's version 3 its u8 kind, an engine's version 3 its u64 body's squad, and a unit's
 //      version 2 its i32 hit points (M4-C1); a squad's version 4 its u8 facing, and a unit's version

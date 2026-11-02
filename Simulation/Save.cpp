@@ -414,16 +414,56 @@ void WriteRecord(Core::ByteWriter& _writer, const Structure& _structure)
   WritePosition(_writer, _structure.originVoxels);
   _writer.WriteU8(static_cast<std::uint8_t>(_structure.quarterTurns));
   WriteText(_writer, _structure.name);
+  // Version 2 (M4-D1; ADR-024): the built mask, then what it is at work.
+  _writer.WriteU32(static_cast<std::uint32_t>(_structure.builtMask.size()));
+  for (const std::uint8_t byte : _structure.builtMask)
+  {
+    _writer.WriteU8(byte);
+  }
+  _writer.WriteU8(_structure.criticalPercent);
+  _writer.WriteU8(_structure.working ? std::uint8_t{1} : std::uint8_t{0});
+  _writer.WriteU32(_structure.repairLockTicks);
+  WriteFixed(_writer, _structure.repairProgress);
+  _writer.WriteU8(_structure.gateOpen ? std::uint8_t{1} : std::uint8_t{0});
+  _writer.WriteI32(_structure.hitPoints);
 }
 
 Structure ReadStructure(Core::ByteReader& _reader)
 {
-  Structure structure{
-    .id = _reader.ReadU64(), .owner = _reader.ReadU8(), .templateId = {}, .originVoxels = {}, .quarterTurns = 0, .name = {}};
+  Structure structure{.id = _reader.ReadU64(),
+                      .owner = _reader.ReadU8(),
+                      .templateId = {},
+                      .originVoxels = {},
+                      .quarterTurns = 0,
+                      .name = {},
+                      .builtMask = {},
+                      .criticalPercent = 100,
+                      .working = true,
+                      .repairLockTicks = 0,
+                      .repairProgress = {},
+                      .gateOpen = false,
+                      .hitPoints = 0};
   structure.templateId = ReadText(_reader);
   structure.originVoxels = ReadPosition(_reader);
   structure.quarterTurns = ReadQuarterTurns(_reader);
   structure.name = ReadText(_reader);
+  const std::uint32_t maskBytes = _reader.ReadU32();
+  for (std::uint32_t byte = 0; byte < maskBytes; ++byte)
+  {
+    structure.builtMask.push_back(_reader.ReadU8());
+  }
+  structure.criticalPercent = _reader.ReadU8();
+  const std::uint8_t working = _reader.ReadU8();
+  structure.repairLockTicks = _reader.ReadU32();
+  structure.repairProgress = ReadFixed(_reader);
+  const std::uint8_t gateOpen = _reader.ReadU8();
+  structure.hitPoints = _reader.ReadI32();
+  if (structure.criticalPercent > 100 || working > 1 || gateOpen > 1)
+  {
+    Refuse("a structure's share, working or gate holds a value it cannot");
+  }
+  structure.working = working == 1;
+  structure.gateOpen = gateOpen == 1;
   return structure;
 }
 
@@ -595,7 +635,8 @@ std::uint16_t RecordVersion(SaveEntityTag _tag) noexcept
   case SaveEntityTag::Unit:        // M4-C1: its hit points; M4-C2: its reservation, its step and its wait; M4-C3: its reload and target
   case SaveEntityTag::SiegeEngine: // M4-B4: its state; M4-C1: its body's squad; M4-C5: its deploy's or pack's ticks left
     return 4;
-  case SaveEntityTag::Shot: // M4-C4: its kind, an arrow's line, shooter, target and damage
+  case SaveEntityTag::Shot:      // M4-C4: its kind, an arrow's line, shooter, target and damage
+  case SaveEntityTag::Structure: // M4-D1: its built mask, share, working, lock, repair's progress, gate and hit points
     return 2;
   default:
     return 1;

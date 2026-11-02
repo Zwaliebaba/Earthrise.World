@@ -141,5 +141,8 @@
     <ClCompile Include="RamTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="StructureWorkTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

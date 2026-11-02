@@ -24,6 +24,7 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <tuple>
 #include <span>
 #include <string>
 #include <string_view>
@@ -183,6 +184,16 @@ struct Structure
   Protocol::VoxelPosition originVoxels; // the minimum corner of its footprint, after the turn
   std::uint32_t quarterTurns;           // clockwise seen from above, as Engine::VoxelPass::Batch counts them: one turns +z towards +x
   std::string name;                     // the scenario's, such as W2 (Hud.md §10)
+  // At record version 2 (ADR-024; MvpPlan-M4.md, Contracts):
+  /// Which template voxels were built, one bit a voxel in the template's order, x fastest, then z, then y: bit i in
+  /// byte i / 8, from its lowest bit. A scenario's structures start fully built (decision 1).
+  std::vector<std::uint8_t> builtMask;
+  std::uint8_t criticalPercent = 100; // the share of its critical part's built voxels that stand; 100 without a part
+  bool working = true;                // while the share is at least its template's threshold (decision 2)
+  std::uint32_t repairLockTicks = 0;  // until repair may resume (decision 4; M4-D5)
+  Core::Fixed repairProgress{};       // towards the next voxel repair puts back (decision 3; M4-D5)
+  bool gateOpen = false;              // a gatehouse's or a gate's (decision 6; M4-D2)
+  std::int32_t hitPoints = 0;         // the control's pool (ADR-028; M4-F4); 0 in the voxel version
 };
 
 /// A trebuchet's shot in flight (M2-E1), on its arc.
@@ -509,6 +520,21 @@ private:
   void RemoveDead();
   /// Puts each engine where its body stands.
   void FollowBodies();
+
+  // ADR-024, decisions 1 and 2: what stands of a structure, and whether it works.
+  /// Where a template voxel of _structure lies in the world, turned as AddStructure stamps it.
+  [[nodiscard]] Protocol::VoxelPosition TemplateVoxel(const Structure& _structure, const ServerTemplate& _template, std::uint32_t _x,
+                                                      std::uint32_t _y, std::uint32_t _z) const;
+  /// The share of _structure's critical part's built voxels that stand, in whole percent, floored: a voxel stands when the
+  /// world holds its template's index there and no collapse in _held holds it. 100 for a structure with no critical part.
+  [[nodiscard]] std::uint8_t CriticalShare(const Structure& _structure,
+                                           const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _held) const;
+  /// Every voxel a collapse still running holds, in warning or falling.
+  [[nodiscard]] std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> HeldByCollapses() const;
+  /// Sets _structure's share and working from scratch, raising StructureStopped or StructureWorks when working changes.
+  void UpdateWorking(Structure& _structure, const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _held);
+  /// Step 10's part: the structures the tick touched, by an edit in their box or a collapse of theirs starting or ending.
+  void UpdateStructures();
 
   // ADR-023, decisions 3 and 4: targets and melee, in step 3.
   /// Each figure's target for the tick, and each squad's order as its target and its arrival leave it.

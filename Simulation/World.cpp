@@ -34,6 +34,24 @@ NavigationGrid::Desc NavigationDesc(const World::Desc& _desc)
           .rules = &_desc.serverData->Tuning()};
 }
 
+/// A template column (_x, _z) turned clockwise seen from above by _turns quarter turns, as the voxel pass turns a batch:
+/// one turn takes +z to +x, and the footprint's minimum corner stays at the origin.
+std::pair<std::int32_t, std::int32_t> Turned(std::int32_t _x, std::int32_t _z, std::int32_t _width, std::int32_t _depth,
+                                             std::uint32_t _turns)
+{
+  switch (_turns % 4)
+  {
+  case 1:
+    return {_z, _width - 1 - _x};
+  case 2:
+    return {_width - 1 - _x, _depth - 1 - _z};
+  case 3:
+    return {_depth - 1 - _z, _x};
+  default:
+    return {_x, _z};
+  }
+}
+
 } // namespace
 
 World::World(const Desc& _desc)
@@ -351,27 +369,7 @@ Protocol::EntityId World::AddStructure(std::uint8_t _owner, std::string_view _te
         {
           continue;
         }
-        // Clockwise seen from above, as the voxel pass turns a batch: one turn takes +z to +x, and the
-        // footprint's minimum corner stays at the origin.
-        std::int32_t turnedX = x;
-        std::int32_t turnedZ = z;
-        switch (turns)
-        {
-        case 1:
-          turnedX = z;
-          turnedZ = width - 1 - x;
-          break;
-        case 2:
-          turnedX = width - 1 - x;
-          turnedZ = depth - 1 - z;
-          break;
-        case 3:
-          turnedX = depth - 1 - z;
-          turnedZ = x;
-          break;
-        default:
-          break;
-        }
+        const auto [turnedX, turnedZ] = Turned(x, z, width, depth, turns);
         m_voxels.Edit({.xVoxels = _originVoxels.xVoxels + turnedX,
                        .yVoxels = _originVoxels.yVoxels + static_cast<std::int32_t>(y),
                        .zVoxels = _originVoxels.zVoxels + turnedZ},
@@ -391,13 +389,36 @@ Protocol::EntityId World::AddStructure(std::uint8_t _owner, std::string_view _te
       }
     }
   }
+  // Built whole, as a scenario's structures start (ADR-024, decision 1).
+  const std::size_t voxels = static_cast<std::size_t>(shape.widthVoxels) * shape.heightVoxels * shape.depthVoxels;
+  std::vector<std::uint8_t> mask((voxels + 7) / 8, std::uint8_t{0});
+  for (std::size_t voxel = 0; voxel < voxels; ++voxel)
+  {
+    if (shape.indices[voxel] != Protocol::Chunk::EMPTY)
+    {
+      mask[voxel / 8] = static_cast<std::uint8_t>(mask[voxel / 8] | (1U << (voxel % 8)));
+    }
+  }
   const Protocol::EntityId id = NewEntityId();
-  m_structures.emplace(id, Structure{.id = id,
-                                     .owner = _owner,
-                                     .templateId = std::string(_templateId),
-                                     .originVoxels = _originVoxels,
-                                     .quarterTurns = turns,
-                                     .name = std::string(_name)});
+  Structure& structure = m_structures
+                           .emplace(id, Structure{.id = id,
+                                                  .owner = _owner,
+                                                  .templateId = std::string(_templateId),
+                                                  .originVoxels = _originVoxels,
+                                                  .quarterTurns = turns,
+                                                  .name = std::string(_name),
+                                                  .builtMask = std::move(mask),
+                                                  .criticalPercent = 100,
+                                                  .working = true,
+                                                  .repairLockTicks = 0,
+                                                  .repairProgress = {},
+                                                  .gateOpen = false,
+                                                  .hitPoints = 0})
+                           .first->second;
+  const ServerTemplate& stamped = *found;
+  structure.criticalPercent = CriticalShare(structure, HeldByCollapses());
+  const TemplateRules* rules = Data().FindTemplateRules(stamped.id);
+  structure.working = rules == nullptr || structure.criticalPercent >= rules->criticalThresholdPercent;
   return id;
 }
 
@@ -2758,7 +2779,137 @@ bool World::MoveToFreeCell(Unit& _unit, Occupancy& _occupancy)
 
 void World::CheckRules()
 {
-  // Step 10: the win and loss rules, which M2 has none of.
+  // Step 10: the structures' parts and whether each works (ADR-024, decision 2); the trial's rules are M4-F1's.
+  UpdateStructures();
+}
+
+Protocol::VoxelPosition World::TemplateVoxel(const Structure& _structure, const ServerTemplate& _template, std::uint32_t _x,
+                                             std::uint32_t _y, std::uint32_t _z) const
+{
+  const auto [x, z] = Turned(static_cast<std::int32_t>(_x), static_cast<std::int32_t>(_z), static_cast<std::int32_t>(_template.widthVoxels),
+                             static_cast<std::int32_t>(_template.depthVoxels), _structure.quarterTurns);
+  return {.xVoxels = _structure.originVoxels.xVoxels + x,
+          .yVoxels = _structure.originVoxels.yVoxels + static_cast<std::int32_t>(_y),
+          .zVoxels = _structure.originVoxels.zVoxels + z};
+}
+
+std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> World::HeldByCollapses() const
+{
+  std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> held;
+  for (const auto& [id, collapse] : m_collapses)
+  {
+    for (const Protocol::VoxelPosition& voxel : collapse.piece)
+    {
+      held.emplace(voxel.xVoxels, voxel.yVoxels, voxel.zVoxels);
+    }
+  }
+  return held;
+}
+
+std::uint8_t World::CriticalShare(const Structure& _structure,
+                                  const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _held) const
+{
+  const ServerTemplate* found = Data().FindTemplate(_structure.templateId);
+  if (found == nullptr || found->criticalPart.empty())
+  {
+    return 100;
+  }
+  std::int64_t built = 0;
+  std::int64_t standing = 0;
+  std::size_t voxel = 0;
+  for (std::uint32_t y = 0; y < found->heightVoxels; ++y)
+  {
+    for (std::uint32_t z = 0; z < found->depthVoxels; ++z)
+    {
+      for (std::uint32_t x = 0; x < found->widthVoxels; ++x, ++voxel)
+      {
+        const bool isBuilt = voxel / 8 < _structure.builtMask.size() && (_structure.builtMask[voxel / 8] & (1U << (voxel % 8))) != 0;
+        if (found->parts.at(voxel) != ServerTemplate::Part::Critical || !isBuilt)
+        {
+          continue;
+        }
+        ++built;
+        const Protocol::VoxelPosition at = TemplateVoxel(_structure, *found, x, y, z);
+        if (m_voxels.At(at) == found->indices.at(voxel) && !_held.contains({at.xVoxels, at.yVoxels, at.zVoxels}))
+        {
+          ++standing;
+        }
+      }
+    }
+  }
+  return built == 0 ? std::uint8_t{0} : static_cast<std::uint8_t>((100 * standing) / built);
+}
+
+void World::UpdateWorking(Structure& _structure, const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _held)
+{
+  _structure.criticalPercent = CriticalShare(_structure, _held);
+  const TemplateRules* rules = Data().FindTemplateRules(_structure.templateId);
+  const bool working = rules == nullptr || _structure.criticalPercent >= rules->criticalThresholdPercent;
+  if (working != _structure.working)
+  {
+    _structure.working = working;
+    m_tickEvents.push_back({.kind = working ? TrialEventKind::StructureWorks : TrialEventKind::StructureStopped,
+                            .tick = m_tick,
+                            .player = _structure.owner,
+                            .subject = _structure.id,
+                            .other = Protocol::NO_ENTITY,
+                            .amount = _structure.criticalPercent,
+                            .voxel = _structure.originVoxels});
+  }
+}
+
+void World::UpdateStructures()
+{
+  // Only a structure the tick touched can have changed, so a quiet tick costs nothing (ADR-024, decision 2): one with an
+  // edit in its box, or whose collapse started or ended this tick.
+  std::set<Protocol::EntityId> touched;
+  for (const auto& [id, collapse] : m_collapses)
+  {
+    if (collapse.ticksElapsed == 1 && collapse.structure != Protocol::NO_ENTITY)
+    {
+      touched.insert(collapse.structure);
+    }
+  }
+  for (const Protocol::CollapseView& ended : m_endedCollapses)
+  {
+    if (ended.structure != Protocol::NO_ENTITY)
+    {
+      touched.insert(ended.structure);
+    }
+  }
+  // Every structure whose box holds an edit, where boxes overlap too, as a section's and a tower's may.
+  std::vector<std::pair<Protocol::EntityId, Box>> boxes;
+  for (const auto& [id, structure] : m_structures)
+  {
+    if (const std::optional<Box> box = BoxOf(structure); box.has_value())
+    {
+      boxes.emplace_back(id, *box);
+    }
+  }
+  for (const Protocol::VoxelPosition& voxel : m_voxels.TickEdits())
+  {
+    for (const auto& [id, box] : boxes)
+    {
+      if (voxel.xVoxels >= box.min.xVoxels && voxel.xVoxels < box.min.xVoxels + box.widthVoxels && voxel.zVoxels >= box.min.zVoxels &&
+          voxel.zVoxels < box.min.zVoxels + box.depthVoxels && voxel.yVoxels >= box.min.yVoxels &&
+          voxel.yVoxels < box.min.yVoxels + box.heightVoxels)
+      {
+        touched.insert(id);
+      }
+    }
+  }
+  if (touched.empty())
+  {
+    return;
+  }
+  const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> held = HeldByCollapses();
+  for (const Protocol::EntityId id : touched)
+  {
+    if (const auto structure = m_structures.find(id); structure != m_structures.end())
+    {
+      UpdateWorking(structure->second, held);
+    }
+  }
 }
 
 void World::PublishState()
@@ -2828,8 +2979,13 @@ Protocol::StateUpdate World::StateFor(std::uint8_t _player) const
                                 .quarterTurns = structure.quarterTurns,
                                 .extentVoxels = extentOf(structure),
                                 .name = structure.name,
+                                .working = structure.working,
+                                .criticalPercent = structure.criticalPercent,
+                                .repairLockTicks = structure.repairLockTicks,
+                                .gateOpen = structure.gateOpen,
                                 .garrisonCount = static_cast<std::uint8_t>(count == garrisoned.end() ? 0 : count->second),
-                                .garrisonCapacity = rules == nullptr ? std::uint8_t{0} : rules->garrisonCapacity});
+                                .garrisonCapacity = rules == nullptr ? std::uint8_t{0} : rules->garrisonCapacity,
+                                .hitPoints = structure.hitPoints});
   }
   // An engine's hit points are its body's.
   const auto bodyOf = [this](const SiegeEngine& _engine) -> const Unit*
