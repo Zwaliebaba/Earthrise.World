@@ -225,8 +225,8 @@ public:
 
   TEST_METHOD(APackedTrebuchetPathsAsMachinesFromTheCampToAStand)
   {
-    // The Siege's trebuchet, packed in the camp, walks as machines, 3 m wide, to a stand 32 m west of it, clear of the
-    // camp's squads.
+    // The Siege's trebuchet, packed in the camp on its castle side, walks as machines, 3 m wide, to a stand 32 m north of
+    // it towards the castle, with none of the camp's squads in its way (GameDesign.md, M4's phases B and C, item 6).
     Simulation::World world(Simulation::ScenarioDesc(BakedServerData(), "Siege", FlatWorld::BUILD_ID));
     Simulation::LoadScenario(world, "Siege");
     const auto trebuchet = std::ranges::find_if(world.SiegeEngines(), [](const auto& _engine)
@@ -237,7 +237,7 @@ public:
     Assert::IsTrue(at.state == Simulation::EngineState::Packed);
     const Simulation::Squad& body = world.Squads().at(at.squad);
     Assert::IsTrue(body.navigationClass == Simulation::NavigationClass::Machines);
-    const Protocol::VoxelPosition stand = At(at.cellVoxels.xVoxels - 32, at.cellVoxels.yVoxels, at.cellVoxels.zVoxels);
+    const Protocol::VoxelPosition stand = At(at.cellVoxels.xVoxels, at.cellVoxels.yVoxels, at.cellVoxels.zVoxels + 32);
     Order(world, ATTACKER, Protocol::MoveSquad{.squad = at.squad, .goalVoxels = stand});
     for (std::uint32_t tick = 0; tick < 3000 && world.SiegeEngines().at(engine).cellVoxels != stand; ++tick)
     {

@@ -445,6 +445,7 @@ The owner answered the questions phases B and C of the headless pull request, #5
 3. **The counters stand as measured,** and M5's playtest tunes input 6's numbers: six spearmen kill three outriders in 6 s and lose none, where the arithmetic said about 8 s and one or two, because each outrider strikes its own nearest spearman ([ADR-023](ADR/ADR-023-units-and-combat.md), M4-C3).
 4. **A ranged figure acquires what its reach at the elevation covers,** beyond its vision, so that an archer two steps up shoots as far as its 40 m (ADR-023, M4-C4).
 5. **A ram goes where its blow takes most, then the nearest,** so that one ordered at a gatehouse goes up the passage to its gate (ADR-023, M4-C6).
+6. **The Siege camp's engines stand on its castle side,** with nothing north of them in the camp, and its squads in two rows behind them, so that a 3 m machine is not walled in by its own figures, whose 1 m gaps it cannot pass ([ADR-026](ADR/ADR-026-scenarios-and-the-siege-trial.md), M4-B4; the mirror follows).
 
 ### 2026-11-02: M4.1's values
 
