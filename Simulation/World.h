@@ -464,20 +464,27 @@ private:
   /// The lowest voxel of _box in column (_x, _z) at or above _floorVoxels that is not empty, or nothing.
   [[nodiscard]] std::optional<Protocol::VoxelPosition> LowestIn(const Box& _box, std::int32_t _x, std::int32_t _z,
                                                                 std::int32_t _floorVoxels) const;
-  /// What a ram's next blow from _cellVoxels would strike: the way it faces, the voxel and how many voxels it takes.
+  /// The world voxels of _structure's critical part, at their turned places; none when its template names none.
+  [[nodiscard]] std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> CriticalVoxels(const Structure& _structure) const;
+  /// What a ram's next blow from _cellVoxels would strike: the way it faces, the voxel, how many voxels it takes and how
+  /// many of those are the structure's critical part's.
   struct RamBlow
   {
     std::int32_t facingX;
     std::int32_t facingZ;
     Protocol::VoxelPosition voxel;
     std::size_t takes;
+    std::size_t critical;
   };
-  /// The blow that takes most of the ram's four facings that touch _box, a column before its front holding a voxel of it
-  /// at the ram's floor; ties to the order south, north, west, east. Nothing when it touches nothing.
-  [[nodiscard]] std::optional<RamBlow> BestBlow(Protocol::VoxelPosition _cellVoxels, const Box& _box) const;
-  /// The cell machines can use and reach from _ram from which its blow takes most, the nearest by octile distance among
-  /// those, ties to the lower index; nothing when no blow from any takes a voxel.
-  [[nodiscard]] std::optional<RamContact> RamContactFor(const Unit& _ram, const Box& _box) const;
+  /// The blow of the ram's four facings that touch _box, a column before its front holding a voxel of it at the ram's
+  /// floor, that takes most of _critical, then most; ties to the order south, north, west, east. Nothing when it touches
+  /// nothing.
+  [[nodiscard]] std::optional<RamBlow> BestBlow(Protocol::VoxelPosition _cellVoxels, const Box& _box,
+                                                const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _critical) const;
+  /// The cell machines can use and reach from _ram from which its blow takes most of _critical, then most, the nearest by
+  /// octile distance among those, ties to the lower index; nothing when no blow from any takes a voxel.
+  [[nodiscard]] std::optional<RamContact>
+  RamContactFor(const Unit& _ram, const Box& _box, const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _critical) const;
   /// The voxels a blow at _voxel removes, on input 9's ladder.
   [[nodiscard]] std::vector<Protocol::VoxelPosition> RamCrater(Protocol::VoxelPosition _voxel, const Box& _box) const;
   /// Every ram ordered at a structure strikes it on its cadence when it stands touching it, and makes for the nearest

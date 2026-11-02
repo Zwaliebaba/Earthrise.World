@@ -876,8 +876,9 @@ void World::Apply(std::uint8_t _player, const Protocol::Command& _command)
     {
       const auto structure = m_structures.find(attack->target);
       const std::optional<Box> box = structure == m_structures.end() ? std::nullopt : BoxOf(structure->second);
-      const std::optional<RamContact> contact =
-        box.has_value() && structure->second.owner != _player ? RamContactFor(m_units.at(squad->units.front()), *box) : std::nullopt;
+      const std::optional<RamContact> contact = box.has_value() && structure->second.owner != _player
+                                                  ? RamContactFor(m_units.at(squad->units.front()), *box, CriticalVoxels(structure->second))
+                                                  : std::nullopt;
       if (!contact.has_value())
       {
         Refuse(_player, _command, Protocol::Refusal::Invalid);
@@ -1301,20 +1302,49 @@ std::optional<Protocol::VoxelPosition> World::LowestIn(const Box& _box, std::int
   return std::nullopt;
 }
 
-std::optional<World::RamBlow> World::BestBlow(Protocol::VoxelPosition _cellVoxels, const Box& _box) const
+std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> World::CriticalVoxels(const Structure& _structure) const
+{
+  std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> critical;
+  const ServerTemplate* found = Data().FindTemplate(_structure.templateId);
+  if (found == nullptr)
+  {
+    return critical;
+  }
+  std::size_t voxel = 0;
+  for (std::uint32_t y = 0; y < found->heightVoxels; ++y)
+  {
+    for (std::uint32_t z = 0; z < found->depthVoxels; ++z)
+    {
+      for (std::uint32_t x = 0; x < found->widthVoxels; ++x, ++voxel)
+      {
+        if (found->parts.at(voxel) == ServerTemplate::Part::Critical && found->indices.at(voxel) != Protocol::Chunk::EMPTY)
+        {
+          const Protocol::VoxelPosition at = TemplateVoxel(_structure, *found, x, y, z);
+          critical.emplace(at.xVoxels, at.yVoxels, at.zVoxels);
+        }
+      }
+    }
+  }
+  return critical;
+}
+
+std::optional<World::RamBlow> World::BestBlow(Protocol::VoxelPosition _cellVoxels, const Box& _box,
+                                              const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _critical) const
 {
   constexpr std::array<std::pair<std::int32_t, std::int32_t>, 4> FACINGS_TRIED = {{{0, -1}, {0, 1}, {-1, 0}, {1, 0}}};
   std::optional<RamBlow> best;
   for (const auto& [facingX, facingZ] : FACINGS_TRIED)
   {
-    // It touches when a column before its front holds a voxel at its floor; it strikes that column's or a neighbour's
-    // lowest voxel, whichever lies lowest, the one before its centre first.
+    // It touches when a column before its front holds a voxel within its own height above its floor, the machines'
+    // headroom; it strikes that column's or a neighbour's lowest voxel, whichever lies lowest, the one before its centre
+    // first, so a gate goes from the bottom row up.
+    const std::int32_t reach = std::max(1, m_navigation.Class(NavigationClass::Machines).headroomVoxels);
     bool touches = false;
     std::optional<Protocol::VoxelPosition> struck;
     for (const auto& [x, z] : FrontColumns(_cellVoxels, facingX, facingZ))
     {
       const std::optional<Protocol::VoxelPosition> lowest = LowestIn(_box, x, z, _cellVoxels.yVoxels);
-      touches = touches || (lowest.has_value() && lowest->yVoxels == _cellVoxels.yVoxels);
+      touches = touches || (lowest.has_value() && lowest->yVoxels < _cellVoxels.yVoxels + reach);
       if (lowest.has_value() && (!struck.has_value() || lowest->yVoxels < struck->yVoxels))
       {
         struck = lowest;
@@ -1324,24 +1354,30 @@ std::optional<World::RamBlow> World::BestBlow(Protocol::VoxelPosition _cellVoxel
     {
       continue;
     }
-    const std::size_t takes = RamCrater(*struck, _box).size();
-    if (!best.has_value() || takes > best->takes)
+    // What it takes of the critical part first, so that a ram at a gatehouse goes for its gate whatever the ladder's
+    // sizes (GameDesign.md, M4's phase D, item 3), then what it takes in all.
+    const std::vector<Protocol::VoxelPosition> crater = RamCrater(*struck, _box);
+    const auto critical =
+      static_cast<std::size_t>(std::ranges::count_if(crater, [&_critical](const Protocol::VoxelPosition& _voxel)
+                                                     { return _critical.contains({_voxel.xVoxels, _voxel.yVoxels, _voxel.zVoxels}); }));
+    if (!best.has_value() || std::pair{critical, crater.size()} > std::pair{best->critical, best->takes})
     {
-      best = RamBlow{.facingX = facingX, .facingZ = facingZ, .voxel = *struck, .takes = takes};
+      best = RamBlow{.facingX = facingX, .facingZ = facingZ, .voxel = *struck, .takes = crater.size(), .critical = critical};
     }
   }
   return best;
 }
 
-std::optional<World::RamContact> World::RamContactFor(const Unit& _ram, const Box& _box) const
+std::optional<World::RamContact> World::RamContactFor(const Unit& _ram, const Box& _box,
+                                                      const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _critical) const
 {
-  // Every cell within a ram's width of the box, or in it, as a passage is: the one whose blow takes most, so that a ram
-  // ordered at a gatehouse goes for its gate, then the nearest, ties to the lower index.
+  // Every cell within a ram's width of the box, or in it, as a passage is: the one whose blow takes most of the critical
+  // part, then most, so that a ram ordered at a gatehouse goes for its gate, then the nearest, ties to the lower index.
   const std::int32_t side = std::max(1, Data().Tuning().machinesWidthVoxels);
   const std::int32_t width = m_navigation.WidthCells();
   const PathSearch::CellIndex from = CellOf(_ram.cellVoxels);
   std::optional<RamContact> best;
-  std::size_t bestTakes = 0;
+  std::pair<std::size_t, std::size_t> bestRank{0, 0};
   std::int64_t bestDistance = std::numeric_limits<std::int64_t>::max();
   for (std::int32_t z = _box.min.zVoxels - side - 1; z <= _box.min.zVoxels + _box.depthVoxels; ++z)
   {
@@ -1352,18 +1388,18 @@ std::optional<World::RamContact> World::RamContactFor(const Unit& _ram, const Bo
         continue;
       }
       const Protocol::VoxelPosition cell{.xVoxels = x, .yVoxels = m_navigation.WalkableHeight(x, z), .zVoxels = z};
-      const std::optional<RamBlow> blow = BestBlow(cell, _box);
-      if (!blow.has_value() || blow->takes == 0 || blow->takes < bestTakes)
+      const std::optional<RamBlow> blow = BestBlow(cell, _box, _critical);
+      if (!blow.has_value() || blow->takes == 0 || std::pair{blow->critical, blow->takes} < bestRank)
       {
         continue;
       }
       const PathSearch::CellIndex index = CellOf(cell);
       const std::int64_t distance = PathSearch::Octile(from, index, width);
-      if ((blow->takes > bestTakes || distance < bestDistance) &&
-          m_navigation.NearestReachable(from, index, NavigationClass::Machines) == index)
+      const std::pair<std::size_t, std::size_t> rank{blow->critical, blow->takes};
+      if ((rank > bestRank || distance < bestDistance) && m_navigation.NearestReachable(from, index, NavigationClass::Machines) == index)
       {
         best = RamContact{.cellVoxels = cell, .facingX = blow->facingX, .facingZ = blow->facingZ};
-        bestTakes = blow->takes;
+        bestRank = rank;
         bestDistance = distance;
       }
     }
@@ -1433,10 +1469,11 @@ void World::RamBlows()
     {
       continue;
     }
-    const std::optional<RamBlow> blow = BestBlow(ram.cellVoxels, *box);
+    const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> critical = CriticalVoxels(structure->second);
+    const std::optional<RamBlow> blow = BestBlow(ram.cellVoxels, *box, critical);
     if (!blow.has_value() || blow->takes == 0)
     {
-      const std::optional<RamContact> next = RamContactFor(ram, *box);
+      const std::optional<RamContact> next = RamContactFor(ram, *box, critical);
       if (!next.has_value() || next->cellVoxels == ram.cellVoxels)
       {
         Halt(squad->second, Protocol::SquadOrder::Idle);

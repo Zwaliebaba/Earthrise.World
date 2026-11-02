@@ -447,6 +447,15 @@ The owner answered the questions phases B and C of the headless pull request, #5
 5. **A ram goes where its blow takes most, then the nearest,** so that one ordered at a gatehouse goes up the passage to its gate (ADR-023, M4-C6).
 6. **The Siege camp's engines stand on its castle side,** with nothing north of them in the camp, and its squads in two rows behind them, so that a 3 m machine is not walled in by its own figures, whose 1 m gaps it cannot pass ([ADR-026](ADR/ADR-026-scenarios-and-the-siege-trial.md), M4-B4; the mirror follows).
 
+### 2026-11-02: M4's phase D
+
+The owner answered the questions phase D of the headless pull request, #50, left open, taking each recommendation.
+
+1. **Earth under a structure slumps only into what a trench has dug.** M2-E6's slump moves a column's top voxel alone, so earth under a wall never slumps into a trench beside it; letting it slump everywhere changes the M2 breach run and M3's breach lab. Undermining is a trench's, recorded with M4-D6 as ADR-029, and a crater or a ditch beside a wall does not undermine it.
+2. **Repair puts a crater back a column through the wall at a time, from its outer face,** in place of ADR-024's template order, which put the inner face back where a lobbed shot cannot reach it. The breach run's multiple is then 1.73×, inside the Decided 1.3–2× (*the paper tests' values*, item 3), for an attacker who shoots fresh or whole columns first ([ADR-024](ADR/ADR-024-structures-at-work.md), M4-D5).
+3. **The ram's timber crater is 1 voxel,** not 4, so that T5's gate stands longer under its passage attack: it stops working 90 s after the ram's first blow and opens at 165 s, against 15 s and 30 s. The ram goes for a structure's critical part first and reaches its own height, without which a 1-voxel crater would leave it striking the stone at the passage's mouth, or a gate's upper rows out of reach ([ADR-023](ADR/ADR-023-units-and-combat.md), after M4-D4).
+4. **The passage attack strikes every unit in the passage,** the defender's own included, as *M4's values*, item 13 says.
+
 ### 2026-11-02: M4.1's values
 
 The owner added M4.1, a measurement of what a voxel read costs as the world grows ([MvpPlan.md](MvpPlan.md), M4.1), and answered its two inputs, taking each proposal as written. The same day the owner had it measure the load as well (item 3).

@@ -5,8 +5,8 @@
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 // The ram (M4-C6; ADR-023, decision 9; MvpPlan.md, M4, input 9): ordered at a structure it drives to touch it and
-// strikes every 15 s, 300 ticks, at the lowest voxel before its front; a blow takes 4 timber voxels, 1 of earth, and 1 of
-// stone within the structure's bottom metre and none above. Its roof is 20 pierce armor; its melee armor is 0.
+// strikes every 15 s, 300 ticks, at the lowest voxel before its front; a blow takes 1 timber voxel, by the owner's
+// decision of 2026-11-02 after M4-D4, 1 of earth, and 1 of stone within the structure's bottom metre and none above. Its roof is 20 pierce armor; its melee armor is 0.
 
 namespace SimulationTests
 {
@@ -105,12 +105,12 @@ bool Through(const Simulation::World& _world, Simulation::NavigationClass _class
 TEST_CLASS(RamTests)
 {
 public:
-  TEST_METHOD(BreaksT5sGateFourTimberVoxelsABlowEvery15Seconds)
+  TEST_METHOD(BreaksT5sGateOneTimberVoxelABlowEvery15Seconds)
   {
     // T5 at (27, 28), its outer face north, in a masonry wall across the map; its 3 x 4 m gate at the passage's inner end,
-    // x 30 to 32 at z 28. The ram drives into the passage and strikes the gate's middle column, then the two either
-    // side: each blow takes a column of 4 timber voxels. Foot need a gap 1 m wide and 2 m high, so the gate opens to
-    // them after the first blow; machines need the passage's 3 m, after all 12.
+    // x 30 to 32 at z 28. The ram drives into the passage and strikes the gate, each blow taking one timber voxel, the
+    // lowest standing before its front. Foot need a gap 1 m wide and 2 m high, so the gate opens to them once a column
+    // has lost its bottom two; machines need the passage's 3 m, after all 12.
     Simulation::World world(FlatWorld::Desc());
     Fill(world, At(0, GROUND, 28), At(26, GROUND + 5, 29), MASONRY);
     Fill(world, At(36, GROUND, 28), At(WIDTH - 1, GROUND + 5, 29), MASONRY);
@@ -121,17 +121,24 @@ public:
     Assert::IsFalse(Through(world, Simulation::NavigationClass::Foot, 31));
     const auto gate = [&world] { return Standing(world, At(30, GROUND, 28), At(32, GROUND + 3, 28)).size(); };
     Assert::AreEqual(std::size_t{12}, gate());
-    const std::vector<std::uint32_t> blows = Ram(world, ram, gatehouse, 3, 120 * 20,
+    const auto footGap = [&world]
+    {
+      return std::ranges::any_of(std::array{30, 31, 32},
+                                 [&world](std::int32_t _x) { return Standing(world, At(_x, GROUND, 28), At(_x, GROUND + 1, 28)).empty(); });
+    };
+    const std::vector<std::uint32_t> blows = Ram(world, ram, gatehouse, 12, 300 * 20,
                                                  [&](std::size_t _blow)
                                                  {
                                                    world.Tick(); // step 8 has rebuilt the tiles the blow cut
-                                                   Assert::AreEqual(12 - (4 * _blow), gate());
-                                                   Assert::IsTrue(Through(world, Simulation::NavigationClass::Foot, 31));
-                                                   Assert::AreEqual(_blow == 3, Through(world, Simulation::NavigationClass::Machines, 30));
+                                                   Assert::AreEqual(12 - _blow, gate());
+                                                   Assert::AreEqual(footGap(), Through(world, Simulation::NavigationClass::Foot, 31));
+                                                   Assert::AreEqual(_blow == 12, Through(world, Simulation::NavigationClass::Machines, 30));
                                                  });
-    Assert::AreEqual(std::size_t{3}, blows.size());
-    Assert::AreEqual(BlowTicks(world), blows[1] - blows[0]);
-    Assert::AreEqual(BlowTicks(world), blows[2] - blows[1]);
+    Assert::AreEqual(std::size_t{12}, blows.size());
+    for (std::size_t blow = 1; blow < blows.size(); ++blow)
+    {
+      Assert::AreEqual(BlowTicks(world), blows[blow] - blows[blow - 1]);
+    }
     Assert::AreEqual(300U, BlowTicks(world));
   }
 

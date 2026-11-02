@@ -196,9 +196,9 @@ public:
 
   TEST_METHOD(ARamBreaksTheGateUnderTheAttackWellInsideFourMinutes)
   {
-    // The ram at the gate, ordered at the gatehouse. Its first blow takes four of the gate's twelve voxels; the second
-    // leaves four, 33 % of the part, below T5's 50 %, and the gatehouse stops working, which ends the attack and puts
-    // the garrison out; the third opens the 3 by 4 m. GameDescription.md asks about four minutes of a gate; the measure
+    // The ram at the gate, ordered at the gatehouse. Each blow takes one of the gate's twelve voxels; the seventh leaves
+    // five, 41 % of the part, below T5's 50 %, and the gatehouse stops working, which ends the attack and puts the
+    // garrison out; the twelfth opens the 3 by 4 m. GameDescription.md asks about four minutes of a gate; the measure
     // is logged against it (MvpPlan.md, M4's risks), and what the ram lost to the passage until then is 10 a hit.
     Gatehouse site;
     Simulation::World& world = site.world;
