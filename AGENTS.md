@@ -318,7 +318,7 @@ An ADR written with its code is Accepted in that same commit. ADR-001 to ADR-012
 **Commits and PRs.** Branch off `main`; small, focused commits with an imperative subject describing the change, not the process. CI must be green. Never commit build output, `.vs/` or `.user` files.
 
 - **Work planned as work orders** (M2's are in [`Design/MvpPlan-M2.md`](Design/MvpPlan-M2.md)) is **one commit per order and one PR per phase** (the owner, 2026-11-01). The commit's subject begins with the order's id, as in `M2-B3: Add the byte writer and reader`.
-- **Every commit builds and passes the suites on its own,** so the history bisects. CI runs on the PR's head, so push after each order's commit, with the phase's PR open as a draft. A red run is then always the newest commit's.
+- **Every commit builds and passes the suites on its own,** so the history bisects. Each commit pushed to a pull request gets a CI run of its own, which a later push does not cancel, so push each order's commit as it lands, on its own, with the phase's PR open as a draft. A red run then names its commit, and the next order need not wait for it. Commits pushed together get one run, on the newest.
 - **Work outside a plan** stays one change per PR.
 
 ---

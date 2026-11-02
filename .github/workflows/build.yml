@@ -48,8 +48,14 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# ── Which runs cancel which ────────────────────────────────────────────────────────────────
+#
+# A pull request's runs are keyed on the commit pushed, so each commit pushed to it gets a run of
+# its own that a later push does not cancel: work planned as orders is one commit an order, pushed
+# as it lands (AGENTS.md §6), and a red run then names its commit without the next order waiting
+# for it. A push to main, or a manual run, still cancels the run of its branch it replaces.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.ref }}
   cancel-in-progress: true
 
 permissions:
