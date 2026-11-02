@@ -797,6 +797,8 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
         Refuse("an entity's record runs on past its fields");
       }
     }
+    // An open gate's voxels are air to navigation, which the structures' records say (ADR-024, decision 6).
+    world.RestoreGates();
 
     const std::uint32_t commands = reader.ReadU32();
     for (std::uint32_t number = 0; number < commands; ++number)

@@ -536,6 +536,22 @@ private:
   /// Step 10's part: the structures the tick touched, by an edit in their box or a collapse of theirs starting or ending.
   void UpdateStructures();
 
+  // ADR-024, decision 6: gates.
+  /// Whether _structure's template has a gate: its critical part is named Gate, as T5's and T7's are.
+  [[nodiscard]] bool HasGate(const Structure& _structure) const;
+  /// The world voxels of _structure's gate, its critical part's, turned.
+  [[nodiscard]] std::vector<Protocol::VoxelPosition> GateVoxels(const Structure& _structure) const;
+  /// Opens or shuts a gate of _player's (MvpPlan.md, M4, input 13).
+  void SetGate(std::uint8_t _player, const Protocol::SetGate& _gate);
+  /// Opens or shuts _structure's gate: navigation reads every open gate's voxels as air, and the gate's tiles are rebuilt
+  /// in this tick's step 8, or at once when _now, for a gate step 10 shuts.
+  void SwingGate(Structure& _structure, bool _open, bool _now);
+  /// Rebuilds the navigation tiles _tiles, brings reach up to date, and has the squads they matter to search again
+  /// (ADR-015, decisions 4 and 5).
+  void RebuildTiles(const std::vector<std::pair<std::int32_t, std::int32_t>>& _tiles);
+  /// After a load: navigation reads the open gates' voxels as air again, and their tiles are rebuilt.
+  void RestoreGates();
+
   // ADR-023, decisions 3 and 4: targets and melee, in step 3.
   /// Each figure's target for the tick, and each squad's order as its target and its arrival leave it.
   void Acquire();
@@ -669,6 +685,8 @@ private:
   std::map<Protocol::EntityId, Collapse> m_collapses;
   std::map<Protocol::EntityId, Structure> m_structures;
   std::map<std::uint8_t, Player> m_players;
+  /// The voxels of gates opened or shut in this tick's step 1, whose tiles step 8 rebuilds; empty between ticks.
+  std::vector<Protocol::VoxelPosition> m_gateTouches;
   std::optional<TrialRules> m_trial;
   // The collapses whose fall ended this tick, as their last view: step 11 publishes them once more,
   // so the client sees the last of their landing land. Not saved: the next tick reads nothing of it.

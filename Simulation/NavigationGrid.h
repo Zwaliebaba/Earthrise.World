@@ -96,6 +96,10 @@ public:
   /// Rebuilds every tile.
   void RebuildAll(const ChunkStore& _store);
 
+  /// The voxels navigation reads as air whatever the world holds there: every open gate's (ADR-024, decision 6). It
+  /// replaces the last set; rebuilding the tiles they lie in is the caller's.
+  void SetAir(std::span<const Protocol::VoxelPosition> _voxels);
+
   /// Rebuilds one tile's cells, and the links of the cells around it, as far as the margin, that
   /// read them.
   void RebuildTile(const ChunkStore& _store, std::int32_t _tileX, std::int32_t _tileZ);
@@ -222,6 +226,9 @@ private:
   std::array<std::vector<std::size_t>, NAVIGATION_CLASS_COUNT> m_componentOffsets;
   std::vector<std::uint8_t> m_tileChanged;
   bool m_reachCurrent = false;
+  // The voxels read as air (SetAir), each as its cell's index and its height, sorted. A vector, not a map, so that the
+  // grid's move stays noexcept under MSVC's debug library.
+  std::vector<std::pair<std::size_t, std::int32_t>> m_air;
   // Scratch space for a rebuild, kept between rebuilds so they do not allocate.
   std::vector<std::uint8_t> m_column;
   std::vector<std::uint8_t> m_straight;

@@ -941,6 +941,10 @@ void World::Apply(std::uint8_t _player, const Protocol::Command& _command)
   {
     Merge(_player, *merge);
   }
+  else if (const auto* gate = std::get_if<Protocol::SetGate>(&_command))
+  {
+    SetGate(_player, *gate);
+  }
   else if (const auto* deploy = std::get_if<Protocol::DeployEngine>(&_command))
   {
     Deploy(_player, *deploy);
@@ -2591,13 +2595,21 @@ std::optional<std::pair<std::int32_t, std::int32_t>> World::Slump(std::int32_t _
 
 void World::RebuildNavigation()
 {
-  // Step 8: every navigation tile the tick's edits touched, none deferred (ADR-015, decision 4).
-  const std::vector<std::pair<std::int32_t, std::int32_t>> tiles = m_navigation.TilesTouchedBy(m_voxels.TickEdits());
-  for (const auto& [tileX, tileZ] : tiles)
+  // Step 8: every navigation tile the tick's edits touched, and those of the gates its commands opened or shut, none
+  // deferred (ADR-015, decision 4; ADR-024, decision 6).
+  std::vector<Protocol::VoxelPosition> touched(m_voxels.TickEdits().begin(), m_voxels.TickEdits().end());
+  touched.insert(touched.end(), m_gateTouches.begin(), m_gateTouches.end());
+  m_gateTouches.clear();
+  RebuildTiles(m_navigation.TilesTouchedBy(touched));
+}
+
+void World::RebuildTiles(const std::vector<std::pair<std::int32_t, std::int32_t>>& _tiles)
+{
+  for (const auto& [tileX, tileZ] : _tiles)
   {
     m_navigation.RebuildTile(m_voxels.Store(), tileX, tileZ);
   }
-  if (tiles.empty())
+  if (_tiles.empty())
   {
     return;
   }
@@ -2607,7 +2619,7 @@ void World::RebuildNavigation()
   // Then, in squad-id order, the squads to search again in the next tick's step 3 (ADR-015,
   // decision 5): each short of its goal, each whose path crosses a rebuilt tile, and each whose
   // search is not done, since the cells it has closed may have changed under it.
-  const std::set<std::pair<std::int32_t, std::int32_t>> rebuilt(tiles.begin(), tiles.end());
+  const std::set<std::pair<std::int32_t, std::int32_t>> rebuilt(_tiles.begin(), _tiles.end());
   const std::int32_t width = m_navigation.WidthCells();
   for (auto& [id, squad] : m_squads)
   {
@@ -2848,6 +2860,11 @@ void World::UpdateWorking(Structure& _structure, const std::set<std::tuple<std::
   if (working != _structure.working)
   {
     _structure.working = working;
+    // A gate that stops working shuts, for good until it is repaired above its threshold (ADR-024, decision 2).
+    if (!working && _structure.gateOpen)
+    {
+      SwingGate(_structure, false, true);
+    }
     m_tickEvents.push_back({.kind = working ? TrialEventKind::StructureWorks : TrialEventKind::StructureStopped,
                             .tick = m_tick,
                             .player = _structure.owner,
@@ -2856,6 +2873,112 @@ void World::UpdateWorking(Structure& _structure, const std::set<std::tuple<std::
                             .amount = _structure.criticalPercent,
                             .voxel = _structure.originVoxels});
   }
+}
+
+bool World::HasGate(const Structure& _structure) const
+{
+  const ServerTemplate* found = Data().FindTemplate(_structure.templateId);
+  return found != nullptr && found->criticalPart == "Gate";
+}
+
+std::vector<Protocol::VoxelPosition> World::GateVoxels(const Structure& _structure) const
+{
+  std::vector<Protocol::VoxelPosition> voxels;
+  const ServerTemplate* found = Data().FindTemplate(_structure.templateId);
+  if (found == nullptr || !HasGate(_structure))
+  {
+    return voxels;
+  }
+  std::size_t voxel = 0;
+  for (std::uint32_t y = 0; y < found->heightVoxels; ++y)
+  {
+    for (std::uint32_t z = 0; z < found->depthVoxels; ++z)
+    {
+      for (std::uint32_t x = 0; x < found->widthVoxels; ++x, ++voxel)
+      {
+        if (found->parts.at(voxel) == ServerTemplate::Part::Critical && found->indices.at(voxel) != Protocol::Chunk::EMPTY)
+        {
+          voxels.push_back(TemplateVoxel(_structure, *found, x, y, z));
+        }
+      }
+    }
+  }
+  return voxels;
+}
+
+void World::SetGate(std::uint8_t _player, const Protocol::SetGate& _gate)
+{
+  // Its owner opens or shuts a gate that works; one that does not stays shut (ADR-024, decision 6).
+  const auto structure = m_structures.find(_gate.structure);
+  if (structure == m_structures.end() || !HasGate(structure->second))
+  {
+    Refuse(_player, _gate, Protocol::Refusal::Invalid);
+    return;
+  }
+  if (structure->second.owner != _player)
+  {
+    Refuse(_player, _gate, Protocol::Refusal::NotOwned);
+    return;
+  }
+  if (_gate.open && !structure->second.working)
+  {
+    Refuse(_player, _gate, Protocol::Refusal::NotWorking);
+    return;
+  }
+  SwingGate(structure->second, _gate.open, false);
+}
+
+void World::SwingGate(Structure& _structure, bool _open, bool _now)
+{
+  if (_structure.gateOpen == _open)
+  {
+    return;
+  }
+  _structure.gateOpen = _open;
+  // Every open gate's voxels are air to navigation, for every unit (MvpPlan.md, M4, input 13); shots and craters still
+  // meet them, since the world holds them.
+  std::vector<Protocol::VoxelPosition> air;
+  for (const auto& [id, structure] : m_structures)
+  {
+    if (structure.gateOpen)
+    {
+      const std::vector<Protocol::VoxelPosition> gate = GateVoxels(structure);
+      air.insert(air.end(), gate.begin(), gate.end());
+    }
+  }
+  m_navigation.SetAir(air);
+  const std::vector<Protocol::VoxelPosition> swung = GateVoxels(_structure);
+  if (_now)
+  {
+    RebuildTiles(m_navigation.TilesTouchedBy(swung));
+  }
+  else
+  {
+    m_gateTouches.insert(m_gateTouches.end(), swung.begin(), swung.end());
+  }
+}
+
+void World::RestoreGates()
+{
+  std::vector<Protocol::VoxelPosition> air;
+  for (const auto& [id, structure] : m_structures)
+  {
+    if (structure.gateOpen)
+    {
+      const std::vector<Protocol::VoxelPosition> gate = GateVoxels(structure);
+      air.insert(air.end(), gate.begin(), gate.end());
+    }
+  }
+  if (air.empty())
+  {
+    return;
+  }
+  m_navigation.SetAir(air);
+  for (const auto& [tileX, tileZ] : m_navigation.TilesTouchedBy(air))
+  {
+    m_navigation.RebuildTile(m_voxels.Store(), tileX, tileZ);
+  }
+  m_navigation.UpdateReach();
 }
 
 void World::UpdateStructures()
