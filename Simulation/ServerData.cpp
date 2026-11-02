@@ -4,6 +4,7 @@
 
 #include "ByteReader.h"
 #include "Hash.h"
+#include "Scenario.h"
 
 namespace Simulation
 {
@@ -21,6 +22,9 @@ constexpr std::uint8_t LIQUID_FLAG = 1U << 1;
 constexpr std::uint8_t LAST_BEHAVIOR = static_cast<std::uint8_t>(Behavior::WasteRubble);
 constexpr std::uint8_t LAST_SUPPORT = static_cast<std::uint8_t>(Support::Anchors);
 constexpr std::uint8_t LAST_PART = static_cast<std::uint8_t>(ServerTemplate::Part::Stock);
+constexpr std::uint8_t LAST_CLASS = static_cast<std::uint8_t>(NavigationClass::Machines);
+constexpr std::uint8_t LAST_DAMAGE_TYPE = static_cast<std::uint8_t>(Protocol::DamageType::Crush);
+constexpr std::array<const char*, 6> SECTIONS = {"MATL", "TMPL", "RULE", "UNIT", "STRC", "SCEN"};
 
 /// One RULE key and the field it sets: a whole number, or a Core::Fixed raw value.
 struct RuleField
@@ -32,7 +36,11 @@ struct RuleField
 
 // Every key the simulation reads, in ascending order, as the bake writes them. A key the file holds
 // and this table does not is refused, and so is one this table needs and the file lacks.
-constexpr std::array<RuleField, 44> RULE_FIELDS = {{
+constexpr std::array<RuleField, 75> RULE_FIELDS = {{
+  {"arrowAimHeightVoxels", &Rules::arrowAimHeightVoxels, nullptr},
+  {"arrowHitReachCells", &Rules::arrowHitReachCells, nullptr},
+  {"arrowLaunchHeightCentimeters", &Rules::arrowLaunchHeightCentimeters, nullptr},
+  {"arrowSpeedMetersPerTick", nullptr, &Rules::arrowSpeedMetersPerTick},
   {"bedrockCraterVoxels", &Rules::bedrockCraterVoxels, nullptr},
   {"buildingStoneCraterVoxels", &Rules::buildingStoneCraterVoxels, nullptr},
   {"buildingStoneSpanVoxels", &Rules::buildingStoneSpanVoxels, nullptr},
@@ -41,11 +49,21 @@ constexpr std::array<RuleField, 44> RULE_FIELDS = {{
   {"cavalryFordFactor", &Rules::cavalryFordFactor, nullptr},
   {"cavalryHeadroomVoxels", &Rules::cavalryHeadroomVoxels, nullptr},
   {"cavalryRubbleFactor", &Rules::cavalryRubbleFactor, nullptr},
-  {"cavalrySpeedMetersPerTick", nullptr, &Rules::cavalrySpeedMetersPerTick},
   {"cavalryWidthVoxels", &Rules::cavalryWidthVoxels, nullptr},
+  {"collapseCrushDamage", &Rules::collapseCrushDamage, nullptr},
+  {"commanderDecisionTicks", &Rules::commanderDecisionTicks, nullptr},
+  {"commanderWorkPerTick", &Rules::commanderWorkPerTick, nullptr},
   {"commonRockCraterVoxels", &Rules::commonRockCraterVoxels, nullptr},
   {"commonRockSpanVoxels", &Rules::commonRockSpanVoxels, nullptr},
+  {"controlRamDamage", &Rules::controlRamDamage, nullptr},
+  {"controlRamStonePercent", &Rules::controlRamStonePercent, nullptr},
+  {"controlShotDamage", &Rules::controlShotDamage, nullptr},
+  {"controlTrenchDamagePerCubicMeter", &Rules::controlTrenchDamagePerCubicMeter, nullptr},
+  {"dropCrushDamagePerVoxel", &Rules::dropCrushDamagePerVoxel, nullptr},
   {"earthCraterVoxels", &Rules::earthCraterVoxels, nullptr},
+  {"elevationMaxSteps", &Rules::elevationMaxSteps, nullptr},
+  {"elevationRangeBandVoxels", &Rules::elevationRangeBandVoxels, nullptr},
+  {"elevationStepVoxels", &Rules::elevationStepVoxels, nullptr},
   {"footClimbRunCells", &Rules::footClimbRunCells, nullptr},
   {"footFordDepthVoxels", &Rules::footFordDepthVoxels, nullptr},
   {"footFordFactor", &Rules::footFordFactor, nullptr},
@@ -53,6 +71,7 @@ constexpr std::array<RuleField, 44> RULE_FIELDS = {{
   {"footRubbleFactor", &Rules::footRubbleFactor, nullptr},
   {"footSpeedMetersPerTick", nullptr, &Rules::footSpeedMetersPerTick},
   {"footWidthVoxels", &Rules::footWidthVoxels, nullptr},
+  {"garrisonHealTicksPerHitPoint", &Rules::garrisonHealTicksPerHitPoint, nullptr},
   {"gravityMetersPerTickSquared", nullptr, &Rules::gravityMetersPerTickSquared},
   {"leavesCraterVoxels", &Rules::leavesCraterVoxels, nullptr},
   {"leavesSpanVoxels", &Rules::leavesSpanVoxels, nullptr},
@@ -62,18 +81,34 @@ constexpr std::array<RuleField, 44> RULE_FIELDS = {{
   {"machinesFordFactor", &Rules::machinesFordFactor, nullptr},
   {"machinesHeadroomVoxels", &Rules::machinesHeadroomVoxels, nullptr},
   {"machinesRubbleFactor", &Rules::machinesRubbleFactor, nullptr},
-  {"machinesSpeedMetersPerTick", nullptr, &Rules::machinesSpeedMetersPerTick},
   {"machinesWidthVoxels", &Rules::machinesWidthVoxels, nullptr},
+  {"passageAttackDamage", &Rules::passageAttackDamage, nullptr},
+  {"passageAttackTicks", &Rules::passageAttackTicks, nullptr},
   {"pathNodesPerTick", &Rules::pathNodesPerTick, nullptr},
   {"queryWorkPerTick", &Rules::queryWorkPerTick, nullptr},
+  {"ramBlowTicks", &Rules::ramBlowTicks, nullptr},
+  {"ramEarthCraterVoxels", &Rules::ramEarthCraterVoxels, nullptr},
+  {"ramStoneCraterVoxels", &Rules::ramStoneCraterVoxels, nullptr},
+  {"ramStoneReachVoxels", &Rules::ramStoneReachVoxels, nullptr},
+  {"ramTimberCraterVoxels", &Rules::ramTimberCraterVoxels, nullptr},
+  {"repairCubicMetersPerTick", nullptr, &Rules::repairCubicMetersPerTick},
+  {"repairLockReachVoxels", &Rules::repairLockReachVoxels, nullptr},
+  {"repairLockTicks", &Rules::repairLockTicks, nullptr},
+  {"repairReachVoxels", &Rules::repairReachVoxels, nullptr},
+  {"revealTicks", &Rules::revealTicks, nullptr},
+  {"shotCrushDamage", &Rules::shotCrushDamage, nullptr},
   {"shotLaunchHeightVoxels", &Rules::shotLaunchHeightVoxels, nullptr},
   {"shotMaxRangeVoxels", &Rules::shotMaxRangeVoxels, nullptr},
   {"shotMinRangeVoxels", &Rules::shotMinRangeVoxels, nullptr},
   {"shotReloadTicks", &Rules::shotReloadTicks, nullptr},
+  {"shotStoneHundredthsCubicMeters", &Rules::shotStoneHundredthsCubicMeters, nullptr},
   {"slumpVoxelsPerTick", &Rules::slumpVoxelsPerTick, nullptr},
   {"stoneRubbleCraterVoxels", &Rules::stoneRubbleCraterVoxels, nullptr},
   {"timberCraterVoxels", &Rules::timberCraterVoxels, nullptr},
   {"timberSpanVoxels", &Rules::timberSpanVoxels, nullptr},
+  {"trebuchetDeployTicks", &Rules::trebuchetDeployTicks, nullptr},
+  {"trebuchetPackTicks", &Rules::trebuchetPackTicks, nullptr},
+  {"waitBeforeSearchTicks", &Rules::waitBeforeSearchTicks, nullptr},
   {"warningBaseTicks", &Rules::warningBaseTicks, nullptr},
   {"wasteRubbleCraterVoxels", &Rules::wasteRubbleCraterVoxels, nullptr},
   {"waterCraterVoxels", &Rules::waterCraterVoxels, nullptr},
@@ -229,7 +264,122 @@ Rules ReadRules(std::span<const std::byte> _section)
   return rules;
 }
 
+std::array<UnitStats, Protocol::UNIT_KIND_COUNT> ReadUnits(std::span<const std::byte> _section)
+{
+  Core::ByteReader reader(_section);
+  const std::uint32_t count = reader.ReadU32();
+  if (count != Protocol::UNIT_KIND_COUNT)
+  {
+    Refuse("UNIT holds " + std::to_string(count) + " kinds of unit, and this build has " + std::to_string(Protocol::UNIT_KIND_COUNT));
+  }
+  std::array<UnitStats, Protocol::UNIT_KIND_COUNT> units{};
+  for (std::uint32_t number = 0; number < count; ++number)
+  {
+    const std::uint8_t kind = reader.ReadU8();
+    const std::uint8_t navigation = reader.ReadU8();
+    const std::uint8_t figures = reader.ReadU8();
+    const std::uint8_t attackType = reader.ReadU8();
+    if (kind != number)
+    {
+      Refuse("UNIT's records are not in the order of the kinds at record " + std::to_string(number));
+    }
+    if (navigation > LAST_CLASS || attackType > LAST_DAMAGE_TYPE || figures == 0)
+    {
+      Refuse("UNIT's record for kind " + std::to_string(kind) + " holds a value this build does not know");
+    }
+    UnitStats& stats = units.at(number);
+    stats.kind = static_cast<Protocol::UnitKind>(kind);
+    stats.navigationClass = static_cast<NavigationClass>(navigation);
+    stats.squadFigures = figures;
+    stats.attackType = static_cast<Protocol::DamageType>(attackType);
+    stats.hitPoints = reader.ReadI32();
+    for (std::int32_t& armor : stats.armor)
+    {
+      armor = reader.ReadI32();
+    }
+    stats.attack = reader.ReadI32();
+    stats.reloadTicks = reader.ReadU32();
+    stats.rangeVoxels = reader.ReadI32();
+    for (std::int32_t& bonus : stats.bonus)
+    {
+      bonus = reader.ReadI32();
+    }
+    stats.visionVoxels = reader.ReadI32();
+    stats.speedMetersPerTick = Core::Fixed::FromRaw(reader.ReadI32());
+    stats.digCubicMetersPerTick = Core::Fixed::FromRaw(reader.ReadI32());
+    if (stats.hitPoints <= 0 || stats.visionVoxels <= 0)
+    {
+      Refuse("UNIT's record for kind " + std::to_string(kind) + " gives it no hit points or no vision");
+    }
+  }
+  if (!reader.AtEnd())
+  {
+    Refuse("UNIT holds bytes after its last record");
+  }
+  return units;
+}
+
+std::vector<TemplateRules> ReadTemplateRules(std::span<const std::byte> _section)
+{
+  Core::ByteReader reader(_section);
+  const std::uint32_t count = reader.ReadU32();
+  std::vector<TemplateRules> records;
+  for (std::uint32_t number = 0; number < count; ++number)
+  {
+    TemplateRules rules{.templateId = Text(reader),
+                        .criticalThresholdPercent = reader.ReadU8(),
+                        .garrisonCapacity = reader.ReadU8(),
+                        .standHeightVoxels = reader.ReadI32(),
+                        .visionVoxels = reader.ReadI32(),
+                        .garrisonedVisionVoxels = reader.ReadI32(),
+                        .controlHitPoints = reader.ReadI32(),
+                        .controlHitPointsPerCubicMeter = reader.ReadI32()};
+    if (rules.criticalThresholdPercent > 100)
+    {
+      Refuse("STRC's record for " + rules.templateId + " holds a threshold over 100 %");
+    }
+    if (!records.empty() && records.back().templateId >= rules.templateId)
+    {
+      Refuse("STRC's records are not in ascending template id at " + rules.templateId);
+    }
+    records.push_back(std::move(rules));
+  }
+  if (!reader.AtEnd())
+  {
+    Refuse("STRC holds bytes after its last record");
+  }
+  return records;
+}
+
+std::vector<Scenario> ReadScenarios(std::span<const std::byte> _section)
+{
+  Core::ByteReader reader(_section);
+  const std::uint32_t count = reader.ReadU32();
+  std::vector<Scenario> scenarios;
+  for (std::uint32_t number = 0; number < count; ++number)
+  {
+    Scenario scenario = ReadScenario(reader);
+    if (!scenarios.empty() && scenarios.back().id >= scenario.id)
+    {
+      Refuse("SCEN's scenarios are not in ascending id at " + scenario.id);
+    }
+    scenarios.push_back(std::move(scenario));
+  }
+  if (!reader.AtEnd())
+  {
+    Refuse("SCEN holds bytes after its last scenario");
+  }
+  return scenarios;
+}
+
 } // namespace
+
+ServerData::ServerData() = default;
+ServerData::~ServerData() = default;
+ServerData::ServerData(const ServerData& _other) = default;
+ServerData::ServerData(ServerData&& _other) noexcept = default;
+ServerData& ServerData::operator=(const ServerData& _other) = default;
+ServerData& ServerData::operator=(ServerData&& _other) noexcept = default;
 
 TemplateShape ServerTemplate::Shape() const noexcept
 {
@@ -285,20 +435,23 @@ ServerData ServerData::Read(std::span<const std::byte> _file)
         Refuse("section " + tag + " appears twice");
       }
     }
-    for (const char* tag : {"MATL", "TMPL", "RULE"})
+    for (const char* tag : SECTIONS)
     {
       if (!sections.contains(tag))
       {
         Refuse(std::string("the file has no ") + tag + " section");
       }
     }
-    if (sections.size() != 3)
+    if (sections.size() != SECTIONS.size())
     {
       Refuse("the file holds a section this build does not know");
     }
     data.m_materials = ReadMaterials(sections.at("MATL"));
     data.m_templates = ReadTemplates(sections.at("TMPL"));
     data.m_rules = ReadRules(sections.at("RULE"));
+    data.m_units = ReadUnits(sections.at("UNIT"));
+    data.m_templateRules = ReadTemplateRules(sections.at("STRC"));
+    data.m_scenarios = ReadScenarios(sections.at("SCEN"));
   }
   catch (const std::out_of_range&)
   {
@@ -351,6 +504,23 @@ const ServerTemplate* ServerData::FindTemplate(std::string_view _id) const noexc
 {
   const auto found = std::ranges::find(m_templates, _id, &ServerTemplate::id);
   return found == m_templates.end() ? nullptr : &*found;
+}
+
+const UnitStats& ServerData::Stats(Protocol::UnitKind _kind) const
+{
+  return m_units.at(static_cast<std::size_t>(_kind));
+}
+
+const TemplateRules* ServerData::FindTemplateRules(std::string_view _templateId) const noexcept
+{
+  const auto found = std::ranges::find(m_templateRules, _templateId, &TemplateRules::templateId);
+  return found == m_templateRules.end() ? nullptr : &*found;
+}
+
+const Scenario* ServerData::FindScenario(std::string_view _scenarioId) const noexcept
+{
+  const auto found = std::ranges::find(m_scenarios, _scenarioId, &Scenario::id);
+  return found == m_scenarios.end() ? nullptr : &*found;
 }
 
 TemplateLookup ServerData::Templates() const

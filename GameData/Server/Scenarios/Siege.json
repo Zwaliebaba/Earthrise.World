@@ -1,0 +1,669 @@
+{
+ "note": "The Siege trial's castle (ADR-026; MvpPlan.md, M4, inputs 4, 5, 14, 15 and 16), the route table's (Design/Review/PaperTests/SiegeRouteTable.md, The Siege castle; Tools/PaperTests/SiegeRouteTable.py's BuildCastle), its paper x east and y north at the map's x 309 and z 302. It stands on the generated MVP map's flattest 200 x 200 m clear of the river, at the M2 and M3 runs' seeds: x 240 to 439 and z 182 to 381, levelled to 9 m, which moves 23,158 m3 of ground and clears 3,333 voxels of trees (M4-B4's search, at a stride of 2 m). The site is bedrock, common rock and 1 m of soil, deep earth 8 m deep under E3 and its approach; every section's foundation reaches 1 m down, E3's 4 m. The ditch and the rampart ring the castle 1 to 9 m out, with a causeway before the gate and nothing before E3. The camp is 100 m south: one trebuchet, packed, one ram, and 72 figures; the defender holds six archers in each of its seven garrisons, a squad of men-at-arms and one of outriders inside the gate, and six laborers. S3 is the section nearest the camp and E3 the weak one; the log records both, and nothing in the simulation reads them. Coordinates are the map's voxels, both corners of a box included; a material is a palette index, 0 empty.",
+ "id": "Siege",
+ "seeds": {
+  "world": "1592598566",
+  "resource": "1592598567",
+  "match": "1592598568"
+ },
+ "site": {
+  "min": [240, 182],
+  "max": [439, 381],
+  "groundMeters": "9"
+ },
+ "ground": [
+  {
+   "material": 5,
+   "min": [240, 0, 182],
+   "max": [439, 0, 381]
+  },
+  {
+   "material": 3,
+   "min": [240, 1, 182],
+   "max": [439, 7, 381]
+  },
+  {
+   "material": 1,
+   "min": [240, 8, 182],
+   "max": [439, 8, 381]
+  },
+  {
+   "material": 2,
+   "min": [365, 1, 325],
+   "max": [400, 7, 332]
+  }
+ ],
+ "structures": [
+  {
+   "template": "T3",
+   "name": "S1",
+   "owner": 2,
+   "origin": [316, 9, 305],
+   "quarterTurns": 2,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "S2",
+   "owner": 2,
+   "origin": [324, 9, 305],
+   "quarterTurns": 2,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T5",
+   "name": "GH",
+   "owner": 2,
+   "origin": [332, 9, 302],
+   "quarterTurns": 2,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "S3",
+   "owner": 2,
+   "origin": [341, 9, 305],
+   "quarterTurns": 2,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T4",
+   "name": "ST",
+   "owner": 2,
+   "origin": [349, 9, 302],
+   "quarterTurns": 0,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "S4",
+   "owner": 2,
+   "origin": [356, 9, 305],
+   "quarterTurns": 2,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "E1",
+   "owner": 2,
+   "origin": [366, 9, 309],
+   "quarterTurns": 1,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "E2",
+   "owner": 2,
+   "origin": [366, 9, 317],
+   "quarterTurns": 1,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "E3",
+   "owner": 2,
+   "origin": [366, 9, 325],
+   "quarterTurns": 1,
+   "foundationDepthMeters": "4"
+  },
+  {
+   "template": "T3",
+   "name": "E4",
+   "owner": 2,
+   "origin": [366, 9, 333],
+   "quarterTurns": 1,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "E5",
+   "owner": 2,
+   "origin": [366, 9, 341],
+   "quarterTurns": 1,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "E6",
+   "owner": 2,
+   "origin": [366, 9, 349],
+   "quarterTurns": 1,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "N1",
+   "owner": 2,
+   "origin": [316, 9, 359],
+   "quarterTurns": 0,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "N2",
+   "owner": 2,
+   "origin": [324, 9, 359],
+   "quarterTurns": 0,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "N3",
+   "owner": 2,
+   "origin": [332, 9, 359],
+   "quarterTurns": 0,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "N4",
+   "owner": 2,
+   "origin": [340, 9, 359],
+   "quarterTurns": 0,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "N5",
+   "owner": 2,
+   "origin": [348, 9, 359],
+   "quarterTurns": 0,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "N6",
+   "owner": 2,
+   "origin": [356, 9, 359],
+   "quarterTurns": 0,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "W1",
+   "owner": 2,
+   "origin": [312, 9, 309],
+   "quarterTurns": 3,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "W2",
+   "owner": 2,
+   "origin": [312, 9, 317],
+   "quarterTurns": 3,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "W3",
+   "owner": 2,
+   "origin": [312, 9, 325],
+   "quarterTurns": 3,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "W4",
+   "owner": 2,
+   "origin": [312, 9, 333],
+   "quarterTurns": 3,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "W5",
+   "owner": 2,
+   "origin": [312, 9, 341],
+   "quarterTurns": 3,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T3",
+   "name": "W6",
+   "owner": 2,
+   "origin": [312, 9, 349],
+   "quarterTurns": 3,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T4",
+   "name": "SW",
+   "owner": 2,
+   "origin": [309, 9, 302],
+   "quarterTurns": 0,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T4",
+   "name": "SE",
+   "owner": 2,
+   "origin": [364, 9, 302],
+   "quarterTurns": 0,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T4",
+   "name": "NW",
+   "owner": 2,
+   "origin": [309, 9, 357],
+   "quarterTurns": 2,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T4",
+   "name": "NE",
+   "owner": 2,
+   "origin": [364, 9, 357],
+   "quarterTurns": 2,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T2",
+   "name": "KEEP",
+   "owner": 2,
+   "origin": [334, 9, 326],
+   "quarterTurns": 2,
+   "foundationDepthMeters": "1"
+  },
+  {
+   "template": "T1",
+   "name": "HALL",
+   "owner": 2,
+   "origin": [318, 9, 311],
+   "quarterTurns": 0,
+   "foundationDepthMeters": "1"
+  }
+ ],
+ "earthworks": [
+  {
+   "material": 2,
+   "min": [305, 9, 298],
+   "max": [333, 10, 300]
+  },
+  {
+   "material": 2,
+   "min": [339, 9, 298],
+   "max": [374, 10, 300]
+  },
+  {
+   "material": 2,
+   "min": [305, 9, 365],
+   "max": [374, 10, 367]
+  },
+  {
+   "material": 2,
+   "min": [305, 9, 301],
+   "max": [307, 10, 364]
+  },
+  {
+   "material": 2,
+   "min": [372, 9, 301],
+   "max": [374, 10, 324]
+  },
+  {
+   "material": 2,
+   "min": [372, 9, 333],
+   "max": [374, 10, 364]
+  },
+  {
+   "material": 0,
+   "min": [301, 8, 294],
+   "max": [333, 8, 297]
+  },
+  {
+   "material": 0,
+   "min": [339, 8, 294],
+   "max": [378, 8, 297]
+  },
+  {
+   "material": 0,
+   "min": [301, 8, 368],
+   "max": [378, 8, 371]
+  },
+  {
+   "material": 0,
+   "min": [301, 8, 298],
+   "max": [304, 8, 367]
+  },
+  {
+   "material": 0,
+   "min": [375, 8, 298],
+   "max": [378, 8, 324]
+  },
+  {
+   "material": 0,
+   "min": [375, 8, 333],
+   "max": [378, 8, 367]
+  },
+  {
+   "material": 0,
+   "min": [302, 7, 295],
+   "max": [333, 7, 296]
+  },
+  {
+   "material": 0,
+   "min": [339, 7, 295],
+   "max": [377, 7, 296]
+  },
+  {
+   "material": 0,
+   "min": [302, 7, 369],
+   "max": [377, 7, 370]
+  },
+  {
+   "material": 0,
+   "min": [302, 7, 297],
+   "max": [303, 7, 368]
+  },
+  {
+   "material": 0,
+   "min": [376, 7, 297],
+   "max": [377, 7, 324]
+  },
+  {
+   "material": 0,
+   "min": [376, 7, 333],
+   "max": [377, 7, 368]
+  }
+ ],
+ "players": [
+  {
+   "id": 1,
+   "side": "attacker",
+   "stoneCubicMeters": "120",
+   "timberCubicMeters": "0",
+   "commander": "human",
+   "revealed": true
+  },
+  {
+   "id": 2,
+   "side": "defender",
+   "stoneCubicMeters": "200",
+   "timberCubicMeters": "20",
+   "commander": "siegeDefender",
+   "revealed": false
+  }
+ ],
+ "squads": [
+  {
+   "kind": "manAtArms",
+   "owner": 1,
+   "cells": [
+    [327, 9, 210],
+    [326, 9, 210],
+    [328, 9, 210],
+    [327, 9, 209],
+    [326, 9, 209],
+    [328, 9, 209]
+   ]
+  },
+  {
+   "kind": "manAtArms",
+   "owner": 1,
+   "cells": [
+    [331, 9, 210],
+    [330, 9, 210],
+    [332, 9, 210],
+    [331, 9, 209],
+    [330, 9, 209],
+    [332, 9, 209]
+   ]
+  },
+  {
+   "kind": "manAtArms",
+   "owner": 1,
+   "cells": [
+    [335, 9, 210],
+    [334, 9, 210],
+    [336, 9, 210],
+    [335, 9, 209],
+    [334, 9, 209],
+    [336, 9, 209]
+   ]
+  },
+  {
+   "kind": "manAtArms",
+   "owner": 1,
+   "cells": [
+    [339, 9, 210],
+    [338, 9, 210],
+    [340, 9, 210],
+    [339, 9, 209],
+    [338, 9, 209],
+    [340, 9, 209]
+   ]
+  },
+  {
+   "kind": "spearman",
+   "owner": 1,
+   "cells": [
+    [343, 9, 210],
+    [342, 9, 210],
+    [344, 9, 210],
+    [343, 9, 209],
+    [342, 9, 209],
+    [344, 9, 209]
+   ]
+  },
+  {
+   "kind": "spearman",
+   "owner": 1,
+   "cells": [
+    [347, 9, 210],
+    [346, 9, 210],
+    [348, 9, 210],
+    [347, 9, 209],
+    [346, 9, 209],
+    [348, 9, 209]
+   ]
+  },
+  {
+   "kind": "spearman",
+   "owner": 1,
+   "cells": [
+    [351, 9, 210],
+    [350, 9, 210],
+    [352, 9, 210],
+    [351, 9, 209],
+    [350, 9, 209],
+    [352, 9, 209]
+   ]
+  },
+  {
+   "kind": "archer",
+   "owner": 1,
+   "cells": [
+    [327, 9, 206],
+    [326, 9, 206],
+    [328, 9, 206],
+    [327, 9, 205],
+    [326, 9, 205],
+    [328, 9, 205]
+   ]
+  },
+  {
+   "kind": "archer",
+   "owner": 1,
+   "cells": [
+    [331, 9, 206],
+    [330, 9, 206],
+    [332, 9, 206],
+    [331, 9, 205],
+    [330, 9, 205],
+    [332, 9, 205]
+   ]
+  },
+  {
+   "kind": "archer",
+   "owner": 1,
+   "cells": [
+    [335, 9, 206],
+    [334, 9, 206],
+    [336, 9, 206],
+    [335, 9, 205],
+    [334, 9, 205],
+    [336, 9, 205]
+   ]
+  },
+  {
+   "kind": "sapper",
+   "owner": 1,
+   "cells": [
+    [339, 9, 206],
+    [338, 9, 206],
+    [340, 9, 206],
+    [339, 9, 205],
+    [338, 9, 205],
+    [340, 9, 205]
+   ]
+  },
+  {
+   "kind": "outrider",
+   "owner": 1,
+   "cells": [
+    [343, 9, 206],
+    [342, 9, 206],
+    [344, 9, 206]
+   ]
+  },
+  {
+   "kind": "outrider",
+   "owner": 1,
+   "cells": [
+    [347, 9, 206],
+    [346, 9, 206],
+    [348, 9, 206]
+   ]
+  },
+  {
+   "kind": "manAtArms",
+   "owner": 2,
+   "cells": [
+    [336, 9, 312],
+    [335, 9, 312],
+    [337, 9, 312],
+    [336, 9, 313],
+    [335, 9, 313],
+    [337, 9, 313]
+   ]
+  },
+  {
+   "kind": "outrider",
+   "owner": 2,
+   "cells": [
+    [340, 9, 312],
+    [339, 9, 312],
+    [341, 9, 312]
+   ]
+  },
+  {
+   "kind": "laborer",
+   "owner": 2,
+   "cells": [
+    [349, 9, 320]
+   ]
+  },
+  {
+   "kind": "laborer",
+   "owner": 2,
+   "cells": [
+    [350, 9, 320]
+   ]
+  },
+  {
+   "kind": "laborer",
+   "owner": 2,
+   "cells": [
+    [351, 9, 320]
+   ]
+  },
+  {
+   "kind": "laborer",
+   "owner": 2,
+   "cells": [
+    [352, 9, 320]
+   ]
+  },
+  {
+   "kind": "laborer",
+   "owner": 2,
+   "cells": [
+    [353, 9, 320]
+   ]
+  },
+  {
+   "kind": "laborer",
+   "owner": 2,
+   "cells": [
+    [354, 9, 320]
+   ]
+  }
+ ],
+ "engines": [
+  {
+   "kind": "trebuchet",
+   "owner": 1,
+   "cell": [332, 9, 196],
+   "quarterTurns": 3,
+   "state": "packed"
+  },
+  {
+   "kind": "ram",
+   "owner": 1,
+   "cell": [344, 9, 196],
+   "quarterTurns": 0,
+   "state": "packed"
+  }
+ ],
+ "garrisons": [
+  {
+   "kind": "archer",
+   "owner": 2,
+   "structure": "SW"
+  },
+  {
+   "kind": "archer",
+   "owner": 2,
+   "structure": "SE"
+  },
+  {
+   "kind": "archer",
+   "owner": 2,
+   "structure": "NW"
+  },
+  {
+   "kind": "archer",
+   "owner": 2,
+   "structure": "NE"
+  },
+  {
+   "kind": "archer",
+   "owner": 2,
+   "structure": "ST"
+  },
+  {
+   "kind": "archer",
+   "owner": 2,
+   "structure": "GH"
+  },
+  {
+   "kind": "archer",
+   "owner": 2,
+   "structure": "KEEP"
+  }
+ ],
+ "trial": {
+  "version": "voxel",
+  "attacker": 1,
+  "defender": 2,
+  "keep": "KEEP",
+  "timeLimitSeconds": "2400",
+  "holdSeconds": "120",
+  "ringMeters": "3",
+  "campMin": [325, 9, 192],
+  "campMax": [355, 9, 212],
+  "nearest": "S3",
+  "weak": "E3"
+ }
+}

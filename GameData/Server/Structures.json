@@ -1,0 +1,73 @@
+{
+ "note": "Each template's values as a structure at work (ADR-024, decision 7), baked by Tools/BakeContent.py --server into ServerData's STRC section, converted exactly as Rules.json's are: metres to voxels, whole. A template that names a critical part works while that share of the part's built voxels stands, in whole percent; one that names none has no threshold and always works. The garrison's capacity and its stand height, from which its arrows are loosed, and the vision of the bare and the garrisoned building, measured from its footprint, are M4's inputs 10 and 14 (GameDesign.md, M4's values). The hit points are the control's (ADR-028): first values, 900 for every template, the route table's nine shots at 100 a shot for a T3 (input 19), until M4-F5 calibrates each template on the voxel version. A cubic metre of repair restores the shot's structure damage over its crater in the template's material, 100 over stone's 2 voxels, 50, and 100 over timber's 7, floored to 14 (ADR-028, decision 4).",
+ "structures": [
+  {
+   "template": "T1",
+   "criticalThresholdPercent": "75",
+   "garrisonCapacity": "0",
+   "standHeightMeters": "0",
+   "visionMeters": "10",
+   "garrisonedVisionMeters": "10",
+   "controlHitPoints": "900",
+   "controlHitPointsPerCubicMeter": "14"
+  },
+  {
+   "template": "T2",
+   "criticalThresholdPercent": "90",
+   "garrisonCapacity": "6",
+   "standHeightMeters": "16",
+   "visionMeters": "10",
+   "garrisonedVisionMeters": "80",
+   "controlHitPoints": "900",
+   "controlHitPointsPerCubicMeter": "50"
+  },
+  {
+   "template": "T3",
+   "garrisonCapacity": "0",
+   "standHeightMeters": "0",
+   "visionMeters": "10",
+   "garrisonedVisionMeters": "10",
+   "controlHitPoints": "900",
+   "controlHitPointsPerCubicMeter": "50"
+  },
+  {
+   "template": "T4",
+   "criticalThresholdPercent": "75",
+   "garrisonCapacity": "6",
+   "standHeightMeters": "11",
+   "visionMeters": "10",
+   "garrisonedVisionMeters": "80",
+   "controlHitPoints": "900",
+   "controlHitPointsPerCubicMeter": "50"
+  },
+  {
+   "template": "T5",
+   "criticalThresholdPercent": "50",
+   "garrisonCapacity": "6",
+   "standHeightMeters": "11",
+   "visionMeters": "10",
+   "garrisonedVisionMeters": "80",
+   "controlHitPoints": "900",
+   "controlHitPointsPerCubicMeter": "50"
+  },
+  {
+   "template": "T6",
+   "garrisonCapacity": "0",
+   "standHeightMeters": "0",
+   "visionMeters": "10",
+   "garrisonedVisionMeters": "10",
+   "controlHitPoints": "900",
+   "controlHitPointsPerCubicMeter": "14"
+  },
+  {
+   "template": "T7",
+   "criticalThresholdPercent": "50",
+   "garrisonCapacity": "0",
+   "standHeightMeters": "0",
+   "visionMeters": "10",
+   "garrisonedVisionMeters": "10",
+   "controlHitPoints": "900",
+   "controlHitPointsPerCubicMeter": "14"
+  }
+ ]
+}

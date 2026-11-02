@@ -21,6 +21,7 @@ inline constexpr std::string_view SHOTS_KEY = "SHOTS";
 inline constexpr std::string_view SHOTS_VALUE = "{}";
 inline constexpr std::string_view BREACH_OBJECTIVE_TITLE = "BREACH W2";
 inline constexpr std::string_view BREACH_OBJECTIVE_DETAIL = "OPEN IT TO FOOT";
+inline constexpr std::string_view SIEGE_OBJECTIVE_TITLE = "TAKE THE KEEP"; // the Siege castle's (M4-B4; Hud.md §10)
 inline constexpr std::string_view TURN_LEFT = "↺";
 inline constexpr std::string_view TURN_RIGHT = "↻";
 inline constexpr std::string_view ZOOM_OUT = "-";
@@ -98,6 +99,7 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      SHOTS_VALUE,
                                                                      BREACH_OBJECTIVE_TITLE,
                                                                      BREACH_OBJECTIVE_DETAIL,
+                                                                     SIEGE_OBJECTIVE_TITLE,
                                                                      TURN_LEFT,
                                                                      TURN_RIGHT,
                                                                      ZOOM_OUT,

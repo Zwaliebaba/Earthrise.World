@@ -41,11 +41,25 @@ void Fill(Simulation::World& _world, Protocol::VoxelPosition _low, Protocol::Vox
   }
 }
 
+/// The kind each class's speed is UNIT's for (ADR-023, decision 1): a spearman, an outrider or a ram.
+Simulation::UnitKind KindOf(Simulation::NavigationClass _class)
+{
+  switch (_class)
+  {
+  case Simulation::NavigationClass::Cavalry:
+    return Simulation::UnitKind::Outrider;
+  case Simulation::NavigationClass::Machines:
+    return Simulation::UnitKind::Ram;
+  default:
+    return Simulation::UnitKind::Spearman;
+  }
+}
+
 /// A squad, foot unless _class says otherwise, standing in _cells, the lead first, ordered to _to.
 Protocol::EntityId Order(Simulation::World& _world, std::span<const Protocol::VoxelPosition> _cells, Protocol::VoxelPosition _to,
                          Simulation::NavigationClass _class = Simulation::NavigationClass::Foot)
 {
-  const Protocol::EntityId squad = _world.AddSquad(PLAYER, _class, _cells);
+  const Protocol::EntityId squad = _world.AddSquad(PLAYER, _class, _cells, KindOf(_class));
   Core::ByteWriter writer;
   Protocol::Encode(Protocol::MoveSquad{.squad = squad, .goalVoxels = _to}, writer);
   _world.Submit(PLAYER, writer.Bytes());

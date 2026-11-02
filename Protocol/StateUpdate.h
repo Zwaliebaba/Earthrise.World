@@ -39,6 +39,7 @@ struct EngineView
   VoxelPosition cellVoxels;
   std::uint32_t quarterTurns;
   std::uint32_t reloadTicks; // 0 when loaded
+  EngineState state;         // a ram stays Packed
 
   friend bool operator==(const EngineView&, const EngineView&) = default;
 };
@@ -51,6 +52,7 @@ struct SquadView
   bool hasGoal;
   VoxelPosition goalVoxels;
   bool shortOfGoal;
+  EntityId garrisonedIn; // the building it is in, or NO_ENTITY; its units are then in no cell and not in the update
 
   friend bool operator==(const SquadView&, const SquadView&) = default;
 };
@@ -74,6 +76,17 @@ struct ShotView
   FixedPosition position;
 
   friend bool operator==(const ShotView&, const ShotView&) = default;
+};
+
+/// A player of the match and the stockpiles they spend (MvpPlan-M4.md, Contracts).
+struct PlayerView
+{
+  std::uint8_t player;
+  Side side;
+  std::int32_t stoneHundredthsCubicMeters; // 0 for other players
+  std::int32_t timberHundredthsCubicMeters;
+
+  friend bool operator==(const PlayerView&, const PlayerView&) = default;
 };
 
 /// A collapse in progress, from its first warning tick to the tick its fall ends.
@@ -110,7 +123,8 @@ struct StateUpdate
   std::vector<UnitView> units;
   std::vector<ShotView> shots;
   std::vector<CollapseView> collapses;
-  std::vector<ShotHitView> hits; // the tick's, in shot-id order
+  std::vector<ShotHitView> hits;   // the tick's, in shot-id order
+  std::vector<PlayerView> players; // in player order
 
   friend bool operator==(const StateUpdate&, const StateUpdate&) = default;
 };

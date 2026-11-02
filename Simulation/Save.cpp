@@ -14,7 +14,6 @@ namespace
 {
 
 constexpr std::array<std::byte, 4> SAVE_MAGIC = {std::byte{'E'}, std::byte{'R'}, std::byte{'S'}, std::byte{'V'}};
-constexpr std::uint16_t RECORD_VERSION = 1;
 
 [[noreturn]] void Refuse(const std::string& _check)
 {
@@ -128,6 +127,7 @@ void WriteRecord(Core::ByteWriter& _writer, const Squad& _squad)
   {
     _writer.WriteI64(cell);
   }
+  _writer.WriteU64(_squad.garrisonedIn);
 }
 
 Squad ReadSquad(Core::ByteReader& _reader)
@@ -140,7 +140,8 @@ Squad ReadSquad(Core::ByteReader& _reader)
               .goalVoxels = ReadPosition(_reader),
               .path = {},
               .shortOfGoal = false,
-              .trail = {}};
+              .trail = {},
+              .garrisonedIn = Protocol::NO_ENTITY};
   const std::uint32_t units = _reader.ReadU32();
   for (std::uint32_t number = 0; number < units; ++number)
   {
@@ -157,6 +158,7 @@ Squad ReadSquad(Core::ByteReader& _reader)
   {
     squad.trail.push_back(_reader.ReadI64());
   }
+  squad.garrisonedIn = _reader.ReadU64();
   return squad;
 }
 
@@ -183,7 +185,7 @@ Unit ReadUnit(Core::ByteReader& _reader)
           .cellVoxels = ReadPosition(_reader),
           .trailStep = _reader.ReadU32(),
           .stepEffort = _reader.ReadI64(),
-          .kind = ReadEnum(_reader, UnitKind::Sapper, "kind of unit")};
+          .kind = ReadEnum(_reader, UnitKind::Trebuchet, "kind of unit")};
 }
 
 void WriteRecord(Core::ByteWriter& _writer, const SiegeEngine& _engine)
@@ -195,17 +197,19 @@ void WriteRecord(Core::ByteWriter& _writer, const SiegeEngine& _engine)
   WritePosition(_writer, _engine.cellVoxels);
   _writer.WriteU32(_engine.reloadTicks);
   _writer.WriteU8(static_cast<std::uint8_t>(_engine.quarterTurns));
+  _writer.WriteU8(static_cast<std::uint8_t>(_engine.state));
 }
 
 SiegeEngine ReadSiegeEngine(Core::ByteReader& _reader)
 {
   return {.id = _reader.ReadU64(),
           .owner = _reader.ReadU8(),
-          .kind = ReadEnum(_reader, EngineKind::Trebuchet, "kind of engine"),
+          .kind = ReadEnum(_reader, EngineKind::Ram, "kind of engine"),
           .position = ReadFixedPosition(_reader),
           .cellVoxels = ReadPosition(_reader),
           .reloadTicks = _reader.ReadU32(),
-          .quarterTurns = ReadQuarterTurns(_reader)};
+          .quarterTurns = ReadQuarterTurns(_reader),
+          .state = ReadEnum(_reader, EngineState::Packing, "engine state")};
 }
 
 void WriteFixed(Core::ByteWriter& _writer, Core::Fixed _value)
@@ -362,12 +366,65 @@ template <typename Kind> void WriteEntity(Core::ByteWriter& _writer, SaveEntityT
   Core::ByteWriter record;
   WriteRecord(record, _entity);
   _writer.WriteU16(static_cast<std::uint16_t>(_tag));
-  _writer.WriteU16(RECORD_VERSION);
+  _writer.WriteU16(RecordVersion(_tag));
   _writer.WriteU32(static_cast<std::uint32_t>(record.Bytes().size()));
   _writer.WriteBytes(record.Bytes());
 }
 
 // The sections a save and the state hash share.
+
+void WriteMatch(Core::ByteWriter& _writer, const World& _world)
+{
+  _writer.WriteU32(static_cast<std::uint32_t>(_world.Players().size()));
+  for (const auto& [id, player] : _world.Players())
+  {
+    _writer.WriteU8(player.id);
+    _writer.WriteU8(static_cast<std::uint8_t>(player.side));
+    _writer.WriteI32(player.stoneHundredthsCubicMeters);
+    _writer.WriteI32(player.timberHundredthsCubicMeters);
+  }
+  const std::optional<TrialRules>& trial = _world.Trial();
+  _writer.WriteU8(trial.has_value() ? std::uint8_t{1} : std::uint8_t{0});
+  if (trial.has_value())
+  {
+    _writer.WriteU8(static_cast<std::uint8_t>(trial->version));
+    _writer.WriteU8(trial->attacker);
+    _writer.WriteU8(trial->defender);
+    _writer.WriteU64(trial->keep);
+    _writer.WriteU32(trial->timeLimitTicks);
+    _writer.WriteU32(trial->holdTicks);
+    _writer.WriteI32(trial->ringCells);
+    WritePosition(_writer, trial->campMinVoxels);
+    WritePosition(_writer, trial->campMaxVoxels);
+  }
+}
+
+void ReadMatch(Core::ByteReader& _reader, World& _world)
+{
+  const std::uint32_t players = _reader.ReadU32();
+  for (std::uint32_t number = 0; number < players; ++number)
+  {
+    const std::uint8_t id = _reader.ReadU8();
+    const Protocol::Side side = ReadEnum(_reader, Protocol::Side::Defender, "side");
+    const std::int32_t stone = _reader.ReadI32();
+    _world.AddPlayer({.id = id, .side = side, .stoneHundredthsCubicMeters = stone, .timberHundredthsCubicMeters = _reader.ReadI32()});
+  }
+  if (ReadBool(_reader))
+  {
+    TrialRules trial{.version = ReadEnum(_reader, Protocol::TrialVersion::Control, "trial version"),
+                     .attacker = _reader.ReadU8(),
+                     .defender = _reader.ReadU8(),
+                     .keep = _reader.ReadU64(),
+                     .timeLimitTicks = _reader.ReadU32(),
+                     .holdTicks = _reader.ReadU32(),
+                     .ringCells = _reader.ReadI32(),
+                     .campMinVoxels = {},
+                     .campMaxVoxels = {}};
+    trial.campMinVoxels = ReadPosition(_reader);
+    trial.campMaxVoxels = ReadPosition(_reader);
+    _world.SetTrial(trial);
+  }
+}
 
 void WriteEntities(Core::ByteWriter& _writer, const World& _world)
 {
@@ -462,6 +519,18 @@ void WritePendingWork(Core::ByteWriter& _writer, std::span<const SubmittedComman
 
 } // namespace
 
+std::uint16_t RecordVersion(SaveEntityTag _tag) noexcept
+{
+  switch (_tag)
+  {
+  case SaveEntityTag::Squad:       // M4-B4: the building it is garrisoned in
+  case SaveEntityTag::SiegeEngine: // M4-B4: its state
+    return 2;
+  default:
+    return 1;
+  }
+}
+
 std::vector<std::byte> WriteSave(const World& _world)
 {
   const World::Desc& desc = _world.m_desc;
@@ -476,6 +545,7 @@ std::vector<std::byte> WriteSave(const World& _world)
   writer.WriteU64(desc.matchSeed);
   writer.WriteU32(_world.m_tick);
   writer.WriteU64(_world.m_nextEntityId);
+  WriteMatch(writer, _world);
 
   // The edited chunks that still differ from their base, in rising key order.
   std::vector<std::pair<std::uint64_t, std::vector<std::byte>>> chunks;
@@ -541,6 +611,7 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
     World world(desc);
     world.m_tick = reader.ReadU32();
     world.m_nextEntityId = reader.ReadU64();
+    ReadMatch(reader, world);
 
     const std::uint32_t chunks = reader.ReadU32();
     for (std::uint32_t number = 0; number < chunks; ++number)
@@ -561,10 +632,11 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
       const std::uint16_t tag = reader.ReadU16();
       const std::uint16_t recordVersion = reader.ReadU16();
       const std::uint32_t length = reader.ReadU32();
-      if (recordVersion != RECORD_VERSION)
+      if (tag >= static_cast<std::uint16_t>(SaveEntityTag::Squad) && tag <= static_cast<std::uint16_t>(SaveEntityTag::Structure) &&
+          recordVersion != RecordVersion(static_cast<SaveEntityTag>(tag)))
       {
         Refuse("an entity's record is at version " + std::to_string(recordVersion) + ", and this build reads " +
-               std::to_string(RECORD_VERSION));
+               std::to_string(RecordVersion(static_cast<SaveEntityTag>(tag))));
       }
       Core::ByteReader record(reader.ReadBytes(length));
       switch (static_cast<SaveEntityTag>(tag))
@@ -659,6 +731,7 @@ std::uint64_t StateHash(const World& _world)
   Core::ByteWriter writer;
   writer.WriteU32(_world.m_tick);
   writer.WriteU64(_world.m_nextEntityId);
+  WriteMatch(writer, _world);
   WriteEntities(writer, _world);
   WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits(), _world.m_slumpQueue,
                    _world.m_searches);

@@ -153,5 +153,20 @@
     <ClCompile Include="BreachLab.cpp">
       <Filter>World</Filter>
     </ClCompile>
+    <ClInclude Include="UnitStats.h">
+      <Filter>Data</Filter>
+    </ClInclude>
+    <ClCompile Include="UnitStats.cpp">
+      <Filter>Data</Filter>
+    </ClCompile>
+    <ClInclude Include="TemplateRules.h">
+      <Filter>Data</Filter>
+    </ClInclude>
+    <ClInclude Include="Scenario.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="Scenario.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

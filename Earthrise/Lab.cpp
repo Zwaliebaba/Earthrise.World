@@ -89,6 +89,14 @@ Protocol::VoxelPosition Lab::Goal() const noexcept
   return m_setup.goalVoxels;
 }
 
+Protocol::VoxelPosition Lab::CameraTarget() const noexcept
+{
+  // W2, the target, from the default azimuth and view height (GameDesign.md, M3's values, item 14).
+  return {.xVoxels = m_setup.goalVoxels.xVoxels,
+          .yVoxels = Simulation::BreachRun::GROUND_VOXELS,
+          .zVoxels = Simulation::BreachRun::WALL_SOUTH_VOXELS};
+}
+
 bool Lab::Tick(Client::Session& _session, double _seconds)
 {
   if (Paused())
@@ -149,7 +157,7 @@ bool Lab::Tick(Client::Session& _session, double _seconds)
   return true;
 }
 
-void Lab::Frame(const ScenarioInput& _input, Client::Session& /* _session */)
+void Lab::Frame(const RunInput& _input, Client::Session& /* _session */)
 {
   switch (m_model.Phase())
   {

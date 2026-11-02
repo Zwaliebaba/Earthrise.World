@@ -61,6 +61,9 @@ struct Squad
   /// the cells of the figures ahead of it, to the end of its path. Each figure stops as many cells
   /// short of the end as it stands behind the first.
   std::vector<PathSearch::CellIndex> trail;
+  /// The building it is garrisoned in, or NO_ENTITY (ADR-024, decision 5): its units then stand in no
+  /// cell, move and settle not at all, and are left out of the state update.
+  Protocol::EntityId garrisonedIn;
 };
 
 /// One figure of a squad.
@@ -78,6 +81,7 @@ struct Unit
 };
 
 using Protocol::EngineKind;
+using Protocol::EngineState;
 using Protocol::FixedPosition;
 using Protocol::UnitKind;
 
@@ -91,6 +95,31 @@ struct SiegeEngine
   Protocol::VoxelPosition cellVoxels;
   std::uint32_t reloadTicks;  // until it can fire again; 0 when loaded
   std::uint32_t quarterTurns; // which way its model faces: quarter turns clockwise seen from above, as Engine::VoxelPass::Batch counts them
+  EngineState state;          // a ram stays Packed (MvpPlan.md, M4, input 17)
+};
+
+/// A player of the match: their side and their stockpiles, in hundredths of a cubic metre (MvpPlan-M4.md,
+/// Contracts).
+struct Player
+{
+  std::uint8_t id;
+  Protocol::Side side;
+  std::int32_t stoneHundredthsCubicMeters;
+  std::int32_t timberHundredthsCubicMeters;
+};
+
+/// The Siege trial's rules, from a scenario (ADR-026, decision 4).
+struct TrialRules
+{
+  Protocol::TrialVersion version;
+  std::uint8_t attacker;
+  std::uint8_t defender;
+  Protocol::EntityId keep;
+  std::uint32_t timeLimitTicks;
+  std::uint32_t holdTicks;
+  std::int32_t ringCells;                // the keep's foot: cells within this many of its footprint, outside it
+  Protocol::VoxelPosition campMinVoxels; // where "reachable from the camp" starts (ADR-026, decision 5)
+  Protocol::VoxelPosition campMaxVoxels;
 };
 
 /// A template placed in the world (ADR-005, decision 10, without the built mask, which M4's
@@ -267,17 +296,32 @@ public:
   Protocol::EntityId AddSquad(std::uint8_t _owner, NavigationClass _class, std::span<const Protocol::VoxelPosition> _cellsVoxels,
                               UnitKind _kind = UnitKind::Spearman);
 
-  /// Places a siege engine of _owner's standing in _cellVoxels, facing _quarterTurns, for scenarios
-  /// and tests.
+  /// Places a siege engine of _owner's standing in _cellVoxels, facing _quarterTurns, in _state, for
+  /// scenarios and tests. M2's and M3's engines are deployed.
   Protocol::EntityId AddSiegeEngine(std::uint8_t _owner, EngineKind _kind, Protocol::VoxelPosition _cellVoxels,
-                                    std::uint32_t _quarterTurns = 0);
+                                    std::uint32_t _quarterTurns = 0, EngineState _state = EngineState::Deployed);
 
   /// Stamps the server data's template _templateId with the minimum corner of its footprint at
   /// _originVoxels, turned _quarterTurns clockwise seen from above, by edits between ticks, as a
-  /// scenario places one, and records it as a structure named _name. Its voxels are searched in the
-  /// next step 5, as every edit is. Throws std::invalid_argument for a template the data lacks.
+  /// scenario places one, and records it as a structure named _name. Its foundation course, the
+  /// building stone of the template's bottom layer, is repeated down _foundationDepthVoxels below its
+  /// base (ADR-026, decision 1). Its voxels are searched in the next step 5, as every edit is. Throws
+  /// std::invalid_argument for a template the data lacks.
   Protocol::EntityId AddStructure(std::uint8_t _owner, std::string_view _templateId, Protocol::VoxelPosition _originVoxels,
-                                  std::uint32_t _quarterTurns, std::string_view _name);
+                                  std::uint32_t _quarterTurns, std::string_view _name, std::int32_t _foundationDepthVoxels = 0);
+
+  /// Adds a player of the match, for scenarios before tick 0. Saved.
+  void AddPlayer(const Player& _player);
+  [[nodiscard]] const std::map<std::uint8_t, Player>& Players() const noexcept;
+
+  /// Puts a squad in a building, for scenarios and tests before tick 0 (ADR-024, decision 5): its units
+  /// leave their cells for the building's origin, and move and settle no more. Throws
+  /// std::invalid_argument for a squad or a structure the world does not hold.
+  void PlaceInGarrison(Protocol::EntityId _squad, Protocol::EntityId _structure);
+
+  /// The Siege trial's rules, for scenarios before tick 0 (ADR-026, decision 4). Saved.
+  void SetTrial(const TrialRules& _rules);
+  [[nodiscard]] const std::optional<TrialRules>& Trial() const noexcept;
 
   [[nodiscard]] const std::map<Protocol::EntityId, Structure>& Structures() const noexcept;
 
@@ -333,6 +377,8 @@ private:
   [[nodiscard]] Protocol::CollapseView ViewOf(const Collapse& _collapse) const;
   /// The structure whose box holds _voxel, the lowest id where boxes overlap, or NO_ENTITY.
   [[nodiscard]] Protocol::EntityId StructureHolding(Protocol::VoxelPosition _voxel) const;
+  /// Whether _unit's squad is in a building.
+  [[nodiscard]] bool Garrisoned(const Unit& _unit) const;
 
   /// Asks for a squad's search from where its first unit stands, or the cell it is stepping into, to
   /// its goal, replacing any it has.
@@ -365,6 +411,8 @@ private:
   std::map<Protocol::EntityId, Shot> m_shots;
   std::map<Protocol::EntityId, Collapse> m_collapses;
   std::map<Protocol::EntityId, Structure> m_structures;
+  std::map<std::uint8_t, Player> m_players;
+  std::optional<TrialRules> m_trial;
   // The collapses whose fall ended this tick, as their last view: step 11 publishes them once more,
   // so the client sees the last of their landing land. Not saved: the next tick reads nothing of it.
   std::vector<Protocol::CollapseView> m_endedCollapses;

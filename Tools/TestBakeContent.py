@@ -77,6 +77,44 @@ class ServerFile:
       templates.append((*texts, (width, height, depth), edge, stone, timber, indices, parts))
     return templates
 
+  def Units(self):
+    """[{kind, navigationClass, squadFigures, attackType, hitPoints, armor, attack, reloadTicks, rangeVoxels, bonus,
+    visionVoxels, speedMetersPerTick, digCubicMetersPerTick}] in the file's order, 76 bytes a record."""
+    data, units = self.sections["UNIT"], []
+    (count,) = struct.unpack_from("<I", data, 0)
+    self.unitBytes = len(data) - 4
+    for number in range(count):
+      at = 4 + 76 * number
+      kind, navigation, figures, attackType = struct.unpack_from("<4B", data, at)
+      hitPoints, melee, pierce, crush, attack = struct.unpack_from("<5i", data, at + 4)
+      reload, reach = struct.unpack_from("<Ii", data, at + 24)
+      bonus = list(struct.unpack_from("<8i", data, at + 32))
+      vision, speed, dig = struct.unpack_from("<3i", data, at + 64)
+      units.append({"kind": kind, "navigationClass": navigation, "squadFigures": figures, "attackType": attackType,
+                    "hitPoints": hitPoints, "armor": (melee, pierce, crush), "attack": attack, "reloadTicks": reload,
+                    "rangeVoxels": reach, "bonus": bonus, "visionVoxels": vision, "speedMetersPerTick": speed,
+                    "digCubicMetersPerTick": dig})
+    return units
+
+  def Structures(self):
+    """{template: (threshold, capacity, stand height, vision, garrisoned vision, hit points, hit points a m3)}."""
+    data, at, structures = self.sections["STRC"], 4, {}
+    for _ in range(struct.unpack_from("<I", data, 0)[0]):
+      (length,) = struct.unpack_from("<I", data, at)
+      template = data[at + 4 : at + 4 + length].decode("utf-8")
+      at += 4 + length
+      structures[template] = struct.unpack_from("<2B", data, at) + struct.unpack_from("<5i", data, at + 2)
+      at += 22
+    self.structuresEndExactly = at == len(data)
+    return structures
+
+  def ScenarioIds(self):
+    """The scenarios' ids, in the file's order: each record begins with its id."""
+    data = self.sections["SCEN"]
+    (count,) = struct.unpack_from("<I", data, 0)
+    (length,) = struct.unpack_from("<I", data, 4)
+    return count, data[8 : 8 + length].decode("utf-8")
+
   def Rules(self):
     data, at, rules = self.sections["RULE"], 4, {}
     for _ in range(struct.unpack_from("<I", data, 0)[0]):
@@ -117,8 +155,8 @@ class ServerBakeTests(unittest.TestCase):
     self.assertEqual(clientHash, self.file.sharedHash)
 
   def test_the_sections_come_in_order_at_version_one(self):
-    self.assertEqual(["MATL", "TMPL", "RULE"], list(self.file.sections))
-    self.assertEqual({"MATL": 1, "TMPL": 1, "RULE": 1}, self.file.versions)
+    self.assertEqual(["MATL", "TMPL", "RULE", "UNIT", "STRC", "SCEN"], list(self.file.sections))
+    self.assertEqual({"MATL": 1, "TMPL": 1, "RULE": 1, "UNIT": 1, "STRC": 1, "SCEN": 1}, self.file.versions)
     self.assertEqual(256 * 6, len(self.file.sections["MATL"]))
 
   def test_a_second_bake_leaves_the_file_untouched(self):
@@ -198,12 +236,76 @@ class ServerBakeTests(unittest.TestCase):
   def test_a_walking_speed_converts_to_fixed_point_a_tick(self):
     rules = self.file.Rules()
     self.assertEqual(4587, rules["footSpeedMetersPerTick"])
-    self.assertEqual(9175, rules["cavalrySpeedMetersPerTick"])
-    self.assertEqual(2293, rules["machinesSpeedMetersPerTick"])
+    self.assertNotIn("cavalrySpeedMetersPerTick", rules)  # the kinds' own speeds are UNIT's (ADR-023, decision 1)
+    self.assertNotIn("machinesSpeedMetersPerTick", rules)
     self.assertEqual(20, rules["warningBaseTicks"])
     self.assertEqual(1607, rules["gravityMetersPerTickSquared"])
     self.assertEqual(16, rules["queryWorkPerTick"])
     self.assertEqual(sorted(rules), list(rules))
+
+  def test_m4s_rules_convert_into_the_simulations_units(self):
+    rules = self.file.Rules()
+    self.assertEqual(150, rules["shotStoneHundredthsCubicMeters"])  # 1.5 m3, input 5
+    self.assertEqual(131072, rules["arrowSpeedMetersPerTick"])  # 40 m/s, 2 m a tick
+    self.assertEqual(150, rules["arrowLaunchHeightCentimeters"])
+    self.assertEqual(262, rules["repairCubicMetersPerTick"])  # 0.08 m3/s, floored once
+    self.assertEqual(100, rules["garrisonHealTicksPerHitPoint"])
+    self.assertEqual(300, rules["ramBlowTicks"])
+    self.assertEqual(10, rules["dropCrushDamagePerVoxel"])
+    self.assertEqual(10, rules["commanderDecisionTicks"])
+
+  # ── UNIT and STRC ───────────────────────────────────────────────────────────────────────────────
+
+  def test_every_unit_kind_bakes_once_in_kind_order(self):
+    units = self.file.Units()
+    self.assertEqual(list(range(8)), [unit["kind"] for unit in units])
+    self.assertEqual(8 * 76, self.file.unitBytes)
+    archer = units[2]
+    self.assertEqual({"navigationClass": 0, "squadFigures": 6, "attackType": 1, "hitPoints": 30, "armor": (0, 0, 0), "attack": 4,
+                      "reloadTicks": 40, "rangeVoxels": 30, "visionVoxels": 32, "speedMetersPerTick": 4587},
+                     {key: archer[key] for key in ("navigationClass", "squadFigures", "attackType", "hitPoints", "armor", "attack",
+                                                   "reloadTicks", "rangeVoxels", "visionVoxels", "speedMetersPerTick")})
+    outrider = units[3]
+    self.assertEqual([4, 0, 6, 0, 0, 0, 20, 20], outrider["bonus"])
+    self.assertEqual((1, 9175), (outrider["navigationClass"], outrider["speedMetersPerTick"]))
+    self.assertEqual(655, units[5]["digCubicMetersPerTick"])  # sappers, 0.2 m3/s
+    self.assertEqual((2, 300, 20), (units[6]["navigationClass"], units[6]["hitPoints"], units[6]["armor"][1]))
+
+  def test_every_structure_bakes_in_template_order(self):
+    structures = self.file.Structures()
+    self.assertTrue(self.file.structuresEndExactly)
+    self.assertEqual([f"T{n}" for n in range(1, 8)], list(structures))
+    self.assertEqual((50, 6, 11, 10, 80, 900, 50), structures["T5"])
+    self.assertEqual((90, 6, 16, 10, 80, 900, 50), structures["T2"])
+    self.assertEqual(0, structures["T3"][0])  # T3 names no critical part
+
+  # ── SCEN ────────────────────────────────────────────────────────────────────────────────────────
+
+  def test_the_siege_castle_bakes_as_the_scenarios(self):
+    count, first = self.file.ScenarioIds()
+    self.assertEqual("Siege", first)
+    self.assertEqual(2, count)  # Siege and its mirror, which the bake writes whole (M4-B6)
+
+  def test_a_scenario_round_trips_through_its_encoding(self):
+    report = CheckAssets.Report(ROOT)
+    palette, _ = CheckAssets.ReadPalette(report, ROOT)
+    rules = CheckAssets.ReadRules(report, ROOT)
+    units = CheckAssets.ReadUnits(report, ROOT)
+    structures = CheckAssets.ReadStructures(report, ROOT, CheckAssets.TemplateCriticalParts(report, ROOT))
+    scenarios = CheckAssets.ReadScenarios(report, ROOT, palette, units, structures, rules)
+    self.assertEqual([], report.problems)
+    self.assertEqual(self.file.sections["SCEN"], BakeContent.ServerScenarios(scenarios))
+    siege = scenarios[0]
+    self.assertEqual((240, 182, 439, 381, 9), siege["site"])
+    self.assertEqual(4, next(s for s in siege["structures"] if s["name"] == "E3")["foundationDepthVoxels"])
+    self.assertEqual({"version": 0, "attacker": 1, "defender": 2, "keep": "KEEP", "timeLimitTicks": 48000, "holdTicks": 2400,
+                      "ringCells": 3, "campMin": (325, 9, 192), "campMax": (355, 9, 212), "nearest": "S3", "weak": "E3"}, siege["trial"])
+    self.assertEqual(12000, siege["players"][0]["stone"])
+    mirror = scenarios[1]
+    self.assertEqual("SiegeMirror", mirror["id"])
+    self.assertEqual(("S2", "W3"), (mirror["trial"]["nearest"], mirror["trial"]["weak"]))
+    self.assertEqual(4, next(s for s in mirror["structures"] if s["name"] == "W3")["foundationDepthVoxels"])
+    self.assertEqual(siege["seeds"], mirror["seeds"])
 
   def test_a_span_that_is_not_a_whole_number_of_voxels_fails(self):
     with tempfile.TemporaryDirectory() as folder:
@@ -307,11 +409,11 @@ class FontAndDebrisBakeTests(unittest.TestCase):
     self.assertIn("inline constexpr std::array<std::uint16_t, 7> GLYPH_0031_ROWS = {4, 6, 4, 4, 4, 4, 14};", self.font)
     self.assertIn("{.codePoint = 0x0031U, .widthPixels = 5, .heightPixels = 7, .topRow = 1, .advancePixels = 6, .icon = false, "
                   ".rows = GLYPH_0031_ROWS},", self.font)
-    self.assertIn("inline constexpr std::array<Glyph, 127> GLYPHS = {{", self.font)
+    self.assertIn("inline constexpr std::array<Glyph, 131> GLYPHS = {{", self.font)
 
   def test_the_glyphs_come_in_ascending_code_point(self):
     codes = [int(code, 16) for code in re.findall(r"\.codePoint = 0x([0-9A-F]+)U", self.font)]
-    self.assertEqual(127, len(codes))
+    self.assertEqual(131, len(codes))
     self.assertEqual(sorted(codes), codes)
 
   def test_rock_rubble_bakes_three_stones_tinted_its_own_index(self):
@@ -336,6 +438,21 @@ class FontAndDebrisBakeTests(unittest.TestCase):
 
 class HandWrittenEncodingTests(unittest.TestCase):
   """The encoding against bytes written out by hand, so the reader in Simulation has a second statement of it."""
+
+  def test_a_unit_encodes_in_76_bytes(self):
+    unit = {"kind": 3, "navigationClass": 1, "squadFigures": 3, "attackType": 0, "hitPoints": 60, "armorMelee": 0, "armorPierce": 2,
+            "armorCrush": 0, "attack": 6, "reloadTicks": 40, "rangeVoxels": 0, "bonus": [4, 0, 6, 0, 0, 0, 20, 20], "visionVoxels": 16,
+            "speedMetersPerTick": 9175, "digCubicMetersPerTick": 0}
+    expected = (struct.pack("<I", 1) + bytes([3, 1, 3, 0]) + struct.pack("<5i", 60, 0, 2, 0, 6) + struct.pack("<Ii", 40, 0)
+                + struct.pack("<8i", 4, 0, 6, 0, 0, 0, 20, 20) + struct.pack("<3i", 16, 9175, 0))
+    self.assertEqual(expected, BakeContent.ServerUnits([unit]))
+    self.assertEqual(4 + 76, len(expected))
+
+  def test_a_structure_encodes_after_its_template_id(self):
+    structure = {"template": "T4", "criticalThresholdPercent": 75, "garrisonCapacity": 6, "standHeightVoxels": 11, "visionVoxels": 10,
+                 "garrisonedVisionVoxels": 80, "controlHitPoints": 900, "controlHitPointsPerCubicMeter": 50}
+    expected = struct.pack("<I", 1) + struct.pack("<I", 2) + b"T4" + bytes([75, 6]) + struct.pack("<5i", 11, 10, 80, 900, 50)
+    self.assertEqual(expected, BakeContent.ServerStructures([structure]))
 
   def test_rules_encode_in_key_order(self):
     expected = (struct.pack("<I", 2) + struct.pack("<I", 22) + b"footSpeedMetersPerTick" + struct.pack("<q", 4587)

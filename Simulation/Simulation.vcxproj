@@ -78,6 +78,11 @@
     <ClCompile Include="Integrity.cpp" />
     <ClInclude Include="BreachLab.h" />
     <ClCompile Include="BreachLab.cpp" />
+    <ClInclude Include="UnitStats.h" />
+    <ClCompile Include="UnitStats.cpp" />
+    <ClInclude Include="TemplateRules.h" />
+    <ClInclude Include="Scenario.h" />
+    <ClCompile Include="Scenario.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
@@ -89,11 +94,14 @@
   </ItemGroup>
   <!-- The server half of the bake (ADR-016, decision 5): GameData's server sources to <outputdir>\ServerData\ServerData.bin,
        beside every executable and test DLL, since every consumer of the server's data references this project. The
-       inputs are everything the server half reads: the palette, the templates, the rules, the script and the modules
+       inputs are everything the server half reads: the palette, the templates, the rules, the units, the structures, the scenarios, the script and the modules
        it imports, and nothing under GameData\Client. It writes the file only when its bytes change. -->
   <ItemGroup>
     <BakeInput Include="$(SolutionDir)GameData\Server\Palette.json" />
     <BakeInput Include="$(SolutionDir)GameData\Server\Rules.json" />
+    <BakeInput Include="$(SolutionDir)GameData\Server\Units.json" />
+    <BakeInput Include="$(SolutionDir)GameData\Server\Structures.json" />
+    <BakeInput Include="$(SolutionDir)GameData\Server\Scenarios\*.json" />
     <BakeInput Include="$(SolutionDir)GameData\Server\Templates\*.json" />
     <BakeInput Include="$(SolutionDir)Tools\BakeContent.py" />
     <BakeInput Include="$(SolutionDir)Tools\CheckAssets.py" />

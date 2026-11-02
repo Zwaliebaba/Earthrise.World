@@ -69,14 +69,62 @@ struct Rules
   std::int32_t cavalryFordDepthVoxels;
   std::int32_t cavalryRubbleFactor;
   std::int32_t cavalryFordFactor;
-  Core::Fixed cavalrySpeedMetersPerTick; // the owner's, after M2's report: twice foot's
   std::int32_t machinesClimbRunCells;
   std::int32_t machinesHeadroomVoxels;
   std::int32_t machinesWidthVoxels;
   std::int32_t machinesFordDepthVoxels;
   std::int32_t machinesRubbleFactor;
   std::int32_t machinesFordFactor;
-  Core::Fixed machinesSpeedMetersPerTick; // the owner's, after M2's report: half foot's
+  // Each kind's own speed is UNIT's (ADR-023, decision 1): footSpeedMetersPerTick, above, times the collapse's warning.
+
+  // M4's values (GameDesign.md, M4's values), by item. A shot's price in stone (5; ADR-023, decision 10).
+  std::int32_t shotStoneHundredthsCubicMeters;
+  // Arrows and elevation (7; ADR-023, decision 5): flown straight from the launch height above the shooter's cell to the
+  // aim height above the target's, hitting a target within the reach of the aim point; a step of height adds a band of
+  // range, at most the steps' maximum, and ELEVATION_STEP_PERCENT of damage (UnitStats.h).
+  Core::Fixed arrowSpeedMetersPerTick;
+  std::int32_t arrowLaunchHeightCentimeters;
+  std::int32_t arrowAimHeightVoxels;
+  std::int32_t arrowHitReachCells;
+  std::int32_t elevationStepVoxels;
+  std::int32_t elevationMaxSteps;
+  std::int32_t elevationRangeBandVoxels;
+  // Crush from a shot, a collapse and a drop beyond 3 m (8; ADR-023, decisions 7 and 8).
+  std::int32_t shotCrushDamage;
+  std::int32_t collapseCrushDamage;
+  std::int32_t dropCrushDamagePerVoxel;
+  // The ram's blow and its craters, stone only within the reach above the structure's base (9; ADR-023, decision 9).
+  std::int32_t ramBlowTicks;
+  std::int32_t ramTimberCraterVoxels;
+  std::int32_t ramEarthCraterVoxels;
+  std::int32_t ramStoneCraterVoxels;
+  std::int32_t ramStoneReachVoxels;
+  // A garrison heals a hit point every so many ticks (10; ADR-024, decision 5).
+  std::int32_t garrisonHealTicksPerHitPoint;
+  // Repair and its lock (11; ADR-024, decisions 3 and 4).
+  Core::Fixed repairCubicMetersPerTick;
+  std::int32_t repairReachVoxels;
+  std::int32_t repairLockTicks;
+  std::int32_t repairLockReachVoxels;
+  // The gatehouse's passage attack (13; ADR-024, decision 6).
+  std::int32_t passageAttackTicks;
+  std::int32_t passageAttackDamage;
+  // The trebuchet's deploying and packing (17).
+  std::int32_t trebuchetDeployTicks;
+  std::int32_t trebuchetPackTicks;
+  // The control's damage to structures (19; ADR-028, decision 2): a shot's, a ram's blow, the share of a blow on stone,
+  // and a trench's for each cubic metre dug near a section.
+  std::int32_t controlShotDamage;
+  std::int32_t controlRamDamage;
+  std::int32_t controlRamStonePercent;
+  std::int32_t controlTrenchDamagePerCubicMeter;
+  // A figure blocked this long marks its squad to search again (ADR-022, decision 6).
+  std::int32_t waitBeforeSearchTicks;
+  // A scenario that reveals the map does so for this long (ADR-025, decision 5; item 14).
+  std::int32_t revealTicks;
+  // The commanders' cadence and their work a tick (ADR-027, decision 4; items 18 and 27, Proposed until M4-J4).
+  std::int32_t commanderDecisionTicks;
+  std::int32_t commanderWorkPerTick;
 };
 
 } // namespace Simulation

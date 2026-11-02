@@ -40,6 +40,10 @@ FONT = "Client/Fonts/EarthriseMason-glyphs.json"
 MANIFEST = "Manifest.json"
 PALETTE = "Server/Palette.json"
 RULES = "Server/Rules.json"
+UNITS = "Server/Units.json"
+STRUCTURES = "Server/Structures.json"
+SIEGE = "Server/Scenarios/Siege.json"
+SIEGE_MIRROR = "Server/Scenarios/SiegeMirror.json"
 BAKE = "Tools/BakeContent.py"
 BAKE_IMPORTS = ("Tools/CheckAssets.py", "Tools/VoxFile.py")  # the bake counts costs with the asset check's code
 
@@ -166,6 +170,18 @@ def DebrisRow(_manifest, _rubbleIndex):
   return next(row for row in _manifest["debrisByRubble"]["table"] if row["rubbleIndex"] == _rubbleIndex)
 
 
+def UnitOf(_units, _kind):
+  return next(unit for unit in _units["units"] if unit["kind"] == _kind)
+
+
+def StructureOf(_structures, _template):
+  return next(structure for structure in _structures["structures"] if structure["template"] == _template)
+
+
+def NamedStructure(_scenario, _name):
+  return next(structure for structure in _scenario["structures"] if structure["name"] == _name)
+
+
 def Legend(_char, _index):
   return lambda d: d["legend"][_char].update(material=_index)
 
@@ -189,7 +205,7 @@ BROKEN = {
   "a modelOnly index in a template": (lambda r: Change(r, T1, Legend("m", 16)), "which is modelOnly"),
   # 4. Costs.
   "a wrong cost in the manifest": (lambda r: Change(r, MANIFEST, lambda m: Entry(m, "T5")["costM3"].update(timber=13)),
-                                   "but Manifest.json says stone 585, timber 13"),
+                                   "but Manifest.json says stone 589, timber 13"),
   "the package's cost, decorations left out": (
     lambda r: Change(r, MANIFEST, lambda m: Entry(m, "T1").update(costM3=Entry(m, "T1")["packageCostM3"])),
     "counts stone 0, timber 188, foundation 0 m3, but Manifest.json says stone 0, timber 185"),
@@ -277,6 +293,7 @@ BROKEN = {
   "a symbol missing": (lambda r: Change(r, FONT, lambda f: f["glyphs"].remove(GlyphOf(f, "·"))), "lacks the symbol(s) ·"),
   "an icon not marked as one": (lambda r: Change(r, FONT, lambda f: GlyphOf(f, "\ue018").update(icon=False)),
                                 "lacks the command icon(s) U+E018"),
+  "M4's wall icon missing": (lambda r: Change(r, FONT, lambda f: f["glyphs"].remove(GlyphOf(f, "\ue01c"))), "lacks the command icon(s) U+E01C"),
   # 14. The debris table.
   "debris naming a model that does not exist": (lambda r: Change(r, MANIFEST, lambda m: DebrisRow(m, 26).update(debris=["D9"])),
                                                 "names the model 'D9', which is not in GameData/Client/Models/"),
@@ -284,6 +301,60 @@ BROKEN = {
                                            "names index 6, which is not a palette index whose behaviour is a rubble"),
   "a debris tint no palette entry has": (lambda r: Change(r, MANIFEST, lambda m: DebrisRow(m, 28).update(tint="#123456")),
                                          "has the tint '#123456', which is not exactly one palette entry's colour"),
+  # 15. Units and structures.
+  "a unit kind missing": (lambda r: Change(r, UNITS, lambda u: u["units"].remove(UnitOf(u, "sapper"))),
+                          "gives no sapper: every kind has one record"),
+  "a unit kind twice": (lambda r: Change(r, UNITS, lambda u: u["units"].append(dict(UnitOf(u, "archer")))), "gives the kind archer twice"),
+  "a bonus naming no kind": (lambda r: Change(r, UNITS, lambda u: UnitOf(u, "spearman")["bonus"].update(knight="12")),
+                             "spearman's bonus names the kind 'knight'"),
+  "a unit value that does not convert": (lambda r: Change(r, UNITS, lambda u: UnitOf(u, "archer").update(rangeMeters="30.5")),
+                                         "archer's rangeMeters: 30.5 comes to 30.5 voxels, not a whole number"),
+  "a unit with no hit points": (lambda r: Change(r, UNITS, lambda u: UnitOf(u, "ram").update(hitPoints="0")),
+                                "ram's hitPoints is 0, outside 1 to"),
+  "a unit of no class": (lambda r: Change(r, UNITS, lambda u: UnitOf(u, "outrider").update(navigationClass="flying")),
+                         "outrider's navigationClass 'flying' is not one of"),
+  "a structure naming no template": (lambda r: Change(r, STRUCTURES, lambda s: StructureOf(s, "T4").update(template="T10")),
+                                     "names the template 'T10', which GameData/Server/Templates/ does not hold"),
+  "a threshold above 100": (lambda r: Change(r, STRUCTURES, lambda s: StructureOf(s, "T4").update(criticalThresholdPercent="101")),
+                            "T4 names the critical part Firing platform, and its criticalThresholdPercent '101'"),
+  "a threshold for no critical part": (lambda r: Change(r, STRUCTURES, lambda s: StructureOf(s, "T3").update(criticalThresholdPercent="50")),
+                                       "T3 names no critical part, so it gives no criticalThresholdPercent"),
+  "a structure value that does not convert": (lambda r: Change(r, STRUCTURES, lambda s: StructureOf(s, "T5").update(standHeightMeters="11.5")),
+                                              "T5's standHeightMeters: 11.5 comes to 11.5 voxels, not a whole number"),
+  # 16. Scenarios.
+  "a scenario's structure naming no template": (lambda r: Change(r, SIEGE, lambda s: NamedStructure(s, "S3").update(template="T10")),
+                                                "structure 4 names the template 'T10'"),
+  "two structures overlapping": (lambda r: Change(r, SIEGE, lambda s: NamedStructure(s, "S3").update(origin=NamedStructure(s, "S2")["origin"])),
+                                 "the structures S2 and S3 overlap"),
+  "two structures of one name": (lambda r: Change(r, SIEGE, lambda s: NamedStructure(s, "S3").update(name="S2")),
+                                 "has the name 'S2', which is empty or another structure's"),
+  "a squad on a structure": (lambda r: Change(r, SIEGE, lambda s: s["squads"][0]["cells"].__setitem__(0, list(NamedStructure(s, "S3")["origin"]))),
+                             "squad 1's cell"),
+  "a squad in the ditch": (lambda r: Change(r, SIEGE, lambda s: s["squads"][0]["cells"].__setitem__(0, [340, 9, 296])),
+                           "squad 1's cell (340, 9, 296) is not a walkable cell"),
+  "two squads in one cell": (lambda r: Change(r, SIEGE, lambda s: s["squads"][1]["cells"].__setitem__(0, s["squads"][0]["cells"][0])),
+                             "squad 2's cell"),
+  "a squad short of its figures": (lambda r: Change(r, SIEGE, lambda s: s["squads"][0]["cells"].pop()),
+                                   "squad 1, of manAtArms, has 5 cells, and a squad of manAtArms has 6 figures"),
+  "a garrison with no room": (lambda r: Change(r, SIEGE, lambda s: s["garrisons"].append(dict(s["garrisons"][0]))),
+                              "puts 12 figures in SW, which holds 6"),
+  "a garrison in a wall": (lambda r: Change(r, SIEGE, lambda s: s["garrisons"][0].update(structure="S1")), "puts 6 figures in S1, which holds 0"),
+  "a keep that is no T2": (lambda r: Change(r, SIEGE, lambda s: s["trial"].update(keep="HALL")), "its trial's keep 'HALL' is not a T2"),
+  "a site its ground does not fill": (lambda r: Change(r, SIEGE, lambda s: s["ground"][1]["max"].__setitem__(1, 6)),
+                                      "its ground boxes leave the site's voxel (240, 7, 182) below its level without a material"),
+  "an earthwork leaving the site": (lambda r: Change(r, SIEGE, lambda s: s["earthworks"][0]["min"].__setitem__(0, 100)),
+                                    "its earthworks box 1 leaves its site"),
+  "a commander no ADR names": (lambda r: Change(r, SIEGE, lambda s: s["players"][1].update(commander="cleverDefender")),
+                               "the player 2 needs an id of its own"),
+  "a mirror renaming two structures alike": (lambda r: Change(r, SIEGE_MIRROR, lambda m: m["rename"].update(S1="S3")),
+                                             "its rename table must rename each of Siege's structures once"),
+  "a mirrored section named for the wrong side": (lambda r: Change(r, SIEGE_MIRROR, lambda m: m["rename"].update(E1="E1", W1="W1")),
+                                                  "its section E1 faces W, so its name's side letter is wrong"),
+  "a mirror of nothing": (lambda r: Change(r, SIEGE_MIRROR, lambda m: m.update(mirrorOf="Hold")), "mirrors 'Hold'"),
+  "a castle off its site's centre line": (
+    lambda r: Change(r, SIEGE, lambda s: s["site"].update(min=[230, 182], max=[439, 381])) or
+              Change(r, SIEGE, lambda s: [box["min"].__setitem__(0, 230) for box in s["ground"][:3]]),
+    "which is not symmetric about its site's centre line"),
 }
 
 
