@@ -259,6 +259,35 @@ public:
     Assert::IsTrue(world.Structures().at(site.wall).repairProgress > progress);
   }
 
+  TEST_METHOD(ABuildingLocksForFourHundredTicksAndASectionForTwoHundred)
+  {
+    // The owner's decision of 2026-11-02 (GameDesign.md, M4's phase F, item 6): a stone on the wall, a section, locks it for
+    // 10 s, and one on the keep, a building, whose template names a critical part, for 20 s.
+    Site site;
+    Simulation::World& world = site.world;
+    Protocol::EntityId keep = Protocol::NO_ENTITY;
+    for (const auto& [id, structure] : world.Structures())
+    {
+      keep = structure.name == "KEEP" ? id : keep;
+    }
+    const auto strike = [&world](Protocol::VoxelPosition _engine, Protocol::VoxelPosition _target)
+    {
+      const Protocol::EntityId engine = world.AddSiegeEngine(ATTACKER, Simulation::EngineKind::Trebuchet, _engine);
+      world.Tick();
+      Order(world, ATTACKER, Protocol::FireEngine{.engine = engine, .targetVoxels = _target});
+      for (std::uint32_t tick = 0; tick < 400 && world.LastTickHits().empty(); ++tick)
+      {
+        world.Tick();
+      }
+      Assert::IsFalse(world.LastTickHits().empty());
+    };
+    strike(At(45, GROUND, 92), At(46, GROUND + 3, 61));
+    Assert::AreEqual(LOCK_TICKS, world.Structures().at(site.wall).repairLockTicks);
+    Assert::AreEqual(std::uint32_t{0}, world.Structures().at(keep).repairLockTicks);
+    strike(At(44, GROUND, 74), At(44, GROUND + 3, 34));
+    Assert::AreEqual(2 * LOCK_TICKS, world.Structures().at(keep).repairLockTicks);
+  }
+
   TEST_METHOD(AVoxelThatWouldStandOnNothingWaits)
   {
     // The wall's base voxel and the one above it gone at x 44 on its outer layer, and the earth under them: neither has

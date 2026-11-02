@@ -743,8 +743,11 @@ private:
   /// Step 2: each structure's lock counts down, and one unlocked with a laborer of its owner's at work gains repair's
   /// progress while it has a voxel to put back and its owner the material, putting one back for each cubic metre.
   void AdvanceRepairs();
-  /// Locks repair on every structure whose box holds one of _voxels, for repairLockTicks.
+  /// Locks repair on every structure whose box holds one of _voxels, for its lock.
   void LockRepairs(std::span<const Protocol::VoxelPosition> _voxels);
+  /// _structure's lock: repairLockBuildingTicks for a building, whose template names a critical part, and repairLockTicks
+  /// for a section (ADR-024, decision 4, as amended).
+  [[nodiscard]] std::uint32_t LockTicksFor(const Structure& _structure) const;
   /// Records _amount hundredths of a cubic metre of stone, or of timber, spent by _player on _subject.
   void NoteSpent(bool _timber, std::uint8_t _player, Protocol::EntityId _subject, std::int32_t _amount, Protocol::VoxelPosition _voxel);
 

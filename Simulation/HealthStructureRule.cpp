@@ -121,7 +121,7 @@ void HealthStructureRule::Damage(World& _world, Structure& _structure, std::int3
 {
   const bool standing = _structure.hitPoints > 0;
   _structure.hitPoints = std::max(0, _structure.hitPoints - _amount);
-  _structure.repairLockTicks = static_cast<std::uint32_t>(std::max(0, _world.Data().Tuning().repairLockTicks));
+  _structure.repairLockTicks = _world.LockTicksFor(_structure);
   _world.TouchStructure(_structure.id);
   if (!standing || _structure.hitPoints > 0)
   {

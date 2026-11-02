@@ -104,7 +104,10 @@ struct Rules
   // Repair and its lock (11; ADR-024, decisions 3 and 4).
   Core::Fixed repairCubicMetersPerTick;
   std::int32_t repairReachVoxels;
-  std::int32_t repairLockTicks;
+  std::int32_t repairLockTicks; // a section's, a structure whose template names no critical part
+  // A building's lock, a structure whose template names a critical part: one reload or more, so that one trebuchet firing
+  // at a tower keeps it from repair (the owner, 2026-11-02; GameDesign.md, M4's phase F, item 6).
+  std::int32_t repairLockBuildingTicks;
   std::int32_t repairLockReachVoxels;
   // The gatehouse's passage attack (13; ADR-024, decision 6).
   std::int32_t passageAttackTicks;

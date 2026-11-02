@@ -3517,7 +3517,7 @@ void World::VoxelRamBlow(Structure& _structure, Protocol::VoxelPosition _voxel)
     }
   }
   // A blow on a structure locks its repair (ADR-024, decision 4).
-  _structure.repairLockTicks = static_cast<std::uint32_t>(std::max(0, Data().Tuning().repairLockTicks));
+  _structure.repairLockTicks = LockTicksFor(_structure);
 }
 
 void World::DigVoxel(Protocol::VoxelPosition _voxel)
@@ -3533,7 +3533,7 @@ void World::DigVoxel(Protocol::VoxelPosition _voxel)
         std::max(Outside(_voxel.xVoxels, box->min.xVoxels, box->min.xVoxels + box->widthVoxels - 1),
                  Outside(_voxel.zVoxels, box->min.zVoxels, box->min.zVoxels + box->depthVoxels - 1)) <= rules.repairLockReachVoxels)
     {
-      structure.repairLockTicks = static_cast<std::uint32_t>(std::max(0, rules.repairLockTicks));
+      structure.repairLockTicks = LockTicksFor(structure);
     }
   }
 }
@@ -4416,7 +4416,6 @@ void World::AdvanceRepairs()
 
 void World::LockRepairs(std::span<const Protocol::VoxelPosition> _voxels)
 {
-  const auto lock = static_cast<std::uint32_t>(std::max(0, Data().Tuning().repairLockTicks));
   for (auto& [id, structure] : m_structures)
   {
     const std::optional<Box> box = BoxOf(structure);
@@ -4433,9 +4432,17 @@ void World::LockRepairs(std::span<const Protocol::VoxelPosition> _voxels)
     };
     if (std::ranges::any_of(_voxels, inside))
     {
-      structure.repairLockTicks = lock;
+      structure.repairLockTicks = LockTicksFor(structure);
     }
   }
+}
+
+std::uint32_t World::LockTicksFor(const Structure& _structure) const
+{
+  const ServerTemplate* found = Data().FindTemplate(_structure.templateId);
+  const Rules& rules = Data().Tuning();
+  return static_cast<std::uint32_t>(
+    std::max(0, found != nullptr && !found->criticalPart.empty() ? rules.repairLockBuildingTicks : rules.repairLockTicks));
 }
 
 void World::NoteSpent(bool _timber, std::uint8_t _player, Protocol::EntityId _subject, std::int32_t _amount, Protocol::VoxelPosition _voxel)

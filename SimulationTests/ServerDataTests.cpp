@@ -189,6 +189,7 @@ public:
                                        "repairCubicMetersPerTick",
                                        "repairReachVoxels",
                                        "repairLockTicks",
+                                       "repairLockBuildingTicks",
                                        "repairLockReachVoxels",
                                        "passageAttackTicks",
                                        "passageAttackDamage",
