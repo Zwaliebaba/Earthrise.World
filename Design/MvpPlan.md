@@ -175,7 +175,7 @@ The order is fixed, so that one build replays the same commands to the same resu
 | M2 | Headless simulation | A scripted breach and units pathing through it, replaying identically |
 | M3 | Breach lab | The first measured reading on H2's predictions |
 | M4 | Siege trial | A Siege trial that can be played, with its control |
-| M4.1 | The voxel read's cost | A verdict on whether a voxel read costs more as the world grows, off the critical path |
+| M4.1 | The voxel read's cost | A verdict on whether a voxel read costs more as the world grows, and the load's breakdown, off the critical path |
 | M5 | Siege playtest | The verdict on H2 |
 | M6 | Hold trial | A Hold trial that can be played, with its control |
 | M7 | Hold playtest | The verdict on H1, and so the MVP's |
@@ -608,7 +608,7 @@ M4 is carried out as 43 work orders in ten phases, written out in [MvpPlan-M4.md
 
 **Off the critical path.** M4.1 changes `SimulationBench` alone and no simulation code, and M5 does not wait on it.
 
-**Build** a mode of `SimulationBench`, `--lookup`, that tells the two explanations apart. It runs the same breach on the same world in stores padded with far-off chunks up to 65,536, the count of an 8 km world one chunk high, and times the read path three ways. [MvpPlan-M4.1.md](MvpPlan-M4.1.md) writes it out as two work orders in phase A, and a phase B, a faster chunk lookup, only if the verdict calls for one.
+**Build** a mode of `SimulationBench`, `--lookup`, that tells the two explanations apart. It runs the same breach on the same world in stores padded with far-off chunks up to 65,536, the count of an 8 km world one chunk high, and times the read path three ways. The same mode breaks down the simulation's load, the generator, navigation from nothing and the Siege trial to its first tick, as a measurement only, with no mark and no fix (GameDesign.md, *M4.1's values*, item 3). [MvpPlan-M4.1.md](MvpPlan-M4.1.md) writes it out as two work orders in phase A, and a phase B, a faster chunk lookup, only if the verdict calls for one.
 
 **Done when** the report is in `Design/Review/` with its verdict under input 1, and, if that verdict calls for phase B, phase B has landed.
 
@@ -617,7 +617,7 @@ M4 is carried out as 43 work orders in ten phases, written out in [MvpPlan-M4.md
 | # | Input | For orders | Decided, 2026-11-02, as the implementer proposed it |
 |---|---|---|---|
 | 1 | **The verdict's marks** | A1, A2 | Closed with no change if the support search at 4,224 chunks is within 10% of its time at 258; phase B if it is 25% or more slower, with a profile taken; the owner's call in between, with the profile |
-| 2 | **When it runs** | A1 | After M4 closes, beside M5, so that its owner runs do not compete with M4's. Brought forward if M4-J4's measured run finds a tick of play over 25 ms, which M4's done-when forbids; its orders need nothing from M4 but a tree that builds |
+| 2 | **When it runs** | A1 | After M4 closes, beside M5, so that its owner runs do not compete with M4's. Brought forward if M4-J4's measured run finds a tick of play over 25 ms, which M4's done-when forbids; its orders need nothing from M4 but a tree that builds, and M4-B4's `LoadScenario` for the load's breakdown |
 
 ### M5 — Siege playtest: the verdict on H2
 
