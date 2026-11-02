@@ -148,7 +148,9 @@ enum class TrialEventKind : std::uint8_t
   Outcome
 };
 
-/// One event: UnitDied names its player, the unit, its squad, its kind as the amount and its cell.
+/// One event: UnitDied names its player, the unit, its squad, its kind as the amount and its cell; StoneSpent and
+/// TimberSpent the player, what it was spent on, the engine that fired or the structure repaired, the hundredths of a
+/// cubic metre as the amount, and the engine's cell or the voxel put back.
 struct TrialEvent
 {
   TrialEventKind kind;
@@ -581,6 +583,28 @@ private:
   void LooseFromGarrisons();
   /// Step 2: garrisoned figures heal a hit point every garrisonHealTicksPerHitPoint.
   void HealGarrisons();
+  /// Whether (_x, _z) is on the owner's side of _box: the half-plane through its footprint's centre that holds the
+  /// owner's keep, given doubled as _keepTwice, or any side when there is none (ADR-024, decisions 3 and 5).
+  [[nodiscard]] static bool OnOwnersSide(const Box& _box, const std::optional<std::pair<std::int64_t, std::int64_t>>& _keepTwice,
+                                         std::int32_t _x, std::int32_t _z) noexcept;
+
+  // ADR-024, decisions 3 and 4: repair and its lock.
+  /// Sets a laborer of _player's walking to repair a structure of theirs, from the nearest cell it may repair from.
+  void OrderRepair(std::uint8_t _player, const Protocol::RepairStructure& _repair);
+  /// Whether _cell is one a laborer repairs _structure from: within repairReachVoxels of its footprint, outside it, on
+  /// its owner's side.
+  [[nodiscard]] bool AtRepairStand(const Structure& _structure, const Box& _box, Protocol::VoxelPosition _cell) const;
+  /// The voxel repair would put back in _structure next and its palette index, or none: a built voxel whose cell is empty,
+  /// that no unit stands in, and that would not stand on nothing; lowest first, then nearest the footprint's centre, then
+  /// a column through the template's depth at a time along its x, each from its front.
+  [[nodiscard]] std::optional<std::pair<Protocol::VoxelPosition, std::uint8_t>> NextRepair(const Structure& _structure) const;
+  /// Step 2: each structure's lock counts down, and one unlocked with a laborer of its owner's at work gains repair's
+  /// progress while it has a voxel to put back and its owner the material, putting one back for each cubic metre.
+  void AdvanceRepairs();
+  /// Locks repair on every structure whose box holds one of _voxels, for repairLockTicks.
+  void LockRepairs(std::span<const Protocol::VoxelPosition> _voxels);
+  /// Records _amount hundredths of a cubic metre of stone, or of timber, spent by _player on _subject.
+  void NoteSpent(bool _timber, std::uint8_t _player, Protocol::EntityId _subject, std::int32_t _amount, Protocol::VoxelPosition _voxel);
 
   // ADR-023, decisions 3 and 4: targets and melee, in step 3.
   /// Each figure's target for the tick, and each squad's order as its target and its arrival leave it.

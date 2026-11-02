@@ -445,6 +445,7 @@ Protocol::IntegrityReading ReadIntegrity(const World& _world, Protocol::EntityId
   reading.canBeUndermined = reading.ground == Protocol::GroundKind::Earth;
   reading.falling =
     std::ranges::any_of(_world.Collapses(), [_structure](const auto& _entry) { return _entry.second.structure == _structure; });
+  reading.repairLockTicks = structure.repairLockTicks;
 
   const std::vector<Opening> openings = reader.Openings();
   const Opening* hole = nullptr;

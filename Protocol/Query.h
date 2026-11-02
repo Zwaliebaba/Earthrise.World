@@ -70,7 +70,7 @@ struct QueryRequest
 
 /// The one record version each query and reading is written at. A new field is a new version.
 /// 2 from M3-F3, which gave the tile reach reading its surfaces.
-inline constexpr std::uint16_t QUERY_RECORD_VERSION = 3; // M3-F3's 2; M4-C4 adds SquadAim
+inline constexpr std::uint16_t QUERY_RECORD_VERSION = 4; // M3-F3's 2; M4-C4 adds SquadAim; M4-D5 the integrity's lock
 
 /// Hud.md §8's four readings of the attack cursor.
 enum class AimVerdict : std::uint8_t
@@ -126,6 +126,7 @@ struct IntegrityReading
   bool falling;                  // a collapse of this structure is in warning or falling
   VoxelPosition weakMinVoxels;   // the weak point's box, the reading nearest its mark, both corners included
   VoxelPosition weakMaxVoxels;
+  std::uint32_t repairLockTicks = 0; // until repair may resume (ADR-024, decision 4; M4-D5)
 
   friend constexpr bool operator==(const IntegrityReading&, const IntegrityReading&) = default;
 };

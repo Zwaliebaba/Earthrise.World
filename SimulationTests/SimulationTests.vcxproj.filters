@@ -153,5 +153,8 @@
     <ClCompile Include="PassageAttackTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="RepairTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

@@ -98,7 +98,8 @@ public:
                                              .gapFallRunVoxels = 5,
                                              .falling = true,
                                              .weakMinVoxels = {.xVoxels = 379, .yVoxels = 10, .zVoxels = 180},
-                                             .weakMaxVoxels = {.xVoxels = 383, .yVoxels = 10, .zVoxels = 181}}},
+                                             .weakMaxVoxels = {.xVoxels = 383, .yVoxels = 10, .zVoxels = 181},
+                                             .repairLockTicks = 120}},
       {.queryId = 3, .tick = 79, .reading = reach},
     }};
     for (const Protocol::Answer& answer : answers)
@@ -111,7 +112,7 @@ public:
   {
     const std::vector<std::byte> bytes = Encoded(Protocol::QueryRequest{
       .id = 7, .query = Protocol::AimCheck{.engine = 3, .targetVoxels = {.xVoxels = 1, .yVoxels = 2, .zVoxels = 3}}});
-    const std::array<unsigned, 28> expected = {0x07, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00,
+    const std::array<unsigned, 28> expected = {0x07, 0x00, 0x00, 0x00, 0x01, 0x00, 0x04, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00,
                                                0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00};
     Assert::AreEqual(expected.size(), bytes.size());
     for (std::size_t index = 0; index < expected.size(); ++index)
@@ -126,7 +127,7 @@ public:
     bytes[4] = std::byte{5};
     Assert::ExpectException<std::invalid_argument>([&bytes] { static_cast<void>(DecodedRequest(bytes)); });
     bytes = Encoded(Protocol::QueryRequest{.id = 1, .query = Protocol::SectionIntegrity{.structure = 1}});
-    bytes[6] = std::byte{2}; // version 2, M3-F3's, from before M4-C4 added the squad's aim
+    bytes[6] = std::byte{3}; // version 3, M4-C4's, from before M4-D5 added the integrity's lock
     Assert::ExpectException<std::invalid_argument>([&bytes] { static_cast<void>(DecodedRequest(bytes)); });
     bytes = Encoded(Protocol::QueryRequest{
       .id = 1,

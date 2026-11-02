@@ -579,12 +579,13 @@ void World::Acquire()
   }
   // Each figure with an attack takes the nearest enemy figure within its vision, ties to the lower id, or when its squad
   // attacks, the nearest of its target's at any range. A moving squad's figures take none: they strike what they meet
-  // (decision 3) and walk on.
+  // (decision 3) and walk on; nor does a laborer set to repair, which keeps to its work (ADR-024, decision 3).
   for (auto& [id, unit] : m_units)
   {
     unit.target = Protocol::NO_ENTITY;
     const Squad& squad = m_squads.at(unit.squad);
-    if (Garrisoned(unit) || Data().Stats(unit.kind).attack <= 0 || squad.order == Protocol::SquadOrder::Move)
+    if (Garrisoned(unit) || Data().Stats(unit.kind).attack <= 0 || squad.order == Protocol::SquadOrder::Move ||
+        squad.order == Protocol::SquadOrder::Repair)
     {
       continue;
     }
@@ -962,6 +963,10 @@ void World::Apply(std::uint8_t _player, const Protocol::Command& _command)
   {
     Pack(_player, *pack);
   }
+  else if (const auto* repair = std::get_if<Protocol::RepairStructure>(&_command))
+  {
+    OrderRepair(_player, *repair);
+  }
   else
   {
     // M4's other commands land with the orders that build them.
@@ -1161,6 +1166,7 @@ void World::Fire(std::uint8_t _player, const Protocol::FireEngine& _fire)
       return;
     }
     player->second.stoneHundredthsCubicMeters -= cost;
+    NoteSpent(false, _player, engine->first, cost, engine->second.cellVoxels);
   }
   const Protocol::EntityId id = NewEntityId();
   m_shots.emplace(id, Shot{.id = id,
@@ -1449,14 +1455,17 @@ void World::RamBlows()
     {
       m_voxels.Edit(voxel, Protocol::Chunk::EMPTY);
     }
+    // A blow on a structure locks its repair (ADR-024, decision 4).
+    structure->second.repairLockTicks = static_cast<std::uint32_t>(std::max(0, Data().Tuning().repairLockTicks));
     engine.reloadTicks = static_cast<std::uint32_t>(std::max(0, Data().Tuning().ramBlowTicks));
   }
 }
 
 void World::AdvanceJobs()
 {
+  // Step 2: designations and jobs: the garrisons' healing and repair (ADR-024, decisions 3 to 5).
   HealGarrisons();
-  // Step 2: designations and jobs, which M2 has none of.
+  AdvanceRepairs();
 }
 
 void World::MoveUnits()
@@ -2257,12 +2266,16 @@ void World::AdvanceShots()
         .shot = id, .voxel = *hit, .behindX = alongX ? sign(arc.acrossXMeters) : 0, .behindZ = alongX ? 0 : sign(arc.acrossZMeters)});
       // Its crush (ADR-023, decision 7), then its crater, as edits to empty (M2-E2).
       CrushAround(struck.voxel);
-      for (const Protocol::VoxelPosition& voxel : CraterVoxels(
-             struck.voxel, struck.behindX, struck.behindZ, [this](Protocol::VoxelPosition _voxel) { return m_voxels.At(_voxel); },
-             Data().Materials(), Data().Tuning()))
+      std::vector<Protocol::VoxelPosition> crater = CraterVoxels(
+        struck.voxel, struck.behindX, struck.behindZ, [this](Protocol::VoxelPosition _voxel) { return m_voxels.At(_voxel); },
+        Data().Materials(), Data().Tuning());
+      for (const Protocol::VoxelPosition& voxel : crater)
       {
         m_voxels.Edit(voxel, Protocol::Chunk::EMPTY);
       }
+      // A strike or a crater that touches a structure locks its repair (ADR-024, decision 4).
+      crater.push_back(struck.voxel);
+      LockRepairs(crater);
       landed.push_back(id);
     }
     else if (step.left)
@@ -3060,9 +3073,6 @@ void World::PutOut(const Structure& _structure)
       strips.emplace(cell.xVoxels, cell.zVoxels);
     }
   }
-  // The owner's side: the half-plane through the footprint's centre that holds their keep, in doubled coordinates.
-  const std::int64_t centerX = (2 * std::int64_t{box->min.xVoxels}) + box->widthVoxels - 1;
-  const std::int64_t centerZ = (2 * std::int64_t{box->min.zVoxels}) + box->depthVoxels - 1;
   const std::optional<std::pair<std::int64_t, std::int64_t>> keep = KeepCenterTwice(_structure.owner);
   Occupancy occupancy = BuildOccupancy();
   // Rings about the box, nearest first, each in index order: the owner's side's cells first, then the rest.
@@ -3082,10 +3092,7 @@ void World::PutOut(const Structure& _structure)
           continue;
         }
         const Protocol::VoxelPosition cell{.xVoxels = x, .yVoxels = m_navigation.WalkableHeight(x, z), .zVoxels = z};
-        const bool ownersSide = !keep.has_value() || (((2 * std::int64_t{x}) - centerX) * (keep->first - centerX)) +
-                                                         (((2 * std::int64_t{z}) - centerZ) * (keep->second - centerZ)) >
-                                                       0;
-        (ownersSide ? near : far).push_back(cell);
+        (OnOwnersSide(*box, keep, x, z) ? near : far).push_back(cell);
       }
     }
   }
@@ -3409,6 +3416,276 @@ void World::PassageAttacks()
       }
     }
   }
+}
+
+bool World::OnOwnersSide(const Box& _box, const std::optional<std::pair<std::int64_t, std::int64_t>>& _keepTwice, std::int32_t _x,
+                         std::int32_t _z) noexcept
+{
+  if (!_keepTwice.has_value())
+  {
+    return true;
+  }
+  // In doubled coordinates, so that the footprint's centre is whole.
+  const std::int64_t centerX = (2 * std::int64_t{_box.min.xVoxels}) + _box.widthVoxels - 1;
+  const std::int64_t centerZ = (2 * std::int64_t{_box.min.zVoxels}) + _box.depthVoxels - 1;
+  return (((2 * std::int64_t{_x}) - centerX) * (_keepTwice->first - centerX)) +
+           (((2 * std::int64_t{_z}) - centerZ) * (_keepTwice->second - centerZ)) >
+         0;
+}
+
+void World::OrderRepair(std::uint8_t _player, const Protocol::RepairStructure& _repair)
+{
+  // A laborer of _player's, a squad of one, at a structure of theirs (ADR-024, decision 3; MvpPlan.md, M4, input 11).
+  Squad* squad = OrderableSquad(_player, _repair, _repair.laborer);
+  if (squad == nullptr)
+  {
+    return;
+  }
+  const auto structure = m_structures.find(_repair.structure);
+  if (squad->kind != Protocol::UnitKind::Laborer || squad->units.empty() || structure == m_structures.end())
+  {
+    Refuse(_player, _repair, Protocol::Refusal::Invalid);
+    return;
+  }
+  if (structure->second.owner != _player)
+  {
+    Refuse(_player, _repair, Protocol::Refusal::NotOwned);
+    return;
+  }
+  const std::optional<Box> box = BoxOf(structure->second);
+  if (!box.has_value())
+  {
+    Refuse(_player, _repair, Protocol::Refusal::Invalid);
+    return;
+  }
+  // It walks to the cell nearest it that it may repair from and foot can use, ring by ring about the footprint, each ring
+  // in index order, ties to the first; with none, the order is refused.
+  const Protocol::VoxelPosition at = m_units.at(squad->units.front()).cellVoxels;
+  const std::int32_t reach = std::max(1, Data().Tuning().repairReachVoxels);
+  const std::optional<std::pair<std::int64_t, std::int64_t>> keep = KeepCenterTwice(_player);
+  std::optional<Protocol::VoxelPosition> stand;
+  std::int64_t best = 0;
+  for (std::int32_t ring = 1; ring <= reach; ++ring)
+  {
+    for (std::int32_t z = box->min.zVoxels - ring; z < box->min.zVoxels + box->depthVoxels + ring; ++z)
+    {
+      for (std::int32_t x = box->min.xVoxels - ring; x < box->min.xVoxels + box->widthVoxels + ring; ++x)
+      {
+        const bool onRing = x == box->min.xVoxels - ring || x == box->min.xVoxels + box->widthVoxels + ring - 1 ||
+                            z == box->min.zVoxels - ring || z == box->min.zVoxels + box->depthVoxels + ring - 1;
+        if (!onRing || !m_navigation.Usable(x, z, NavigationClass::Foot) || !OnOwnersSide(*box, keep, x, z))
+        {
+          continue;
+        }
+        const std::int64_t dx = std::int64_t{x} - at.xVoxels;
+        const std::int64_t dz = std::int64_t{z} - at.zVoxels;
+        const std::int64_t distance = (dx * dx) + (dz * dz);
+        if (!stand.has_value() || distance < best)
+        {
+          stand = Protocol::VoxelPosition{.xVoxels = x, .yVoxels = m_navigation.WalkableHeight(x, z), .zVoxels = z};
+          best = distance;
+        }
+      }
+    }
+  }
+  if (!stand.has_value())
+  {
+    Refuse(_player, _repair, Protocol::Refusal::Invalid);
+    return;
+  }
+  squad->order = Protocol::SquadOrder::Repair;
+  squad->target = _repair.structure;
+  squad->hasGoal = true;
+  squad->goalVoxels = *stand;
+  RequestSearch(*squad);
+}
+
+bool World::AtRepairStand(const Structure& _structure, const Box& _box, Protocol::VoxelPosition _cell) const
+{
+  const auto outside = [](std::int32_t _at, std::int32_t _low, std::int32_t _extent)
+  { return std::max({_low - _at, 0, _at - (_low + _extent - 1)}); };
+  const std::int32_t distance =
+    std::max(outside(_cell.xVoxels, _box.min.xVoxels, _box.widthVoxels), outside(_cell.zVoxels, _box.min.zVoxels, _box.depthVoxels));
+  return distance >= 1 && distance <= Data().Tuning().repairReachVoxels &&
+         OnOwnersSide(_box, KeepCenterTwice(_structure.owner), _cell.xVoxels, _cell.zVoxels);
+}
+
+std::optional<std::pair<Protocol::VoxelPosition, std::uint8_t>> World::NextRepair(const Structure& _structure) const
+{
+  const ServerTemplate* found = Data().FindTemplate(_structure.templateId);
+  const std::optional<Box> box = BoxOf(_structure);
+  if (found == nullptr || !box.has_value())
+  {
+    return std::nullopt;
+  }
+  // A cell a unit stands in, up to its headroom, takes nothing back: it would bury the unit.
+  const auto occupied = [this](Protocol::VoxelPosition _at)
+  {
+    return std::ranges::any_of(m_units,
+                               [this, _at](const auto& _entry)
+                               {
+                                 const Unit& unit = _entry.second;
+                                 const NavigationGrid::ClassRule& rule = m_navigation.Class(unit.navigationClass);
+                                 const std::int32_t side = std::max(1, rule.widthVoxels);
+                                 return !Garrisoned(unit) && _at.xVoxels >= unit.cellVoxels.xVoxels &&
+                                        _at.xVoxels < unit.cellVoxels.xVoxels + side && _at.zVoxels >= unit.cellVoxels.zVoxels &&
+                                        _at.zVoxels < unit.cellVoxels.zVoxels + side && _at.yVoxels >= unit.cellVoxels.yVoxels &&
+                                        _at.yVoxels < unit.cellVoxels.yVoxels + std::max(1, rule.headroomVoxels);
+                               });
+  };
+  const auto solid = [this](std::int32_t _x, std::int32_t _y, std::int32_t _z)
+  { return m_voxels.At({.xVoxels = _x, .yVoxels = _y, .zVoxels = _z}) != Protocol::Chunk::EMPTY; };
+  const std::int64_t centerX = (2 * std::int64_t{box->min.xVoxels}) + box->widthVoxels - 1;
+  const std::int64_t centerZ = (2 * std::int64_t{box->min.zVoxels}) + box->depthVoxels - 1;
+  const std::size_t layerVoxels = std::size_t{found->widthVoxels} * found->depthVoxels;
+  std::optional<std::pair<Protocol::VoxelPosition, std::uint8_t>> best;
+  std::tuple<std::uint32_t, std::int64_t, std::uint32_t, std::uint32_t> bestKey{};
+  std::size_t voxel = 0;
+  for (std::uint32_t y = 0; y < found->heightVoxels; ++y)
+  {
+    for (std::uint32_t z = 0; z < found->depthVoxels; ++z)
+    {
+      for (std::uint32_t x = 0; x < found->widthVoxels; ++x, ++voxel)
+      {
+        const std::uint8_t index = found->indices.at(voxel);
+        const std::size_t byte = voxel / 8;
+        const bool built = byte < _structure.builtMask.size() && ((_structure.builtMask[byte] >> (voxel % 8)) & 1U) != 0;
+        if (index == Protocol::Chunk::EMPTY || !built)
+        {
+          continue;
+        }
+        const Protocol::VoxelPosition at = TemplateVoxel(_structure, *found, x, y, z);
+        if (solid(at.xVoxels, at.yVoxels, at.zVoxels) || occupied(at))
+        {
+          continue;
+        }
+        // It stands on what is below it, or, where the template has nothing below it, an arch's or a lintel's underside,
+        // beside what holds it across the layer; the support search still judges it once it is back (ADR-004).
+        bool supported = solid(at.xVoxels, at.yVoxels - 1, at.zVoxels);
+        if (!supported && y > 0 && found->indices.at(voxel - layerVoxels) == Protocol::Chunk::EMPTY)
+        {
+          supported = solid(at.xVoxels - 1, at.yVoxels, at.zVoxels) || solid(at.xVoxels + 1, at.yVoxels, at.zVoxels) ||
+                      solid(at.xVoxels, at.yVoxels, at.zVoxels - 1) || solid(at.xVoxels, at.yVoxels, at.zVoxels + 1);
+        }
+        if (!supported)
+        {
+          continue;
+        }
+        // Lowest first, then nearest the footprint's centre; ties a column through the template's depth at a time, along
+        // its x, each from its front, a wall's outer face, so that a crater a shot cut through it goes back whole before
+        // the next is begun, and one shot can take it again (ADR-024, decision 3, as amended by M4-D5).
+        const std::int64_t dx = (2 * std::int64_t{at.xVoxels}) - centerX;
+        const std::int64_t dz = (2 * std::int64_t{at.zVoxels}) - centerZ;
+        const std::tuple<std::uint32_t, std::int64_t, std::uint32_t, std::uint32_t> key{y, (dx * dx) + (dz * dz), x,
+                                                                                        found->depthVoxels - 1 - z};
+        if (!best.has_value() || key < bestKey)
+        {
+          best = std::pair{at, index};
+          bestKey = key;
+        }
+      }
+    }
+  }
+  return best;
+}
+
+void World::AdvanceRepairs()
+{
+  // ADR-024, decisions 3 and 4; MvpPlan.md, M4, input 11. A laborer set to repair a structure that is gone turns idle.
+  for (auto& [id, squad] : m_squads)
+  {
+    if (squad.order == Protocol::SquadOrder::Repair && !m_structures.contains(squad.target))
+    {
+      Halt(squad, Protocol::SquadOrder::Idle);
+    }
+  }
+  const Rules& rules = Data().Tuning();
+  constexpr std::int32_t CUBIC_METER_HUNDREDTHS = 100;
+  for (auto& [id, structure] : m_structures)
+  {
+    if (structure.repairLockTicks > 0)
+    {
+      --structure.repairLockTicks;
+      continue;
+    }
+    const std::optional<Box> box = BoxOf(structure);
+    if (!box.has_value())
+    {
+      continue;
+    }
+    // However many laborers are at it, one is enough, and the rate is the section's.
+    const Box& area = *box;
+    const bool tended = std::ranges::any_of(m_squads,
+                                            [this, &structure, &area](const auto& _entry)
+                                            {
+                                              const Squad& squad = _entry.second;
+                                              return squad.owner == structure.owner && squad.kind == Protocol::UnitKind::Laborer &&
+                                                     squad.order == Protocol::SquadOrder::Repair && squad.target == structure.id &&
+                                                     !squad.units.empty() &&
+                                                     AtRepairStand(structure, area, m_units.at(squad.units.front()).cellVoxels);
+                                            });
+    const std::optional<std::pair<Protocol::VoxelPosition, std::uint8_t>> next = tended ? NextRepair(structure) : std::nullopt;
+    if (!next.has_value())
+    {
+      continue;
+    }
+    // A cubic metre of the voxel's own material, timber for timber and stone for the rest, from its owner's stockpile; a
+    // player the match has no record of pays nothing, as for a shot.
+    const bool timber = Data().Materials().at(next->second).behavior == Behavior::Timber;
+    const auto player = m_players.find(structure.owner);
+    if (player != m_players.end() &&
+        (timber ? player->second.timberHundredthsCubicMeters : player->second.stoneHundredthsCubicMeters) < CUBIC_METER_HUNDREDTHS)
+    {
+      continue;
+    }
+    structure.repairProgress += rules.repairCubicMetersPerTick;
+    if (structure.repairProgress < Core::Fixed::FromRaw(Core::Fixed::ONE_RAW))
+    {
+      continue;
+    }
+    structure.repairProgress -= Core::Fixed::FromRaw(Core::Fixed::ONE_RAW);
+    m_voxels.Edit(next->first, next->second);
+    if (player != m_players.end())
+    {
+      (timber ? player->second.timberHundredthsCubicMeters : player->second.stoneHundredthsCubicMeters) -= CUBIC_METER_HUNDREDTHS;
+      NoteSpent(timber, structure.owner, structure.id, CUBIC_METER_HUNDREDTHS, next->first);
+    }
+  }
+}
+
+void World::LockRepairs(std::span<const Protocol::VoxelPosition> _voxels)
+{
+  const auto lock = static_cast<std::uint32_t>(std::max(0, Data().Tuning().repairLockTicks));
+  for (auto& [id, structure] : m_structures)
+  {
+    const std::optional<Box> box = BoxOf(structure);
+    if (!box.has_value())
+    {
+      continue;
+    }
+    const Box& area = *box;
+    const auto inside = [&area](const Protocol::VoxelPosition& _voxel)
+    {
+      return _voxel.xVoxels >= area.min.xVoxels && _voxel.xVoxels < area.min.xVoxels + area.widthVoxels &&
+             _voxel.yVoxels >= area.min.yVoxels && _voxel.yVoxels < area.min.yVoxels + area.heightVoxels &&
+             _voxel.zVoxels >= area.min.zVoxels && _voxel.zVoxels < area.min.zVoxels + area.depthVoxels;
+    };
+    if (std::ranges::any_of(_voxels, inside))
+    {
+      structure.repairLockTicks = lock;
+    }
+  }
+}
+
+void World::NoteSpent(bool _timber, std::uint8_t _player, Protocol::EntityId _subject, std::int32_t _amount, Protocol::VoxelPosition _voxel)
+{
+  m_tickEvents.push_back({.kind = _timber ? TrialEventKind::TimberSpent : TrialEventKind::StoneSpent,
+                          .tick = m_tick,
+                          .player = _player,
+                          .subject = _subject,
+                          .other = Protocol::NO_ENTITY,
+                          .amount = _amount,
+                          .voxel = _voxel});
 }
 
 void World::RestoreGates()

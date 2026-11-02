@@ -173,6 +173,7 @@ void Encode(const Answer& _answer, Core::ByteWriter& _writer)
     WriteBool(integrity->falling, _writer);
     WritePosition(integrity->weakMinVoxels, _writer);
     WritePosition(integrity->weakMaxVoxels, _writer);
+    _writer.WriteU32(integrity->repairLockTicks);
   }
   else if (const auto* reach = std::get_if<TileReachReading>(&_answer.reading))
   {
@@ -221,6 +222,7 @@ Answer DecodeAnswer(Core::ByteReader& _reader)
     integrity.falling = ReadBool(_reader);
     integrity.weakMinVoxels = ReadPosition(_reader);
     integrity.weakMaxVoxels = ReadPosition(_reader);
+    integrity.repairLockTicks = _reader.ReadU32();
     return {.queryId = queryId, .tick = tick, .reading = integrity};
   }
   TileReachReading reach{};
