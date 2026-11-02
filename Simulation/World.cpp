@@ -537,6 +537,10 @@ void World::Acquire()
     {
       continue;
     }
+    if (m_structures.contains(squad.target))
+    {
+      continue; // a ram's: step 4 drives and strikes it
+    }
     const Squad* target = TargetSquad(squad.target);
     if (target == nullptr || target->garrisonedIn != Protocol::NO_ENTITY || target->units.empty())
     {
@@ -838,10 +842,29 @@ void World::Apply(std::uint8_t _player, const Protocol::Command& _command)
   }
   else if (const auto* attack = std::get_if<Protocol::AttackTarget>(&_command))
   {
-    // A squad or an engine of another player, by a squad with an attack on units; a ram's structure is M4-C6's.
+    // A squad or an engine of another player, by a squad with an attack on units; or, by a ram, a structure of another
+    // player's that it can touch (ADR-023, decision 9).
     Squad* squad = OrderableSquad(_player, _command, attack->squad);
     if (squad == nullptr)
     {
+      return;
+    }
+    if (const SiegeEngine* ram = EngineOfBody(attack->squad); ram != nullptr && ram->kind == EngineKind::Ram)
+    {
+      const auto structure = m_structures.find(attack->target);
+      const std::optional<Box> box = structure == m_structures.end() ? std::nullopt : BoxOf(structure->second);
+      const std::optional<RamContact> contact =
+        box.has_value() && structure->second.owner != _player ? RamContactFor(m_units.at(squad->units.front()), *box) : std::nullopt;
+      if (!contact.has_value())
+      {
+        Refuse(_player, _command, Protocol::Refusal::Invalid);
+        return;
+      }
+      squad->order = Protocol::SquadOrder::Attack;
+      squad->target = attack->target;
+      squad->hasGoal = true;
+      squad->goalVoxels = contact->cellVoxels;
+      RequestSearch(*squad);
       return;
     }
     const Squad* target = TargetSquad(attack->target);
@@ -1192,6 +1215,207 @@ void World::CrushAround(Protocol::VoxelPosition _struck)
     {
       Crush(unit, damage);
     }
+  }
+}
+
+std::optional<World::Box> World::BoxOf(const Structure& _structure) const
+{
+  const ServerTemplate* found = Data().FindTemplate(_structure.templateId);
+  if (found == nullptr)
+  {
+    return std::nullopt;
+  }
+  const bool across = _structure.quarterTurns % 2 == 1;
+  return Box{.min = _structure.originVoxels,
+             .widthVoxels = static_cast<std::int32_t>(across ? found->depthVoxels : found->widthVoxels),
+             .heightVoxels = static_cast<std::int32_t>(found->heightVoxels),
+             .depthVoxels = static_cast<std::int32_t>(across ? found->widthVoxels : found->depthVoxels)};
+}
+
+std::array<std::pair<std::int32_t, std::int32_t>, 3> World::FrontColumns(Protocol::VoxelPosition _cellVoxels, std::int32_t _facingX,
+                                                                         std::int32_t _facingZ) const
+{
+  const std::int32_t half = std::max(1, Data().Tuning().machinesWidthVoxels) / 2;
+  const std::int32_t x = _cellVoxels.xVoxels + half + (_facingX * (half + 1));
+  const std::int32_t z = _cellVoxels.zVoxels + half + (_facingZ * (half + 1));
+  const std::int32_t acrossX = std::abs(_facingZ);
+  const std::int32_t acrossZ = std::abs(_facingX);
+  return {{{x, z}, {x - acrossX, z - acrossZ}, {x + acrossX, z + acrossZ}}};
+}
+
+std::optional<Protocol::VoxelPosition> World::LowestIn(const Box& _box, std::int32_t _x, std::int32_t _z, std::int32_t _floorVoxels) const
+{
+  if (_x < _box.min.xVoxels || _x >= _box.min.xVoxels + _box.widthVoxels || _z < _box.min.zVoxels ||
+      _z >= _box.min.zVoxels + _box.depthVoxels)
+  {
+    return std::nullopt;
+  }
+  for (std::int32_t y = std::max(_floorVoxels, _box.min.yVoxels); y < _box.min.yVoxels + _box.heightVoxels; ++y)
+  {
+    const Protocol::VoxelPosition voxel{.xVoxels = _x, .yVoxels = y, .zVoxels = _z};
+    if (m_voxels.At(voxel) != Protocol::Chunk::EMPTY)
+    {
+      return voxel;
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<World::RamBlow> World::BestBlow(Protocol::VoxelPosition _cellVoxels, const Box& _box) const
+{
+  constexpr std::array<std::pair<std::int32_t, std::int32_t>, 4> FACINGS_TRIED = {{{0, -1}, {0, 1}, {-1, 0}, {1, 0}}};
+  std::optional<RamBlow> best;
+  for (const auto& [facingX, facingZ] : FACINGS_TRIED)
+  {
+    // It touches when a column before its front holds a voxel at its floor; it strikes that column's or a neighbour's
+    // lowest voxel, whichever lies lowest, the one before its centre first.
+    bool touches = false;
+    std::optional<Protocol::VoxelPosition> struck;
+    for (const auto& [x, z] : FrontColumns(_cellVoxels, facingX, facingZ))
+    {
+      const std::optional<Protocol::VoxelPosition> lowest = LowestIn(_box, x, z, _cellVoxels.yVoxels);
+      touches = touches || (lowest.has_value() && lowest->yVoxels == _cellVoxels.yVoxels);
+      if (lowest.has_value() && (!struck.has_value() || lowest->yVoxels < struck->yVoxels))
+      {
+        struck = lowest;
+      }
+    }
+    if (!touches || !struck.has_value())
+    {
+      continue;
+    }
+    const std::size_t takes = RamCrater(*struck, _box).size();
+    if (!best.has_value() || takes > best->takes)
+    {
+      best = RamBlow{.facingX = facingX, .facingZ = facingZ, .voxel = *struck, .takes = takes};
+    }
+  }
+  return best;
+}
+
+std::optional<World::RamContact> World::RamContactFor(const Unit& _ram, const Box& _box) const
+{
+  // Every cell within a ram's width of the box, or in it, as a passage is: the one whose blow takes most, so that a ram
+  // ordered at a gatehouse goes for its gate, then the nearest, ties to the lower index.
+  const std::int32_t side = std::max(1, Data().Tuning().machinesWidthVoxels);
+  const std::int32_t width = m_navigation.WidthCells();
+  const PathSearch::CellIndex from = CellOf(_ram.cellVoxels);
+  std::optional<RamContact> best;
+  std::size_t bestTakes = 0;
+  std::int64_t bestDistance = std::numeric_limits<std::int64_t>::max();
+  for (std::int32_t z = _box.min.zVoxels - side - 1; z <= _box.min.zVoxels + _box.depthVoxels; ++z)
+  {
+    for (std::int32_t x = _box.min.xVoxels - side - 1; x <= _box.min.xVoxels + _box.widthVoxels; ++x)
+    {
+      if (x < 0 || z < 0 || x >= width || z >= m_navigation.DepthCells() || !m_navigation.Usable(x, z, NavigationClass::Machines))
+      {
+        continue;
+      }
+      const Protocol::VoxelPosition cell{.xVoxels = x, .yVoxels = m_navigation.WalkableHeight(x, z), .zVoxels = z};
+      const std::optional<RamBlow> blow = BestBlow(cell, _box);
+      if (!blow.has_value() || blow->takes == 0 || blow->takes < bestTakes)
+      {
+        continue;
+      }
+      const PathSearch::CellIndex index = CellOf(cell);
+      const std::int64_t distance = PathSearch::Octile(from, index, width);
+      if ((blow->takes > bestTakes || distance < bestDistance) &&
+          m_navigation.NearestReachable(from, index, NavigationClass::Machines) == index)
+      {
+        best = RamContact{.cellVoxels = cell, .facingX = blow->facingX, .facingZ = blow->facingZ};
+        bestTakes = blow->takes;
+        bestDistance = distance;
+      }
+    }
+  }
+  return best;
+}
+
+std::vector<Protocol::VoxelPosition> World::RamCrater(Protocol::VoxelPosition _voxel, const Box& _box) const
+{
+  // Input 9's ladder (MvpPlan.md, M4): timber takes ramTimberCraterVoxels, earth and rubble ramEarthCraterVoxels, stone
+  // ramStoneCraterVoxels when the struck voxel lies within ramStoneReachVoxels of the structure's base and none above,
+  // and bedrock and water none. A crater is the struck voxel and those above it in its column, inside the box and of its
+  // behaviour, up to its size: a gate one voxel thick loses a column of itself, never the ground under it.
+  const Rules& rules = Data().Tuning();
+  const Behavior behavior = Data().Materials().at(m_voxels.At(_voxel)).behavior;
+  std::int32_t size = 0;
+  switch (behavior)
+  {
+  case Behavior::Timber:
+  case Behavior::Leaves:
+    size = rules.ramTimberCraterVoxels;
+    break;
+  case Behavior::Earth:
+  case Behavior::StoneRubble:
+  case Behavior::WasteRubble:
+    size = rules.ramEarthCraterVoxels;
+    break;
+  case Behavior::BuildingStone:
+  case Behavior::CommonRock:
+    size = _voxel.yVoxels < _box.min.yVoxels + rules.ramStoneReachVoxels ? rules.ramStoneCraterVoxels : 0;
+    break;
+  default:
+    break;
+  }
+  std::vector<Protocol::VoxelPosition> crater;
+  for (Protocol::VoxelPosition voxel = _voxel;
+       std::cmp_less(crater.size(), std::max(0, size)) && voxel.yVoxels < _box.min.yVoxels + _box.heightVoxels; ++voxel.yVoxels)
+  {
+    if (m_voxels.At(voxel) == Protocol::Chunk::EMPTY || Data().Materials().at(m_voxels.At(voxel)).behavior != behavior)
+    {
+      break;
+    }
+    crater.push_back(voxel);
+  }
+  return crater;
+}
+
+void World::RamBlows()
+{
+  // After the engines' reloads run down: a ram standing where it touches the structure it is ordered at strikes, every
+  // ramBlowTicks, the blow that takes most, each blow an edit as a shot's crater is. One that has arrived where its blow
+  // takes nothing makes for the place whose blow takes most, or turns idle when there is none (ADR-023, decision 9).
+  for (auto& [id, engine] : m_siegeEngines)
+  {
+    const auto squad = m_squads.find(engine.squad);
+    if (engine.kind != EngineKind::Ram || squad == m_squads.end() || squad->second.units.empty() ||
+        squad->second.order != Protocol::SquadOrder::Attack || Holding(squad->first))
+    {
+      continue;
+    }
+    const auto structure = m_structures.find(squad->second.target);
+    const std::optional<Box> box = structure == m_structures.end() ? std::nullopt : BoxOf(structure->second);
+    const Unit& ram = m_units.at(squad->second.units.front());
+    const std::vector<PathSearch::CellIndex>& trail = squad->second.trail;
+    const bool walking = !trail.empty() && ram.trailStep != OFF_TRAIL && std::size_t{ram.trailStep} + 1 < trail.size();
+    if (!box.has_value() || ram.reservedCell >= 0 || walking)
+    {
+      continue;
+    }
+    const std::optional<RamBlow> blow = BestBlow(ram.cellVoxels, *box);
+    if (!blow.has_value() || blow->takes == 0)
+    {
+      const std::optional<RamContact> next = RamContactFor(ram, *box);
+      if (!next.has_value() || next->cellVoxels == ram.cellVoxels)
+      {
+        Halt(squad->second, Protocol::SquadOrder::Idle);
+        continue;
+      }
+      squad->second.goalVoxels = next->cellVoxels;
+      squad->second.hasGoal = true;
+      RequestSearch(squad->second);
+      continue;
+    }
+    if (engine.reloadTicks > 0)
+    {
+      continue;
+    }
+    for (const Protocol::VoxelPosition& voxel : RamCrater(blow->voxel, *box))
+    {
+      m_voxels.Edit(voxel, Protocol::Chunk::EMPTY);
+    }
+    engine.reloadTicks = static_cast<std::uint32_t>(std::max(0, Data().Tuning().ramBlowTicks));
   }
 }
 
@@ -1954,6 +2178,7 @@ void World::AdvanceShots()
       }
     }
   }
+  RamBlows();
   std::vector<Protocol::EntityId> landed;
   for (auto& [id, shot] : m_shots)
   {

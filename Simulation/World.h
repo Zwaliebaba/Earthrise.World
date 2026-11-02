@@ -426,6 +426,50 @@ private:
   /// A stone's crush where it struck: every unit within a cell of the struck voxel, and an engine whose footprint holds
   /// its column, each once (ADR-023, decision 7).
   void CrushAround(Protocol::VoxelPosition _struck);
+
+  // ADR-023, decision 9: the ram at a structure, in step 4.
+  /// A structure's box: its footprint's minimum corner at its base, and its extents.
+  struct Box
+  {
+    Protocol::VoxelPosition min;
+    std::int32_t widthVoxels;
+    std::int32_t heightVoxels;
+    std::int32_t depthVoxels;
+  };
+  /// Where a ram touches a structure from: the cell it stands in and the way it faces, one step across x or z.
+  struct RamContact
+  {
+    Protocol::VoxelPosition cellVoxels;
+    std::int32_t facingX;
+    std::int32_t facingZ;
+  };
+  [[nodiscard]] std::optional<Box> BoxOf(const Structure& _structure) const;
+  /// The three columns before a ram's front, standing in _cellVoxels facing (_facingX, _facingZ): the one before its
+  /// centre, then the one either side, the lower first.
+  [[nodiscard]] std::array<std::pair<std::int32_t, std::int32_t>, 3> FrontColumns(Protocol::VoxelPosition _cellVoxels,
+                                                                                  std::int32_t _facingX, std::int32_t _facingZ) const;
+  /// The lowest voxel of _box in column (_x, _z) at or above _floorVoxels that is not empty, or nothing.
+  [[nodiscard]] std::optional<Protocol::VoxelPosition> LowestIn(const Box& _box, std::int32_t _x, std::int32_t _z,
+                                                                std::int32_t _floorVoxels) const;
+  /// What a ram's next blow from _cellVoxels would strike: the way it faces, the voxel and how many voxels it takes.
+  struct RamBlow
+  {
+    std::int32_t facingX;
+    std::int32_t facingZ;
+    Protocol::VoxelPosition voxel;
+    std::size_t takes;
+  };
+  /// The blow that takes most of the ram's four facings that touch _box, a column before its front holding a voxel of it
+  /// at the ram's floor; ties to the order south, north, west, east. Nothing when it touches nothing.
+  [[nodiscard]] std::optional<RamBlow> BestBlow(Protocol::VoxelPosition _cellVoxels, const Box& _box) const;
+  /// The cell machines can use and reach from _ram from which its blow takes most, the nearest by octile distance among
+  /// those, ties to the lower index; nothing when no blow from any takes a voxel.
+  [[nodiscard]] std::optional<RamContact> RamContactFor(const Unit& _ram, const Box& _box) const;
+  /// The voxels a blow at _voxel removes, on input 9's ladder.
+  [[nodiscard]] std::vector<Protocol::VoxelPosition> RamCrater(Protocol::VoxelPosition _voxel, const Box& _box) const;
+  /// Every ram ordered at a structure strikes it on its cadence when it stands touching it, and makes for the nearest
+  /// place it can when it does not.
+  void RamBlows();
   /// Runs one tick of a collapse's fall; returns whether it has ended.
   [[nodiscard]] bool Fall(Collapse& _collapse);
   [[nodiscard]] std::int32_t WidthVoxels() const noexcept;
