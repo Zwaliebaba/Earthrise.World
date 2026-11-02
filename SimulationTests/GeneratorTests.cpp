@@ -313,7 +313,7 @@ public:
     // z 96 to 101, every class reaches the far bank from 12 m out on the near one.
     constexpr std::int32_t SIZE = 128;
     constexpr std::int32_t ROW = 98;
-    constexpr std::int32_t OUT = 12;
+    constexpr std::int32_t STANDOFF_VOXELS = 12;
     const Simulation::Generator generator(
       {.worldSeed = 1, .resourceSeed = 2, .widthVoxels = SIZE, .heightVoxels = 64, .depthVoxels = SIZE});
     Simulation::ChunkStore store;
@@ -348,8 +348,8 @@ public:
       BakedServerData().Materials());
     grid.RebuildAll(store);
     grid.UpdateReach();
-    const std::int64_t from = std::int64_t{ROW} * SIZE + (west - OUT);
-    const std::int64_t to = std::int64_t{ROW} * SIZE + (east + OUT);
+    const std::int64_t from = std::int64_t{ROW} * SIZE + (west - STANDOFF_VOXELS);
+    const std::int64_t to = std::int64_t{ROW} * SIZE + (east + STANDOFF_VOXELS);
     for (const Simulation::NavigationClass navigationClass :
          {Simulation::NavigationClass::Foot, Simulation::NavigationClass::Cavalry, Simulation::NavigationClass::Machines})
     {

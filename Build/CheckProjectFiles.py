@@ -10,6 +10,7 @@ ADR-010 decision 9 adds:
   shares its filter with its .cpp;
 - project folders are flat except Shader/, and shaders are named for their stage;
 - R2 (no affixes on type names), R7 (file names), R11 (one spelling per family);
+- no identifier is named for a macro the Windows SDK defines (AGENTS.md §4);
 - Windows headers stay out of Core, Protocol, Content and Simulation (ADR-007), and only
   Engine/framework.h defines the Windows macros (AGENTS.md §4);
 - float and double stay out of the code of Simulation and Protocol (ADR-013, decision 3);
@@ -142,6 +143,27 @@ AFFIX = re.compile(r"^(?:[CSEI][A-Z][a-z0-9]|Base[A-Z]|Abstract[A-Z])|(?:Base|Ab
 
 # R11: the SDK's spelling of each family, so the other one is a defect in an identifier.
 OTHER_SPELLINGS = re.compile(r"colour|initialis|serialis|normalis|quantis|synchronis|behaviour|neighbour|centre|grey|cancell")
+
+# AGENTS.md §4: words the Windows SDK defines as macros, through <windows.h> and the Direct3D headers, each
+# with the header that does. An identifier so named declares nothing, or something else, under MSVC, and
+# only there: gcc and clang on Linux define none of them. It is refused in every project, since a header
+# can bring Windows to a file that never asked for it.
+WINDOWS_MACRO_NAMES = {
+  "far": "minwindef.h",
+  "near": "minwindef.h",
+  "pascal": "minwindef.h",
+  "cdecl": "minwindef.h",
+  "FAR": "minwindef.h",
+  "NEAR": "minwindef.h",
+  "PASCAL": "minwindef.h",
+  "IN": "minwindef.h",
+  "OUT": "minwindef.h",
+  "OPTIONAL": "minwindef.h",
+  "CONST": "minwindef.h",
+  "small": "rpcndr.h",
+  "hyper": "rpcndr.h",
+  "interface": "combaseapi.h",
+}
 
 
 class Report:
@@ -499,6 +521,8 @@ def CheckSources(_report, _root, _project):
       for identifier in set(re.findall(r"[A-Za-z_]\w*", code)):
         if OTHER_SPELLINGS.search(identifier.lower()):
           _report.Error(file, f"identifier {identifier}: use the SDK's spelling (R11)")
+        if identifier in WINDOWS_MACRO_NAMES:
+          _report.Error(file, f"identifier {identifier}: {WINDOWS_MACRO_NAMES[identifier]} defines it as a macro, so MSVC sees no such name (AGENTS.md §4)")
     if _project.name in WINDOWS_FREE_PROJECTS:
       for match in WINDOWS_INCLUDE.finditer(code):
         _report.Error(file, f"{_project.name} includes {match.group(1)}; Windows and Direct3D stay in Engine (ADR-007)")
