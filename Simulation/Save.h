@@ -34,7 +34,8 @@ namespace Simulation
 //      version 5 its u8 order and u64 target, and a unit's version 4 its u32 reload and u64 target
 //      (M4-C3); a shot's version 2 puts its u8 kind after its owner, holds an arrow's line, its start
 //      and end and its Fixed flight ticks, where a stone's arc stands, and ends with its u64 shooter,
-//      u64 target and i32 damage (M4-C4);
+//      u64 target and i32 damage (M4-C4); an engine's version 4 its u32 ticks left of a
+//      deploy or a pack (M4-C5);
 //   4. the pending work, each queue in its own stated order: u32 the commands that arrived for the
 //      next tick, then each as its u8 player, u32 length and bytes, in arrival order; u32 the edits
 //      the last tick made after its step 5, then each voxel, in edit order; and u32 the edits made

@@ -227,6 +227,7 @@ void WriteRecord(Core::ByteWriter& _writer, const SiegeEngine& _engine)
   _writer.WriteU8(static_cast<std::uint8_t>(_engine.quarterTurns));
   _writer.WriteU8(static_cast<std::uint8_t>(_engine.state));
   _writer.WriteU64(_engine.squad);
+  _writer.WriteU32(_engine.stateTicksLeft);
 }
 
 SiegeEngine ReadSiegeEngine(Core::ByteReader& _reader)
@@ -239,7 +240,8 @@ SiegeEngine ReadSiegeEngine(Core::ByteReader& _reader)
           .reloadTicks = _reader.ReadU32(),
           .quarterTurns = ReadQuarterTurns(_reader),
           .state = ReadEnum(_reader, EngineState::Packing, "engine state"),
-          .squad = _reader.ReadU64()};
+          .squad = _reader.ReadU64(),
+          .stateTicksLeft = _reader.ReadU32()};
 }
 
 void WriteFixed(Core::ByteWriter& _writer, Core::Fixed _value)
@@ -590,10 +592,9 @@ std::uint16_t RecordVersion(SaveEntityTag _tag) noexcept
   {
   case SaveEntityTag::Squad: // M4-B4: the building it is garrisoned in; M4-C1: its kind; M4-C2: its facing; M4-C3: its order
     return 5;
-  case SaveEntityTag::Unit: // M4-C1: its hit points; M4-C2: its reservation, its step and its wait; M4-C3: its reload and target
+  case SaveEntityTag::Unit:        // M4-C1: its hit points; M4-C2: its reservation, its step and its wait; M4-C3: its reload and target
+  case SaveEntityTag::SiegeEngine: // M4-B4: its state; M4-C1: its body's squad; M4-C5: its deploy's or pack's ticks left
     return 4;
-  case SaveEntityTag::SiegeEngine: // M4-B4: its state; M4-C1: its body's squad
-    return 3;
   case SaveEntityTag::Shot: // M4-C4: its kind, an arrow's line, shooter, target and damage
     return 2;
   default:

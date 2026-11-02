@@ -135,5 +135,8 @@
     <ClCompile Include="ArrowTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="EngineTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

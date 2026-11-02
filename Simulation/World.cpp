@@ -323,7 +323,8 @@ Protocol::EntityId World::AddSiegeEngine(std::uint8_t _owner, EngineKind _kind, 
                                          .reloadTicks = 0,
                                          .quarterTurns = _quarterTurns % 4,
                                          .state = _state,
-                                         .squad = squad});
+                                         .squad = squad,
+                                         .stateTicksLeft = 0});
   return id;
 }
 
@@ -896,6 +897,14 @@ void World::Apply(std::uint8_t _player, const Protocol::Command& _command)
   {
     Merge(_player, *merge);
   }
+  else if (const auto* deploy = std::get_if<Protocol::DeployEngine>(&_command))
+  {
+    Deploy(_player, *deploy);
+  }
+  else if (const auto* pack = std::get_if<Protocol::PackEngine>(&_command))
+  {
+    Pack(_player, *pack);
+  }
   else
   {
     // M4's other commands land with the orders that build them.
@@ -1054,8 +1063,9 @@ void World::Merge(std::uint8_t _player, const Protocol::MergeSquads& _merge)
 
 void World::Fire(std::uint8_t _player, const Protocol::FireEngine& _fire)
 {
-  // Refused, and doing nothing, for an engine that is not the player's or is reloading, and for a
-  // target out of range (GameDesign.md, M2's values, item 12).
+  // Refused, and doing nothing, for an engine that is not the player's, is not deployed or is
+  // reloading, for a target out of range (GameDesign.md, M2's values, item 12), and for a player
+  // without the shot's stone (ADR-023, decision 10).
   const auto engine = m_siegeEngines.find(_fire.engine);
   if (engine == m_siegeEngines.end() || engine->second.kind != EngineKind::Trebuchet)
   {
@@ -1065,6 +1075,11 @@ void World::Fire(std::uint8_t _player, const Protocol::FireEngine& _fire)
   if (engine->second.owner != _player)
   {
     Refuse(_player, _fire, Protocol::Refusal::NotOwned);
+    return;
+  }
+  if (engine->second.state != EngineState::Deployed)
+  {
+    Refuse(_player, _fire, Protocol::Refusal::NotDeployed);
     return;
   }
   if (engine->second.reloadTicks > 0)
@@ -1078,6 +1093,18 @@ void World::Fire(std::uint8_t _player, const Protocol::FireEngine& _fire)
     Refuse(_player, _fire, Protocol::Refusal::Invalid);
     return;
   }
+  // The stone comes from its player's stockpile; a player the match has no record of, as in M2's and
+  // M3's worlds, pays nothing.
+  if (const auto player = m_players.find(_player); player != m_players.end())
+  {
+    const std::int32_t cost = Data().Tuning().shotStoneHundredthsCubicMeters;
+    if (player->second.stoneHundredthsCubicMeters < cost)
+    {
+      Refuse(_player, _fire, Protocol::Refusal::NotEnoughStone);
+      return;
+    }
+    player->second.stoneHundredthsCubicMeters -= cost;
+  }
   const Protocol::EntityId id = NewEntityId();
   m_shots.emplace(id, Shot{.id = id,
                            .engine = engine->first,
@@ -1089,6 +1116,83 @@ void World::Fire(std::uint8_t _player, const Protocol::FireEngine& _fire)
                            .target = Protocol::NO_ENTITY,
                            .damage = 0});
   engine->second.reloadTicks = static_cast<std::uint32_t>(Data().Tuning().shotReloadTicks);
+}
+
+void World::Deploy(std::uint8_t _player, const Protocol::DeployEngine& _deploy)
+{
+  const auto engine = m_siegeEngines.find(_deploy.engine);
+  if (engine == m_siegeEngines.end() || engine->second.kind != EngineKind::Trebuchet || _deploy.quarterTurns > 3)
+  {
+    Refuse(_player, _deploy, Protocol::Refusal::Invalid);
+    return;
+  }
+  if (engine->second.owner != _player)
+  {
+    Refuse(_player, _deploy, Protocol::Refusal::NotOwned);
+    return;
+  }
+  if (engine->second.state != EngineState::Packed)
+  {
+    Refuse(_player, _deploy, Protocol::Refusal::NotPacked);
+    return;
+  }
+  // It stops where it stands, finishing the step it is in, and turns to throw the way it is told.
+  if (const auto body = m_squads.find(engine->second.squad); body != m_squads.end())
+  {
+    Halt(body->second, Protocol::SquadOrder::Idle);
+  }
+  engine->second.quarterTurns = _deploy.quarterTurns;
+  const auto ticks = static_cast<std::uint32_t>(std::max(0, Data().Tuning().trebuchetDeployTicks));
+  engine->second.state = ticks == 0 ? EngineState::Deployed : EngineState::Deploying;
+  engine->second.stateTicksLeft = ticks;
+}
+
+void World::Pack(std::uint8_t _player, const Protocol::PackEngine& _pack)
+{
+  const auto engine = m_siegeEngines.find(_pack.engine);
+  if (engine == m_siegeEngines.end() || engine->second.kind != EngineKind::Trebuchet)
+  {
+    Refuse(_player, _pack, Protocol::Refusal::Invalid);
+    return;
+  }
+  if (engine->second.owner != _player)
+  {
+    Refuse(_player, _pack, Protocol::Refusal::NotOwned);
+    return;
+  }
+  if (engine->second.state != EngineState::Deployed)
+  {
+    Refuse(_player, _pack, Protocol::Refusal::NotDeployed);
+    return;
+  }
+  const auto ticks = static_cast<std::uint32_t>(std::max(0, Data().Tuning().trebuchetPackTicks));
+  engine->second.state = ticks == 0 ? EngineState::Packed : EngineState::Packing;
+  engine->second.stateTicksLeft = ticks;
+}
+
+void World::CrushAround(Protocol::VoxelPosition _struck)
+{
+  // A unit within a cell of the struck voxel across the ground, standing within a voxel of its top; a machine's body
+  // also when its footprint holds the struck column (MvpPlan.md, M4, input 8).
+  const std::int32_t damage = Data().Tuning().shotCrushDamage;
+  const std::int32_t machineSide = std::max(1, Data().Tuning().machinesWidthVoxels);
+  for (auto& [id, unit] : m_units)
+  {
+    if (Garrisoned(unit))
+    {
+      continue;
+    }
+    const Protocol::VoxelPosition& cell = unit.cellVoxels;
+    const bool near = std::abs(cell.xVoxels - _struck.xVoxels) <= 1 && std::abs(cell.zVoxels - _struck.zVoxels) <= 1 &&
+                      std::abs(cell.yVoxels - (_struck.yVoxels + 1)) <= 1;
+    const std::int32_t side = unit.navigationClass == NavigationClass::Machines ? machineSide : 1;
+    const bool holds = _struck.xVoxels >= cell.xVoxels && _struck.xVoxels < cell.xVoxels + side && _struck.zVoxels >= cell.zVoxels &&
+                       _struck.zVoxels < cell.zVoxels + side;
+    if (near || holds)
+    {
+      Crush(unit, damage);
+    }
+  }
 }
 
 void World::AdvanceJobs()
@@ -1840,6 +1944,15 @@ void World::AdvanceShots()
     {
       --engine.reloadTicks;
     }
+    // A deploy or a pack runs down and ends in its state (MvpPlan.md, M4, input 17).
+    if (engine.stateTicksLeft > 0)
+    {
+      --engine.stateTicksLeft;
+      if (engine.stateTicksLeft == 0)
+      {
+        engine.state = engine.state == EngineState::Packing ? EngineState::Packed : EngineState::Deployed;
+      }
+    }
   }
   std::vector<Protocol::EntityId> landed;
   for (auto& [id, shot] : m_shots)
@@ -1880,7 +1993,8 @@ void World::AdvanceShots()
       const auto sign = [](Core::Fixed _value) { return _value.Raw() > 0 ? 1 : (_value.Raw() < 0 ? -1 : 0); };
       const ShotHit& struck = m_tickHits.emplace_back(ShotHit{
         .shot = id, .voxel = *hit, .behindX = alongX ? sign(arc.acrossXMeters) : 0, .behindZ = alongX ? 0 : sign(arc.acrossZMeters)});
-      // Its crater, as edits to empty (M2-E2).
+      // Its crush (ADR-023, decision 7), then its crater, as edits to empty (M2-E2).
+      CrushAround(struck.voxel);
       for (const Protocol::VoxelPosition& voxel : CraterVoxels(
              struck.voxel, struck.behindX, struck.behindZ, [this](Protocol::VoxelPosition _voxel) { return m_voxels.At(_voxel); },
              Data().Materials(), Data().Tuning()))
@@ -2508,7 +2622,7 @@ Protocol::StateUpdate World::StateFor(std::uint8_t _player) const
                              .reloadTicks = engine.reloadTicks,
                              .state = engine.state,
                              .squad = engine.squad,
-                             .stateTicksLeft = 0,
+                             .stateTicksLeft = engine.stateTicksLeft,
                              .position = engine.position,
                              .hitPoints = bodyOf(engine) == nullptr ? 0 : bodyOf(engine)->hitPoints,
                              .maxHitPoints = Data().Stats(engine.kind == EngineKind::Ram ? UnitKind::Ram : UnitKind::Trebuchet).hitPoints});

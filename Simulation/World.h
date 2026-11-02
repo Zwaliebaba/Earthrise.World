@@ -118,6 +118,7 @@ struct SiegeEngine
   std::uint32_t quarterTurns; // which way its model faces: quarter turns clockwise seen from above, as Engine::VoxelPass::Batch counts them
   EngineState state;          // a ram stays Packed (MvpPlan.md, M4, input 17)
   Protocol::EntityId squad;   // its body's squad of one, whose unit it moves as and whose hit points are its (ADR-023)
+  std::uint32_t stateTicksLeft = 0; // until a deploy or a pack is done; 0 when it is neither
 };
 
 /// A player of the match: their side and their stockpiles, in hundredths of a cubic metre (MvpPlan-M4.md,
@@ -419,6 +420,12 @@ private:
 
   void Apply(std::uint8_t _player, const Protocol::Command& _command);
   void Fire(std::uint8_t _player, const Protocol::FireEngine& _fire);
+  /// A packed trebuchet stops and deploys facing _deploy's way, a deployed one packs (MvpPlan.md, M4, input 17).
+  void Deploy(std::uint8_t _player, const Protocol::DeployEngine& _deploy);
+  void Pack(std::uint8_t _player, const Protocol::PackEngine& _pack);
+  /// A stone's crush where it struck: every unit within a cell of the struck voxel, and an engine whose footprint holds
+  /// its column, each once (ADR-023, decision 7).
+  void CrushAround(Protocol::VoxelPosition _struck);
   /// Runs one tick of a collapse's fall; returns whether it has ended.
   [[nodiscard]] bool Fall(Collapse& _collapse);
   [[nodiscard]] std::int32_t WidthVoxels() const noexcept;

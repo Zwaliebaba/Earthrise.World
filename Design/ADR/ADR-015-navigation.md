@@ -135,4 +135,4 @@ It fixes the model and leaves the search algorithm to the navigation orders, whi
 - ~~**Cavalry's and machines' speeds**~~: 2.8 m/s and 0.7 m/s, the owner's, after M2's report.
 - **Flow fields for many units** with one goal.
 - ~~**Formations and separation**~~: closed by [ADR-022](ADR-022-formations-and-separation.md), accepted by M4-C2. Like the rest of movement, it stays inside navigation: nothing pushes a unit (ADR-004, decision 6).
-- ~~**The trebuchet's packed width,** once its packed model is drawn.~~ Drawn 2026-11-01: 3.5 m across its travel, which the machines class's width of 3 does not fit (the table above). The owner decides which changes.
+- ~~**The trebuchet's packed width,** once its packed model is drawn.~~ Drawn 2026-11-01: 3.5 m across its travel, which the machines class's width of 3 does not fit (the table above). The owner decided on 2026-11-01 that machines stay 3 wide and the wagon's 0.25 m overhang either side is accepted (MvpPlan.md, M4, input 17), as M4-C5 builds it.
