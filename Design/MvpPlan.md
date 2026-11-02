@@ -10,6 +10,8 @@
 - the owner inputs, twenty-eight, each answered as proposed on 2026-11-01 (GameDesign.md, *M4's values*);
 - ADR-022 to ADR-028, Proposed, and ADR-018, Proposed since the v3 asset package, all with the owner's go-ahead.
 
+**M4.1, added by the owner on 2026-11-02, is Proposed,** and is accepted when the owner merges its pull request. It covers its two work orders, in [MvpPlan-M4.1.md](MvpPlan-M4.1.md), and its two inputs, each answered as proposed on 2026-11-02 (GameDesign.md, *M4.1's values*).
+
 M0 to M2 were closed by the owner on 2026-11-01 (GameDesign.md, *Closing M0 and M1* and *Closing M2*); nothing from M3 on is implemented. [GameDesign.md](GameDesign.md) defines the MVP and governs where this plan differs from it. [AGENTS.md](../AGENTS.md) governs how the code is written.
 
 **How the work is done.** Claude sessions write the code, tools and checkers and push them to branches. CI builds Debug|x64 and runs its tests; Debug|ARM64 is built by hand (ADR-007). The owner runs the builds on Windows, judges the look and the measurements, and approves each milestone.
@@ -173,11 +175,12 @@ The order is fixed, so that one build replays the same commands to the same resu
 | M2 | Headless simulation | A scripted breach and units pathing through it, replaying identically |
 | M3 | Breach lab | The first measured reading on H2's predictions |
 | M4 | Siege trial | A Siege trial that can be played, with its control |
+| M4.1 | The voxel read's cost | A verdict on whether a voxel read costs more as the world grows, and the load's breakdown, off the critical path |
 | M5 | Siege playtest | The verdict on H2 |
 | M6 | Hold trial | A Hold trial that can be played, with its control |
 | M7 | Hold playtest | The verdict on H1, and so the MVP's |
 
-**The critical path** runs M1 → M2 → M4 → M5. The paper tests in M0, the template tool and the placeholder art can run alongside it.
+**The critical path** runs M1 → M2 → M4 → M5. The paper tests in M0, the template tool and the placeholder art can run alongside it, and so can M4.1.
 
 ### M0 — Foundations and paper tests
 
@@ -599,6 +602,23 @@ M4 is carried out as 43 work orders in ten phases, written out in [MvpPlan-M4.md
 |---|---|---|---|
 | Plan | #49 | 3 | This revision, the work orders and ADR-022 to ADR-028, Proposed; then the consistency review's corrections; then the deck's log rows and the mirrored castle (input 28), which M5 needs. |
 | A | #49 | 1 | The owner's 28 answers, every proposal taken; in the plan's PR because they edit the files it adds. |
+
+### M4.1 — The voxel read's cost as the world grows
+
+**Why.** The owner added M4.1 on 2026-11-02, while M4 was underway, to settle a question M1's measurements left ([Review/M1Report-2026-11-01.md](Review/M1Report-2026-11-01.md)). The support search and a navigation tile's rebuild are local by design, yet both took about twice as long on the 2 km season world as on the MVP map. Either the season world's breach does more work, or every voxel read costs more in a store that holds more chunks. The second would make every figure for a larger world extrapolated from M1's low. The MVP map holds at most 512 chunks, so neither matters to the MVP; Worlds' 2 km is where it would.
+
+**Off the critical path.** M4.1 changes `SimulationBench` alone and no simulation code, and M5 does not wait on it.
+
+**Build** a mode of `SimulationBench`, `--lookup`, that tells the two explanations apart. It runs the same breach on the same world in stores padded with far-off chunks up to 65,536, the count of an 8 km world one chunk high, and times the read path three ways. The same mode breaks down the simulation's load, the generator, navigation from nothing and the Siege trial to its first tick, as a measurement only, with no mark and no fix (GameDesign.md, *M4.1's values*, item 3). [MvpPlan-M4.1.md](MvpPlan-M4.1.md) writes it out as two work orders in phase A, and a phase B, a faster chunk lookup, only if the verdict calls for one.
+
+**Done when** the report is in `Design/Review/` with its verdict under input 1, and, if that verdict calls for phase B, phase B has landed.
+
+**The owner's inputs.** Each is a choice no document makes, and AGENTS.md requires it written down before the order that rests on it. The implementer proposed each, and the owner took both proposals on 2026-11-02. GameDesign.md, *M4.1's values*, records them.
+
+| # | Input | For orders | Decided, 2026-11-02, as the implementer proposed it |
+|---|---|---|---|
+| 1 | **The verdict's marks** | A1, A2 | Closed with no change if the support search at 4,224 chunks is within 10% of its time at 258; phase B if it is 25% or more slower, with a profile taken; the owner's call in between, with the profile |
+| 2 | **When it runs** | A1 | After M4 closes, beside M5, so that its owner runs do not compete with M4's. Brought forward if M4-J4's measured run finds a tick of play over 25 ms, which M4's done-when forbids; its orders need nothing from M4 but a tree that builds, and M4-B4's `LoadScenario` for the load's breakdown |
 
 ### M5 — Siege playtest: the verdict on H2
 
