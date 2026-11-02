@@ -97,6 +97,38 @@ public:
     Assert::AreEqual(std::string("Gate"), data.FindTemplate("T5")->criticalPart);
   }
 
+  TEST_METHOD(PutsTheGatehousesGateAtThePassagesInnerEnd)
+  {
+    // M4-B1 (the paper tests' values, item 14): T5's 12 gate voxels stand at the passage's inner face, z 0, and the
+    // passage before them is 3 m wide and 4 m high and clear to the front.
+    const Simulation::ServerTemplate* gatehouse = BakedServerData().FindTemplate("T5");
+    Assert::IsNotNull(gatehouse);
+    const std::uint32_t width = gatehouse->widthVoxels;
+    const std::uint32_t depth = gatehouse->depthVoxels;
+    std::size_t gate = 0;
+    for (std::uint32_t y = 0; y < gatehouse->heightVoxels; ++y)
+    {
+      for (std::uint32_t z = 0; z < depth; ++z)
+      {
+        for (std::uint32_t x = 0; x < width; ++x)
+        {
+          const std::size_t at = x + (width * (z + (depth * y)));
+          if (gatehouse->parts.at(at) == Simulation::ServerTemplate::Part::Critical)
+          {
+            ++gate;
+            Assert::AreEqual(std::uint32_t{0}, z);
+            Assert::IsTrue(y < 4 && x >= 3 && x <= 5);
+          }
+          else if (y < 4 && x >= 3 && x <= 5)
+          {
+            Assert::AreEqual(std::uint8_t{0}, gatehouse->indices.at(at));
+          }
+        }
+      }
+    }
+    Assert::AreEqual(std::size_t{12}, gate);
+  }
+
   TEST_METHOD(GivesMasonryItsSpanAndItsRubble)
   {
     const Simulation::MaterialRule& masonry = BakedServerData().Materials()[6];

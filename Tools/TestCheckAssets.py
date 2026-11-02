@@ -189,7 +189,7 @@ BROKEN = {
   "a modelOnly index in a template": (lambda r: Change(r, T1, Legend("m", 16)), "which is modelOnly"),
   # 4. Costs.
   "a wrong cost in the manifest": (lambda r: Change(r, MANIFEST, lambda m: Entry(m, "T5")["costM3"].update(timber=13)),
-                                   "but Manifest.json says stone 585, timber 13"),
+                                   "but Manifest.json says stone 589, timber 13"),
   "the package's cost, decorations left out": (
     lambda r: Change(r, MANIFEST, lambda m: Entry(m, "T1").update(costM3=Entry(m, "T1")["packageCostM3"])),
     "counts stone 0, timber 188, foundation 0 m3, but Manifest.json says stone 0, timber 185"),

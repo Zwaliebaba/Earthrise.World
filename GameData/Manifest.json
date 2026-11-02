@@ -172,7 +172,8 @@
    },
    "kind": "template",
    "knownIssues": [
-    "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before the M4 Siege castle is final."
+    "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before the M4 Siege castle is final.",
+    "The conversion staggered the crenellation: merlons on the front at 5 m and on the back at 6 m. M4-B1 drew it as a 2 m parapet on the front over a walkway behind, at the same 96 m³, and that redraw moved the breach lab's keys and broke its split of 8 open and 8 shut (M3-B7). The lab is M3's instrument and its session has not run, so the redraw waits for M3 to close."
    ]
   },
   {
@@ -200,7 +201,7 @@
     "timber": 0,
     "foundation": 0
    },
-   "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2; openings win any block they touch) — redraw natively at 1 m before final",
+   "authoring": "reviewed at 1 m in M4-B1 (2026-11-02): the render-fix package's conversion has no majority-vote artefact on its edges or openings, so it stands as converted",
    "files": {
     "json": "Server/Templates/earthrise-t4-tower-1m.json"
    },
@@ -212,8 +213,7 @@
    },
    "knownIssues": [
     "Openings from the render-fix package (2026-11-01), whose conversion lets an opening win any 2 x 2 x 2 block it touches, so 0.5 m slits survive at 1 m. An opening costs as the material it sits in (ADR-005), so the package's lower figure is not used.",
-    "Slits on all four faces: the two its asset sheet leaves bare carry the same pattern as the other two (the owner's choice of 2026-11-01).",
-    "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before the M4 Siege castle is final."
+    "Slits on all four faces: the two its asset sheet leaves bare carry the same pattern as the other two (the owner's choice of 2026-11-01)."
    ]
   },
   {
@@ -222,7 +222,7 @@
    "name": "Gatehouse",
    "grid": "world",
    "voxelSize": 1,
-   "role": "Opens for its owner. The timber gate is the weak point; the garrison fires down into the passage.",
+   "role": "Opens for its owner. The timber gate, at the inner end of the passage, is the weak point; the garrison fires down into the passage.",
    "criticalPart": "Gate",
    "silhouetteCue": null,
    "sizeVoxels": {
@@ -235,13 +235,13 @@
     "y": 12,
     "z": 7
    },
-   "voxelCount": 597,
+   "voxelCount": 601,
    "costM3": {
-    "stone": 585,
+    "stone": 589,
     "timber": 12,
     "foundation": 0
    },
-   "authoring": "auto-downsampled from 0.5 m authoring (majority of 2×2×2; openings win any block they touch) — redraw natively at 1 m before final",
+   "authoring": "redrawn natively at 1 m in M4-B1 (2026-11-02) from the render-fix package's conversion: its outline, openings and passage kept",
    "files": {
     "json": "Server/Templates/earthrise-t5-gatehouse-1m.json"
    },
@@ -253,7 +253,7 @@
    },
    "knownIssues": [
     "Openings from the render-fix package (2026-11-01), whose conversion lets an opening win any 2 x 2 x 2 block it touches, so 0.5 m slits survive at 1 m. An opening costs as the material it sits in (ADR-005), so the package's lower figure is not used.",
-    "Converted automatically from 0.5 m authoring (majority of 2 x 2 x 2); to be redrawn natively at 1 m before the M4 Siege castle is final."
+    "M4-B1 moved the gate to the passage's inner end, its 12 voxels at the passage's inner face (z 0 to 1 m), with the passage 3 m wide and 4 m high clear before it, so a lobbed shot cannot reach the gate until the arch over the passage is cut back (GameDesign.md, the paper tests' values, item 14). It also closed two holes the conversion left in each end wall of the roof's well at 9 m, 4 m³ of stone, so it costs 589 m³ of stone where it cost 585."
    ]
   },
   {
@@ -1001,14 +1001,11 @@
     "localOffsetMetres": {
      "x": 3,
      "y": 3.5,
-     "z": 6
+     "z": 0
     },
     "state": "open",
-    "frame": "T5's layer file, whose gate (part 1) stands at x 3 to 6 m, y 0 to 4 m and z 6 to 7 m, the front face. The offset is symmetric in x, so the bake's mirror leaves it as it is (ADR-017)."
-   },
-   "knownIssues": [
-    "T5 is redrawn before M4 with its gate at the inner end of the passage (GameDesign.md, the paper tests' values, item 14); this offset follows the gate when it moves."
-   ]
+    "frame": "T5's layer file, whose gate (part 1) stands at x 3 to 6 m, y 0 to 4 m and z 0 to 1 m, the passage's inner face (M4-B1). The offset is symmetric in x, so the bake's mirror leaves it as it is (ADR-017)."
+   }
   },
   {
    "id": "G2",
