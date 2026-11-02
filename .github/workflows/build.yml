@@ -48,8 +48,14 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# ── Which runs cancel which ────────────────────────────────────────────────────────────────
+#
+# A pull request's runs are keyed on the commit pushed, so each commit pushed to it gets a run of
+# its own that a later push does not cancel: work planned as orders is one commit an order, pushed
+# as it lands (AGENTS.md §6), and a red run then names its commit without the next order waiting
+# for it. A push to main, or a manual run, still cancels the run of its branch it replaces.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -58,6 +64,114 @@ permissions:
 jobs:
   windows:
     name: Debug|x64
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    env:
+      CONFIGURATION: Debug
+      PLATFORM: x64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Record the toolchain
+        shell: pwsh
+        run: |
+          Write-Output "runner image : $env:ImageOS / $env:ImageVersion"
+          msbuild -version -nologo
+          Write-Output "--- python ---"
+          python --version
+
+      # The solution is found, not named. Exactly one at the root; none or two is a mistake worth
+      # failing on rather than guessing about.
+      - name: Locate the solution
+        id: solution
+        shell: pwsh
+        run: |
+          $found = @(Get-ChildItem -Path . -File | Where-Object { $_.Extension -in '.slnx', '.sln' })
+          if ($found.Count -gt 1) { throw "More than one solution at the repository root: $($found.Name -join ', ')." }
+          if ($found.Count -eq 0) { throw "No solution at the repository root." }
+          Write-Output "Solution: $($found[0].Name)"
+          "path=$($found[0].Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      # First, because it is two seconds and it catches the class of mistake that would otherwise
+      # surface as a confusing build failure: a file missing from a project, a header in a
+      # subdirectory clang-tidy will never see, or Debug and Release drifting apart.
+      - name: Check the build shape and the project registries
+        shell: pwsh
+        run: python Build\CheckProjectFiles.py
+
+      # /warnaserror covers MSBuild's own warnings; /WX for the compiler is set in Build/Earthrise.props.
+      - name: Build
+        shell: pwsh
+        run: |
+          msbuild "${{ steps.solution.outputs.path }}" `
+            /p:Configuration=$env:CONFIGURATION /p:Platform=$env:PLATFORM `
+            /m /nologo /v:minimal /warnaserror `
+            /flp:LogFile=build.log`;Verbosity=normal
+
+      # One suite per *Tests.vcxproj in the solution, and every one of them must have produced a DLL:
+      # vstest reports "no tests found" as a pass, so a suite that did not build is not a suite
+      # that passed, and a solution with no suites at all is a mistake.
+      - name: Run the tests
+        shell: pwsh
+        env:
+          SOLUTION: ${{ steps.solution.outputs.path }}
+        run: |
+          $solution = [xml](Get-Content -Raw -LiteralPath $env:SOLUTION)
+          $projects = @($solution.SelectNodes('//Project') | ForEach-Object { $_.Path } |
+            Where-Object { [IO.Path]::GetFileNameWithoutExtension($_) -like '*Tests' })
+          if ($projects.Count -eq 0) { throw "No *Tests.vcxproj in the solution." }
+          $suites = foreach ($project in $projects) {
+            $dll = "x64\$env:CONFIGURATION\$([IO.Path]::GetFileNameWithoutExtension($project)).dll"
+            if (-not (Test-Path $dll)) { throw "$dll was not built. A suite that does not exist is not a suite that passed." }
+            $dll
+          }
+          # The console runner at its place in the install. Searching all of the install for it, with
+          # -find '**\vstest.console.exe', is the likely cost of the 2 min 36 s on run 237 between this
+          # step's start and the test run's; the time it takes now is printed.
+          $watch = [Diagnostics.Stopwatch]::StartNew()
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $install = & $vswhere -latest -products * -property installationPath
+          if (-not $install) { throw "vswhere found no Visual Studio installation." }
+          $vstest = Join-Path $install 'Common7\IDE\Extensions\TestPlatform\vstest.console.exe'
+          if (-not (Test-Path $vstest)) { throw "vstest.console.exe is not at $vstest." }
+          Write-Output "vstest: $vstest, found in $([math]::Round($watch.Elapsed.TotalSeconds, 1)) s"
+          & $vstest $suites /Platform:x64 /Logger:trx /ResultsDirectory:TestResults
+          if ($LASTEXITCODE -ne 0) { throw "vstest reported failures." }
+
+      - name: Upload the build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: ignore
+
+      - name: Upload the test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults
+          if-no-files-found: ignore
+
+  # ── Why clang-tidy is a job of its own ─────────────────────────────────────────────────────
+  #
+  # It took six minutes of the Windows job's sixteen on run 237, after the tests' seven and a half,
+  # one after the other. Here it runs beside them on a runner of its own, and needs its own build
+  # first: clang-tidy reads the headers the build generates, the compiled shaders and the bake's
+  # tables, as well as the sources. Two builds cost a public repository nothing, and the slower
+  # job, not the sum of both, is how long a run takes.
+  tidy:
+    name: clang-tidy
     runs-on: windows-latest
     timeout-minutes: 30
 
@@ -144,14 +258,7 @@ jobs:
           Write-Output "Solution: $($found[0].Name)"
           "path=$($found[0].Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-      # First, because it is two seconds and it catches the class of mistake that would otherwise
-      # surface as a confusing build failure: a file missing from a project, a header in a
-      # subdirectory clang-tidy will never see, or Debug and Release drifting apart.
-      - name: Check the build shape and the project registries
-        shell: pwsh
-        run: python Build\CheckProjectFiles.py
-
-      # /warnaserror covers MSBuild's own warnings; /WX for the compiler is set in Build/Earthrise.props.
+      # The build is for what clang-tidy reads that the build writes; the other job builds and tests.
       - name: Build
         shell: pwsh
         run: |
@@ -159,29 +266,6 @@ jobs:
             /p:Configuration=$env:CONFIGURATION /p:Platform=$env:PLATFORM `
             /m /nologo /v:minimal /warnaserror `
             /flp:LogFile=build.log`;Verbosity=normal
-
-      # One suite per *Tests.vcxproj in the solution, and every one of them must have produced a DLL:
-      # vstest reports "no tests found" as a pass, so a suite that did not build is not a suite
-      # that passed, and a solution with no suites at all is a mistake.
-      - name: Run the tests
-        shell: pwsh
-        env:
-          SOLUTION: ${{ steps.solution.outputs.path }}
-        run: |
-          $solution = [xml](Get-Content -Raw -LiteralPath $env:SOLUTION)
-          $projects = @($solution.SelectNodes('//Project') | ForEach-Object { $_.Path } |
-            Where-Object { [IO.Path]::GetFileNameWithoutExtension($_) -like '*Tests' })
-          if ($projects.Count -eq 0) { throw "No *Tests.vcxproj in the solution." }
-          $suites = foreach ($project in $projects) {
-            $dll = "x64\$env:CONFIGURATION\$([IO.Path]::GetFileNameWithoutExtension($project)).dll"
-            if (-not (Test-Path $dll)) { throw "$dll was not built. A suite that does not exist is not a suite that passed." }
-            $dll
-          }
-          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          $vstest = & $vswhere -latest -products * -find '**\vstest.console.exe' | Select-Object -First 1
-          if (-not $vstest) { throw "vstest.console.exe not found." }
-          & $vstest $suites /Platform:x64 /Logger:trx /ResultsDirectory:TestResults
-          if ($LASTEXITCODE -ne 0) { throw "vstest reported failures." }
 
       # After the build, so that a compile error is reported as a compile error rather than as
       # forty linter findings about a file that does not parse.
@@ -197,22 +281,6 @@ jobs:
         env:
           REQUIRE_CLANG_TIDY: 1
         run: python Build\TestCheckers.py RunClangTidyTests -v
-
-      - name: Upload the build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build.log
-          if-no-files-found: ignore
-
-      - name: Upload the test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: TestResults
-          if-no-files-found: ignore
 
   format:
     name: clang-format

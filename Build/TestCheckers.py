@@ -157,6 +157,8 @@ BROKEN = {
   "an I-prefixed interface": (lambda r: Edit(r, HEADER, "struct VoxelRecord", "class IRenderer\n{\n};\n\nstruct VoxelRecord"), "IRenderer carries a prefix"),
   "a Base-suffixed class": (lambda r: Edit(r, HEADER, "struct VoxelRecord", "class RendererBase\n{\n};\n\nstruct VoxelRecord"), "RendererBase carries a prefix"),
   "the other spelling in an identifier": (lambda r: Edit(r, HEADER, "std::uint32_t paletteIndex;", "std::uint32_t colourIndex;"), "(R11)"),
+  "a Windows macro's name for an identifier": (lambda r: Edit(r, HEADER, "std::uint32_t paletteIndex;", "std::uint32_t paletteIndex;\n  std::uint32_t small;"),
+                                               "rpcndr.h defines it as a macro"),
   "a Windows macro defined in source": (lambda r: Edit(r, SOURCE, '#include "pch.h"', '#define NOMINMAX\n#include "pch.h"'), "only Engine/framework.h does"),
   "Windows in a Windows-free project": (lambda r: (Rename(r, "Sample", "Core"),
                                                     Edit(r, "Core/VoxelRecord.cpp", '#include "pch.h"', '#include "pch.h"\n\n#include <windows.h>')),
