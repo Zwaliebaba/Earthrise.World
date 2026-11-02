@@ -41,6 +41,13 @@ struct BatchConstants
 ConstantBuffer<FrameConstants> g_frame : register(b0);
 ConstantBuffer<PaletteConstants> g_palette : register(b1);
 ConstantBuffer<BatchConstants> g_batch : register(b2);
+
+struct OverlayConstants
+{
+  float alpha; // what the overlay pipeline draws its voxels at (ADR-021, decision 1)
+};
+
+ConstantBuffer<OverlayConstants> g_overlay : register(b3);
 Texture2D<float> g_staticShadow : register(t1);  // the world's, drawn when it changes
 Texture2D<float> g_dynamicShadow : register(t2); // the models', drawn each frame
 SamplerComparisonState g_shadowSampler : register(s0);

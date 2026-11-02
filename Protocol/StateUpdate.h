@@ -25,6 +25,7 @@ struct StructureView
   std::string templateId;
   VoxelPosition originVoxels; // the footprint's minimum corner, after the turn
   std::uint32_t quarterTurns; // clockwise seen from above, as Engine::VoxelPass::Batch counts them
+  VoxelPosition extentVoxels; // the box's size after the turn: templates are the server's, and the client draws by it
   std::string name;           // the scenario's, such as W2
 
   friend bool operator==(const StructureView&, const StructureView&) = default;

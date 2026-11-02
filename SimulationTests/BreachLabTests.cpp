@@ -2,6 +2,7 @@
 
 #include "BreachLab.h"
 #include "BreachRun.h"
+#include "ByteWriter.h"
 #include "FlatWorld.h"
 #include "Save.h"
 
@@ -227,6 +228,66 @@ public:
     Assert::IsTrue(Play(loaded, lab.setup, Asked(item)).quiet);
     Assert::IsTrue(Simulation::CourtyardOpen(loaded, lab.setup));
     Assert::AreEqual(recorded.outcome.stateHash, Simulation::StateHash(loaded));
+  }
+
+  TEST_METHOD(GivesEachItemTheHeadlessHashRunLiveAsEarthriseRunsIt)
+  {
+    // Earthrise's loop (M3-G1): a tick at a time through LabShots, asking the session's queries before each, publishing
+    // the chunks and taking the answers and the state after each, and answering between ticks while the question is up.
+    // The mark's aim check is asked every tick, as Earthrise asks it, and W2's integrity after a tick that changed a
+    // chunk, as the integrity view asks it.
+    const Lab& lab = TheLab();
+    const std::span<const Simulation::LabItem> items = Simulation::LabItems();
+    std::vector<std::string> mismatched;
+    for (std::size_t index = 0; index < items.size(); ++index)
+    {
+      const Simulation::LabItem& item = items[index];
+      Simulation::World world = *lab.site;
+      std::uint32_t id = 1;
+      bool changed = true;
+      const auto ask = [&world, &id, &lab, &item, &changed]
+      {
+        const auto query = [&world, &id](const Protocol::Query& _query)
+        {
+          Core::ByteWriter writer;
+          Protocol::Encode(Protocol::QueryRequest{.id = id++, .query = _query}, writer);
+          world.Ask(Simulation::BreachRun::PLAYER, writer.Bytes());
+        };
+        query(Protocol::AimCheck{.engine = lab.setup.engine, .targetVoxels = item.markVoxels});
+        if (changed)
+        {
+          query(Protocol::SectionIntegrity{.structure = lab.setup.target});
+        }
+      };
+      const auto live = [&world, &ask, &changed](Simulation::LabShots& _shots)
+      {
+        bool done = false;
+        while (!done)
+        {
+          ask();
+          done = _shots.Advance(world);
+          changed = !world.Publish().empty();
+          static_cast<void>(world.TakeAnswers());
+          static_cast<void>(world.State());
+        }
+      };
+      Simulation::LabShots prior(lab.setup, item.priorAimVoxels);
+      live(prior);
+      for (int frame = 0; frame < 3; ++frame) // the question up, the clock paused
+      {
+        ask();
+        world.AnswerBetweenTicks();
+        static_cast<void>(world.TakeAnswers());
+      }
+      Simulation::LabShots asked(lab.setup, Asked(item));
+      live(asked);
+      if (Simulation::StateHash(world) != lab.runs.at(index).outcome.stateHash)
+      {
+        Logger::WriteMessage(("fails: " + item.id).c_str());
+        mismatched.push_back(item.id);
+      }
+    }
+    Assert::IsTrue(mismatched.empty());
   }
 
   TEST_METHOD(KeepsTheBreachRunsSite)

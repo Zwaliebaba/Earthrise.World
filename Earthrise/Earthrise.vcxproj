@@ -44,6 +44,9 @@
     </ClCompile>
     <Manifest Include="Earthrise.manifest" />
     <ClCompile Include="Earthrise.cpp" />
+    <ClInclude Include="Scenario.h" />
+    <ClInclude Include="Lab.h" />
+    <ClCompile Include="Lab.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

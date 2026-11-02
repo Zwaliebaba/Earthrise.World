@@ -67,6 +67,22 @@ void Check(const Simulation::World& _world, std::uint32_t _tick, const std::set<
     {
       fault("structure " + std::to_string(view.id) + " differs");
     }
+    // Its box: the template's shape, turned.
+    const Simulation::ServerTemplate* found = _world.Data().FindTemplate(structure.templateId);
+    if (found == nullptr)
+    {
+      fault("structure " + std::to_string(view.id) + "'s template is missing");
+      return;
+    }
+    const Simulation::TemplateShape shape = found->Shape();
+    const bool across = structure.quarterTurns % 2 == 1;
+    const Protocol::VoxelPosition extent{static_cast<std::int32_t>(across ? shape.depthVoxels : shape.widthVoxels),
+                                         static_cast<std::int32_t>(shape.heightVoxels),
+                                         static_cast<std::int32_t>(across ? shape.widthVoxels : shape.depthVoxels)};
+    if (!(view.extentVoxels == extent))
+    {
+      fault("structure " + std::to_string(view.id) + "'s box differs");
+    }
   }
   for (const Protocol::EngineView& view : state.engines)
   {

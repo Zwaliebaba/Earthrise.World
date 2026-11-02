@@ -22,6 +22,26 @@ inline constexpr std::uint8_t FORD_COLOR_INDEX = 242;
 inline constexpr float FORD_LIGHTNESS_SCALE = 1.15F;
 inline constexpr std::uint8_t WATER_INDEX = 9;
 
+/// The palette entries the world overlays are drawn in (ADR-021, decision 2): Hud.md §2's good, bad, accent, dim and
+/// text, beyond the materials'.
+inline constexpr std::uint8_t OVERLAY_GOOD_INDEX = 243;
+inline constexpr std::uint8_t OVERLAY_BAD_INDEX = 244;
+inline constexpr std::uint8_t OVERLAY_ACCENT_INDEX = 245;
+inline constexpr std::uint8_t OVERLAY_DIM_INDEX = 246;
+inline constexpr std::uint8_t OVERLAY_TEXT_INDEX = 247;
+/// The strike mark's alpha (ADR-021, decision 4), to be judged on screen.
+inline constexpr float STRIKE_MARK_ALPHA = 0.6F;
+/// The collapse preview's (ADR-021, decision 4; M3-F1): a piece in warning pulses between these over a second, and
+/// its strip lies on the ground at STRIP_ALPHA. To be judged on screen.
+inline constexpr float PIECE_MIN_ALPHA = 0.25F;
+inline constexpr float PIECE_MAX_ALPHA = 0.7F;
+inline constexpr double PIECE_PULSE_SECONDS = 1.0;
+inline constexpr float STRIP_ALPHA = 0.5F;
+/// The integrity view's weak point (ADR-021, decision 4; M3-F2), to be judged on screen.
+inline constexpr float WEAK_POINT_ALPHA = 0.4F;
+/// The passability view's cells (ADR-021, decision 4; M3-F3), to be judged on screen.
+inline constexpr float PASSABILITY_ALPHA = 0.45F;
+
 // The Golden preset (RendererLook.md §6): its clear colour #d6ccba in linear values, because the view that is cleared
 // is sRGB and encodes on write, its sun direction, towards the light, and its lights. The direction is the
 // prototype's (-90, 75, 55) with z negated, because the prototype's +z is south and the world's is north (ADR-017):
@@ -64,6 +84,20 @@ inline constexpr float ROTATION_SECONDS = 0.3F;
 inline constexpr float PAN_VIEWS_PER_SECOND = 0.8F;
 /// The top bar's height in logical pixels (Hud.md §3): the camera frames the area below it.
 inline constexpr float TOP_BAR_LOGICAL_PIXELS = 44.0F;
+
+// Hud.md §2's colour tokens, as sRGB 0xrrggbb. Every panel is PANEL_SRGB at PANEL_ALPHA.
+inline constexpr std::uint32_t PANEL_SRGB = 0x151310;
+inline constexpr float PANEL_ALPHA = 0.92F;
+inline constexpr std::uint32_t BUTTON_SRGB = 0x2a2621; // panel-deep, for buttons
+inline constexpr std::uint32_t LINE_SRGB = 0x3a342c;
+inline constexpr std::uint32_t TEXT_SRGB = 0xf3ede2;
+inline constexpr std::uint32_t DIM_SRGB = 0xa69c8a;
+inline constexpr std::uint32_t SUB_SRGB = 0xd8d0c2;
+inline constexpr std::uint32_t ACCENT_SRGB = 0xe8b86a;
+inline constexpr std::uint32_t ACTIVE_BACKGROUND_SRGB = 0x4a3d22;
+inline constexpr std::uint32_t BAD_SRGB = 0xd2584a;
+inline constexpr std::uint32_t GOOD_SRGB = 0x9cc26a;
+inline constexpr std::uint32_t OFF_SRGB = 0x6a6258;
 
 // The trebuchet's poses (GameDesign.md, M3's values, item 16; MvpAssets.md, *Poses, projectiles, gates and debris*):
 // S3c, cocked, at S3's placement moved 5 m along the model's own -x before its turn, as arithmetic on the files after

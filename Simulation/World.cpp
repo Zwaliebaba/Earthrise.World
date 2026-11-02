@@ -124,7 +124,7 @@ void World::Tick()
   SettleUnits();
   CheckRules();
   PublishState();
-  AnswerQueries();
+  AnswerQueries(m_tick);
   const std::span<const Protocol::VoxelPosition> edits = m_voxels.TickEdits();
   m_lastTickEdits.assign(edits.begin(), edits.end());
   // The edits after step 5, steps 6 and 7's, wait for the next tick's search.
@@ -1158,6 +1158,20 @@ Protocol::StateUpdate World::StateFor([[maybe_unused]] std::uint8_t _player) con
 {
   Protocol::StateUpdate state{
     .tick = m_tick, .structures = {}, .engines = {}, .squads = {}, .units = {}, .shots = {}, .collapses = {}, .hits = {}};
+  // A structure's box after its turn: its template's shape, with width and depth swapped by an odd turn.
+  const auto extentOf = [this](const Structure& _structure)
+  {
+    const ServerTemplate* found = Data().FindTemplate(_structure.templateId);
+    if (found == nullptr)
+    {
+      return Protocol::VoxelPosition{};
+    }
+    const TemplateShape shape = found->Shape();
+    const auto width = static_cast<std::int32_t>(shape.widthVoxels);
+    const auto depth = static_cast<std::int32_t>(shape.depthVoxels);
+    const bool across = _structure.quarterTurns % 2 == 1;
+    return Protocol::VoxelPosition{across ? depth : width, static_cast<std::int32_t>(shape.heightVoxels), across ? width : depth};
+  };
   for (const auto& [id, structure] : m_structures)
   {
     state.structures.push_back({.id = id,
@@ -1165,6 +1179,7 @@ Protocol::StateUpdate World::StateFor([[maybe_unused]] std::uint8_t _player) con
                                 .templateId = structure.templateId,
                                 .originVoxels = structure.originVoxels,
                                 .quarterTurns = structure.quarterTurns,
+                                .extentVoxels = extentOf(structure),
                                 .name = structure.name});
   }
   for (const auto& [id, engine] : m_siegeEngines)
@@ -1227,7 +1242,13 @@ Protocol::CollapseView World::ViewOf(const Collapse& _collapse) const
           .fallen = _collapse.fallen};
 }
 
-void World::AnswerQueries()
+void World::AnswerBetweenTicks()
+{
+  // The state is the end of the last tick ticked, m_tick - 1, or the world as built before any.
+  AnswerQueries(m_tick == 0 ? 0 : m_tick - 1);
+}
+
+void World::AnswerQueries(std::uint32_t _tick)
 {
   // Step 12: the queries, oldest first, on the tick's state, within queryWorkPerTick units of work
   // (ADR-009, decision 5; ADR-020, decision 6). A query that does not fit what is left waits for the
@@ -1255,7 +1276,7 @@ void World::AnswerQueries()
       break;
     }
     Core::ByteWriter writer;
-    Protocol::Encode(Protocol::Answer{.queryId = request.id, .tick = m_tick, .reading = Answer(asked.player, request.query)}, writer);
+    Protocol::Encode(Protocol::Answer{.queryId = request.id, .tick = _tick, .reading = Answer(asked.player, request.query)}, writer);
     m_answers.push_back(writer.TakeBytes());
     left -= work;
     m_pendingQueries.pop_front();
@@ -1305,7 +1326,8 @@ Protocol::TileReachReading World::TileReachReadingFor(const Protocol::TileReach&
   // The tile's reach from the start cell, from the components step 8 brought up to date (M3-B6). A
   // tile or a start off the grid reads empty, as a structure the world no longer holds does: the
   // client asks about what is on its screen.
-  Protocol::TileReachReading reading{.tileX = _reach.tileX, .tileZ = _reach.tileZ, .usable = {}, .reached = {}};
+  Protocol::TileReachReading reading{.tileX = _reach.tileX, .tileZ = _reach.tileZ, .usable = {}, .reached = {}, .surfaceVoxels = {}};
+  reading.surfaceVoxels.fill(Protocol::NO_SURFACE_VOXELS);
   const std::int32_t width = m_navigation.WidthCells();
   const Protocol::VoxelPosition start = _reach.startCellVoxels;
   const bool inside = start.xVoxels >= 0 && start.zVoxels >= 0 && start.xVoxels < width && start.zVoxels < m_navigation.DepthCells() &&
@@ -1327,6 +1349,18 @@ Protocol::TileReachReading World::TileReachReadingFor(const Protocol::TileReach&
     if (reach.reached.test(bit))
     {
       reading.reached.at(bit / 8) |= mask;
+    }
+  }
+  // Each column's surface, navigation's own, where the passability view draws the cell (M3-F3).
+  constexpr std::int32_t EDGE = NavigationGrid::TILE_EDGE_CELLS;
+  for (std::int32_t z = 0; z < EDGE; ++z)
+  {
+    for (std::int32_t x = 0; x < EDGE; ++x)
+    {
+      const std::int16_t height = m_navigation.WalkableHeight((_reach.tileX * EDGE) + x, (_reach.tileZ * EDGE) + z);
+      const std::int32_t cell = (z * EDGE) + x;
+      reading.surfaceVoxels.at(static_cast<std::size_t>(cell)) =
+        height == NavigationGrid::NOT_WALKABLE ? Protocol::NO_SURFACE_VOXELS : height;
     }
   }
   return reading;

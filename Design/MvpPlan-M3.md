@@ -52,7 +52,7 @@ enum class UnitKind : std::uint8_t { Laborer, Spearman, Archer, Outrider, ManAtA
 
 // Protocol/StateUpdate.h — ADR-020, decision 3: the whole visible state, a value, once a tick. Every
 // vector is in id order. No byte encoding until online work; M3 copies the struct.
-struct StructureView { EntityId id; std::uint8_t owner; std::string templateId; VoxelPosition originVoxels; std::uint32_t quarterTurns; std::string name; };
+struct StructureView { EntityId id; std::uint8_t owner; std::string templateId; VoxelPosition originVoxels; std::uint32_t quarterTurns; VoxelPosition extentVoxels; std::string name; }; // extentVoxels: the box's size after the turn, for the integrity label's anchor (F2), since templates are the server's
 struct EngineView { EntityId id; std::uint8_t owner; EngineKind kind; VoxelPosition cellVoxels; std::uint32_t quarterTurns; std::uint32_t reloadTicks; };
 struct SquadView { EntityId id; std::uint8_t owner; std::vector<EntityId> units; bool hasGoal; VoxelPosition goalVoxels; bool shortOfGoal; };
 struct UnitView { EntityId id; EntityId squad; std::uint8_t owner; UnitKind kind; FixedPosition position; VoxelPosition cellVoxels; };
@@ -91,7 +91,7 @@ struct SectionIntegrity { EntityId structure; };
 struct TileReach { NavigationClass navigationClass; VoxelPosition startCellVoxels; std::int32_t tileX; std::int32_t tileZ; };
 using Query = std::variant<AimCheck, SectionIntegrity, TileReach>;
 struct QueryRequest { std::uint32_t id; Query query; };
-inline constexpr std::uint16_t QUERY_RECORD_VERSION = 1;
+inline constexpr std::uint16_t QUERY_RECORD_VERSION = 2; // 2 from F3, which gives the tile reach reading its surfaces
 void Encode(const QueryRequest& _request, Core::ByteWriter& _writer);
 [[nodiscard]] QueryRequest DecodeQueryRequest(Core::ByteReader& _reader); // throws as DecodeCommand does
 
@@ -130,6 +130,7 @@ struct TileReachReading
   std::int32_t tileZ;
   std::array<std::uint8_t, 128> usable;  // bit z * 32 + x: the class can enter the cell
   std::array<std::uint8_t, 128> reached; // and can reach it from the start
+  std::array<std::int16_t, 1024> surfaceVoxels; // cell z * 32 + x: the height of the cell a unit stands in, navigation's own, or NO_SURFACE_VOXELS, -1 (F3)
 };
 using Reading = std::variant<AimReading, IntegrityReading, TileReachReading>;
 struct Answer { std::uint32_t queryId; std::uint32_t tick; Reading reading; };
@@ -168,6 +169,9 @@ public:
   void Ask(std::uint8_t _player, std::span<const std::byte> _query);
   /// The answers produced since the last call, encoded, in the order answered.
   [[nodiscard]] std::vector<std::vector<std::byte>> TakeAnswers();
+  /// Step 12 alone, between ticks, within one tick's budget, on the world as it stands, changing nothing else: for a
+  /// client whose clock is paused, the lab's question (G1). Its answers carry the last tick ticked.
+  void AnswerBetweenTicks();
   /// Nothing in flight: no shot, no collapse, no slump or search pending, no edit unsearched, and
   /// every unit standing still. What the lab's fast-forward stops on (M3-B7).
   [[nodiscard]] bool Quiet() const noexcept;
@@ -366,8 +370,9 @@ public:
 
 // Client/HudModel.h — Hud.md §10, the part M3 builds. Plain fields, built each frame from the Session.
 struct HudResource { std::string key; std::string value; bool warn; };
-struct HudObjective { std::string title; std::string detail; };
-struct HudMode { std::string command; std::string banner; }; // empty command when none
+struct HudObjective { std::string title; std::string detail; bool detailOff; }; // detailOff: in off text, as FIRE while the trebuchet reloads (E4)
+struct HudModeButton { HudControl control; std::string label; };
+struct HudMode { std::string command; std::string banner; std::vector<HudModeButton> buttons; }; // empty command when none; the buttons follow the banner's text: CANCEL · ESC for FIRE, OPEN · O and SHUT · H for the lab's question (G1)
 struct HudAlert { std::string text; std::string sub; std::optional<Protocol::VoxelPosition> location; bool urgent; double expiresSeconds; };
 struct HudModel
 {
@@ -565,7 +570,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 - **Waits on:** B8, C3 and D1, and input 9.
 - **Read first:** ADR-019, decisions 2, 4 and 5; Hud.md §2 and §9; *Contracts*, `Client`.
 - **Changes:** `Client::FontAtlas` (the 160 × 80 texture from `Content::Glyphs`, uploaded once), `Client::TextLayout` (measure and lay out at a whole-pixel scale), `Client::UiScale` (the DPI bands, and `--ui-scale`), `Client::Strings` (every string the HUD can draw, as `inline constexpr std::string_view`s), in the filter `Text`; `WorldRenderer` gains the interface pass after the upscale; `Earthrise` draws the title's figures as text in the top-left corner, as a first use.
-- **Tests:** **`TextLayoutTests`:** `W2` at scale 2 is 22 px wide (5 + 1 + 5 at 2 px, less the last advance's gap as the layout defines it); a string's quads land on whole pixels; the UI scale at 96, 120, 144 and 192 DPI is 1, 1, 1.5 and 2; **`StringsTests`:** every code point of every string in `Client/Strings.h` has a glyph.
+- **Tests:** **`TextLayoutTests`:** `W2` at scale 2 is 22 px wide (5 + 1 + 5 at 2 px, less the last advance's gap as the layout defines it); a string's quads land on whole pixels; the UI scale at 96, 119, 120, 144, 168 and 192 DPI is 1, 1, 1.5, 1.5, 2 and 2, since 120 DPI is 125 % and 168 DPI is 175 %; **`StringsTests`:** every code point of every string in `Client/Strings.h` has a glyph.
 - **Owner runs:** none of its own; E2's covers it.
 
 ### M3-E2 — The top bar, the mode banner, the camera buttons and the alerts
@@ -584,7 +589,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 ### M3-E4 — FIRE, the attack cursor and click-to-fire
 - **Waits on:** E2, E3 and B4, and D2 for the strike mark.
 - **Read first:** Hud.md §7, the trebuchet's card, §8, *Targeting modes* and *The attack cursor*; ADR-020, decision 5; ADR-021, decision 4; `Protocol/Command.h`.
-- **Changes:** with a trebuchet selected, F enters FIRE: the banner `FIRE · RIGHT-CLICK A TARGET · CANCEL · ESC`, the crosshair, and the attack cursor, a ring with its label following the pointer, read from the aim check the session asks for the voxel under the pointer each frame it moves: `IN RANGE · d m`, `BLOCKED · d m`, `TOO CLOSE · d m` or `OUT OF RANGE · d m`, in good or bad, with the strike voxel marked through the overlay pipeline. A right click fires a `FireEngine` at the picked voxel, as bytes, and leaves the mode unless Shift is held; Esc cancels. A right click with the trebuchet selected and no mode fires too (Hud.md §8, *Order*). FIRE is disabled, in off text, while the trebuchet reloads. Every command is recorded with its source and time for G1's log.
+- **Changes:** with a trebuchet selected, F enters FIRE: the banner `FIRE · RIGHT-CLICK A TARGET · CANCEL · ESC`, the crosshair, and the attack cursor, a ring with its label following the pointer, read from the aim check the session asks for the voxel under the pointer each frame it moves: `IN RANGE · d m`, `BLOCKED · d m`, `TOO CLOSE · d m` or `OUT OF RANGE · d m`, in good or bad, with the strike voxel marked through the overlay pipeline. A right click fires a `FireEngine` at the picked voxel, as bytes, and leaves the mode unless Shift is held; Esc cancels. A right click with the trebuchet selected and no mode fires too (Hud.md §8, *Order*). FIRE is disabled, in off text, while the trebuchet reloads: the objective line, which names the selection (E3), reads `F FIRE` while it is loaded and `RELOADING` in off text while it is not. Every command is recorded with its source and time for G1's log.
 - **Tests:** **`FireModeTests`:** F with a trebuchet selected enters the mode and sets the banner; a right click submits `FireEngine{engine, pickedVoxel}` and leaves the mode; with Shift it stays; Esc leaves it; without a selection F does nothing; the cursor's label follows the reading's verdict and distance.
 - **Owner runs:** `Earthrise --windowed`: select the trebuchet, enter FIRE, move the cursor over the wall and read the four verdicts and the strike mark one voxel above the aim at the foot of the wall, fire five shots along W2's foot and see the slot fall, as the script did.
 
@@ -616,7 +621,7 @@ One CSV a run, `Logs\BreachLab-<participant>-<yyyymmdd-hhmmss>.csv` beside the e
 - **Read first:** MvpPlan.md, M3, *Done when*; GameDesign.md, *Hypotheses*, H2, and *The playtest*; Review/PaperTests/BreachPrediction.md, *Running a session*; *Contracts*, `Simulation`, `BreachLab`, and *The lab's log*.
 - **Changes:** `Earthrise --lab <participant> [--seed n]` in `Earthrise/Lab.h` and `.cpp`, in the filter `Lab`:
   - **Free fire first:** two minutes on the intact site with FIRE free, the integrity view on, and a banner `FREE FIRE · 1:59 LEFT`; its commands go to the log.
-  - **Then the items,** P0 first and L01 to L16 in an order shuffled by `KeyedDraw` from the participant's seed, each on a fresh world: the site built, the camera put on W2 at the default framing, the prior shots run through `LabShots` at the clock's speed of 10 with the banner `WATCH`, and when they are done the clock paused and the question up: the objective `ITEM 3 OF 16`, the banner `WILL W2 BE OPEN TO FOOT AFTER 3 SHOTS AT THE MARK? · OPEN · O · SHUT · S`, the mark drawn through the overlay pipeline in accent at the aim voxel with its strike voxel beside it. The views, the camera and the HUD work; FIRE does not. The answer, by key or by the banner's buttons, unpauses the clock, runs the asked shots through `LabShots` at 10, and shows the result: `W2 IS OPEN` or `W2 IS SHUT`, with the passability view forced on, then `SPACE FOR THE NEXT`.
+  - **Then the items,** P0 first and L01 to L16 in an order shuffled by `KeyedDraw` from the participant's seed, each on a fresh world: the site built, the camera put on W2 at the default framing, the prior shots run through `LabShots` at the clock's speed of 10 with the banner `WATCH`, and when they are done the clock paused and the question up: the objective `ITEM 3 OF 16`, the banner `WILL W2 BE OPEN TO FOOT AFTER 3 SHOTS AT THE MARK? · OPEN · O · SHUT · H` (H and not S, which pans: Hud.md §7), the mark drawn through the overlay pipeline in accent at the aim voxel with its strike voxel beside it. The views, the camera and the HUD work; FIRE does not. The answer, by key or by the banner's buttons, unpauses the clock, runs the asked shots through `LabShots` at 10, and shows the result: `W2 IS OPEN` or `W2 IS SHUT`, with the passability view forced on, then `SPACE FOR THE NEXT`.
   - **The log** as *Contracts* fixes it: each item's row with the time from the question to the answer, which views were on at the answer, the camera's turns and zoom notches during the question, the live state hash, and the headless hash from `ResolveLabItem` on a fresh world of the same item, run when the item ends, with `matched`.
   - **`--lab` without a participant** refuses with a message; the practice item is logged with `P0` and not scored.
 - **Tests:** **`LabTests`** (`ClientTests`, over a `LabModel` the executable's loop drives, with no window): the item order for seed 1 is a fixed permutation and differs from seed 2's; an answer before the question is up is ignored; the banner and the objective read as above for item 3 of 16 with N = 3; the log row for an answered item has every column, and `correct` agrees with the key. **`BreachLabTests`** gains: the live sequence, built from `LabShots` as `Earthrise` calls it with ticks between, gives each item the same hash as `ResolveLabItem`.

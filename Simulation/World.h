@@ -223,6 +223,11 @@ public:
   /// The answers produced since the last call, encoded, in the order answered.
   [[nodiscard]] std::vector<std::vector<std::byte>> TakeAnswers();
 
+  /// Step 12 alone, between ticks: the waiting queries answered within one tick's budget on the world as it stands,
+  /// and nothing else changed, for a client whose clock is paused, such as the breach lab's question (M3-G1; ADR-020,
+  /// decision 6, amended). The answers carry the last tick ticked.
+  void AnswerBetweenTicks();
+
   /// Nothing in flight: no shot, no collapse, no slump or search pending, no edit unsearched, and every
   /// unit standing still. What the breach lab's fast-forward stops on (M3-B7).
   [[nodiscard]] bool Quiet() const noexcept;
@@ -297,7 +302,8 @@ private:
   void SettleUnits();
   void CheckRules();
   void PublishState();
-  void AnswerQueries();
+  /// Step 12 on the world as it stands, the answers carrying _tick.
+  void AnswerQueries(std::uint32_t _tick);
 
   void Apply(std::uint8_t _player, const Protocol::Command& _command);
   void Fire(std::uint8_t _player, const Protocol::FireEngine& _fire);

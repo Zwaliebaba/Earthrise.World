@@ -62,6 +62,10 @@ public:
   /// The model placements alone, for the dynamic shadow map.
   void DrawModels(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const;
 
+  /// Forgets the world: every chunk, snapshot and placement, for a fresh world such as the lab's next item. The caller
+  /// first makes sure the GPU no longer reads their buffers (a flush).
+  void Forget();
+
   /// Records across every chunk batch and model placement: what one frame draws.
   [[nodiscard]] std::uint64_t RecordsDrawn() const noexcept;
 

@@ -53,6 +53,34 @@
     <ClCompile Include="Camera.cpp" />
     <ClInclude Include="WorldRenderer.h" />
     <ClCompile Include="WorldRenderer.cpp" />
+    <ClInclude Include="ScreenQuad.h" />
+    <ClCompile Include="ScreenQuad.cpp" />
+    <ClInclude Include="GlyphAtlas.h" />
+    <ClCompile Include="GlyphAtlas.cpp" />
+    <ClInclude Include="TextLayout.h" />
+    <ClCompile Include="TextLayout.cpp" />
+    <ClInclude Include="UiScale.h" />
+    <ClCompile Include="UiScale.cpp" />
+    <ClInclude Include="Strings.h" />
+    <ClInclude Include="FontAtlas.h" />
+    <ClCompile Include="FontAtlas.cpp" />
+    <ClInclude Include="HudModel.h" />
+    <ClCompile Include="HudModel.cpp" />
+    <ClInclude Include="HudAlerts.h" />
+    <ClCompile Include="HudAlerts.cpp" />
+    <ClInclude Include="Hud.h" />
+    <ClCompile Include="Hud.cpp" />
+    <ClInclude Include="FireTally.h" />
+    <ClCompile Include="FireTally.cpp" />
+    <ClInclude Include="WorldPicker.h" />
+    <ClCompile Include="WorldPicker.cpp" />
+    <ClInclude Include="OverlayBox.h" />
+    <ClInclude Include="FireMode.h" />
+    <ClCompile Include="FireMode.cpp" />
+    <ClInclude Include="Overlays.h" />
+    <ClCompile Include="Overlays.cpp" />
+    <ClInclude Include="LabModel.h" />
+    <ClCompile Include="LabModel.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

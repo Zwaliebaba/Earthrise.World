@@ -202,6 +202,17 @@ void WorldView::TakeSnapshots(ID3D12GraphicsCommandList* _commandList, Engine::U
   }
 }
 
+void WorldView::Forget()
+{
+  m_snapshots.clear();
+  m_chunks.clear();
+  m_rebuiltChunks.clear();
+  m_placed.clear();
+  m_impostors = false;
+  m_replaced.clear();
+  m_retired.clear();
+}
+
 std::uint8_t WorldView::IndexAt(Protocol::VoxelPosition _position) const
 {
   const auto found = m_snapshots.find(Protocol::PackChunkKey(Protocol::ChunkContaining(_position)));

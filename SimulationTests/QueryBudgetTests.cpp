@@ -177,6 +177,30 @@ public:
     Assert::AreEqual(Simulation::StateHash(plain), Simulation::StateHash(asked));
   }
 
+  TEST_METHOD(AnswersBetweenTicksWithinOneTicksBudgetAndChangesNothing)
+  {
+    // The lab's question pauses the clock (M3-G1): two integrity readings fit a tick's 16, the third waits.
+    Simulation::World asked(FlatWorld::Desc());
+    Simulation::World plain(FlatWorld::Desc());
+    asked.Tick();
+    plain.Tick();
+    for (std::uint32_t id = 1; id <= 3; ++id)
+    {
+      asked.Ask(PLAYER, Bytes(id, INTEGRITY));
+    }
+    asked.AnswerBetweenTicks();
+    const std::vector<Protocol::Answer> first = Answers(asked);
+    Assert::AreEqual(std::size_t{2}, first.size());
+    Assert::AreEqual(0U, first.front().tick); // the last tick ticked
+    asked.AnswerBetweenTicks();
+    Assert::AreEqual(3U, Answers(asked).front().queryId);
+    Assert::AreEqual(1U, asked.TickCount());
+    Assert::AreEqual(Simulation::StateHash(plain), Simulation::StateHash(asked));
+    asked.Tick();
+    plain.Tick();
+    Assert::AreEqual(Simulation::StateHash(plain), Simulation::StateHash(asked));
+  }
+
   TEST_METHOD(IsQuietOnlyWhenNothingIsInFlight)
   {
     // A shot flies, its earth crater slumps closed, and the world goes quiet again.

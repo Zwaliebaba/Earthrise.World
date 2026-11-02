@@ -22,6 +22,18 @@
     <Filter Include="Rendering">
       <UniqueIdentifier>{1A8E7324-E758-5483-BBFA-AFB242A1BD28}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Text">
+      <UniqueIdentifier>{0F59263F-7F19-5BD3-A800-CC308902DEF6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Hud">
+      <UniqueIdentifier>{AAE0912F-0EB4-5682-8FCB-EFA0441AC623}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Views">
+      <UniqueIdentifier>{C8D20524-785A-50C8-A4E2-CA5AA774CEF8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Lab">
+      <UniqueIdentifier>{B850AB04-44FA-50ED-9854-EF658A3CBE04}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -71,6 +83,90 @@
     </ClInclude>
     <ClCompile Include="WorldRenderer.cpp">
       <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClInclude Include="ScreenQuad.h">
+      <Filter>Text</Filter>
+    </ClInclude>
+    <ClCompile Include="ScreenQuad.cpp">
+      <Filter>Text</Filter>
+    </ClCompile>
+    <ClInclude Include="GlyphAtlas.h">
+      <Filter>Text</Filter>
+    </ClInclude>
+    <ClCompile Include="GlyphAtlas.cpp">
+      <Filter>Text</Filter>
+    </ClCompile>
+    <ClInclude Include="TextLayout.h">
+      <Filter>Text</Filter>
+    </ClInclude>
+    <ClCompile Include="TextLayout.cpp">
+      <Filter>Text</Filter>
+    </ClCompile>
+    <ClInclude Include="UiScale.h">
+      <Filter>Text</Filter>
+    </ClInclude>
+    <ClCompile Include="UiScale.cpp">
+      <Filter>Text</Filter>
+    </ClCompile>
+    <ClInclude Include="Strings.h">
+      <Filter>Text</Filter>
+    </ClInclude>
+    <ClInclude Include="FontAtlas.h">
+      <Filter>Text</Filter>
+    </ClInclude>
+    <ClCompile Include="FontAtlas.cpp">
+      <Filter>Text</Filter>
+    </ClCompile>
+    <ClInclude Include="HudModel.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClCompile Include="HudModel.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClInclude Include="HudAlerts.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClCompile Include="HudAlerts.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClInclude Include="Hud.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClCompile Include="Hud.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClInclude Include="FireTally.h">
+      <Filter>Session</Filter>
+    </ClInclude>
+    <ClCompile Include="FireTally.cpp">
+      <Filter>Session</Filter>
+    </ClCompile>
+    <ClInclude Include="WorldPicker.h">
+      <Filter>Camera</Filter>
+    </ClInclude>
+    <ClCompile Include="WorldPicker.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
+    <ClInclude Include="OverlayBox.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="FireMode.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClCompile Include="FireMode.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClInclude Include="Overlays.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClCompile Include="Overlays.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClInclude Include="LabModel.h">
+      <Filter>Lab</Filter>
+    </ClInclude>
+    <ClCompile Include="LabModel.cpp">
+      <Filter>Lab</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

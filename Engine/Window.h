@@ -53,6 +53,12 @@ public:
   void SetFullScreen(bool _fullScreen);
   [[nodiscard]] bool IsFullScreen() const noexcept;
 
+  /// The DPI of the monitor the window is on, through GetDpiForWindow: 96 at 100 %.
+  [[nodiscard]] std::uint32_t Dpi() const noexcept;
+
+  /// The pointer over the client area: the crosshair of a targeting mode (Hud.md §8), or the arrow.
+  void ShowCrosshair(bool _crosshair) noexcept;
+
   /// Handles every pending message. Returns false once the application has been asked to quit.
   [[nodiscard]] static bool PumpMessages() noexcept;
 
@@ -69,6 +75,7 @@ private:
   HWND m_handle = nullptr;
   WINDOWPLACEMENT m_windowedPlacement{.length = sizeof(WINDOWPLACEMENT)}; // where to go back to from full screen
   bool m_fullScreen = false;
+  bool m_crosshair = false;
 };
 
 } // namespace Engine

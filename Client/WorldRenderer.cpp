@@ -2,10 +2,13 @@
 
 #include "WorldRenderer.h"
 
+#include "GlyphAtlas.h"
 #include "Look.h"
 #include "Palette.h"
 #include "ResourceBarrier.h"
 #include "SunProjection.h"
+
+#include <tuple>
 
 namespace Client
 {
@@ -104,6 +107,14 @@ std::array<DirectX::XMFLOAT4, Engine::VoxelPass::PALETTE_ENTRIES> LinearPalette(
   }
   // Fords: water one world voxel deep, drawn lighter (RendererLook.md §3).
   colors[FORD_COLOR_INDEX] = ScaledLightness(colors[WATER_INDEX], FORD_LIGHTNESS_SCALE);
+  // The overlays' entries, in Hud.md §2's colours (ADR-021, decision 2).
+  for (const auto& [index, srgb] :
+       {std::pair{OVERLAY_GOOD_INDEX, GOOD_SRGB}, std::pair{OVERLAY_BAD_INDEX, BAD_SRGB}, std::pair{OVERLAY_ACCENT_INDEX, ACCENT_SRGB},
+        std::pair{OVERLAY_DIM_INDEX, DIM_SRGB}, std::pair{OVERLAY_TEXT_INDEX, TEXT_SRGB}})
+  {
+    const DirectX::XMFLOAT3 color = LinearOf(srgb);
+    colors[index] = {color.x, color.y, color.z, 1.0F};
+  }
   return colors;
 }
 
@@ -209,15 +220,24 @@ WorldRenderer::WorldRenderer(ID3D12Device* _device, ID3D12CommandQueue* _queue, 
     m_upscale(_device, {.targetFormat = _desc.targetFormat}),
     m_gpuTimer(_device, _queue, {.slotCount = Engine::FrameRing::FRAMES_IN_FLIGHT, .spanCount = SPAN_COUNT}),
     m_worldView(_device, 1.0F),
+    m_interface(_device, {.targetFormat = _desc.targetFormat}),
+    m_fontAtlas(_device),
     m_palette(LinearPalette())
 {
   m_pass.SetShadowMaps(m_staticShadow.Texture(), m_dynamicShadow.Texture());
   m_upscale.SetSource(m_sceneColor.Texture());
+  m_interface.SetAtlas(m_fontAtlas.Texture(), GlyphAtlas::WIDTH_TEXELS, GlyphAtlas::HEIGHT_TEXELS);
   // The sun's view over the whole world, its height included, for both shadow maps.
   DirectX::XMStoreFloat4x4(&m_sunViewProjection,
                            Engine::SunViewProjection(SunTowards(), DirectX::XMFLOAT3{0.0F, 0.0F, 0.0F},
                                                      DirectX::XMFLOAT3{_desc.widthMeters, _desc.heightMeters, _desc.depthMeters},
                                                      SHADOW_MARGIN_METERS));
+}
+
+void WorldRenderer::ResetWorld()
+{
+  m_worldView.Forget();
+  m_worldChanged = true;
 }
 
 void WorldRenderer::Resize(std::uint32_t _widthPixels, std::uint32_t _heightPixels)
@@ -231,6 +251,7 @@ void WorldRenderer::Draw(const Frame& _frame)
 {
   ID3D12GraphicsCommandList* commandList = _frame.commandList;
   Engine::UploadRing& ring = *_frame.ring;
+  m_fontAtlas.Upload(commandList, ring);
   const std::uint32_t slot = _frame.slot;
   // FrameRing::Begin waited for this slot's last frame, so its timestamps are back.
   if (m_timed.at(slot))
@@ -294,6 +315,7 @@ void WorldRenderer::Draw(const Frame& _frame)
     m_pass.DrawOriented(commandList, debrisAddress, debrisCount);
   }
   m_gpuTimer.End(commandList, slot, VOXEL_PASS_SPAN);
+  DrawOverlays(commandList, ring, frameConstants, paletteConstants, _frame.overlays);
 
   // Then scaled to the back buffer, which the triangle covers whole, so it needs no clear.
   const std::array<D3D12_RESOURCE_BARRIER, 2> toUpscale = {
@@ -303,11 +325,75 @@ void WorldRenderer::Draw(const Frame& _frame)
   commandList->OMSetRenderTargets(1, &_frame.backBufferView, FALSE, nullptr);
   SetViewport(commandList, _frame.backWidthPixels, _frame.backHeightPixels);
   m_upscale.Draw(commandList);
+  // The interface over it, at the back buffer's size (ADR-019, decision 3).
+  if (!_frame.interfaceQuads.empty())
+  {
+    std::vector<Engine::InterfaceQuad> quads;
+    quads.reserve(_frame.interfaceQuads.size());
+    for (const ScreenQuad& quad : _frame.interfaceQuads)
+    {
+      quads.push_back({.xPixels = quad.xPixels,
+                       .yPixels = quad.yPixels,
+                       .widthPixels = quad.widthPixels,
+                       .heightPixels = quad.heightPixels,
+                       .u0 = quad.u0,
+                       .v0 = quad.v0,
+                       .u1 = quad.u1,
+                       .v1 = quad.v1,
+                       .color = {quad.color[0], quad.color[1], quad.color[2], quad.color[3]},
+                       .textured = quad.textured ? 1U : 0U,
+                       .reserved = {}});
+    }
+    m_interface.Draw(commandList, UploadArray(ring, std::span<const Engine::InterfaceQuad>(quads)),
+                     static_cast<std::uint32_t>(quads.size()), _frame.backWidthPixels, _frame.backHeightPixels);
+  }
   const D3D12_RESOURCE_BARRIER toPresent =
     Engine::TransitionBarrier(_frame.backBuffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
   commandList->ResourceBarrier(1, &toPresent);
   m_gpuTimer.Resolve(commandList, slot);
   m_timed.at(slot) = true;
+}
+
+void WorldRenderer::DrawOverlays(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring,
+                                 D3D12_GPU_VIRTUAL_ADDRESS _frameConstants, D3D12_GPU_VIRTUAL_ADDRESS _palette,
+                                 std::span<const OverlayLayer> _layers) const
+{
+  // A batch holds cells 0 to 63 on each axis, so the boxes go into batches of 64-voxel blocks of the world, each with
+  // its block's corner as its origin. The block's corner and the cell inside it are whole meters, so a box on a world
+  // voxel is the same box, at the same depth, as the chunk's (ADR-021, decision 1).
+  constexpr std::int32_t BLOCK_VOXELS = static_cast<std::int32_t>(Engine::VOXEL_RECORD_MAX_CELL) + 1;
+  using Block = std::tuple<std::int32_t, std::int32_t, std::int32_t>;
+  const auto blockOf = [](std::int32_t _voxels) { return _voxels >= 0 ? _voxels / BLOCK_VOXELS : ((_voxels + 1) / BLOCK_VOXELS) - 1; };
+  for (const OverlayLayer& layer : _layers)
+  {
+    if (layer.boxes.empty())
+    {
+      continue;
+    }
+    std::map<Block, std::vector<Engine::VoxelRecord>> blocks;
+    for (const OverlayBox& box : layer.boxes)
+    {
+      const Block block{blockOf(box.cellVoxels.xVoxels), blockOf(box.cellVoxels.yVoxels), blockOf(box.cellVoxels.zVoxels)};
+      blocks[block].push_back(Engine::MakeVoxelRecord(
+        static_cast<std::uint32_t>(box.cellVoxels.xVoxels - (std::get<0>(block) * BLOCK_VOXELS)),
+        static_cast<std::uint32_t>(box.cellVoxels.yVoxels - (std::get<1>(block) * BLOCK_VOXELS)),
+        static_cast<std::uint32_t>(box.cellVoxels.zVoxels - (std::get<2>(block) * BLOCK_VOXELS)), box.paletteIndex));
+    }
+    m_pass.BeginOverlay(_commandList, _frameConstants, _palette, layer.alpha);
+    for (const auto& [block, records] : blocks)
+    {
+      const auto [x, y, z] = block;
+      m_pass.Draw(
+        _commandList, UploadArray(_ring, std::span<const Engine::VoxelRecord>(records)), static_cast<std::uint32_t>(records.size()),
+        {.originMeters = {static_cast<float>(x * BLOCK_VOXELS), static_cast<float>(y * BLOCK_VOXELS), static_cast<float>(z * BLOCK_VOXELS)},
+         .voxelEdgeMeters = 1.0F,
+         .quarterTurns = 0,
+         .widthCells = static_cast<std::uint32_t>(BLOCK_VOXELS),
+         .depthCells = static_cast<std::uint32_t>(BLOCK_VOXELS),
+         .swapFromIndex = 0,
+         .swapToIndex = 0});
+    }
+  }
 }
 
 double WorldRenderer::VoxelPassMilliseconds() const noexcept

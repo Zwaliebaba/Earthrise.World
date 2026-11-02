@@ -198,10 +198,12 @@ template <typename T> D3D12_GPU_VIRTUAL_ADDRESS Held(Engine::UploadRing& _ring, 
 
 constexpr std::uint32_t SHADOW_MAP_TEXELS = 256;
 
-/// Draws _records as one batch, with shadows when _shadows says, and reads the frame back.
+/// Draws _records as one batch, with shadows when _shadows says, then _overlay as one batch through the overlay pipeline
+/// at _overlayAlpha, and reads the frame back.
 Readback Render(Engine::GpuDevice& _device, const Engine::VoxelPass::FrameConstants& _frame, std::span<const Engine::VoxelRecord> _records,
                 const Engine::VoxelPass::Batch& _batch = PLAIN_BATCH, const ShadowScene* _shadows = nullptr,
-                std::span<const Engine::OrientedVoxel> _oriented = {})
+                std::span<const Engine::OrientedVoxel> _oriented = {}, std::span<const Engine::VoxelRecord> _overlay = {},
+                float _overlayAlpha = 0.0F)
 {
   ID3D12Device* device = _device.Device();
   winrt::com_ptr<ID3D12Resource> color =
@@ -294,6 +296,11 @@ Readback Render(Engine::GpuDevice& _device, const Engine::VoxelPass::FrameConsta
   {
     pass.BeginOriented(commandList, frame->gpuAddress, palette->gpuAddress);
     pass.DrawOriented(commandList, Held(ring, _oriented), static_cast<std::uint32_t>(_oriented.size()));
+  }
+  if (!_overlay.empty())
+  {
+    pass.BeginOverlay(commandList, frame->gpuAddress, palette->gpuAddress, _overlayAlpha);
+    pass.Draw(commandList, Held(ring, _overlay), static_cast<std::uint32_t>(_overlay.size()), PLAIN_BATCH);
   }
 
   const std::array<D3D12_RESOURCE_BARRIER, 2> toCopy = {
@@ -666,6 +673,66 @@ public:
     Assert::IsTrue(Near(frame.ColorAt(49, 24), 255, 128, 64), (L"the east tip: " + Describe(frame.ColorAt(49, 24))).c_str());
     Assert::IsTrue(Near(frame.ColorAt(47, 16), 0, 0, 0), (L"the square's corner: " + Describe(frame.ColorAt(47, 16))).c_str());
     Assert::AreEqual(DepthBelow(EYE_HEIGHT_METERS, 1.0F, NEAR_METERS, FAR_METERS), frame.DepthAt(40, 24), DEPTH_TOLERANCE);
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(BlendsAnOverlayOverTheVoxelItCovers)
+  {
+    // Green at half alpha over the orange voxel's top, which the same ray cast finds at the same depth: (0.5, 0.75,
+    // 0.125) on every pixel the voxel covers, the background untouched, and the depth the voxel's own.
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const std::array<Engine::VoxelRecord, 1> records = {Engine::MakeVoxelRecord(0, 0, 0, ORANGE)};
+    const std::array<Engine::VoxelRecord, 1> overlay = {Engine::MakeVoxelRecord(0, 0, 0, GREEN)};
+    const Readback frame = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), records, PLAIN_BATCH, nullptr, {}, overlay, 0.5F);
+    const float topDepth = DepthBelow(EYE_HEIGHT_METERS, 1.0F, NEAR_METERS, FAR_METERS);
+    for (std::uint32_t y = 0; y < TARGET_PIXELS; ++y)
+    {
+      for (std::uint32_t x = 0; x < TARGET_PIXELS; ++x)
+      {
+        const bool inside = x >= 32 && x < 48 && y >= 16 && y < 32;
+        const bool right = inside ? Near(frame.ColorAt(x, y), 128, 191, 32) : Near(frame.ColorAt(x, y), 0, 0, 0);
+        if (!right)
+        {
+          Assert::Fail(std::format(L"pixel ({}, {}) is {}", x, y, Describe(frame.ColorAt(x, y))).c_str());
+        }
+        Assert::AreEqual(inside ? topDepth : 0.0F, frame.DepthAt(x, y), DEPTH_TOLERANCE);
+      }
+    }
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(HidesAnOverlayBehindAVoxel)
+  {
+    // The overlay's box lies under the orange voxel, so the voxel hides it at every pixel.
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const std::array<Engine::VoxelRecord, 1> records = {Engine::MakeVoxelRecord(0, 2, 0, ORANGE)};
+    const std::array<Engine::VoxelRecord, 1> overlay = {Engine::MakeVoxelRecord(0, 0, 0, GREEN)};
+    const Readback frame = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), records, PLAIN_BATCH, nullptr, {}, overlay, 0.5F);
+    for (std::uint32_t y = 16; y < 32; ++y)
+    {
+      for (std::uint32_t x = 32; x < 48; ++x)
+      {
+        Assert::IsTrue(Near(frame.ColorAt(x, y), 255, 128, 64), Describe(frame.ColorAt(x, y)).c_str());
+      }
+    }
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(BlendsAnOverlayInTheOpenOverTheClearColorAndWritesNoDepth)
+  {
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const std::array<Engine::VoxelRecord, 1> overlay = {Engine::MakeVoxelRecord(0, 0, 0, GREEN)};
+    const Readback frame = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), {}, PLAIN_BATCH, nullptr, {}, overlay, 0.5F);
+    for (std::uint32_t y = 0; y < TARGET_PIXELS; ++y)
+    {
+      for (std::uint32_t x = 0; x < TARGET_PIXELS; ++x)
+      {
+        const bool inside = x >= 32 && x < 48 && y >= 16 && y < 32;
+        Assert::IsTrue(inside ? Near(frame.ColorAt(x, y), 0, 128, 0) : Near(frame.ColorAt(x, y), 0, 0, 0),
+                       Describe(frame.ColorAt(x, y)).c_str());
+        Assert::AreEqual(0.0F, frame.DepthAt(x, y), DEPTH_TOLERANCE);
+      }
+    }
     AssertNoDebugErrors(device);
   }
 

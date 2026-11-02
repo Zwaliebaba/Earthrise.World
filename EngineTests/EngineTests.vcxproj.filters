@@ -45,5 +45,11 @@
     <ClCompile Include="CameraPathTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="InterfacePassTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="VoxelPickTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

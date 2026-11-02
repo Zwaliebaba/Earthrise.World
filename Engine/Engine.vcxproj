@@ -116,6 +116,20 @@
       <ShaderType>Pixel</ShaderType>
     </FXCompile>
     <None Include="Shader\UpscaleCommon.hlsli" />
+    <FXCompile Include="Shader\VoxelOverlayPS.hlsl">
+      <ShaderType>Pixel</ShaderType>
+    </FXCompile>
+    <FXCompile Include="Shader\InterfaceVS.hlsl">
+      <ShaderType>Vertex</ShaderType>
+    </FXCompile>
+    <FXCompile Include="Shader\InterfacePS.hlsl">
+      <ShaderType>Pixel</ShaderType>
+    </FXCompile>
+    <None Include="Shader\InterfaceCommon.hlsli" />
+    <ClInclude Include="InterfacePass.h" />
+    <ClCompile Include="InterfacePass.cpp" />
+    <ClInclude Include="VoxelPick.h" />
+    <ClCompile Include="VoxelPick.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

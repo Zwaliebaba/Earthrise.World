@@ -110,6 +110,11 @@ void AgreesWithNearestReachable(const Simulation::World& _world, const Site& _si
       const bool nearest = _world.Navigation().NearestReachable(start, cell, Simulation::NavigationClass::Foot) == cell;
       Assert::AreEqual(nearest, Bit(_reading.reached, x, z));
       Assert::IsTrue(!Bit(_reading.reached, x, z) || Bit(_reading.usable, x, z));
+      // Its surface is navigation's own, where the passability view draws the cell.
+      const std::int16_t height = _world.Navigation().WalkableHeight(x, z);
+      const std::int32_t inTile = ((z % TILE) * TILE) + (x % TILE);
+      const auto surface = _reading.surfaceVoxels.at(static_cast<std::size_t>(inTile));
+      Assert::AreEqual(height == Simulation::NavigationGrid::NOT_WALKABLE ? Protocol::NO_SURFACE_VOXELS : height, surface);
     }
   }
 }

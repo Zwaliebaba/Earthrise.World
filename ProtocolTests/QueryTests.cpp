@@ -66,10 +66,13 @@ public:
 
   TEST_METHOD(RoundTripsEachAnswer)
   {
-    Protocol::TileReachReading reach{.tileX = 11, .tileZ = 5, .usable = {}, .reached = {}};
+    Protocol::TileReachReading reach{.tileX = 11, .tileZ = 5, .usable = {}, .reached = {}, .surfaceVoxels = {}};
     reach.usable[0] = 0xff;
     reach.usable[127] = 0x81;
     reach.reached[3] = 0x10;
+    reach.surfaceVoxels.fill(Protocol::NO_SURFACE_VOXELS);
+    reach.surfaceVoxels[0] = 9;
+    reach.surfaceVoxels[1023] = 300;
     const std::array<Protocol::Answer, 3> answers = {{
       {.queryId = 1,
        .tick = 77,
@@ -107,7 +110,7 @@ public:
   {
     const std::vector<std::byte> bytes = Encoded(Protocol::QueryRequest{
       .id = 7, .query = Protocol::AimCheck{.engine = 3, .targetVoxels = {.xVoxels = 1, .yVoxels = 2, .zVoxels = 3}}});
-    const std::array<unsigned, 28> expected = {0x07, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00,
+    const std::array<unsigned, 28> expected = {0x07, 0x00, 0x00, 0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00,
                                                0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00};
     Assert::AreEqual(expected.size(), bytes.size());
     for (std::size_t index = 0; index < expected.size(); ++index)
@@ -122,7 +125,7 @@ public:
     bytes[4] = std::byte{4};
     Assert::ExpectException<std::invalid_argument>([&bytes] { static_cast<void>(DecodedRequest(bytes)); });
     bytes = Encoded(Protocol::QueryRequest{.id = 1, .query = Protocol::SectionIntegrity{.structure = 1}});
-    bytes[6] = std::byte{2};
+    bytes[6] = std::byte{1}; // version 1, from before M3-F3 gave the tile reach reading its surfaces
     Assert::ExpectException<std::invalid_argument>([&bytes] { static_cast<void>(DecodedRequest(bytes)); });
     bytes = Encoded(Protocol::QueryRequest{
       .id = 1,
