@@ -42,6 +42,7 @@ constexpr float RING_LOGICAL_PIXELS = 24.0F;
 constexpr float CURSOR_LABEL_OFFSET_LOGICAL_PIXELS = 18.0F; // from the pointer to the label's panel
 constexpr float CURSOR_PADDING_X_LOGICAL_PIXELS = 6.0F;
 constexpr float CURSOR_PADDING_Y_LOGICAL_PIXELS = 4.0F;
+constexpr float CHIP_PADDING_LOGICAL_PIXELS = 10.0F; // the selection's chip, on each side of its text (M3-H3)
 // The integrity readout (M3-H1): docked in the bottom-left corner, at least Hud.md §3's readout width, and as wide as
 // the paper test's longest row.
 constexpr float READOUT_LEFT_LOGICAL_PIXELS = 8.0F;
@@ -266,6 +267,35 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
     x += paint.Width(resource.key) + paint.Pixels(KEY_GAP_LOGICAL_PIXELS);
     paint.Text(resource.value, x, barTextTop, resource.warn ? BAD_SRGB : TEXT_SRGB, bar);
     x += paint.Width(resource.value);
+  }
+
+  // The selection's chip after the resources (M3-H3): its name, then FIRE's key in accent or RELOADING in off text, in
+  // an accent box as tall as a camera button. Without the room for both, the name alone, and without room for that,
+  // nothing.
+  if (_model.selection.has_value())
+  {
+    const HudSelection& selection = *_model.selection;
+    const std::int32_t chipPadding = paint.Pixels(CHIP_PADDING_LOGICAL_PIXELS);
+    const std::int32_t chipGap = paint.Pixels(KEY_GAP_LOGICAL_PIXELS);
+    const std::int32_t nameWidth = paint.Width(selection.name);
+    const std::int32_t detailWidth = selection.detail.empty() ? 0 : chipGap + paint.Width(selection.detail);
+    const std::int32_t chipLeft = x + (_model.resources.empty() ? 0 : resourceGap);
+    const std::int32_t limit = buttonsLeft - resourceGap;
+    const std::int32_t chrome = (2 * border) + (2 * chipPadding);
+    const bool withDetail = detailWidth != 0 && chipLeft + chrome + nameWidth + detailWidth <= limit;
+    if (chipLeft + chrome + nameWidth <= limit)
+    {
+      const PixelRect chip{chipLeft, (barHeight - button) / 2, chrome + nameWidth + (withDetail ? detailWidth : 0), button};
+      const PixelRect inside = paint.Box(chip, ACCENT_SRGB, BUTTON_SRGB, 1.0F);
+      const std::int32_t textTop = paint.CenteredCellTop(chip.yPixels, chip.heightPixels);
+      paint.Text(selection.name, inside.xPixels + chipPadding, textTop, TEXT_SRGB, inside);
+      if (withDetail)
+      {
+        paint.Text(selection.detail, inside.xPixels + chipPadding + nameWidth + chipGap, textTop,
+                   selection.detailOff ? OFF_SRGB : ACCENT_SRGB, inside);
+      }
+      x = chip.xPixels + chip.widthPixels;
+    }
   }
 
   // The objective, in the middle of the screen, or as near it as the room between the resources and the buttons lets

@@ -331,6 +331,53 @@ public:
     }
   }
 
+  TEST_METHOD(FitsTheSelectionsChipBesideTheResourcesAtEverySize)
+  {
+    // M3-H3: TREBUCHET with RELOADING, the wider detail, in a chip after the widest resources. Where the detail would
+    // reach the camera buttons the chip has its name alone, and the objective gives way before either.
+    Client::HudModel model = WidestModel();
+    model.alerts.clear();
+    model.selection =
+      Client::HudSelection{.name = std::string(Client::TREBUCHET_NAME), .detail = std::string(Client::RELOADING_DETAIL), .detailOff = true};
+    for (const float scale : SCALES)
+    {
+      for (const std::uint32_t width : WIDTHS_PIXELS)
+      {
+        Client::Hud hud;
+        std::vector<Client::ScreenQuad> quads;
+        hud.Build(model, width, width * 9 / 16, scale, quads);
+        const std::span<const Client::HudText> texts = hud.Texts();
+        // The camera buttons' four labels and the resources' four strings, then the chip's name.
+        Assert::IsTrue(texts.size() > 9);
+        const Client::HudText& name = texts[8];
+        const Client::HudText& lastResource = texts[7];
+        Assert::IsTrue(name.cell.xPixels > lastResource.cell.xPixels + lastResource.cell.widthPixels);
+        Assert::IsTrue(name.element.yPixels > 0 && name.element.yPixels + name.element.heightPixels < Client::ScaledPixels(44.0F, scale));
+        const Client::HudText& next = texts[9];
+        const bool withDetail = next.element.xPixels == name.element.xPixels && next.element.widthPixels == name.element.widthPixels;
+        if (width == 1920 || scale == 1.0F)
+        {
+          Assert::IsTrue(withDetail);
+        }
+        const Client::PixelRect screen{0, 0, static_cast<std::int32_t>(width), static_cast<std::int32_t>(width * 9 / 16)};
+        for (std::size_t index = 0; index < texts.size(); ++index)
+        {
+          Assert::IsTrue(texts[index].cell.Inside(texts[index].element));
+          Assert::IsTrue(texts[index].element.Inside(screen));
+          for (std::size_t other = index + 1; other < texts.size(); ++other)
+          {
+            Assert::IsFalse(texts[index].cell.Overlaps(texts[other].cell));
+          }
+        }
+        // The chip never runs under a camera button's target.
+        for (const Client::HudTarget& target : CameraTargets(hud))
+        {
+          Assert::IsFalse(name.element.Overlaps(target.rect));
+        }
+      }
+    }
+  }
+
   TEST_METHOD(CountsTheShotsFromTheReloadRising)
   {
     Client::FireTally tally;

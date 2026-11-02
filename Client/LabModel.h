@@ -113,7 +113,8 @@ public:
   /// item or finishes, and returns the item's row. Nothing outside the result.
   std::optional<LabItemRow> Next(std::uint64_t _liveHash, std::uint64_t _headlessHash, bool _keyOpen);
 
-  /// The banner: FREE FIRE · m:ss LEFT at the free fire's _tick; SETTING UP ITEM n · k SHOTS · 10× while the prior shots
+  /// The banner: FREE FIRE · m:ss LEFT at the free fire's _tick, with CLICK THE TREBUCHET · F TO FIRE until the first
+  /// selection; SETTING UP ITEM n · k SHOTS · 10× while the prior shots
   /// run, and N SHOTS AT THE MARK · 10× while the asked ones do; the question with OPEN · O and SHUT · H; the result
   /// with SPACE FOR THE NEXT; or the end.
   [[nodiscard]] HudMode Mode(std::uint32_t _tick) const;
@@ -124,6 +125,11 @@ public:
   /// before. The item world's time means nothing to the question, and the shots that set it up are the banner's.
   [[nodiscard]] std::vector<HudResource> Resources(std::uint32_t _tick, std::uint32_t _shotsFired, std::uint32_t _askedFired) const;
   [[nodiscard]] bool FireAllowed() const noexcept;
+  /// A click selects the trebuchet in free fire alone: in an item the lab fires, and a selection would show nothing
+  /// the question needs (M3-H3).
+  [[nodiscard]] bool SelectionAllowed() const noexcept;
+  /// The trebuchet was selected: free fire's banner drops its hint for good.
+  void Selected() noexcept;
   /// The passability view is forced on from the answer to the next item.
   [[nodiscard]] bool PassabilityForced() const noexcept;
   /// The clock pauses while the question and the result are up, and once finished.
@@ -147,6 +153,7 @@ private:
   double m_askedSeconds = 0.0;
   std::optional<LabItemRow> m_row; // the current item's, from the answer
   bool m_resultOpen = false;
+  bool m_selectedOnce = false;
 };
 
 } // namespace Client

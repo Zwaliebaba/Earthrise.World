@@ -98,6 +98,7 @@ public:
   {
     Client::LabModel lab(Items(3), 1);
     Assert::AreEqual(std::string("FREE FIRE · 1:59 LEFT"), lab.Mode(20).banner);
+    Assert::AreEqual(std::string("CLICK THE TREBUCHET · F TO FIRE"), lab.Mode(20).hint);
     Assert::IsFalse(lab.Objective().has_value());
     lab.FreeFireTicked(Client::LabModel::FREE_FIRE_TICKS);
     Assert::AreEqual(std::string("SETTING UP THE PRACTICE ITEM · 1 SHOT · 10×"), lab.Mode(0).banner);
@@ -200,6 +201,57 @@ public:
         // The camera buttons' four, the objective, and the banner's text, two buttons and hint.
         Assert::AreEqual(std::size_t{4 + 1 + 4}, texts.size());
         const Client::PixelRect screen{0, 0, static_cast<std::int32_t>(width), 720};
+        for (std::size_t index = 0; index < texts.size(); ++index)
+        {
+          Assert::IsTrue(texts[index].cell.Inside(texts[index].element));
+          Assert::IsTrue(texts[index].element.Inside(screen));
+          for (std::size_t other = index + 1; other < texts.size(); ++other)
+          {
+            Assert::IsFalse(texts[index].cell.Overlaps(texts[other].cell));
+          }
+        }
+      }
+    }
+  }
+
+  TEST_METHOD(SelectsInFreeFireAloneAndDropsTheHintOnceSelected)
+  {
+    // M3-H3: a click selects the trebuchet in free fire, and free fire's banner says so until it first does; in an
+    // item the lab fires, and selection is off from the prior shots to the result.
+    Client::LabModel lab(Items(2), 1);
+    Assert::IsTrue(lab.SelectionAllowed());
+    Assert::IsFalse(lab.Mode(0).hint.empty());
+    lab.Selected();
+    Assert::IsTrue(lab.Mode(0).hint.empty());
+    lab.FreeFireTicked(Client::LabModel::FREE_FIRE_TICKS);
+    Assert::IsFalse(lab.SelectionAllowed()); // the prior shots
+    lab.PriorShotsDone(1.0);
+    Assert::IsFalse(lab.SelectionAllowed()); // the question
+    Assert::IsTrue(lab.Answer(Client::LabAnswer::Open, 2.0, true, false));
+    Assert::IsFalse(lab.SelectionAllowed()); // the asked shots
+    lab.AskedShotsDone(true);
+    Assert::IsFalse(lab.SelectionAllowed()); // the result
+  }
+
+  TEST_METHOD(FitsFreeFiresBannerWithItsHintAtEverySize)
+  {
+    Client::LabModel lab(Items(2), 1);
+    const Client::HudModel model{.resources = lab.Resources(20, 0, 0),
+                                 .objective = {.title = "BREACH W2", .detail = "OPEN IT TO FOOT", .detailOff = false},
+                                 .mode = lab.Mode(20),
+                                 .alerts = {},
+                                 .selectedEngine = Protocol::NO_ENTITY,
+                                 .integrityView = true,
+                                 .passabilityView = false};
+    for (const float scale : {1.0F, 1.5F, 2.0F})
+    {
+      for (const std::uint32_t width : {1280U, 1920U})
+      {
+        Client::Hud hud;
+        std::vector<Client::ScreenQuad> quads;
+        hud.Build(model, width, width * 9 / 16, scale, quads);
+        const Client::PixelRect screen{0, 0, static_cast<std::int32_t>(width), static_cast<std::int32_t>(width * 9 / 16)};
+        const std::span<const Client::HudText> texts = hud.Texts();
         for (std::size_t index = 0; index < texts.size(); ++index)
         {
           Assert::IsTrue(texts[index].cell.Inside(texts[index].element));

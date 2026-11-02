@@ -65,6 +65,14 @@ struct HudAlert
   double expiresSeconds; // on the client's clock; infinity for one that stays until it is replaced
 };
 
+/// The selection's chip in the top bar, after the resources (M3-H3): its name, and FIRE's key, or RELOADING in off text.
+struct HudSelection
+{
+  std::string name;
+  std::string detail;
+  bool detailOff; // the detail in off text, while the trebuchet reloads
+};
+
 /// A row of the readout: its key in dim and its value in its colour, both in accent while it flashes, and a bar under
 /// it when it has a fill.
 struct HudReadoutRow
@@ -93,6 +101,7 @@ struct HudModel
   bool integrityView = true;                               // F1, on by default
   bool passabilityView = false;                            // F2
   std::optional<HudReadout> readout = std::nullopt;        // while F1 is on and the focused section has a reading
+  std::optional<HudSelection> selection = std::nullopt;    // while an engine is selected
 };
 
 /// The top bar's resources in the breach lab (M3-E2): TIME m:ss of game time, at _tick, and SHOTS n.

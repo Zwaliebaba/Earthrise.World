@@ -26,7 +26,7 @@ inline constexpr std::string_view TURN_RIGHT = "↻";
 inline constexpr std::string_view ZOOM_OUT = "-";
 inline constexpr std::string_view ZOOM_IN = "+";
 
-// The objective line names the selection (M3-E3), with FIRE's key, or RELOADING in off text (M3-E4).
+// The selection's chip names it (M3-E3; M3-H3), with FIRE's key, or RELOADING in off text (M3-E4).
 inline constexpr std::string_view TREBUCHET_NAME = "TREBUCHET";
 inline constexpr std::string_view FIRE_READY_DETAIL = "F FIRE";
 inline constexpr std::string_view RELOADING_DETAIL = "RELOADING";
@@ -78,6 +78,8 @@ inline constexpr std::string_view BREACH_OPEN_ALERT = "BREACH OPEN AT W2";
 
 // The breach lab (M3-G1; GameDesign.md, M3's values, item 2): its banners, its answers and its objective.
 inline constexpr std::string_view FREE_FIRE_BANNER = "FREE FIRE · {}:{:02} LEFT";
+// Free fire's banner's hint, until the trebuchet is first selected (M3-H3).
+inline constexpr std::string_view FREE_FIRE_HINT = "CLICK THE TREBUCHET · F TO FIRE";
 // What runs at ten times (M3-H2): the prior shots, SETTING UP ITEM 3 · 2 SHOTS · 10×, and the asked ones,
 // 2 SHOTS AT THE MARK · 10×, the pieces joined by BANNER_SEPARATOR.
 inline constexpr std::string_view SETTING_UP_ITEM = "SETTING UP ITEM {}";
@@ -154,6 +156,7 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      FALLS,
                                                                      BREACH_OPEN_ALERT,
                                                                      FREE_FIRE_BANNER,
+                                                                     FREE_FIRE_HINT,
                                                                      SETTING_UP_ITEM,
                                                                      SETTING_UP_PRACTICE,
                                                                      PRIOR_SHOTS,

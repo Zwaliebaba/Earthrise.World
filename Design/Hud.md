@@ -87,7 +87,7 @@ The package's touch-first layout puts the minimap and camera buttons top right, 
 
 ## 5. Selection panel
 
-**The player selects squads** (GameDesign.md, 2026-10-31). Laborers are the exception: they are not in squads, and clicking one selects that laborer. Clicking any other figure selects its squad. The click is tested against the squad's footprint on the ground, not against a figure's voxels: a figure is 6–7 px wide at the default zoom (Decided 2026-11-01, GameDesign.md, *M4's values*).
+**The player selects squads** (GameDesign.md, 2026-10-31). Laborers are the exception: they are not in squads, and clicking one selects that laborer. Clicking any other figure selects its squad. The click is tested against the squad's footprint on the ground, not against a figure's voxels: a figure is 6–7 px wide at the default zoom (Decided 2026-11-01, GameDesign.md, *M4's values*). **An engine is picked by its model's box** as placed and turned, its full height, the nearest along the ray (the owner, 2026-11-02; M3-H3): most of a trebuchet on screen is frame and arm, over the ground behind its footprint, where a footprint test misses it. The pointer over a pickable engine turns to the hand and outlines its footprint in accent on the ground, one cell out; a selected engine keeps the outline.
 
 - **Nothing selected:** NOTHING SELECTED, and three hint lines: CLICK A SQUAD, DRAG TO BOX-SELECT, 1–9 GROUPS. Each fits the panel's 340 px minimum.
 - **One squad, laborer, engine or structure:**

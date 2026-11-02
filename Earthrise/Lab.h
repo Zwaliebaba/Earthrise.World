@@ -47,6 +47,7 @@ public:
   [[nodiscard]] double Speed() const noexcept override;
   [[nodiscard]] bool Paused() const noexcept override;
   [[nodiscard]] bool FireAllowed() const noexcept override;
+  [[nodiscard]] bool SelectionAllowed() const noexcept override;
   [[nodiscard]] bool PassabilityForced() const noexcept override;
   [[nodiscard]] bool TakesSpace() const noexcept override;
   [[nodiscard]] std::optional<Client::HudMode> Mode() const override;

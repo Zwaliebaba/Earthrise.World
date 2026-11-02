@@ -181,7 +181,10 @@ HudMode LabModel::Mode(std::uint32_t _tick) const
   {
     const std::uint32_t left = _tick >= FREE_FIRE_TICKS ? 0 : FREE_FIRE_TICKS - _tick;
     const std::uint32_t seconds = (left + TickClock::TICKS_PER_SECOND - 1) / TickClock::TICKS_PER_SECOND;
-    return {.command = std::string(FREE_FIRE_COMMAND), .banner = std::format(FREE_FIRE_BANNER, seconds / 60, seconds % 60), .buttons = {}};
+    return {.command = std::string(FREE_FIRE_COMMAND),
+            .banner = std::format(FREE_FIRE_BANNER, seconds / 60, seconds % 60),
+            .buttons = {},
+            .hint = m_selectedOnce ? std::string() : std::string(FREE_FIRE_HINT)};
   }
   case LabPhase::Watching:
   {
@@ -267,6 +270,16 @@ std::vector<HudResource> LabModel::Resources(std::uint32_t _tick, std::uint32_t 
 bool LabModel::FireAllowed() const noexcept
 {
   return m_phase == LabPhase::FreeFire;
+}
+
+bool LabModel::SelectionAllowed() const noexcept
+{
+  return m_phase == LabPhase::FreeFire;
+}
+
+void LabModel::Selected() noexcept
+{
+  m_selectedOnce = true;
 }
 
 bool LabModel::PassabilityForced() const noexcept

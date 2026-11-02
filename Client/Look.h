@@ -41,6 +41,8 @@ inline constexpr float STRIP_ALPHA = 0.5F;
 inline constexpr float WEAK_POINT_ALPHA = 0.4F;
 /// The passability view's cells (ADR-021, decision 4; M3-F3), to be judged on screen.
 inline constexpr float PASSABILITY_ALPHA = 0.45F;
+/// The outline of the engine under the pointer and of the selected one (M3-H3), to be judged on screen.
+inline constexpr float OUTLINE_ALPHA = 0.7F;
 
 // The Golden preset (RendererLook.md §6): its clear colour #d6ccba in linear values, because the view that is cleared
 // is sRGB and encodes on write, its sun direction, towards the light, and its lights. The direction is the

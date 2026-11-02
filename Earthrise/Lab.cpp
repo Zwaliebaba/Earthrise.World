@@ -154,6 +154,10 @@ bool Lab::Tick(Client::Session& _session, double _seconds)
 
 void Lab::Frame(const ScenarioInput& _input, Client::Session& /* _session */)
 {
+  if (_input.engineSelected)
+  {
+    m_model.Selected();
+  }
   switch (m_model.Phase())
   {
   case Client::LabPhase::Question:
@@ -249,6 +253,11 @@ bool Lab::Paused() const noexcept
 bool Lab::FireAllowed() const noexcept
 {
   return m_model.FireAllowed();
+}
+
+bool Lab::SelectionAllowed() const noexcept
+{
+  return m_model.SelectionAllowed();
 }
 
 bool Lab::PassabilityForced() const noexcept

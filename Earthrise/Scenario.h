@@ -25,6 +25,7 @@ struct ScenarioInput
   float zoomNotches;
   bool integrityOn; // the views as shown
   bool passabilityOn;
+  bool engineSelected; // an engine is selected at the frame's end (M3-H3)
 };
 
 /// What Earthrise runs (ADR-020): the M2 breach run live, or the breach lab (M3-G1). It owns the world and decides
@@ -55,6 +56,8 @@ public:
   [[nodiscard]] virtual double Speed() const noexcept = 0;
   [[nodiscard]] virtual bool Paused() const noexcept = 0;
   [[nodiscard]] virtual bool FireAllowed() const noexcept = 0;
+  /// Whether a click selects an engine (M3-H3): never in the lab's items.
+  [[nodiscard]] virtual bool SelectionAllowed() const noexcept = 0;
   [[nodiscard]] virtual bool PassabilityForced() const noexcept = 0;
   /// Whether Space is the scenario's this frame, and not the jump to the newest alert.
   [[nodiscard]] virtual bool TakesSpace() const noexcept = 0;
