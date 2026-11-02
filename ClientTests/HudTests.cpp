@@ -315,8 +315,8 @@ public:
         Assert::AreEqual(static_cast<std::int32_t>(height) - Client::ScaledPixels(8.0F, scale), readout.yPixels + readout.heightPixels);
         Assert::IsTrue(static_cast<float>(readout.heightPixels) <= Client::Hud::READOUT_HEIGHT_FRACTION * static_cast<float>(height));
         Assert::IsTrue(hud.Covers(readout.xPixels + 1, readout.yPixels + 1));
-        const bool small = width == 1280 && scale == 2.0F;
-        Assert::AreEqual(HUD_TEXTS + READOUT_TEXTS - (small ? 1 + 2 : 0), hud.Texts().size()); // the detail and the third alert
+        const bool cramped = width == 1280 && scale == 2.0F;
+        Assert::AreEqual(HUD_TEXTS + READOUT_TEXTS - (cramped ? 1 + 2 : 0), hud.Texts().size()); // the detail and the third alert
         const std::span<const Client::HudText> texts = hud.Texts();
         for (std::size_t index = 0; index < texts.size(); ++index)
         {
