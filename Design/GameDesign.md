@@ -436,6 +436,16 @@ The owner answered MvpPlan.md's twenty-eight M4 inputs, taking each proposal as 
 27. **M4's work budgets,** the commanders' 32 units a tick to start, are set by the implementer from M4's measurements to fit M2's 25 ms. **Proposed** until order M4-J4 measures them on the benchmark machine.
 28. **A mirrored castle, SiegeMirror,** the same castle mirrored east to west with its weak section on the west, W3, and the camera and sun mirrored with it, so that M5 can tell whether players follow the weak point or a flank (*Hypotheses*, H2). How M5's participants are split between the two layouts is M5's.
 
+### 2026-11-02: M4's phases B and C
+
+The owner answered the questions phases B and C of the headless pull request, #50, left open, taking each recommendation.
+
+1. **T1's corners are filled.** The conversion left them open for 3 m; filling them costs 12 m³ of timber, so T1 costs 200 m³ where it cost 188, past item 3's 2 %, which the owner waives for T1.
+2. **T3's redraw waits for M3-G3,** when M3's lab session has run and M3 records what M4 inherits; the redraw and the lab's new keys then land together (*M4's values*, item 3).
+3. **The counters stand as measured,** and M5's playtest tunes input 6's numbers: six spearmen kill three outriders in 6 s and lose none, where the arithmetic said about 8 s and one or two, because each outrider strikes its own nearest spearman ([ADR-023](ADR/ADR-023-units-and-combat.md), M4-C3).
+4. **A ranged figure acquires what its reach at the elevation covers,** beyond its vision, so that an archer two steps up shoots as far as its 40 m (ADR-023, M4-C4).
+5. **A ram goes where its blow takes most, then the nearest,** so that one ordered at a gatehouse goes up the passage to its gate (ADR-023, M4-C6).
+
 ## Pillars (Decided)
 
 A pillar is a test every feature has to pass. A feature that serves none of them is a candidate for cutting.
