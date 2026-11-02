@@ -28,6 +28,12 @@ std::string_view Word(bool _open) noexcept
   return _open ? OPEN : SHUT;
 }
 
+/// _several with the count in it, or _one for a single shot.
+std::string Shots(std::uint32_t _count, std::string_view _several, std::string_view _one)
+{
+  return _count == 1 ? std::string(_one) : std::vformat(_several, std::make_format_args(_count));
+}
+
 } // namespace
 
 bool LabItemRow::Correct() const noexcept
@@ -178,8 +184,29 @@ HudMode LabModel::Mode(std::uint32_t _tick) const
     return {.command = std::string(FREE_FIRE_COMMAND), .banner = std::format(FREE_FIRE_BANNER, seconds / 60, seconds % 60), .buttons = {}};
   }
   case LabPhase::Watching:
+  {
+    // SETTING UP ITEM 3 · 2 SHOTS · 10×, numbered as the objective numbers the items, the practice item first.
+    const auto speed = static_cast<std::uint32_t>(FAST_FORWARD_SPEED);
+    std::string banner = m_started <= 1 ? std::string(SETTING_UP_PRACTICE) : std::format(SETTING_UP_ITEM, m_started - 1);
+    const std::uint32_t prior = Current() != nullptr ? Current()->priorShots : 0;
+    if (prior != 0)
+    {
+      banner += BANNER_SEPARATOR;
+      banner += Shots(prior, PRIOR_SHOTS, PRIOR_ONE_SHOT);
+    }
+    banner += BANNER_SEPARATOR;
+    banner += std::format(FAST_FORWARD, speed);
+    return {.command = std::string(WATCH_COMMAND), .banner = std::move(banner), .buttons = {}};
+  }
   case LabPhase::Shooting:
-    return {.command = std::string(WATCH_COMMAND), .banner = std::string(WATCH_BANNER), .buttons = {}};
+  {
+    const auto speed = static_cast<std::uint32_t>(FAST_FORWARD_SPEED);
+    const std::uint32_t asked = Current() != nullptr ? Current()->shotsAsked : 0;
+    std::string banner = Shots(asked, ASKED_SHOTS, ASKED_ONE_SHOT);
+    banner += BANNER_SEPARATOR;
+    banner += std::format(FAST_FORWARD, speed);
+    return {.command = std::string(WATCH_COMMAND), .banner = std::move(banner), .buttons = {}};
+  }
   case LabPhase::Question:
   {
     const std::uint32_t shots = Current() != nullptr ? Current()->shotsAsked : 0;

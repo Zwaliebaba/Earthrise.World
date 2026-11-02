@@ -20,6 +20,7 @@ struct LabItemSpec
   std::string id; // P0 the practice item, then L01 to L16
   std::uint32_t shotsAsked;
   Protocol::VoxelPosition markVoxels;
+  std::uint32_t priorShots; // the shots that set the item up, before the question
 };
 
 enum class LabAnswer : std::uint8_t
@@ -112,8 +113,9 @@ public:
   /// item or finishes, and returns the item's row. Nothing outside the result.
   std::optional<LabItemRow> Next(std::uint64_t _liveHash, std::uint64_t _headlessHash, bool _keyOpen);
 
-  /// The banner: FREE FIRE · m:ss LEFT at the free fire's _tick, WATCH, the question with OPEN · O and SHUT · S, the
-  /// result with SPACE FOR THE NEXT, or the end.
+  /// The banner: FREE FIRE · m:ss LEFT at the free fire's _tick; SETTING UP ITEM n · k SHOTS · 10× while the prior shots
+  /// run, and N SHOTS AT THE MARK · 10× while the asked ones do; the question with OPEN · O and SHUT · H; the result
+  /// with SPACE FOR THE NEXT; or the end.
   [[nodiscard]] HudMode Mode(std::uint32_t _tick) const;
   /// PRACTICE, ITEM k OF 16 or DONE, or nothing in free fire.
   [[nodiscard]] std::optional<HudObjective> Objective() const;

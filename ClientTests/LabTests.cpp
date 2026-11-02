@@ -14,15 +14,17 @@ namespace ClientTests
 namespace
 {
 
-/// P0 and L01 to L16, each asking _shots shots.
-std::vector<Client::LabItemSpec> Items(std::uint32_t _shots)
+/// P0, set up by one shot and asking one, and L01 to L16, each set up by _priorShots and asking _shots.
+std::vector<Client::LabItemSpec> Items(std::uint32_t _shots, std::uint32_t _priorShots = 0)
 {
   std::vector<Client::LabItemSpec> items;
-  items.push_back({.id = "P0", .shotsAsked = 1, .markVoxels = {380, 9, 180}});
+  items.push_back({.id = "P0", .shotsAsked = 1, .markVoxels = {380, 9, 180}, .priorShots = 1});
   for (std::uint32_t index = 1; index <= 16; ++index)
   {
-    items.push_back(
-      {.id = std::format("L{:02}", index), .shotsAsked = _shots, .markVoxels = {378 + static_cast<std::int32_t>(index % 5), 9, 180}});
+    items.push_back({.id = std::format("L{:02}", index),
+                     .shotsAsked = _shots,
+                     .markVoxels = {378 + static_cast<std::int32_t>(index % 5), 9, 180},
+                     .priorShots = _priorShots});
   }
   return items;
 }
@@ -97,7 +99,7 @@ public:
     Assert::AreEqual(std::string("FREE FIRE · 1:59 LEFT"), lab.Mode(20).banner);
     Assert::IsFalse(lab.Objective().has_value());
     lab.FreeFireTicked(Client::LabModel::FREE_FIRE_TICKS);
-    Assert::AreEqual(std::string("WATCH"), lab.Mode(0).banner);
+    Assert::AreEqual(std::string("SETTING UP THE PRACTICE ITEM · 1 SHOT · 10×"), lab.Mode(0).banner);
     Assert::AreEqual(std::string("PRACTICE"), lab.Objective().value_or(Client::HudObjective{}).title);
     lab.PriorShotsDone(1.0);
     Assert::AreEqual(std::string("WILL W2 BE OPEN TO FOOT AFTER 1 SHOT AT THE MARK?"), lab.Mode(0).banner);
@@ -118,6 +120,29 @@ public:
     Assert::AreEqual(std::string("SHUT · H"), mode.buttons.at(1).label);
     // The item is the third of the participant's order after the practice item.
     Assert::AreEqual(std::string("L14"), lab.Current()->id);
+  }
+
+  TEST_METHOD(SaysWhatRunsAtTenTimesWhileTheShotsRun)
+  {
+    // M3-H2: the banner names the item, the shots that set it up and the speed, then the shots the question asks.
+    Client::LabModel lab(Items(2, 3), 1);
+    lab.FreeFireTicked(Client::LabModel::FREE_FIRE_TICKS);
+    RunItem(lab, Client::LabAnswer::Open); // the practice item
+    RunItem(lab, Client::LabAnswer::Open); // item 1
+    const Client::HudMode watching = lab.Mode(0);
+    Assert::AreEqual(std::string("SETTING UP ITEM 2 · 3 SHOTS · 10×"), watching.banner);
+    Assert::IsTrue(watching.buttons.empty());
+    lab.PriorShotsDone(20.0);
+    Assert::IsTrue(lab.Answer(Client::LabAnswer::Shut, 21.0, true, false));
+    Assert::AreEqual(std::string("2 SHOTS AT THE MARK · 10×"), lab.Mode(0).banner);
+    // An item with nothing to set it up says so with no shot count.
+    Client::LabModel bare(Items(1, 0), 1);
+    bare.FreeFireTicked(Client::LabModel::FREE_FIRE_TICKS);
+    RunItem(bare, Client::LabAnswer::Open);
+    Assert::AreEqual(std::string("SETTING UP ITEM 1 · 10×"), bare.Mode(0).banner);
+    bare.PriorShotsDone(1.0);
+    Assert::IsTrue(bare.Answer(Client::LabAnswer::Open, 2.0, true, false));
+    Assert::AreEqual(std::string("1 SHOT AT THE MARK · 10×"), bare.Mode(0).banner);
   }
 
   TEST_METHOD(WritesAnAnsweredItemsRowWithEveryColumn)

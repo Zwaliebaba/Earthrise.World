@@ -78,7 +78,16 @@ inline constexpr std::string_view BREACH_OPEN_ALERT = "BREACH OPEN AT W2";
 
 // The breach lab (M3-G1; GameDesign.md, M3's values, item 2): its banners, its answers and its objective.
 inline constexpr std::string_view FREE_FIRE_BANNER = "FREE FIRE · {}:{:02} LEFT";
-inline constexpr std::string_view WATCH_BANNER = "WATCH";
+// What runs at ten times (M3-H2): the prior shots, SETTING UP ITEM 3 · 2 SHOTS · 10×, and the asked ones,
+// 2 SHOTS AT THE MARK · 10×, the pieces joined by BANNER_SEPARATOR.
+inline constexpr std::string_view SETTING_UP_ITEM = "SETTING UP ITEM {}";
+inline constexpr std::string_view SETTING_UP_PRACTICE = "SETTING UP THE PRACTICE ITEM";
+inline constexpr std::string_view PRIOR_SHOTS = "{} SHOTS";
+inline constexpr std::string_view PRIOR_ONE_SHOT = "1 SHOT";
+inline constexpr std::string_view ASKED_SHOTS = "{} SHOTS AT THE MARK";
+inline constexpr std::string_view ASKED_ONE_SHOT = "1 SHOT AT THE MARK";
+inline constexpr std::string_view FAST_FORWARD = "{}×";
+inline constexpr std::string_view BANNER_SEPARATOR = " · ";
 inline constexpr std::string_view QUESTION_BANNER = "WILL W2 BE OPEN TO FOOT AFTER {} SHOTS AT THE MARK?";
 inline constexpr std::string_view QUESTION_ONE_SHOT_BANNER = "WILL W2 BE OPEN TO FOOT AFTER 1 SHOT AT THE MARK?";
 inline constexpr std::string_view OPEN_BUTTON = "OPEN · O";
@@ -140,7 +149,14 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      FALLS,
                                                                      BREACH_OPEN_ALERT,
                                                                      FREE_FIRE_BANNER,
-                                                                     WATCH_BANNER,
+                                                                     SETTING_UP_ITEM,
+                                                                     SETTING_UP_PRACTICE,
+                                                                     PRIOR_SHOTS,
+                                                                     PRIOR_ONE_SHOT,
+                                                                     ASKED_SHOTS,
+                                                                     ASKED_ONE_SHOT,
+                                                                     FAST_FORWARD,
+                                                                     BANNER_SEPARATOR,
                                                                      QUESTION_BANNER,
                                                                      QUESTION_ONE_SHOT_BANNER,
                                                                      OPEN_BUTTON,

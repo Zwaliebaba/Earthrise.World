@@ -28,7 +28,7 @@ Earthrise --lab P03
 ## What the participant sees
 
 1. **Free fire, two minutes,** on the intact site: the trebuchet 40 m south of W2, the middle of the enclosure's south side, and six men-at-arms south of the wall, sent into the courtyard. Select the trebuchet with a left click, press F for FIRE, and right-click a target; Shift keeps FIRE on. The banner counts down.
-2. **The practice item, P0,** then the sixteen in the participant's order. Each item is a fresh copy of the site, with prior damage the lab fires first, under the banner WATCH, at ten times speed.
+2. **The practice item, P0,** then the sixteen in the participant's order. Each item is a fresh copy of the site, with prior damage the lab fires first at ten times speed, under a banner that says so: `SETTING UP ITEM 3 · 4 SHOTS · 10×`. The asked shots run the same way, under `2 SHOTS AT THE MARK · 10×`.
 3. **The question:** WILL W2 BE OPEN TO FOOT AFTER N SHOTS AT THE MARK? The clock is paused. The mark is drawn on the wall in the accent colour, with the voxel the shot's arc strikes beside it. The camera, the views and the HUD all work; FIRE does not.
 4. **The answer:** O, or OPEN · O on the banner, for open; H, or SHUT · H, for shut. S pans the camera, so it is not an answer. There is no time limit, and no going back.
 5. **The result:** the lab fires the N shots at the mark at ten times, with the passability view on, and shows W2 IS OPEN or W2 IS SHUT. Space goes on to the next item. Between items the lab runs the same item again with no screen, to check the live run against it, so the next item takes a moment to come up.

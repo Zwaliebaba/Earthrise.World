@@ -26,7 +26,10 @@ std::vector<Client::LabItemSpec> Specs()
   std::vector<Client::LabItemSpec> specs;
   for (const Simulation::LabItem& item : Simulation::LabItems())
   {
-    specs.push_back({.id = item.id, .shotsAsked = item.shotsAsked, .markVoxels = item.markVoxels});
+    specs.push_back({.id = item.id,
+                     .shotsAsked = item.shotsAsked,
+                     .markVoxels = item.markVoxels,
+                     .priorShots = static_cast<std::uint32_t>(item.priorAimVoxels.size())});
   }
   return specs;
 }

@@ -201,8 +201,9 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, float _uiSca
     x += paint.Width(resource.value);
   }
 
-  // The objective, in the middle of the room between them: its title in accent and its detail in sub. Without the
-  // room for both, the title alone, and without room for that, nothing; the fit test keeps M3's from either.
+  // The objective, in the middle of the screen, or as near it as the room between the resources and the buttons lets
+  // it: its title in accent and its detail in sub. Without the room for both, the title alone, and without room for
+  // that, nothing; the fit test keeps M3's from either.
   const std::int32_t roomLeft = x + resourceGap;
   const std::int32_t room = buttonsLeft - resourceGap - roomLeft;
   const std::int32_t titleWidth = _model.objective.title.empty() ? 0 : paint.Width(_model.objective.title);
@@ -212,7 +213,7 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, float _uiSca
   if (titleWidth != 0 && titleWidth <= room)
   {
     const std::int32_t objectiveWidth = titleWidth + (withDetail ? detailWidth : 0);
-    const std::int32_t objectiveX = roomLeft + ((room - objectiveWidth) / 2);
+    const std::int32_t objectiveX = std::clamp((width - objectiveWidth) / 2, roomLeft, roomLeft + room - objectiveWidth);
     paint.Text(_model.objective.title, objectiveX, barTextTop, ACCENT_SRGB, bar);
     if (withDetail)
     {
@@ -228,7 +229,6 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, float _uiSca
     const std::int32_t control = paint.Pixels(CONTROL_HEIGHT_LOGICAL_PIXELS);
     const std::int32_t paddingY = paint.Pixels(BANNER_PADDING_Y_LOGICAL_PIXELS);
     const std::int32_t paddingLeft = paint.Pixels(BANNER_PADDING_LEFT_LOGICAL_PIXELS);
-    const std::int32_t paddingRight = paint.Pixels(BANNER_PADDING_RIGHT_LOGICAL_PIXELS);
     const std::int32_t gap = paint.Pixels(BANNER_GAP_LOGICAL_PIXELS);
     const std::int32_t textWidth = paint.Width(_model.mode.banner);
     std::vector<std::int32_t> buttonWidths;
@@ -239,6 +239,8 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, float _uiSca
       buttonsWidth += buttonWidths.back() + (buttonWidths.size() > 1 ? gap : 0);
     }
     const bool hasButtons = !buttonWidths.empty();
+    // The right's narrower padding is for a button after the text; with none, the text sits in the middle.
+    const std::int32_t paddingRight = hasButtons ? paint.Pixels(BANNER_PADDING_RIGHT_LOGICAL_PIXELS) : paddingLeft;
     const std::int32_t chrome = (2 * border) + paddingLeft + paddingRight;
     const std::int32_t oneRow = textWidth + (hasButtons ? gap + buttonsWidth : 0);
     const bool stacked = hasButtons && chrome + oneRow > width - (2 * paint.Pixels(ALERTS_LEFT_LOGICAL_PIXELS));
