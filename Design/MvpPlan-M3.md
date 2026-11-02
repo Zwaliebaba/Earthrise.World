@@ -656,12 +656,12 @@ The owner ran `Earthrise --lab P00 --windowed` and `Earthrise --windowed` on 202
 - **The WATCH banner reads off centre.** The banner pads 14 px on the left and 6 on the right, for a button after its text; with none, the text sits right of the middle. The objective is centred in the room between the resources and the camera buttons, about 15 px from the screen's middle, under a banner centred on the screen. WATCH does not say what runs.
 - **The participant sees the developer's figures,** the voxel pass's time, the tick and the speed, and TIME, which is the item world's game time and means nothing to the question.
 
-Each order is one commit, in one pull request, before G3's session. H1 and H3 wait on the owner's answers, which this plan records when they are given.
+Each order is one commit, in one pull request, before G3's session. The owner answered the three questions H1 and H3 raised on 2026-11-02, as each order records.
 
 ### M3-H1 — The integrity readout follows W2
-- **Waits on:** the owner's answers on where the readout sits, and on GROUND.
+- **Waits on:** nothing. The owner chose on 2026-11-02: the readout docked, and GROUND dim unless a gap lies under the foundation.
 - **Read first:** ADR-021, decision 4; Hud.md §3, the readout; F2's order; GameDesign.md, *M3's values*, item 5.
-- **Changes:** one readout, of the focused section: W2 by default, the section under the pointer while it is over one, the selected section after a click on one. Its rows are the paper test's words, unchanged (item 5). HOLE and GAP each gain a bar of their width against the width at which the stone falls. A row that changed with the latest shot flashes in accent. GROUND is dim unless a gap lies under the foundation. The weak point's tint stays in the world. Where the readout sits is the owner's answer: docked in Hud.md §3's readout place, which amends ADR-021, decision 4; or in the world for the focused section alone, beside the wall and not over it.
+- **Changes:** one readout, of the focused section: W2 by default, the section under the pointer while it is over one, the selected section after a click on one. Its rows are the paper test's words, unchanged (item 5). HOLE and GAP each gain a bar of their width against the width at which the stone falls. A row that changed with the latest shot flashes in accent. GROUND is dim unless a gap lies under the foundation. The weak point's tint stays in the world. The readout is docked in Hud.md §3's readout place, and draws nothing over the world; ADR-021, decision 4, is amended in the same commit.
 - **Tests:** **`OverlaysTests`:** W2 is focused with the pointer over nothing; the pointer over W5 focuses W5; a bar's fill is the width over the fall width; a row that changed flashes and one that did not does not; GROUND reads dim on earth with no gap, and bad with one; the readout never covers W2's box on screen at 1280 × 720 and 1920 × 1080, at each UI scale.
 - **Owner runs:** `Earthrise --lab P00 --windowed`, items with damage to W2: the readout is W2's, changes shot by shot, and covers none of the enclosure.
 
@@ -672,7 +672,7 @@ Each order is one commit, in one pull request, before G3's session. H1 and H3 wa
 - **Tests:** **`HudTests`:** a banner with no button has its text in its middle, to a pixel; the objective's middle is the screen's at 1280 and 1920 px and each scale, where it fits; every string still fits its element. **`LabTests`:** the banner reads as above for an item with 3 prior shots and N = 2.
 
 ### M3-H3 — An engine is picked by its model, and the pointer answers
-- **Waits on:** the owner's answer on picking engines by their model's box.
+- **Waits on:** nothing. The owner chose on 2026-11-02 that an engine is picked by its model's box; Hud.md §5 is amended for engines in the same commit.
 - **Read first:** Hud.md §5 and §8; E3's order; `Client/WorldPicker.h`.
 - **Changes:** an engine is picked by the box of its model as placed and turned, its full height, nearest along the ray; squads keep the footprint, when M4 brings them. Hovering a pickable engine shows its footprint's outline in accent and the hand cursor. A selected engine keeps the outline, and a chip beside the resources names it with F FIRE, or RELOADING in off text; the objective line stays the objective. In free fire the banner adds `CLICK THE TREBUCHET · F TO FIRE` until the first selection. In the lab's items selection is off.
 - **Tests:** **`WorldPickerTests`:** a pixel over the model's arm, above the ground behind its footprint, picks the engine; one beside the model does not; a wall in front of the model hides it. **`HudTests`:** the chip fits beside the resources at every size the owner runs. **`LabTests`:** selection is off in an item and on in free fire.
