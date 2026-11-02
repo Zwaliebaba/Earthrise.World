@@ -435,6 +435,14 @@ The owner answered MvpPlan.md's twenty-eight M4 inputs, taking each proposal as 
 27. **M4's work budgets,** the commanders' 32 units a tick to start, are set by the implementer from M4's measurements to fit M2's 25 ms. **Proposed** until order M4-J4 measures them on the benchmark machine.
 28. **A mirrored castle, SiegeMirror,** the same castle mirrored east to west with its weak section on the west, W3, and the camera and sun mirrored with it, so that M5 can tell whether players follow the weak point or a flank (*Hypotheses*, H2). How M5's participants are split between the two layouts is M5's.
 
+### 2026-11-02: M4.1's values
+
+The owner added M4.1, a measurement of what a voxel read costs as the world grows ([MvpPlan.md](MvpPlan.md), M4.1), and answered its two inputs, taking each proposal as written. The same day the owner had it measure the load as well (item 3).
+
+1. **The verdict's marks.** If the support search with the store padded to 4,224 chunks is within 10% of its time at 258, the question closes with no change. If it is 25% or more slower, a profile is taken and phase B, a faster chunk lookup, follows. In between, the owner decides, with the profile.
+2. **When it runs:** after M4 closes, beside M5, and off the critical path. It is brought forward if M4-J4's measured run finds a tick of play over 25 ms.
+3. **The load is measured, not fixed.** The same bench run breaks down the simulation's load on the MVP map, the 2 km season world and the Siege trial: the generator, navigation from nothing, and the trial to its first tick. No mark applies to it, and M4.1 makes no change to the load. The parts measured so far on the MVP map come to about half a second, though the generator and a scenario's load have never been timed; the remedies belong to Worlds.
+
 ## Pillars (Decided)
 
 A pillar is a test every feature has to pass. A feature that serves none of them is a candidate for cutting.
