@@ -45,8 +45,9 @@ What it checks, and how each rule is read against the files:
    When a client table rightly names another material whose name is also a behaviour, such as water for the
    shallow-water rule, the exception here grows by that name in the same commit.
 10. GameData/Server/Rules.json converts exactly (ADR-016, decision 4). Each value is a decimal string, and its key's
-   unit says how it converts: meters to voxels and seconds to ticks, which must come out whole, and speeds and
-   accelerations to Core::Fixed per tick, floored once. A key with no unit the bake knows, a value that is not a
+   unit says how it converts: meters to voxels, seconds to ticks and cubic metres to hundredths of one, which must come
+   out whole, and speeds, accelerations and rates in cubic metres a second to Core::Fixed per tick, floored once.
+   Counts, damage, percentages, centimetres and steps pass as they are, and must be whole. A key with no unit the bake knows, a value that is not a
    decimal, and a value that does not come out whole are each a problem. A span that is not a whole number of
    voxels is the case ADR-016 names.
 11. Nothing under GameData/Client/ reaches the server's bake (ADR-008, decision 2). The server bake,
@@ -66,6 +67,12 @@ What it checks, and how each rule is read against the files:
    that is exactly one palette entry's colour, so that it bakes as that index. The bake reads the table with this
    check's code.
 
+15. GameData/Server/Units.json and Structures.json (ADR-023, decision 1; ADR-024, decision 7) hold every unit kind once
+   and every structure's template once, each a template GameData/Server/Templates/ holds. Every bonus names a kind, every
+   navigation class and attack type is one the simulation numbers, and every value converts exactly as check 10's do,
+   a value without a unit being a whole number; hit points, figures and vision are at least 1. A template that names a
+   critical part gives a criticalThresholdPercent from 1 to 100, and one that names none gives none. The bake reads both
+   with this check's code.
 Usage:
   python3 Tools/CheckAssets.py              the repository this script sits in
   python3 Tools/CheckAssets.py --root DIR   another tree, such as a mutated copy of it
@@ -125,11 +132,21 @@ CLIENT_COST_FIELDS = ("stoneM3", "timberM3")
 TICKS_PER_SECOND = 20     # ADR-013, decision 1
 VOXELS_PER_METER = 1      # the 1 m world (ADR-006)
 FIXED_ONE_RAW = 1 << 16   # Core::Fixed::ONE_RAW
+HUNDREDTHS = 100          # a stockpile and a price in hundredths of a cubic metre (MvpPlan-M4.md, Contracts)
 RULE_CONVERSIONS = (
+  ("CubicMetersPerSecond", "CubicMetersPerTick", Fraction(FIXED_ONE_RAW, TICKS_PER_SECOND), False),
   ("MetersPerSecondSquared", "MetersPerTickSquared", Fraction(FIXED_ONE_RAW, TICKS_PER_SECOND * TICKS_PER_SECOND), False),
   ("MetersPerSecond", "MetersPerTick", Fraction(FIXED_ONE_RAW, TICKS_PER_SECOND), False),
+  ("SecondsPerHitPoint", "TicksPerHitPoint", Fraction(TICKS_PER_SECOND), True),
   ("Seconds", "Ticks", Fraction(TICKS_PER_SECOND), True),
+  ("CubicMeters", "HundredthsCubicMeters", Fraction(HUNDREDTHS), True),
+  ("Centimeters", "Centimeters", Fraction(1), True),
+  ("DamagePerCubicMeter", "DamagePerCubicMeter", Fraction(1), True),
+  ("DamagePerMeter", "DamagePerVoxel", Fraction(1, VOXELS_PER_METER), True),
   ("Meters", "Voxels", Fraction(VOXELS_PER_METER), True),
+  ("Damage", "Damage", Fraction(1), True),
+  ("Percent", "Percent", Fraction(1), True),
+  ("Steps", "Steps", Fraction(1), True),
   ("Voxels", "Voxels", Fraction(1), True),
   ("Cells", "Cells", Fraction(1), True),
   ("Factor", "Factor", Fraction(1), True),
@@ -831,6 +848,170 @@ def ReadRules(_report, _root):
   return dict(sorted(rules.items()))
 
 
+# ── Check 15, units and structures ───────────────────────────────────────────────────────────────
+
+# Protocol::UnitKind, NavigationClass and DamageType, in their declared order, by the names Units.json gives them.
+UNIT_KINDS = ("laborer", "spearman", "archer", "outrider", "manAtArms", "sapper", "ram", "trebuchet")
+NAVIGATION_CLASSES = ("foot", "cavalry", "machines")
+DAMAGE_TYPES = ("melee", "pierce", "crush")
+# A unit's fields: (source key, converted key, whether it may be 0). Those with a unit convert as Rules.json's do (check
+# 10); the rest are whole numbers.
+UNIT_FIELDS = (
+  ("squadFigures", "squadFigures", False),
+  ("hitPoints", "hitPoints", False),
+  ("armorMelee", "armorMelee", True),
+  ("armorPierce", "armorPierce", True),
+  ("armorCrush", "armorCrush", True),
+  ("attack", "attack", True),
+  ("reloadSeconds", "reloadTicks", True),
+  ("rangeMeters", "rangeVoxels", True),
+  ("visionMeters", "visionVoxels", False),
+  ("speedMetersPerSecond", "speedMetersPerTick", True),
+  ("digCubicMetersPerSecond", "digCubicMetersPerTick", True),
+)
+STRUCTURE_FIELDS = (
+  ("garrisonCapacity", "garrisonCapacity", True),
+  ("standHeightMeters", "standHeightVoxels", True),
+  ("visionMeters", "visionVoxels", False),
+  ("garrisonedVisionMeters", "garrisonedVisionVoxels", False),
+  ("controlHitPoints", "controlHitPoints", False),
+  ("controlHitPointsPerCubicMeter", "controlHitPointsPerCubicMeter", False),
+)
+MAX_FIELD = (1 << 31) - 1
+MAX_SMALL = 255  # figures a squad, a garrison's capacity: a u8 in the server's file
+
+
+def ConvertField(_key, _value):
+  """A unit's or a structure's value: (integer, None), or (None, the reason it does not convert)."""
+  if any(_key.endswith(entry[0]) and len(_key) > len(entry[0]) for entry in RULE_CONVERSIONS):
+    converted, number = ConvertRule(_key, _value)
+    return (number, None) if converted is not None else (None, number)
+  if not isinstance(_value, str) or not re.fullmatch(r"\d+", _value):
+    return None, f"{_value!r} is not a whole number as a decimal string"
+  return int(_value), None
+
+
+def ReadFields(_report, _path, _what, _entry, _fields):
+  """_entry's _fields, converted: {converted key: integer}, or None after reporting each problem."""
+  values, good = {}, True
+  for key, converted, zero in _fields:
+    number, reason = ConvertField(key, _entry.get(key))
+    most = MAX_SMALL if key in ("squadFigures", "garrisonCapacity") else MAX_FIELD
+    if number is None:
+      _report.Problem(_path, f"{_what}'s {key}: {reason}")
+      good = False
+    elif not 0 <= number <= most or (number == 0 and not zero):
+      _report.Problem(_path, f"{_what}'s {key} is {_entry.get(key)}, outside {0 if zero else 1} to {most}")
+      good = False
+    else:
+      values[converted] = number
+  return values if good else None
+
+
+def ReadUnits(_report, _root):
+  """Check 15: GameData/Server/Units.json (ADR-023, decision 1). Returns its records in Protocol::UnitKind's order, each
+  the converted fields with kind, navigationClass and attackType as their numbers and bonus as eight integers in kind
+  order."""
+  path = _root / "GameData" / "Server" / "Units.json"
+  data = ReadJson(_report, path)
+  if data is None:
+    return []
+  entries = data.get("units")
+  if not isinstance(entries, list):
+    _report.Problem(path, "has no units (ADR-023, decision 1)")
+    return []
+  units, seen = {}, set()
+  for entry in entries:
+    kind = entry.get("kind") if isinstance(entry, dict) else None
+    if kind not in UNIT_KINDS:
+      _report.Problem(path, f"names the kind {kind!r}, which is not one of {', '.join(UNIT_KINDS)}")
+      continue
+    if kind in seen:
+      _report.Problem(path, f"gives the kind {kind} twice")
+      continue
+    seen.add(kind)
+    record = ReadFields(_report, path, kind, entry, UNIT_FIELDS)
+    navigation, attackType, bonus = entry.get("navigationClass"), entry.get("attackType"), entry.get("bonus")
+    if navigation not in NAVIGATION_CLASSES:
+      _report.Problem(path, f"{kind}'s navigationClass {navigation!r} is not one of {', '.join(NAVIGATION_CLASSES)}")
+      record = None
+    if attackType not in DAMAGE_TYPES:
+      _report.Problem(path, f"{kind}'s attackType {attackType!r} is not one of {', '.join(DAMAGE_TYPES)}")
+      record = None
+    bonuses = [0] * len(UNIT_KINDS)
+    if not isinstance(bonus, dict):
+      _report.Problem(path, f"{kind} has no bonus table")
+      record = None
+    for against, amount in (bonus.items() if isinstance(bonus, dict) else []):
+      number, reason = ConvertField("bonus", amount)
+      if against not in UNIT_KINDS:
+        _report.Problem(path, f"{kind}'s bonus names the kind {against!r}, which is not one of {', '.join(UNIT_KINDS)}")
+        record = None
+      elif number is None or number > MAX_FIELD:
+        _report.Problem(path, f"{kind}'s bonus against {against}: {reason or 'too large'}")
+        record = None
+      else:
+        bonuses[UNIT_KINDS.index(against)] = number
+    if record is not None:
+      record.update(kind=UNIT_KINDS.index(kind), navigationClass=NAVIGATION_CLASSES.index(navigation),
+                    attackType=DAMAGE_TYPES.index(attackType), bonus=bonuses)
+      units[kind] = record
+  for kind in UNIT_KINDS:
+    if kind not in seen:
+      _report.Problem(path, f"gives no {kind}: every kind has one record (ADR-023, decision 1)")
+  return [units[kind] for kind in UNIT_KINDS if kind in units]
+
+
+def ReadStructures(_report, _root, _templates):
+  """Check 15: GameData/Server/Structures.json (ADR-024, decision 7), against _templates ({id: its critical part's
+  name, empty for none}). Returns its records in ascending template id, each the converted fields with template and
+  criticalThresholdPercent, 0 for a template that names no critical part."""
+  path = _root / "GameData" / "Server" / "Structures.json"
+  data = ReadJson(_report, path)
+  if data is None:
+    return []
+  entries = data.get("structures")
+  if not isinstance(entries, list):
+    _report.Problem(path, "has no structures (ADR-024, decision 7)")
+    return []
+  structures, seen = {}, set()
+  for entry in entries:
+    template = entry.get("template") if isinstance(entry, dict) else None
+    if template not in _templates:
+      _report.Problem(path, f"names the template {template!r}, which GameData/Server/Templates/ does not hold")
+      continue
+    if template in seen:
+      _report.Problem(path, f"gives the template {template} twice")
+      continue
+    seen.add(template)
+    record = ReadFields(_report, path, template, entry, STRUCTURE_FIELDS)
+    threshold, number = entry.get("criticalThresholdPercent"), 0
+    if _templates[template]:
+      number, _ = ConvertField("criticalThresholdPercent", threshold)
+      if number is None or not 1 <= number <= 100:
+        _report.Problem(path, f"{template} names the critical part {_templates[template]}, and its criticalThresholdPercent "
+                              f"{threshold!r} is not a whole number from 1 to 100")
+        record = None
+    elif threshold is not None:
+      _report.Problem(path, f"{template} names no critical part, so it gives no criticalThresholdPercent")
+      record = None
+    if record is not None:
+      record.update(template=template, criticalThresholdPercent=number)
+      structures[template] = record
+  return [structures[template] for template in sorted(structures)]
+
+
+def TemplateCriticalParts(_report, _root):
+  """{template id: its critical part's name, empty for none}, from the layer files in GameData/Server/Templates/."""
+  parts = {}
+  for path in sorted((_root / "GameData" / "Server" / "Templates").glob("*.json")):
+    data = ReadJson(_report, path)
+    if isinstance(data, dict) and isinstance(data.get("id"), str):
+      named = data.get("criticalPart")
+      parts[data["id"]] = named if isinstance(named, str) and named.strip() and named.split()[0] != "None" else ""
+  return parts
+
+
 SERVER_ONLY_TREE = ("Tools", "GameData/Server")
 
 
@@ -892,6 +1073,8 @@ def Check(_root):
       CheckFigure(report, _root, entry, assets)
   outputs = CheckClientBake(report, _root, behaviors)
   ReadRules(report, _root)
+  ReadUnits(report, _root)
+  ReadStructures(report, _root, TemplateCriticalParts(report, _root))
   CheckServerBake(report, _root)
   return report, assets, outputs, lineModels
 

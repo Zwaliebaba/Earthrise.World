@@ -157,12 +157,77 @@ public:
     }
   }
 
+  TEST_METHOD(RefusesAFileLackingUnitsOrStructuresByName)
+  {
+    // ADR-016, amended by M4-B3: UNIT and STRC join at section version 1, and a file without either is refused.
+    for (const std::string_view tag : {"UNIT", "STRC"})
+    {
+      const std::string refusal = Refusal(BakedServerDataWithoutSection(tag));
+      Assert::IsTrue(refusal.find("the file has no " + std::string(tag) + " section") != std::string::npos);
+    }
+  }
+
+  TEST_METHOD(RefusesARuleFileLackingAnyOfM4sKeysByName)
+  {
+    for (const std::string_view key : {"shotStoneHundredthsCubicMeters",
+                                       "arrowSpeedMetersPerTick",
+                                       "arrowLaunchHeightCentimeters",
+                                       "arrowAimHeightVoxels",
+                                       "arrowHitReachCells",
+                                       "elevationStepVoxels",
+                                       "elevationMaxSteps",
+                                       "elevationRangeBandVoxels",
+                                       "shotCrushDamage",
+                                       "collapseCrushDamage",
+                                       "dropCrushDamagePerVoxel",
+                                       "ramBlowTicks",
+                                       "ramTimberCraterVoxels",
+                                       "ramEarthCraterVoxels",
+                                       "ramStoneCraterVoxels",
+                                       "ramStoneReachVoxels",
+                                       "garrisonHealTicksPerHitPoint",
+                                       "repairCubicMetersPerTick",
+                                       "repairReachVoxels",
+                                       "repairLockTicks",
+                                       "repairLockReachVoxels",
+                                       "passageAttackTicks",
+                                       "passageAttackDamage",
+                                       "trebuchetDeployTicks",
+                                       "trebuchetPackTicks",
+                                       "controlShotDamage",
+                                       "controlRamDamage",
+                                       "controlRamStonePercent",
+                                       "controlTrenchDamagePerCubicMeter",
+                                       "waitBeforeSearchTicks",
+                                       "revealTicks",
+                                       "commanderDecisionTicks",
+                                       "commanderWorkPerTick"})
+    {
+      const std::string refusal = Refusal(BakedServerDataWithout(key));
+      Assert::IsTrue(refusal.find("RULE lacks the key " + std::string(key)) != std::string::npos);
+    }
+  }
+
+  TEST_METHOD(ReadsEachStructuresValues)
+  {
+    // MvpPlan.md, M4, input 10: T4's firing platform works at 75 %, and it holds six at 11 m, seeing 80 m garrisoned.
+    const Simulation::TemplateRules* tower = BakedServerData().FindTemplateRules("T4");
+    Assert::IsNotNull(tower);
+    Assert::AreEqual(std::uint8_t{75}, tower->criticalThresholdPercent);
+    Assert::AreEqual(std::uint8_t{6}, tower->garrisonCapacity);
+    Assert::AreEqual(11, tower->standHeightVoxels);
+    Assert::AreEqual(80, tower->garrisonedVisionVoxels);
+    Assert::AreEqual(std::uint8_t{0}, BakedServerData().FindTemplateRules("T3")->criticalThresholdPercent);
+    Assert::IsNull(BakedServerData().FindTemplateRules("T8"));
+  }
+
   TEST_METHOD(ReadsTheTuningInTheSimulationsUnits)
   {
     const Simulation::Rules& rules = BakedServerData().Tuning();
     Assert::AreEqual(4587, rules.footSpeedMetersPerTick.Raw());
-    Assert::AreEqual(9175, rules.cavalrySpeedMetersPerTick.Raw());  // 2.8 m/s
-    Assert::AreEqual(2293, rules.machinesSpeedMetersPerTick.Raw()); // 0.7 m/s
+    // The kinds' own speeds are UNIT's (ADR-023, decision 1): an outrider's is cavalry's 2.8 m/s, a ram's machines' 0.7.
+    Assert::AreEqual(9175, BakedServerData().Stats(Protocol::UnitKind::Outrider).speedMetersPerTick.Raw());
+    Assert::AreEqual(2293, BakedServerData().Stats(Protocol::UnitKind::Ram).speedMetersPerTick.Raw());
     Assert::AreEqual(20, rules.warningBaseTicks);
     Assert::AreEqual(400, rules.shotReloadTicks);
     Assert::AreEqual(5, rules.timberSpanVoxels);

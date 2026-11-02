@@ -40,6 +40,8 @@ FONT = "Client/Fonts/EarthriseMason-glyphs.json"
 MANIFEST = "Manifest.json"
 PALETTE = "Server/Palette.json"
 RULES = "Server/Rules.json"
+UNITS = "Server/Units.json"
+STRUCTURES = "Server/Structures.json"
 BAKE = "Tools/BakeContent.py"
 BAKE_IMPORTS = ("Tools/CheckAssets.py", "Tools/VoxFile.py")  # the bake counts costs with the asset check's code
 
@@ -166,6 +168,14 @@ def DebrisRow(_manifest, _rubbleIndex):
   return next(row for row in _manifest["debrisByRubble"]["table"] if row["rubbleIndex"] == _rubbleIndex)
 
 
+def UnitOf(_units, _kind):
+  return next(unit for unit in _units["units"] if unit["kind"] == _kind)
+
+
+def StructureOf(_structures, _template):
+  return next(structure for structure in _structures["structures"] if structure["template"] == _template)
+
+
 def Legend(_char, _index):
   return lambda d: d["legend"][_char].update(material=_index)
 
@@ -284,6 +294,26 @@ BROKEN = {
                                            "names index 6, which is not a palette index whose behaviour is a rubble"),
   "a debris tint no palette entry has": (lambda r: Change(r, MANIFEST, lambda m: DebrisRow(m, 28).update(tint="#123456")),
                                          "has the tint '#123456', which is not exactly one palette entry's colour"),
+  # 15. Units and structures.
+  "a unit kind missing": (lambda r: Change(r, UNITS, lambda u: u["units"].remove(UnitOf(u, "sapper"))),
+                          "gives no sapper: every kind has one record"),
+  "a unit kind twice": (lambda r: Change(r, UNITS, lambda u: u["units"].append(dict(UnitOf(u, "archer")))), "gives the kind archer twice"),
+  "a bonus naming no kind": (lambda r: Change(r, UNITS, lambda u: UnitOf(u, "spearman")["bonus"].update(knight="12")),
+                             "spearman's bonus names the kind 'knight'"),
+  "a unit value that does not convert": (lambda r: Change(r, UNITS, lambda u: UnitOf(u, "archer").update(rangeMeters="30.5")),
+                                         "archer's rangeMeters: 30.5 comes to 30.5 voxels, not a whole number"),
+  "a unit with no hit points": (lambda r: Change(r, UNITS, lambda u: UnitOf(u, "ram").update(hitPoints="0")),
+                                "ram's hitPoints is 0, outside 1 to"),
+  "a unit of no class": (lambda r: Change(r, UNITS, lambda u: UnitOf(u, "outrider").update(navigationClass="flying")),
+                         "outrider's navigationClass 'flying' is not one of"),
+  "a structure naming no template": (lambda r: Change(r, STRUCTURES, lambda s: StructureOf(s, "T4").update(template="T10")),
+                                     "names the template 'T10', which GameData/Server/Templates/ does not hold"),
+  "a threshold above 100": (lambda r: Change(r, STRUCTURES, lambda s: StructureOf(s, "T4").update(criticalThresholdPercent="101")),
+                            "T4 names the critical part Firing platform, and its criticalThresholdPercent '101'"),
+  "a threshold for no critical part": (lambda r: Change(r, STRUCTURES, lambda s: StructureOf(s, "T3").update(criticalThresholdPercent="50")),
+                                       "T3 names no critical part, so it gives no criticalThresholdPercent"),
+  "a structure value that does not convert": (lambda r: Change(r, STRUCTURES, lambda s: StructureOf(s, "T5").update(standHeightMeters="11.5")),
+                                              "T5's standHeightMeters: 11.5 comes to 11.5 voxels, not a whole number"),
 }
 
 

@@ -29,7 +29,7 @@ Simulation::World Start()
   const std::array<Protocol::VoxelPosition, 2> first = {Cell(3, 3), Cell(4, 3)};
   const std::array<Protocol::VoxelPosition, 2> second = {Cell(40, 40), Cell(41, 40)};
   static_cast<void>(world.AddSquad(PLAYER, Simulation::NavigationClass::Foot, first));
-  static_cast<void>(world.AddSquad(PLAYER + 1, Simulation::NavigationClass::Cavalry, second));
+  static_cast<void>(world.AddSquad(PLAYER + 1, Simulation::NavigationClass::Cavalry, second, Simulation::UnitKind::Outrider));
   static_cast<void>(world.AddSiegeEngine(PLAYER, Simulation::EngineKind::Trebuchet, Cell(10, 50)));
   return world;
 }

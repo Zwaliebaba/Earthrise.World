@@ -41,7 +41,9 @@ void Fill(Simulation::World& _world, Protocol::VoxelPosition _low, Protocol::Vox
 Protocol::EntityId Place(Simulation::World& _world, Simulation::NavigationClass _class, Protocol::VoxelPosition _cell)
 {
   const std::array<Protocol::VoxelPosition, 1> cells = {_cell};
-  const Protocol::EntityId squad = _world.AddSquad(PLAYER, _class, cells);
+  const Simulation::UnitKind kind =
+    _class == Simulation::NavigationClass::Cavalry ? Simulation::UnitKind::Outrider : Simulation::UnitKind::Spearman;
+  const Protocol::EntityId squad = _world.AddSquad(PLAYER, _class, cells, kind);
   return _world.Squads().at(squad).units.front();
 }
 

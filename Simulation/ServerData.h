@@ -1,9 +1,13 @@
 #pragma once
 
+#include "EntityKinds.h"
 #include "MaterialRules.h"
 #include "Rules.h"
+#include "TemplateRules.h"
 #include "TestWorld.h"
+#include "UnitStats.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -45,8 +49,9 @@ struct ServerTemplate
 };
 
 /// The server's data, read from <outputdir>\ServerData\ServerData.bin (ADR-016): each palette
-/// index's rule, the templates and the tuning values, with the server-data hash that saves and
-/// replays record and the shared hash that both halves hold (ADR-008, decision 5).
+/// index's rule, the templates, the tuning values, each unit kind's statistics and each template's
+/// values as a structure at work, with the server-data hash that saves and replays record and the
+/// shared hash that both halves hold (ADR-008, decision 5).
 ///
 /// The reader checks the magic number, the format version, the server-data hash, recomputed over
 /// the body, and each section's version and layout, and refuses anything else with a
@@ -84,6 +89,13 @@ public:
   /// which must outlive it and not move.
   [[nodiscard]] TemplateLookup Templates() const;
 
+  /// A unit kind's statistics, UNIT's record for it (ADR-023, decision 1).
+  [[nodiscard]] const UnitStats& Stats(Protocol::UnitKind _kind) const;
+
+  /// The template _templateId's values as a structure at work, STRC's record for it (ADR-024, decision 7), or null
+  /// for a template STRC does not list.
+  [[nodiscard]] const TemplateRules* FindTemplateRules(std::string_view _templateId) const noexcept;
+
 private:
   ServerData() = default;
 
@@ -92,6 +104,8 @@ private:
   MaterialRules m_materials{};
   Rules m_rules{};
   std::vector<ServerTemplate> m_templates;
+  std::array<UnitStats, Protocol::UNIT_KIND_COUNT> m_units{};
+  std::vector<TemplateRules> m_templateRules; // in ascending template id
 };
 
 } // namespace Simulation

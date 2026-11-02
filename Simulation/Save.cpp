@@ -183,7 +183,7 @@ Unit ReadUnit(Core::ByteReader& _reader)
           .cellVoxels = ReadPosition(_reader),
           .trailStep = _reader.ReadU32(),
           .stepEffort = _reader.ReadI64(),
-          .kind = ReadEnum(_reader, UnitKind::Sapper, "kind of unit")};
+          .kind = ReadEnum(_reader, UnitKind::Trebuchet, "kind of unit")};
 }
 
 void WriteRecord(Core::ByteWriter& _writer, const SiegeEngine& _engine)
@@ -201,7 +201,7 @@ SiegeEngine ReadSiegeEngine(Core::ByteReader& _reader)
 {
   return {.id = _reader.ReadU64(),
           .owner = _reader.ReadU8(),
-          .kind = ReadEnum(_reader, EngineKind::Trebuchet, "kind of engine"),
+          .kind = ReadEnum(_reader, EngineKind::Ram, "kind of engine"),
           .position = ReadFixedPosition(_reader),
           .cellVoxels = ReadPosition(_reader),
           .reloadTicks = _reader.ReadU32(),

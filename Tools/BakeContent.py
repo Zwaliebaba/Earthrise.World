@@ -43,7 +43,7 @@ The server's file (ADR-016) is a header and a body, little-endian and unpadded t
   the header: the four bytes ERSD; u32 the format version, 1; u64 Core::Fnv1a64 over every byte of the body;
   the body: u64 the shared hash, as above; u32 the number of sections; for each section a directory entry of its
     four-character tag, u32 its version, u32 its offset from the start of the body and u32 its length; then the
-    sections, in the directory's order: MATL, TMPL and RULE, each at version 1.
+    sections, in the directory's order: MATL, TMPL, RULE, UNIT and STRC, each at version 1.
   MATL: for each palette index from 0 to 255, six u8: 1 if the palette has the index and 0 if not; its behaviour,
     numbered as Simulation::Behavior declares them (BEHAVIORS below); its support, numbered as Simulation::Support
     (SUPPORT below); its span in voxels, from RULE's value for its behaviour, 0 for a behaviour that is not judged by
@@ -58,6 +58,17 @@ The server's file (ADR-016) is a header and a body, little-endian and unpadded t
   RULE: u32 the number of values; then each in ascending key order: u32 the byte length of its key, its UTF-8 bytes
     and its value as an i64. The keys and values are GameData/Server/Rules.json's, converted by Tools/CheckAssets.py
     (its check 10) into the simulation's units, so a key names the converted unit, as warningBaseTicks does.
+  UNIT: u32 the number of records, 8; then one for each Protocol::UnitKind in its declared order (ADR-023, decision 1):
+    u8 its kind, u8 its navigation class (Protocol::NavigationClass), u8 its figures a squad and u8 its attack's type
+    (Protocol::DamageType); then i32 its hit points, its armor against melee, pierce and crush, its attack, u32 its
+    reload in ticks, i32 its range in voxels, its bonus against each kind in kind order, its vision in voxels, and its
+    speed in metres and its digging rate in cubic metres a tick, each a Core::Fixed raw value. 76 bytes a record.
+    GameData/Server/Units.json's values, read and converted by Tools/CheckAssets.py (its check 15).
+  STRC: u32 the number of records; then each in ascending template id (ADR-024, decision 7): u32 the byte length of
+    its template's id and its UTF-8 bytes; u8 its critical threshold in whole percent, 0 for a template that names no
+    critical part; u8 its garrison's capacity; i32 its stand height, its vision and its garrisoned vision in voxels, and
+    its hit points and its hit points a cubic metre in the control (ADR-028). GameData/Server/Structures.json's values,
+    read and converted by Tools/CheckAssets.py (its check 15).
 Nothing under GameData/Client/ reaches it, which check 11 of the asset check proves. It is rewritten only when its
 bytes change.
 
@@ -460,7 +471,7 @@ def SharedHashHeader(_hash):
 SERVER_FILE = "ServerData.bin"
 SERVER_MAGIC = b"ERSD"
 SERVER_FORMAT_VERSION = 1
-SECTION_VERSIONS = {"MATL": 1, "TMPL": 1, "RULE": 1}  # in the file's order
+SECTION_VERSIONS = {"MATL": 1, "TMPL": 1, "RULE": 1, "UNIT": 1, "STRC": 1}  # in the file's order
 # Simulation::Behavior, in its declared order, by Palette.json's behaviour names; 0 is none.
 BEHAVIORS = ("none", "earth", "commonRock", "buildingStone", "bedrock", "timber", "leaves", "water", "stoneRubble",
              "wasteRubble")
@@ -531,6 +542,29 @@ def ServerRules(_rules):
   return bytes(out)
 
 
+def ServerUnits(_units):
+  """UNIT: each kind's statistics, in Protocol::UnitKind's order."""
+  out = bytearray(struct.pack("<I", len(_units)))
+  for unit in _units:
+    out += struct.pack("<4B", unit["kind"], unit["navigationClass"], unit["squadFigures"], unit["attackType"])
+    out += struct.pack("<5i", unit["hitPoints"], unit["armorMelee"], unit["armorPierce"], unit["armorCrush"], unit["attack"])
+    out += struct.pack("<Ii", unit["reloadTicks"], unit["rangeVoxels"])
+    out += struct.pack("<8i", *unit["bonus"])
+    out += struct.pack("<3i", unit["visionVoxels"], unit["speedMetersPerTick"], unit["digCubicMetersPerTick"])
+  return bytes(out)
+
+
+def ServerStructures(_structures):
+  """STRC: each template's values as a structure at work, in ascending template id."""
+  out = bytearray(struct.pack("<I", len(_structures)))
+  for structure in _structures:
+    out += LengthPrefixed(structure["template"])
+    out += struct.pack("<2B", structure["criticalThresholdPercent"], structure["garrisonCapacity"])
+    out += struct.pack("<5i", structure["standHeightVoxels"], structure["visionVoxels"], structure["garrisonedVisionVoxels"],
+                       structure["controlHitPoints"], structure["controlHitPointsPerCubicMeter"])
+  return bytes(out)
+
+
 def ServerFile(_sharedHash, _sections):
   """The whole file: the header, then the body of the shared hash, the directory and _sections ({tag: bytes})."""
   directorySize = 8 + 4 + 16 * len(_sections)
@@ -546,9 +580,12 @@ def BakeServer(_report, _palette, _templates, _sharedHash):
   """The server's file, or None when a problem stops it."""
   rules = CheckAssets.ReadRules(_report, ROOT)
   materials = Materials(_report, _palette, rules)
+  units = CheckAssets.ReadUnits(_report, ROOT)
+  structures = CheckAssets.ReadStructures(_report, ROOT, {view.id: view.criticalPart for view in _templates})
   if _report.problems:
     return None
-  return ServerFile(_sharedHash, {"MATL": materials, "TMPL": ServerTemplates(_templates), "RULE": ServerRules(rules)})
+  return ServerFile(_sharedHash, {"MATL": materials, "TMPL": ServerTemplates(_templates), "RULE": ServerRules(rules),
+                                  "UNIT": ServerUnits(units), "STRC": ServerStructures(structures)})
 
 
 def WriteBytesIfChanged(_path, _bytes):

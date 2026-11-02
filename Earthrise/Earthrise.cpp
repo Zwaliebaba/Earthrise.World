@@ -356,6 +356,10 @@ std::string_view UnitModel(Protocol::UnitKind _kind) noexcept
     return "U5";
   case Protocol::UnitKind::Sapper:
     return "S2";
+  case Protocol::UnitKind::Ram: // the engines' bodies, which M4-H1 draws as their engines
+    return "S1";
+  case Protocol::UnitKind::Trebuchet:
+    return "S3p";
   }
   return "U2";
 }
