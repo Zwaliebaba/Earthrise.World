@@ -23,6 +23,9 @@ namespace Simulation
 //   1b. the trial's progress (M4-F1): u8 its outcome, u32 the tick of it and u32 the storming clock; u32 the sections
 //      opened, then each u64 in id order; u32 the figures in a section's footprint, then each as its u64 id, the u64
 //      section and u8 1 when it came in from the inner side, in figure order;
+//   1c. the commanders (M4-F2; ADR-027, decision 5): u32 their count, then each as its u8 player, its kind as a u32 length
+//      and UTF-8, and its state as a u32 length and the bytes its Write gives, in player order; then the commands they
+//      gave in the last step 13, u32 their count and each as its u8 player, u32 length and bytes, in order;
 //   2. the edited chunks: u32 their count, then in rising key order each chunk that differs from its
 //      generated base, as its u64 packed key and its edits in ChunkEdits.h's shorter form;
 //   3. the entities: u32 their count, then every entity in id order, each as a u16 type tag, a u16
@@ -31,7 +34,8 @@ namespace Simulation
 //      its build anyway (ADR-014, decision 6), so an older version is refused, never migrated. A
 //      structure's record is its id, u8 owner, template id and name each as a u32 length and UTF-8,
 //      origin and u8 quarter turns; M4-D1's version 2 adds its built mask, as a u32 byte count and the
-//      bytes, its u8 share, u8 working, u32 lock, Fixed repair progress, u8 gate and i32 hit points. A squad's version 6 adds
+//      bytes, its u8 share, u8 working, u32 lock, Fixed repair progress, u8 gate and i32 hit points, and M4-F2's version 3
+//      its u8 standing share. A squad's version 6 adds
 //      its trench's two corners, its u8 ramp's end and its Fixed dig progress (M4-D6). A squad's version 2 adds
 //      the u64 building it is garrisoned in, and an engine's version 2 its u8 state (M4-B4); a
 //      squad's version 3 its u8 kind, an engine's version 3 its u64 body's squad, and a unit's
@@ -58,8 +62,9 @@ namespace Simulation
 // load rebuilds them.
 
 /// 2 from M4-B4, which gave the save its match; 3 from M4-D6, which saves the columns trenches opened; 4 from M4-E1, which
-/// saves fog's last-seen structures and chunks sent; 5 from M4-F1, which saves the trial's progress.
-inline constexpr std::uint32_t SAVE_FORMAT_VERSION = 5;
+/// saves fog's last-seen structures and chunks sent; 5 from M4-F1, which saves the trial's progress; 6 from M4-F2, which
+/// saves the commanders.
+inline constexpr std::uint32_t SAVE_FORMAT_VERSION = 6;
 
 /// The type tag each kind of entity is saved under.
 enum class SaveEntityTag : std::uint16_t

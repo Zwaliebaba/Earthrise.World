@@ -36,8 +36,9 @@ struct StructureView
   std::uint8_t garrisonCapacity = 0;
   std::int32_t hitPoints = 0; // the control only (ADR-028); 0 in the voxel version
   std::int32_t maxHitPoints = 0;
-  bool opened = false;   // sections only: a foot route from the camp through its footprint to its inner side (ADR-026)
-  bool lastSeen = false; // not visible now: as it stood when last visible (ADR-025, decision 2)
+  bool opened = false;                // sections only: a foot route from the camp through its footprint to its inner side (ADR-026)
+  bool lastSeen = false;              // not visible now: as it stood when last visible (ADR-025, decision 2)
+  std::uint8_t standingPercent = 100; // the share of its built voxels that stand, every part (M4-F2)
 
   friend bool operator==(const StructureView&, const StructureView&) = default;
 };

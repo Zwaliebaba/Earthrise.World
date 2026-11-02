@@ -145,7 +145,7 @@ The edges run one way:
 | Structures at work | M4 | [ADR-024](ADR/ADR-024-structures-at-work.md), Accepted by M4-D1: the built mask; working read from the critical part's standing share; repair by the owner's laborers at a fixed rate with its lock; garrisons firing from the outer face; the gate as a flag; per-template values in `STRC` |
 | Fog of war | M4 | [ADR-025](ADR/ADR-025-fog-of-war.md), Accepted by M4-E1: a visibility bit per player per cell each tick; the state update filtered per player; chunks sent when seen; last-seen land kept by the client; a column shade in the voxel pass |
 | Scenarios and the Siege trial | M4 | [ADR-026](ADR/ADR-026-scenarios-and-the-siege-trial.md), decisions 1 to 3 Accepted by M4-B4, 4 and 5 by M4-F1, the rest Proposed: JSON sources baked into `SCEN`; loaded as tick 0; the trial's rules in step 10; its events, log and replay |
-| The AI | M4 | [ADR-027](ADR/ADR-027-commanders.md), Proposed: commanders inside the simulation, one a player, reading only their player's view, run as step 13, saved, recomputed on replay |
+| The AI | M4 | [ADR-027](ADR/ADR-027-commanders.md), Accepted by M4-F2: commanders inside the simulation, one a player, reading only their player's view, run as step 13, saved, recomputed on replay |
 | The control | M4 | [ADR-028](ADR/ADR-028-the-control.md), Proposed: health-bar structures behind one seam, `StructureRule`, chosen by the scenario; hit points calibrated on the voxel version |
 | Trenches and undermining | M4 | [ADR-029](ADR/ADR-029-trenches-and-undermining.md), Accepted by M4-D6: sappers dig an open box from the top with a ramp at its near end; earth slumps from under a structure only towards what a trench opened; dug cells lock repair nearby |
 
@@ -165,7 +165,7 @@ The order is fixed, so that one build replays the same commands to the same resu
 10. Update which structures work, then check the win and loss rules: the storming clock, and the Siege trial's limits.
 11. Filter state by what each player can see, and publish state updates and chunk snapshots, each chunk to a player who sees it (ADR-025).
 12. Answer queries on the tick's state, filtered the same way, within the tick's query budget, a number of queries in units of work (ADR-009, amended 2026-11-01).
-13. Let each commander read its player's view and queue its commands for the next tick's step 1, within its work budget (ADR-027; added by M4's revision, Proposed).
+13. Let each commander read its player's view and queue its commands for the next tick's step 1, within its work budget (ADR-027; added by M4's revision, Accepted by M4-F2).
 
 ## Milestones
 

@@ -34,6 +34,9 @@
     <Filter Include="Fog">
       <UniqueIdentifier>{76A8699D-83E3-53AC-B5F1-E8194CFC8738}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Commanders">
+      <UniqueIdentifier>{9854F757-A71E-52F4-BC53-23BA62F4872D}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -191,6 +194,18 @@
     </ClInclude>
     <ClCompile Include="Visibility.cpp">
       <Filter>Fog</Filter>
+    </ClCompile>
+    <ClInclude Include="Commander.h">
+      <Filter>Commanders</Filter>
+    </ClInclude>
+    <ClCompile Include="Commander.cpp">
+      <Filter>Commanders</Filter>
+    </ClCompile>
+    <ClInclude Include="SiegeDefender.h">
+      <Filter>Commanders</Filter>
+    </ClInclude>
+    <ClCompile Include="SiegeDefender.cpp">
+      <Filter>Commanders</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

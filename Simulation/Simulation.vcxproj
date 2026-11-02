@@ -89,6 +89,10 @@
     <ClCompile Include="Arrow.cpp" />
     <ClInclude Include="Visibility.h" />
     <ClCompile Include="Visibility.cpp" />
+    <ClInclude Include="Commander.h" />
+    <ClCompile Include="Commander.cpp" />
+    <ClInclude Include="SiegeDefender.h" />
+    <ClCompile Include="SiegeDefender.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

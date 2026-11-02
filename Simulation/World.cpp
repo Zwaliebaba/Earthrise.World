@@ -179,6 +179,7 @@ void World::Tick()
   CheckRules();
   PublishState();
   AnswerQueries(m_tick);
+  RunCommanders();
   const std::span<const Protocol::VoxelPosition> edits = m_voxels.TickEdits();
   m_lastTickEdits.assign(edits.begin(), edits.end());
   // The edits after step 5, steps 6 and 7's, wait for the next tick's search.
@@ -345,7 +346,9 @@ Protocol::StructureView World::StructureViewFor(std::uint8_t _player, const Stru
           .garrisonCount = static_cast<std::uint8_t>(garrisoned),
           .garrisonCapacity = rules == nullptr ? std::uint8_t{0} : rules->garrisonCapacity,
           .hitPoints = _structure.hitPoints,
-          .opened = m_trialProgress.openedSections.contains(_structure.id)};
+          .opened = m_trialProgress.openedSections.contains(_structure.id),
+          .lastSeen = false,
+          .standingPercent = _structure.standingPercent};
 }
 
 bool World::AnswerVisible(std::uint8_t _player, const Protocol::Query& _query) const
@@ -639,6 +642,7 @@ Protocol::EntityId World::AddStructure(std::uint8_t _owner, std::string_view _te
                            .first->second;
   const ServerTemplate& stamped = *found;
   structure.criticalPercent = CriticalShare(structure, HeldByCollapses());
+  structure.standingPercent = StandingShare(structure, HeldByCollapses());
   const TemplateRules* rules = Data().FindTemplateRules(stamped.id);
   structure.working = rules == nullptr || structure.criticalPercent >= rules->criticalThresholdPercent;
   return id;
@@ -1047,15 +1051,20 @@ void World::ApplyCommands()
 {
   // Step 1: the commands that arrived for this tick, in the order they arrived.
   m_lastTickCommands = std::exchange(m_pendingCommands, {});
-  for (const SubmittedCommand& submitted : m_lastTickCommands)
+  // Then the commanders', given at the end of the last tick, applied as a player's are but kept apart (ADR-027, decision 2).
+  m_lastCommanderCommands = std::exchange(m_commanderCommands, {});
+  for (const std::vector<SubmittedCommand>* commands : {&m_lastTickCommands, &m_lastCommanderCommands})
   {
-    Core::ByteReader reader(submitted.bytes);
-    const Protocol::Command command = Protocol::DecodeCommand(reader);
-    if (!reader.AtEnd())
+    for (const SubmittedCommand& submitted : *commands)
     {
-      throw std::invalid_argument("a command's bytes run on past the command");
+      Core::ByteReader reader(submitted.bytes);
+      const Protocol::Command command = Protocol::DecodeCommand(reader);
+      if (!reader.AtEnd())
+      {
+        throw std::invalid_argument("a command's bytes run on past the command");
+      }
+      Apply(submitted.player, command);
     }
-    Apply(submitted.player, command);
   }
 }
 
@@ -1088,6 +1097,26 @@ void World::Apply(std::uint8_t _player, const Protocol::Command& _command)
   }
   else if (const auto* attack = std::get_if<Protocol::AttackTarget>(&_command))
   {
+    // A garrison of _player's is aimed at another player's squad or engine, and looses at its figures first when they are
+    // within its reach, without leaving its building (ADR-024, decision 5, as M4-F2 amends it).
+    if (const auto garrison = m_squads.find(attack->squad);
+        garrison != m_squads.end() && garrison->second.garrisonedIn != Protocol::NO_ENTITY)
+    {
+      const Squad* target = TargetSquad(attack->target);
+      if (garrison->second.owner != _player)
+      {
+        Refuse(_player, _command, Protocol::Refusal::NotOwned);
+      }
+      else if (target == nullptr || target->owner == _player || Data().Stats(garrison->second.kind).rangeVoxels <= 0)
+      {
+        Refuse(_player, _command, Protocol::Refusal::Invalid);
+      }
+      else
+      {
+        garrison->second.target = target->id;
+      }
+      return;
+    }
     // A squad or an engine of another player, by a squad with an attack on units; or, by a ram, a structure of another
     // player's that it can touch (ADR-023, decision 9).
     Squad* squad = OrderableSquad(_player, _command, attack->squad);
@@ -3377,9 +3406,81 @@ std::uint8_t World::CriticalShare(const Structure& _structure,
   return built == 0 ? std::uint8_t{0} : static_cast<std::uint8_t>((100 * standing) / built);
 }
 
+std::uint8_t World::StandingShare(const Structure& _structure,
+                                  const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _held) const
+{
+  const ServerTemplate* found = Data().FindTemplate(_structure.templateId);
+  if (found == nullptr)
+  {
+    return 100;
+  }
+  std::int64_t built = 0;
+  std::int64_t standing = 0;
+  std::size_t voxel = 0;
+  for (std::uint32_t y = 0; y < found->heightVoxels; ++y)
+  {
+    for (std::uint32_t z = 0; z < found->depthVoxels; ++z)
+    {
+      for (std::uint32_t x = 0; x < found->widthVoxels; ++x, ++voxel)
+      {
+        if (voxel / 8 >= _structure.builtMask.size() || (_structure.builtMask[voxel / 8] & (1U << (voxel % 8))) == 0)
+        {
+          continue;
+        }
+        ++built;
+        const Protocol::VoxelPosition at = TemplateVoxel(_structure, *found, x, y, z);
+        if (m_voxels.At(at) == found->indices.at(voxel) && !_held.contains({at.xVoxels, at.yVoxels, at.zVoxels}))
+        {
+          ++standing;
+        }
+      }
+    }
+  }
+  return built == 0 ? std::uint8_t{100} : static_cast<std::uint8_t>((100 * standing) / built);
+}
+
+void World::SetCommander(std::uint8_t _player, std::unique_ptr<Commander> _commander)
+{
+  if (_commander == nullptr)
+  {
+    m_commanders.erase(_player);
+    return;
+  }
+  m_commanders.insert_or_assign(_player, CommanderSlot(std::move(_commander)));
+}
+
+std::span<const SubmittedCommand> World::LastTickCommanderCommands() const noexcept
+{
+  return m_lastCommanderCommands;
+}
+
+void World::RunCommanders()
+{
+  // Step 13 (ADR-027, decisions 2 to 4): every commanderDecisionTicks, offset by its player so that decisions spread, each
+  // commander reads its player's view within commanderWorkPerTick units and gives commands for the next step 1.
+  const auto every = static_cast<std::uint32_t>(std::max(1, Data().Tuning().commanderDecisionTicks));
+  for (const auto& [player, slot] : m_commanders)
+  {
+    if ((m_tick + player) % every != 0)
+    {
+      continue;
+    }
+    CommanderView view(*this, player, Data().Tuning().commanderWorkPerTick);
+    std::vector<Protocol::Command> commands;
+    slot.Get().Decide(view, commands);
+    for (const Protocol::Command& command : commands)
+    {
+      Core::ByteWriter writer;
+      Protocol::Encode(command, writer);
+      m_commanderCommands.push_back({.player = player, .bytes = writer.TakeBytes()});
+    }
+  }
+}
+
 void World::UpdateWorking(Structure& _structure, const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _held)
 {
   _structure.criticalPercent = CriticalShare(_structure, _held);
+  _structure.standingPercent = StandingShare(_structure, _held);
   const TemplateRules* rules = Data().FindTemplateRules(_structure.templateId);
   const bool working = rules == nullptr || _structure.criticalPercent >= rules->criticalThresholdPercent;
   if (working != _structure.working)
@@ -3671,9 +3772,31 @@ void World::LooseFromGarrisons()
     Protocol::EntityId nearest = Protocol::NO_ENTITY;
     std::int64_t best = 0;
     Protocol::VoxelPosition from{};
+    // Its squad's target's figures first, when it reaches one; else the nearest enemy it reaches (M4-F2).
+    const Protocol::EntityId aimed = m_squads.at(unit.squad).target;
+    const bool aimedInReach =
+      aimed != Protocol::NO_ENTITY &&
+      std::ranges::any_of(m_units,
+                          [&](const auto& _entry)
+                          {
+                            const Unit& other = _entry.second;
+                            if (other.squad != aimed || Garrisoned(other))
+                            {
+                              return false;
+                            }
+                            const Protocol::VoxelPosition loosing = LoosingCell(*box, other.cellVoxels, templateRules->standHeightVoxels);
+                            const std::int64_t dx = std::int64_t{other.cellVoxels.xVoxels} - loosing.xVoxels;
+                            const std::int64_t dz = std::int64_t{other.cellVoxels.zVoxels} - loosing.zVoxels;
+                            const std::int64_t reach =
+                              ArrowRangeVoxels(stats.rangeVoxels, ElevationSteps(loosing.yVoxels, other.cellVoxels.yVoxels, rules), rules);
+                            return (dx * dx) + (dz * dz) <= reach * reach &&
+                                   !FirstSolid(AimArrow(loosing, other.cellVoxels, rules).start,
+                                               AimArrow(loosing, other.cellVoxels, rules).end, m_voxels)
+                                      .has_value();
+                          });
     for (const auto& [otherId, other] : m_units)
     {
-      if (other.owner == unit.owner || Garrisoned(other))
+      if (other.owner == unit.owner || Garrisoned(other) || (aimedInReach && other.squad != aimed))
       {
         continue;
       }
@@ -4769,10 +4892,6 @@ void World::AnswerQueries(std::uint32_t _tick)
   // (ADR-009, decision 5; ADR-020, decision 6). A query that does not fit what is left waits for the
   // next tick, unless nothing has been answered yet this tick, so that one dearer than the whole
   // budget cannot block the queue for good.
-  constexpr std::int32_t AIM_CHECK_WORK = 1;
-  constexpr std::int32_t TILE_REACH_WORK = 1;
-  // The whole budget, so one reading a tick: a reading took up to 10.6 ms on the benchmark (M3-G3).
-  constexpr std::int32_t SECTION_INTEGRITY_WORK = 16;
   const std::int32_t budget = Data().Tuning().queryWorkPerTick;
   std::int32_t left = budget;
   while (!m_pendingQueries.empty())

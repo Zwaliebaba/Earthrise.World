@@ -249,6 +249,7 @@ void LoadScenario(World& _world, std::string_view _scenarioId)
                       .stoneHundredthsCubicMeters = player.stoneHundredthsCubicMeters,
                       .timberHundredthsCubicMeters = player.timberHundredthsCubicMeters,
                       .revealed = player.revealed});
+    _world.SetCommander(player.id, MakeCommander(player.commander, nullptr));
   }
   for (const ScenarioSquad& squad : scenario.squads)
   {

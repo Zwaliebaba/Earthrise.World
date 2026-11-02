@@ -165,5 +165,8 @@
     <ClCompile Include="TrialRuleTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="SiegeDefenderTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

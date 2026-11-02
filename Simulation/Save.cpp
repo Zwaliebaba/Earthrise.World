@@ -442,6 +442,7 @@ void WriteRecord(Core::ByteWriter& _writer, const Structure& _structure)
   WriteFixed(_writer, _structure.repairProgress);
   _writer.WriteU8(_structure.gateOpen ? std::uint8_t{1} : std::uint8_t{0});
   _writer.WriteI32(_structure.hitPoints);
+  _writer.WriteU8(_structure.standingPercent);
 }
 
 Structure ReadStructure(Core::ByteReader& _reader)
@@ -474,6 +475,7 @@ Structure ReadStructure(Core::ByteReader& _reader)
   structure.repairProgress = ReadFixed(_reader);
   const std::uint8_t gateOpen = _reader.ReadU8();
   structure.hitPoints = _reader.ReadI32();
+  structure.standingPercent = _reader.ReadU8();
   if (structure.criticalPercent > 100 || working > 1 || gateOpen > 1)
   {
     Refuse("a structure's share, working or gate holds a value it cannot");
@@ -648,6 +650,31 @@ void WritePendingWork(Core::ByteWriter& _writer, std::span<const SubmittedComman
   }
 }
 
+/// Commands as they wait for a step 1: u32 their count, then each as its u8 player, u32 length and bytes, in order.
+void WriteCommands(Core::ByteWriter& _writer, std::span<const SubmittedCommand> _commands)
+{
+  _writer.WriteU32(static_cast<std::uint32_t>(_commands.size()));
+  for (const SubmittedCommand& command : _commands)
+  {
+    _writer.WriteU8(command.player);
+    _writer.WriteU32(static_cast<std::uint32_t>(command.bytes.size()));
+    _writer.WriteBytes(command.bytes);
+  }
+}
+
+std::vector<SubmittedCommand> ReadCommands(Core::ByteReader& _reader)
+{
+  std::vector<SubmittedCommand> commands;
+  const std::uint32_t count = _reader.ReadU32();
+  for (std::uint32_t number = 0; number < count; ++number)
+  {
+    const std::uint8_t player = _reader.ReadU8();
+    const std::span<const std::byte> bytes = _reader.ReadBytes(_reader.ReadU32());
+    commands.push_back({.player = player, .bytes = {bytes.begin(), bytes.end()}});
+  }
+  return commands;
+}
+
 /// How the trial stands (M4-F1): its outcome, the tick of it and the storming clock, the sections opened in id order,
 /// and each figure in a section's footprint, in figure order, with its section and the side it came in by.
 void WriteTrialProgress(Core::ByteWriter& _writer, const TrialProgress& _progress)
@@ -709,6 +736,7 @@ void WriteStructureView(Core::ByteWriter& _writer, const Protocol::StructureView
   _writer.WriteI32(_view.maxHitPoints);
   _writer.WriteU8(_view.opened ? std::uint8_t{1} : std::uint8_t{0});
   _writer.WriteU8(_view.lastSeen ? std::uint8_t{1} : std::uint8_t{0});
+  _writer.WriteU8(_view.standingPercent);
 }
 
 Protocol::StructureView ReadStructureView(Core::ByteReader& _reader)
@@ -730,6 +758,7 @@ Protocol::StructureView ReadStructureView(Core::ByteReader& _reader)
   view.maxHitPoints = _reader.ReadI32();
   view.opened = ReadBool(_reader);
   view.lastSeen = ReadBool(_reader);
+  view.standingPercent = _reader.ReadU8();
   return view;
 }
 
@@ -761,8 +790,10 @@ std::uint16_t RecordVersion(SaveEntityTag _tag) noexcept
   case SaveEntityTag::Unit:        // M4-C1: its hit points; M4-C2: its reservation, its step and its wait; M4-C3: its reload and target
   case SaveEntityTag::SiegeEngine: // M4-B4: its state; M4-C1: its body's squad; M4-C5: its deploy's or pack's ticks left
     return 4;
-  case SaveEntityTag::Shot:      // M4-C4: its kind, an arrow's line, shooter, target and damage
-  case SaveEntityTag::Structure: // M4-D1: its built mask, share, working, lock, repair's progress, gate and hit points
+  case SaveEntityTag::Structure: // M4-D1: its built mask, share, working, lock, repair's progress, gate and hit points; M4-F2: its
+                                 // standing share
+    return 3;
+  case SaveEntityTag::Shot: // M4-C4: its kind, an arrow's line, shooter, target and damage
     return 2;
   default:
     return 1;
@@ -785,6 +816,17 @@ std::vector<std::byte> WriteSave(const World& _world)
   writer.WriteU64(_world.m_nextEntityId);
   WriteMatch(writer, _world);
   WriteTrialProgress(writer, _world.m_trialProgress);
+  writer.WriteU32(static_cast<std::uint32_t>(_world.m_commanders.size()));
+  for (const auto& [player, slot] : _world.m_commanders)
+  {
+    writer.WriteU8(player);
+    WriteText(writer, slot.Get().Kind());
+    Core::ByteWriter state;
+    slot.Get().Write(state);
+    writer.WriteU32(static_cast<std::uint32_t>(state.Bytes().size()));
+    writer.WriteBytes(state.Bytes());
+  }
+  WriteCommands(writer, _world.m_commanderCommands);
 
   // The edited chunks that still differ from their base, in rising key order.
   std::vector<std::pair<std::uint64_t, std::vector<std::byte>>> chunks;
@@ -864,6 +906,19 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
     world.m_nextEntityId = reader.ReadU64();
     ReadMatch(reader, world);
     world.m_trialProgress = ReadTrialProgress(reader);
+    const std::uint32_t commanders = reader.ReadU32();
+    for (std::uint32_t number = 0; number < commanders; ++number)
+    {
+      const std::uint8_t player = reader.ReadU8();
+      const std::string kind = ReadText(reader);
+      Core::ByteReader state(reader.ReadBytes(reader.ReadU32()));
+      world.SetCommander(player, MakeCommander(kind, &state));
+      if (!state.AtEnd())
+      {
+        Refuse("a commander's record runs on past its state");
+      }
+    }
+    world.m_commanderCommands = ReadCommands(reader);
 
     const std::uint32_t chunks = reader.ReadU32();
     for (std::uint32_t number = 0; number < chunks; ++number)
@@ -1017,6 +1072,17 @@ std::uint64_t StateHash(const World& _world)
   writer.WriteU64(_world.m_nextEntityId);
   WriteMatch(writer, _world);
   WriteTrialProgress(writer, _world.m_trialProgress);
+  writer.WriteU32(static_cast<std::uint32_t>(_world.m_commanders.size()));
+  for (const auto& [player, slot] : _world.m_commanders)
+  {
+    writer.WriteU8(player);
+    WriteText(writer, slot.Get().Kind());
+    Core::ByteWriter state;
+    slot.Get().Write(state);
+    writer.WriteU32(static_cast<std::uint32_t>(state.Bytes().size()));
+    writer.WriteBytes(state.Bytes());
+  }
+  WriteCommands(writer, _world.m_commanderCommands);
   WriteEntities(writer, _world);
   WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits(), _world.m_slumpQueue,
                    _world.m_openedColumns, _world.m_searches);

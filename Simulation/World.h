@@ -2,6 +2,7 @@
 
 #include "ChunkCoordinate.h"
 #include "ChunkSnapshot.h"
+#include "Commander.h"
 #include "CollapsePlan.h"
 #include "Command.h"
 #include "EntityId.h"
@@ -226,6 +227,8 @@ struct Structure
   Core::Fixed repairProgress{};       // towards the next voxel repair puts back (decision 3; M4-D5)
   bool gateOpen = false;              // a gatehouse's or a gate's (decision 6; M4-D2)
   std::int32_t hitPoints = 0;         // the control's pool (ADR-028; M4-F4); 0 in the voxel version
+  // At record version 3 (M4-F2): the share of its built voxels that stand, every part, which the defender repairs by.
+  std::uint8_t standingPercent = 100;
 };
 
 /// A trebuchet's shot in flight (M2-E1), on its arc.
@@ -349,6 +352,18 @@ public:
   /// decision 1); public so that SimulationBench can time it alone.
   void RecomputeVisibility();
 
+  /// What a query's answer costs in units of work, in step 12 and to a commander (ADR-009, decision 5; ADR-027, decision 4).
+  static constexpr std::int32_t AIM_CHECK_WORK = 1;
+  static constexpr std::int32_t TILE_REACH_WORK = 1;
+  /// The whole budget, so one reading a tick: a reading took up to 10.6 ms on the benchmark (M3-G3).
+  static constexpr std::int32_t SECTION_INTEGRITY_WORK = 16;
+
+  /// Gives _player a commander, before tick 0 (ADR-027, decision 1): it decides in step 13 and its commands reach the
+  /// next tick's step 1. Null takes the commander away, for a human's seat.
+  void SetCommander(std::uint8_t _player, std::unique_ptr<Commander> _commander);
+  /// The commanders' commands the last tick applied, apart from the transport's (ADR-027, decision 2).
+  [[nodiscard]] std::span<const SubmittedCommand> LastTickCommanderCommands() const noexcept;
+
   /// At most this many queries wait; one more drops the oldest (ADR-009, decision 5).
   static constexpr std::size_t MAX_PENDING_QUERIES = 64;
 
@@ -453,6 +468,7 @@ private:
   friend std::vector<std::byte> WriteSave(const World& _world);
   friend World LoadSave(std::span<const std::byte> _save, const Desc& _desc);
   friend std::uint64_t StateHash(const World& _world);
+  friend class CommanderView;
 
   // The tick's steps, in MvpPlan.md's order (*One simulation tick*).
   void ApplyCommands();
@@ -588,6 +604,11 @@ private:
                                                       std::uint32_t _y, std::uint32_t _z) const;
   /// The share of _structure's critical part's built voxels that stand, in whole percent, floored: a voxel stands when the
   /// world holds its template's index there and no collapse in _held holds it. 100 for a structure with no critical part.
+  /// The share of _structure's built voxels that stand, every part, floored to a whole percent (M4-F2).
+  [[nodiscard]] std::uint8_t StandingShare(const Structure& _structure,
+                                           const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _held) const;
+  /// Step 13: each commander, in player order, on its cadence, offset by its player, decides within its work.
+  void RunCommanders();
   [[nodiscard]] std::uint8_t CriticalShare(const Structure& _structure,
                                            const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _held) const;
   /// Every voxel a collapse still running holds, in warning or falling.
@@ -826,6 +847,11 @@ private:
   Protocol::EntityId m_nextEntityId = 1;
   std::vector<SubmittedCommand> m_pendingCommands;
   std::vector<SubmittedCommand> m_lastTickCommands;
+  // ADR-027: each player's commander, and the commands they gave in the last step 13, for the next step 1, and the ones
+  // that step applied.
+  std::map<std::uint8_t, CommanderSlot> m_commanders;
+  std::vector<SubmittedCommand> m_commanderCommands;
+  std::vector<SubmittedCommand> m_lastCommanderCommands;
   std::map<Protocol::EntityId, Squad> m_squads;
   std::map<Protocol::EntityId, Unit> m_units;
   std::map<Protocol::EntityId, SiegeEngine> m_siegeEngines;
