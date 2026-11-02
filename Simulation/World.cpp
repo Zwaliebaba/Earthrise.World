@@ -4,8 +4,10 @@
 
 #include "Formation.h"
 #include "Generator.h"
+#include "HealthStructureRule.h"
 #include "IntegerMath.h"
 #include "Integrity.h"
+#include "VoxelStructureRule.h"
 
 namespace Simulation
 {
@@ -163,6 +165,7 @@ void World::Tick()
 {
   m_keepRestored = false;
   m_tilesRebuilt = false;
+  m_touchedStructures.clear();
   m_tickCrushes.clear();
   m_endedCollapses.clear();
   m_tickEvents.clear();
@@ -346,6 +349,7 @@ Protocol::StructureView World::StructureViewFor(std::uint8_t _player, const Stru
           .garrisonCount = static_cast<std::uint8_t>(garrisoned),
           .garrisonCapacity = rules == nullptr ? std::uint8_t{0} : rules->garrisonCapacity,
           .hitPoints = _structure.hitPoints,
+          .maxHitPoints = Rule().MaxHitPoints(*this, _structure),
           .opened = m_trialProgress.openedSections.contains(_structure.id),
           .lastSeen = false,
           .standingPercent = _structure.standingPercent};
@@ -692,6 +696,15 @@ void World::PlaceInGarrison(Protocol::EntityId _squad, Protocol::EntityId _struc
 void World::SetTrial(const TrialRules& _rules)
 {
   m_trial = _rules;
+  // The control starts every structure with its template's pool (ADR-028, decision 2).
+  if (_rules.version == Protocol::TrialVersion::Control)
+  {
+    for (auto& [id, structure] : m_structures)
+    {
+      const TemplateRules* rules = Data().FindTemplateRules(structure.templateId);
+      structure.hitPoints = rules == nullptr ? 0 : rules->controlHitPoints;
+    }
+  }
 }
 
 const std::optional<TrialRules>& World::Trial() const noexcept
@@ -1748,12 +1761,7 @@ void World::RamBlows()
     {
       continue;
     }
-    for (const Protocol::VoxelPosition& voxel : RamCrater(blow->voxel, *box))
-    {
-      m_voxels.Edit(voxel, Protocol::Chunk::EMPTY);
-    }
-    // A blow on a structure locks its repair (ADR-024, decision 4).
-    structure->second.repairLockTicks = static_cast<std::uint32_t>(std::max(0, Data().Tuning().repairLockTicks));
+    Rule().RamStrikes(*this, structure->first, blow->voxel);
     engine.reloadTicks = static_cast<std::uint32_t>(std::max(0, Data().Tuning().ramBlowTicks));
   }
 }
@@ -2562,18 +2570,9 @@ void World::AdvanceShots()
       const auto sign = [](Core::Fixed _value) { return _value.Raw() > 0 ? 1 : (_value.Raw() < 0 ? -1 : 0); };
       const ShotHit& struck = m_tickHits.emplace_back(ShotHit{
         .shot = id, .voxel = *hit, .behindX = alongX ? sign(arc.acrossXMeters) : 0, .behindZ = alongX ? 0 : sign(arc.acrossZMeters)});
-      // Its crush (ADR-023, decision 7), then its crater, as edits to empty (M2-E2).
-      CrushAround(struck.voxel);
-      std::vector<Protocol::VoxelPosition> crater = CraterVoxels(
-        struck.voxel, struck.behindX, struck.behindZ, [this](Protocol::VoxelPosition _voxel) { return m_voxels.At(_voxel); },
-        Data().Materials(), Data().Tuning());
-      for (const Protocol::VoxelPosition& voxel : crater)
-      {
-        m_voxels.Edit(voxel, Protocol::Chunk::EMPTY);
-      }
-      // A strike or a crater that touches a structure locks its repair (ADR-024, decision 4).
-      crater.push_back(struck.voxel);
-      LockRepairs(crater);
+      // Its crush (ADR-023, decision 7), then what it does to the structures and the terrain, by the trial's rule
+      // (ADR-028, decision 1).
+      Rule().ShotStrikes(*this, struck);
       landed.push_back(id);
     }
     else if (step.left)
@@ -2618,12 +2617,15 @@ void World::SearchSupport()
       }
     }
   }
-  // One collapse for each unsupported piece, given ids in piece order.
+  // One collapse for each unsupported piece, given ids in piece order. In the control the search is for terrain alone:
+  // a piece holding a structure's voxel stands while the structure has hit points (ADR-028, decision 2).
   for (Piece piece : found.pieces)
   {
     std::erase_if(piece, [&claimed](const Protocol::VoxelPosition& _voxel)
                   { return claimed.contains({_voxel.xVoxels, _voxel.yVoxels, _voxel.zVoxels}); });
-    if (piece.empty())
+    if (piece.empty() ||
+        (!Rule().CollapsesStructures() && std::ranges::any_of(piece, [this](const Protocol::VoxelPosition& _voxel)
+                                                              { return StructureHolding(_voxel) != Protocol::NO_ENTITY; })))
     {
       continue;
     }
@@ -3477,12 +3479,170 @@ void World::RunCommanders()
   }
 }
 
-void World::UpdateWorking(Structure& _structure, const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _held)
+const StructureRule& World::Rule() const noexcept
 {
-  _structure.criticalPercent = CriticalShare(_structure, _held);
-  _structure.standingPercent = StandingShare(_structure, _held);
-  const TemplateRules* rules = Data().FindTemplateRules(_structure.templateId);
-  const bool working = rules == nullptr || _structure.criticalPercent >= rules->criticalThresholdPercent;
+  if (m_trial.has_value() && m_trial->version == Protocol::TrialVersion::Control)
+  {
+    return HealthStructureRule::Instance();
+  }
+  return VoxelStructureRule::Instance();
+}
+
+void World::VoxelCrater(const ShotHit& _hit, bool _keepStructures)
+{
+  // Its crater as edits to empty (M2-E2); a strike or a crater that touches a structure locks its repair (ADR-024,
+  // decision 4).
+  std::vector<Protocol::VoxelPosition> crater = CraterVoxels(
+    _hit.voxel, _hit.behindX, _hit.behindZ, [this](Protocol::VoxelPosition _voxel) { return m_voxels.At(_voxel); }, Data().Materials(),
+    Data().Tuning());
+  for (const Protocol::VoxelPosition& voxel : crater)
+  {
+    if (!_keepStructures || StructureHolding(voxel) == Protocol::NO_ENTITY)
+    {
+      m_voxels.Edit(voxel, Protocol::Chunk::EMPTY);
+    }
+  }
+  crater.push_back(_hit.voxel);
+  LockRepairs(crater);
+}
+
+void World::VoxelRamBlow(Structure& _structure, Protocol::VoxelPosition _voxel)
+{
+  const std::optional<Box> box = BoxOf(_structure);
+  if (box.has_value())
+  {
+    for (const Protocol::VoxelPosition& voxel : RamCrater(_voxel, *box))
+    {
+      m_voxels.Edit(voxel, Protocol::Chunk::EMPTY);
+    }
+  }
+  // A blow on a structure locks its repair (ADR-024, decision 4).
+  _structure.repairLockTicks = static_cast<std::uint32_t>(std::max(0, Data().Tuning().repairLockTicks));
+}
+
+void World::DigVoxel(Protocol::VoxelPosition _voxel)
+{
+  const Rules& rules = Data().Tuning();
+  m_voxels.Edit(_voxel, Protocol::Chunk::EMPTY);
+  m_openedColumns.insert((std::int64_t{_voxel.zVoxels} * WidthVoxels()) + _voxel.xVoxels);
+  // A trench cell within repairLockReachVoxels of a footprint locks its repair (ADR-024, decision 4).
+  for (auto& [structureId, structure] : m_structures)
+  {
+    const std::optional<Box> box = BoxOf(structure);
+    if (box.has_value() &&
+        std::max(Outside(_voxel.xVoxels, box->min.xVoxels, box->min.xVoxels + box->widthVoxels - 1),
+                 Outside(_voxel.zVoxels, box->min.zVoxels, box->min.zVoxels + box->depthVoxels - 1)) <= rules.repairLockReachVoxels)
+    {
+      structure.repairLockTicks = static_cast<std::uint32_t>(std::max(0, rules.repairLockTicks));
+    }
+  }
+}
+
+void World::VoxelRepair(Structure& _structure)
+{
+  // The next voxel to put back, if any, in its own material, timber for timber and stone for the rest, from its owner's
+  // stockpile; a player the match has no record of pays nothing, as for a shot.
+  const std::optional<std::pair<Protocol::VoxelPosition, std::uint8_t>> next = NextRepair(_structure);
+  if (!next.has_value())
+  {
+    return;
+  }
+  const bool timber = Data().Materials().at(next->second).behavior == Behavior::Timber;
+  if (!CanPay(_structure.owner, timber))
+  {
+    return;
+  }
+  _structure.repairProgress += Data().Tuning().repairCubicMetersPerTick;
+  if (_structure.repairProgress < Core::Fixed::FromRaw(Core::Fixed::ONE_RAW))
+  {
+    return;
+  }
+  _structure.repairProgress -= Core::Fixed::FromRaw(Core::Fixed::ONE_RAW);
+  m_voxels.Edit(next->first, next->second);
+  m_keepRestored = m_keepRestored || (m_trial.has_value() && m_trial->keep == _structure.id);
+  Pay(_structure.owner, timber, _structure.id, next->first);
+}
+
+bool World::TimberTemplate(const Structure& _structure) const
+{
+  const ServerTemplate* found = Data().FindTemplate(_structure.templateId);
+  std::size_t timber = 0;
+  std::size_t built = 0;
+  if (found != nullptr)
+  {
+    for (const std::uint8_t index : found->indices)
+    {
+      built += index != Protocol::Chunk::EMPTY ? 1 : 0;
+      timber += Data().Materials().at(index).behavior == Behavior::Timber ? 1 : 0;
+    }
+  }
+  return 2 * timber > built;
+}
+
+bool World::CanPay(std::uint8_t _player, bool _timber) const
+{
+  constexpr std::int32_t CUBIC_METER_HUNDREDTHS = 100;
+  const auto player = m_players.find(_player);
+  return player == m_players.end() ||
+         (_timber ? player->second.timberHundredthsCubicMeters : player->second.stoneHundredthsCubicMeters) >= CUBIC_METER_HUNDREDTHS;
+}
+
+void World::Pay(std::uint8_t _player, bool _timber, Protocol::EntityId _subject, Protocol::VoxelPosition _voxel)
+{
+  constexpr std::int32_t CUBIC_METER_HUNDREDTHS = 100;
+  if (const auto player = m_players.find(_player); player != m_players.end())
+  {
+    (_timber ? player->second.timberHundredthsCubicMeters : player->second.stoneHundredthsCubicMeters) -= CUBIC_METER_HUNDREDTHS;
+    NoteSpent(_timber, _player, _subject, CUBIC_METER_HUNDREDTHS, _voxel);
+  }
+}
+
+void World::TouchStructure(Protocol::EntityId _structure)
+{
+  m_touchedStructures.insert(_structure);
+}
+
+void World::FallWhole(const Structure& _structure)
+{
+  const ServerTemplate* found = Data().FindTemplate(_structure.templateId);
+  if (found == nullptr)
+  {
+    return;
+  }
+  Piece piece;
+  std::size_t voxel = 0;
+  for (std::uint32_t y = 0; y < found->heightVoxels; ++y)
+  {
+    for (std::uint32_t z = 0; z < found->depthVoxels; ++z)
+    {
+      for (std::uint32_t x = 0; x < found->widthVoxels; ++x, ++voxel)
+      {
+        const Protocol::VoxelPosition at = TemplateVoxel(_structure, *found, x, y, z);
+        if (found->indices.at(voxel) != Protocol::Chunk::EMPTY && m_voxels.At(at) != Protocol::Chunk::EMPTY)
+        {
+          piece.push_back(at);
+        }
+      }
+    }
+  }
+  if (piece.empty())
+  {
+    return;
+  }
+  const Protocol::EntityId id = NewEntityId();
+  CollapsePlan plan = PlanCollapse(piece, piece, m_voxels, Data());
+  m_collapses.emplace(id, Collapse{.id = id,
+                                   .piece = std::move(piece),
+                                   .plan = std::move(plan),
+                                   .ticksElapsed = 0,
+                                   .struck = {},
+                                   .structure = _structure.id,
+                                   .fallen = {}});
+}
+
+void World::SetWorking(Structure& _structure, bool _working)
+{
+  const bool working = _working;
   if (working != _structure.working)
   {
     _structure.working = working;
@@ -4225,8 +4385,6 @@ void World::AdvanceRepairs()
       Halt(squad, Protocol::SquadOrder::Idle);
     }
   }
-  const Rules& rules = Data().Tuning();
-  constexpr std::int32_t CUBIC_METER_HUNDREDTHS = 100;
   for (auto& [id, structure] : m_structures)
   {
     if (structure.repairLockTicks > 0)
@@ -4250,32 +4408,9 @@ void World::AdvanceRepairs()
                                                      !squad.units.empty() &&
                                                      AtRepairStand(structure, area, m_units.at(squad.units.front()).cellVoxels);
                                             });
-    const std::optional<std::pair<Protocol::VoxelPosition, std::uint8_t>> next = tended ? NextRepair(structure) : std::nullopt;
-    if (!next.has_value())
+    if (tended)
     {
-      continue;
-    }
-    // A cubic metre of the voxel's own material, timber for timber and stone for the rest, from its owner's stockpile; a
-    // player the match has no record of pays nothing, as for a shot.
-    const bool timber = Data().Materials().at(next->second).behavior == Behavior::Timber;
-    const auto player = m_players.find(structure.owner);
-    if (player != m_players.end() &&
-        (timber ? player->second.timberHundredthsCubicMeters : player->second.stoneHundredthsCubicMeters) < CUBIC_METER_HUNDREDTHS)
-    {
-      continue;
-    }
-    structure.repairProgress += rules.repairCubicMetersPerTick;
-    if (structure.repairProgress < Core::Fixed::FromRaw(Core::Fixed::ONE_RAW))
-    {
-      continue;
-    }
-    structure.repairProgress -= Core::Fixed::FromRaw(Core::Fixed::ONE_RAW);
-    m_voxels.Edit(next->first, next->second);
-    m_keepRestored = m_keepRestored || (m_trial.has_value() && m_trial->keep == structure.id);
-    if (player != m_players.end())
-    {
-      (timber ? player->second.timberHundredthsCubicMeters : player->second.stoneHundredthsCubicMeters) -= CUBIC_METER_HUNDREDTHS;
-      NoteSpent(timber, structure.owner, structure.id, CUBIC_METER_HUNDREDTHS, next->first);
+      Rule().Repair(*this, structure);
     }
   }
 }
@@ -4441,7 +4576,6 @@ std::optional<Protocol::VoxelPosition> World::NextDig(const Squad& _squad) const
 void World::AdvanceTrenches()
 {
   // ADR-029, decision 2; MvpPlan.md, M4, input 12. Each sapper at the box adds its kind's rate; the spoil leaves play.
-  const Rules& rules = Data().Tuning();
   for (auto& [id, squad] : m_squads)
   {
     if (squad.order != Protocol::SquadOrder::Trench || squad.garrisonedIn != Protocol::NO_ENTITY)
@@ -4466,19 +4600,7 @@ void World::AdvanceTrenches()
     while (next.has_value() && squad.digProgress >= Core::Fixed::FromRaw(Core::Fixed::ONE_RAW))
     {
       squad.digProgress -= Core::Fixed::FromRaw(Core::Fixed::ONE_RAW);
-      m_voxels.Edit(*next, Protocol::Chunk::EMPTY);
-      m_openedColumns.insert((std::int64_t{next->zVoxels} * WidthVoxels()) + next->xVoxels);
-      // A trench cell within repairLockReachVoxels of a footprint locks its repair (ADR-024, decision 4).
-      for (auto& [structureId, structure] : m_structures)
-      {
-        const std::optional<Box> box = BoxOf(structure);
-        if (box.has_value() &&
-            std::max(Outside(next->xVoxels, box->min.xVoxels, box->min.xVoxels + box->widthVoxels - 1),
-                     Outside(next->zVoxels, box->min.zVoxels, box->min.zVoxels + box->depthVoxels - 1)) <= rules.repairLockReachVoxels)
-        {
-          structure.repairLockTicks = static_cast<std::uint32_t>(std::max(0, rules.repairLockTicks));
-        }
-      }
+      Rule().TrenchDug(*this, *next);
       next = NextDig(squad);
     }
   }
@@ -4629,6 +4751,8 @@ void World::UpdateStructures()
       }
     }
   }
+  // And every structure whose pool the control's rule changed this tick.
+  touched.insert(m_touchedStructures.begin(), m_touchedStructures.end());
   if (touched.empty())
   {
     return;
@@ -4638,7 +4762,7 @@ void World::UpdateStructures()
   {
     if (const auto structure = m_structures.find(id); structure != m_structures.end())
     {
-      UpdateWorking(structure->second, held);
+      Rule().UpdateWorking(*this, structure->second, held);
     }
   }
 }

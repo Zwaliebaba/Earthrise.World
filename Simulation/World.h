@@ -16,6 +16,7 @@
 #include "ServerData.h"
 #include "Shot.h"
 #include "StateUpdate.h"
+#include "StructureRule.h"
 #include "Visibility.h"
 #include "VoxelWorld.h"
 
@@ -469,6 +470,8 @@ private:
   friend World LoadSave(std::span<const std::byte> _save, const Desc& _desc);
   friend std::uint64_t StateHash(const World& _world);
   friend class CommanderView;
+  friend class VoxelStructureRule;
+  friend class HealthStructureRule;
 
   // The tick's steps, in MvpPlan.md's order (*One simulation tick*).
   void ApplyCommands();
@@ -613,8 +616,32 @@ private:
                                            const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _held) const;
   /// Every voxel a collapse still running holds, in warning or falling.
   [[nodiscard]] std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> HeldByCollapses() const;
-  /// Sets _structure's share and working from scratch, raising StructureStopped or StructureWorks when working changes.
-  void UpdateWorking(Structure& _structure, const std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>>& _held);
+  // ADR-028: the rule structures take hits by, and what each rule does through the world.
+  /// The rule the trial's version names: the control's for a control trial, the voxel version's otherwise.
+  [[nodiscard]] const StructureRule& Rule() const noexcept;
+  /// A stone's crater at _hit as edits to empty, and the repair lock on what it touches; with _keepStructures, a voxel in
+  /// a structure's box stays, as the control's terrain craters leave them (M2-E2; ADR-024, decision 4).
+  void VoxelCrater(const ShotHit& _hit, bool _keepStructures = false);
+  /// A ram's blow on _structure at _voxel, as edits, and its repair lock (ADR-023, decision 9; ADR-024, decision 4).
+  void VoxelRamBlow(Structure& _structure, Protocol::VoxelPosition _voxel);
+  /// A trench's cubic metre at _voxel dug: an edit, its column opened to slump, and the lock of the structures within
+  /// repairLockReachVoxels of it (ADR-029).
+  void DigVoxel(Protocol::VoxelPosition _voxel);
+  /// One tick of the voxel version's repair of _structure: its progress, and a voxel put back for each cubic metre.
+  void VoxelRepair(Structure& _structure);
+  /// Sets whether _structure works, and when that changes, raises its event, shuts its gate and puts its garrison out.
+  void SetWorking(Structure& _structure, bool _working);
+  /// Whether _structure's template is mostly timber, which its repair is paid in.
+  [[nodiscard]] bool TimberTemplate(const Structure& _structure) const;
+  /// Whether _player has a cubic metre of stone, or of timber, to spend; a player the match has none of always has.
+  [[nodiscard]] bool CanPay(std::uint8_t _player, bool _timber) const;
+  /// Spends a cubic metre of it on _subject, and raises StoneSpent or TimberSpent.
+  void Pay(std::uint8_t _player, bool _timber, Protocol::EntityId _subject, Protocol::VoxelPosition _voxel);
+  /// Has step 10 look at _structure this tick, as an edit in its box would.
+  void TouchStructure(Protocol::EntityId _structure);
+  /// The control's section at 0: every voxel of it that stands falls together through the resolver's collapse (ADR-028,
+  /// decision 3).
+  void FallWhole(const Structure& _structure);
   /// Step 10's part: the structures the tick touched, by an edit in their box or a collapse of theirs starting or ending.
   void UpdateStructures();
 
@@ -867,6 +894,9 @@ private:
   // step 10 rebuilt a navigation tile (ADR-026, decisions 4 and 5).
   bool m_keepRestored = false;
   bool m_tilesRebuilt = false;
+  // This tick's too: the structures whose pool of hit points changed in the control, which step 10 looks at as it does
+  // one with an edit in its box (ADR-028).
+  std::set<Protocol::EntityId> m_touchedStructures;
   // The collapses whose fall ended this tick, as their last view: step 11 publishes them once more,
   // so the client sees the last of their landing land. Not saved: the next tick reads nothing of it.
   std::vector<Protocol::CollapseView> m_endedCollapses;

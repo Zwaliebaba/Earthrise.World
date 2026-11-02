@@ -37,6 +37,9 @@
     <Filter Include="Commanders">
       <UniqueIdentifier>{9854F757-A71E-52F4-BC53-23BA62F4872D}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Structures">
+      <UniqueIdentifier>{D1A8A8BB-6AB8-521A-A5F7-4E0E104EB9CB}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -206,6 +209,21 @@
     </ClInclude>
     <ClCompile Include="SiegeDefender.cpp">
       <Filter>Commanders</Filter>
+    </ClCompile>
+    <ClInclude Include="StructureRule.h">
+      <Filter>Structures</Filter>
+    </ClInclude>
+    <ClInclude Include="VoxelStructureRule.h">
+      <Filter>Structures</Filter>
+    </ClInclude>
+    <ClCompile Include="VoxelStructureRule.cpp">
+      <Filter>Structures</Filter>
+    </ClCompile>
+    <ClInclude Include="HealthStructureRule.h">
+      <Filter>Structures</Filter>
+    </ClInclude>
+    <ClCompile Include="HealthStructureRule.cpp">
+      <Filter>Structures</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

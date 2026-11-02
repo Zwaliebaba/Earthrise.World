@@ -93,6 +93,11 @@
     <ClCompile Include="Commander.cpp" />
     <ClInclude Include="SiegeDefender.h" />
     <ClCompile Include="SiegeDefender.cpp" />
+    <ClInclude Include="StructureRule.h" />
+    <ClInclude Include="VoxelStructureRule.h" />
+    <ClCompile Include="VoxelStructureRule.cpp" />
+    <ClInclude Include="HealthStructureRule.h" />
+    <ClCompile Include="HealthStructureRule.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">
