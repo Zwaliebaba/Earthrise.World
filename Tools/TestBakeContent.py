@@ -275,8 +275,8 @@ class ServerBakeTests(unittest.TestCase):
     structures = self.file.Structures()
     self.assertTrue(self.file.structuresEndExactly)
     self.assertEqual([f"T{n}" for n in range(1, 8)], list(structures))
-    self.assertEqual((50, 6, 11, 10, 80, 900, 50), structures["T5"])
-    self.assertEqual((90, 6, 16, 10, 80, 900, 50), structures["T2"])
+    self.assertEqual((50, 6, 11, 10, 80, 700, 50), structures["T5"])  # the control's pool as M4-F5 calibrated it
+    self.assertEqual((90, 6, 16, 10, 80, 1700, 50), structures["T2"])
     self.assertEqual(0, structures["T3"][0])  # T3 names no critical part
 
   # ── SCEN ────────────────────────────────────────────────────────────────────────────────────────
