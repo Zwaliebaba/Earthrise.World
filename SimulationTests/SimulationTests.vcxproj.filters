@@ -147,5 +147,8 @@
     <ClCompile Include="GateTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="GarrisonTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

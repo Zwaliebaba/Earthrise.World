@@ -550,6 +550,7 @@ void World::FollowBodies()
 
 void World::Acquire()
 {
+  EnterGarrisons();
   // ADR-023, decision 4. A squad attacking a target that is gone turns idle where it stands; one whose target's lead has
   // gone ATTACK_FOLLOW_CELLS from its goal searches again, towards where that lead stands now.
   for (auto& [id, squad] : m_squads)
@@ -944,6 +945,14 @@ void World::Apply(std::uint8_t _player, const Protocol::Command& _command)
   else if (const auto* gate = std::get_if<Protocol::SetGate>(&_command))
   {
     SetGate(_player, *gate);
+  }
+  else if (const auto* garrison = std::get_if<Protocol::GarrisonSquad>(&_command))
+  {
+    Garrison(_player, *garrison);
+  }
+  else if (const auto* eject = std::get_if<Protocol::EjectGarrison>(&_command))
+  {
+    Eject(_player, *eject);
   }
   else if (const auto* deploy = std::get_if<Protocol::DeployEngine>(&_command))
   {
@@ -1446,6 +1455,7 @@ void World::RamBlows()
 
 void World::AdvanceJobs()
 {
+  HealGarrisons();
   // Step 2: designations and jobs, which M2 has none of.
 }
 
@@ -2204,6 +2214,7 @@ void World::AdvanceShots()
     }
   }
   RamBlows();
+  LooseFromGarrisons();
   std::vector<Protocol::EntityId> landed;
   for (auto& [id, shot] : m_shots)
   {
@@ -2865,6 +2876,11 @@ void World::UpdateWorking(Structure& _structure, const std::set<std::tuple<std::
     {
       SwingGate(_structure, false, true);
     }
+    // And its garrison is put out (decision 5).
+    if (!working)
+    {
+      PutOut(_structure);
+    }
     m_tickEvents.push_back({.kind = working ? TrialEventKind::StructureWorks : TrialEventKind::StructureStopped,
                             .tick = m_tick,
                             .player = _structure.owner,
@@ -2872,6 +2888,338 @@ void World::UpdateWorking(Structure& _structure, const std::set<std::tuple<std::
                             .other = Protocol::NO_ENTITY,
                             .amount = _structure.criticalPercent,
                             .voxel = _structure.originVoxels});
+  }
+}
+
+void World::Garrison(std::uint8_t _player, const Protocol::GarrisonSquad& _garrison)
+{
+  // A squad of _player's, not an engine's body, into a building of theirs that works and has room for it (ADR-024,
+  // decision 5): it walks to the footprint and goes in when its lead reaches it.
+  Squad* squad = OrderableSquad(_player, _garrison, _garrison.squad);
+  if (squad == nullptr)
+  {
+    return;
+  }
+  const auto structure = m_structures.find(_garrison.structure);
+  const TemplateRules* rules = structure == m_structures.end() ? nullptr : Data().FindTemplateRules(structure->second.templateId);
+  if (structure == m_structures.end() || rules == nullptr || rules->garrisonCapacity == 0 || EngineOfBody(_garrison.squad) != nullptr)
+  {
+    Refuse(_player, _garrison, Protocol::Refusal::Invalid);
+    return;
+  }
+  if (structure->second.owner != _player)
+  {
+    Refuse(_player, _garrison, Protocol::Refusal::NotOwned);
+    return;
+  }
+  if (!structure->second.working)
+  {
+    Refuse(_player, _garrison, Protocol::Refusal::NotWorking);
+    return;
+  }
+  if (GarrisonedCount(_garrison.structure) + squad->units.size() > rules->garrisonCapacity)
+  {
+    Refuse(_player, _garrison, Protocol::Refusal::Full);
+    return;
+  }
+  // A squad moving with a structure for its target is on its way to garrison it.
+  const std::optional<Box> box = BoxOf(structure->second);
+  squad->order = Protocol::SquadOrder::Move;
+  squad->target = _garrison.structure;
+  squad->hasGoal = true;
+  squad->goalVoxels = box.has_value() ? Protocol::VoxelPosition{.xVoxels = box->min.xVoxels + (box->widthVoxels / 2),
+                                                                .yVoxels = box->min.yVoxels,
+                                                                .zVoxels = box->min.zVoxels + (box->depthVoxels / 2)}
+                                      : structure->second.originVoxels;
+  RequestSearch(*squad);
+}
+
+void World::Eject(std::uint8_t _player, const Protocol::EjectGarrison& _eject)
+{
+  const auto structure = m_structures.find(_eject.structure);
+  if (structure == m_structures.end())
+  {
+    Refuse(_player, _eject, Protocol::Refusal::Invalid);
+    return;
+  }
+  if (structure->second.owner != _player)
+  {
+    Refuse(_player, _eject, Protocol::Refusal::NotOwned);
+    return;
+  }
+  PutOut(structure->second);
+}
+
+std::size_t World::GarrisonedCount(Protocol::EntityId _structure) const
+{
+  std::size_t count = 0;
+  for (const auto& [id, squad] : m_squads)
+  {
+    count += squad.garrisonedIn == _structure ? squad.units.size() : 0;
+  }
+  return count;
+}
+
+void World::EnterGarrisons()
+{
+  std::vector<Protocol::EntityId> entering;
+  for (auto& [id, squad] : m_squads)
+  {
+    if (squad.garrisonedIn != Protocol::NO_ENTITY || squad.order != Protocol::SquadOrder::Move || squad.units.empty() ||
+        !m_structures.contains(squad.target) || Holding(id))
+    {
+      continue;
+    }
+    const Structure& structure = m_structures.at(squad.target);
+    const Unit& lead = m_units.at(squad.units.front());
+    const std::optional<Box> box = BoxOf(structure);
+    if (!box.has_value() || lead.reservedCell >= 0)
+    {
+      continue;
+    }
+    const Protocol::VoxelPosition& at = lead.cellVoxels;
+    const bool reached = at.xVoxels >= box->min.xVoxels - 1 && at.xVoxels <= box->min.xVoxels + box->widthVoxels &&
+                         at.zVoxels >= box->min.zVoxels - 1 && at.zVoxels <= box->min.zVoxels + box->depthVoxels;
+    if (!reached)
+    {
+      continue;
+    }
+    const TemplateRules* rules = Data().FindTemplateRules(structure.templateId);
+    if (!structure.working || rules == nullptr || GarrisonedCount(structure.id) + squad.units.size() > rules->garrisonCapacity)
+    {
+      Halt(squad, Protocol::SquadOrder::Idle);
+      continue;
+    }
+    entering.push_back(id);
+  }
+  for (const Protocol::EntityId id : entering)
+  {
+    Squad& squad = m_squads.at(id);
+    const Protocol::EntityId building = squad.target;
+    PlaceInGarrison(id, building);
+    squad.order = Protocol::SquadOrder::Idle;
+    squad.target = Protocol::NO_ENTITY;
+    for (const Protocol::EntityId unit : squad.units)
+    {
+      m_units.at(unit).target = Protocol::NO_ENTITY;
+    }
+  }
+}
+
+std::optional<std::pair<std::int64_t, std::int64_t>> World::KeepCenterTwice(std::uint8_t _owner) const
+{
+  const auto center = [this](const Structure& _structure) -> std::optional<std::pair<std::int64_t, std::int64_t>>
+  {
+    const std::optional<Box> box = BoxOf(_structure);
+    if (!box.has_value())
+    {
+      return std::nullopt;
+    }
+    return std::pair{(2 * std::int64_t{box->min.xVoxels}) + box->widthVoxels - 1,
+                     (2 * std::int64_t{box->min.zVoxels}) + box->depthVoxels - 1};
+  };
+  if (m_trial.has_value() && m_trial->defender == _owner)
+  {
+    if (const auto keep = m_structures.find(m_trial->keep); keep != m_structures.end())
+    {
+      return center(keep->second);
+    }
+  }
+  for (const auto& [id, structure] : m_structures)
+  {
+    if (structure.owner == _owner && structure.templateId == "T2")
+    {
+      return center(structure);
+    }
+  }
+  return std::nullopt;
+}
+
+void World::PutOut(const Structure& _structure)
+{
+  const std::optional<Box> box = BoxOf(_structure);
+  std::vector<Protocol::EntityId> squads;
+  for (const auto& [id, squad] : m_squads)
+  {
+    if (squad.garrisonedIn == _structure.id)
+    {
+      squads.push_back(id);
+    }
+  }
+  if (squads.empty() || !box.has_value())
+  {
+    return;
+  }
+  // The cells a falling piece will cover are no place to stand.
+  std::set<std::pair<std::int32_t, std::int32_t>> strips;
+  for (const auto& [id, collapse] : m_collapses)
+  {
+    for (const Protocol::VoxelPosition& cell : collapse.plan.strip)
+    {
+      strips.emplace(cell.xVoxels, cell.zVoxels);
+    }
+  }
+  // The owner's side: the half-plane through the footprint's centre that holds their keep, in doubled coordinates.
+  const std::int64_t centerX = (2 * std::int64_t{box->min.xVoxels}) + box->widthVoxels - 1;
+  const std::int64_t centerZ = (2 * std::int64_t{box->min.zVoxels}) + box->depthVoxels - 1;
+  const std::optional<std::pair<std::int64_t, std::int64_t>> keep = KeepCenterTwice(_structure.owner);
+  Occupancy occupancy = BuildOccupancy();
+  // Rings about the box, nearest first, each in index order: the owner's side's cells first, then the rest.
+  constexpr std::int32_t PUT_OUT_RINGS = 12;
+  std::vector<Protocol::VoxelPosition> near;
+  std::vector<Protocol::VoxelPosition> far;
+  for (std::int32_t ring = 1; ring <= PUT_OUT_RINGS; ++ring)
+  {
+    for (std::int32_t z = box->min.zVoxels - ring; z < box->min.zVoxels + box->depthVoxels + ring; ++z)
+    {
+      for (std::int32_t x = box->min.xVoxels - ring; x < box->min.xVoxels + box->widthVoxels + ring; ++x)
+      {
+        const bool onRing = x == box->min.xVoxels - ring || x == box->min.xVoxels + box->widthVoxels + ring - 1 ||
+                            z == box->min.zVoxels - ring || z == box->min.zVoxels + box->depthVoxels + ring - 1;
+        if (!onRing || !m_navigation.Usable(x, z, NavigationClass::Foot) || strips.contains({x, z}))
+        {
+          continue;
+        }
+        const Protocol::VoxelPosition cell{.xVoxels = x, .yVoxels = m_navigation.WalkableHeight(x, z), .zVoxels = z};
+        const bool ownersSide = !keep.has_value() || (((2 * std::int64_t{x}) - centerX) * (keep->first - centerX)) +
+                                                         (((2 * std::int64_t{z}) - centerZ) * (keep->second - centerZ)) >
+                                                       0;
+        (ownersSide ? near : far).push_back(cell);
+      }
+    }
+  }
+  near.insert(near.end(), far.begin(), far.end());
+  std::size_t next = 0;
+  for (const Protocol::EntityId id : squads)
+  {
+    Squad& squad = m_squads.at(id);
+    squad.garrisonedIn = Protocol::NO_ENTITY;
+    squad.order = Protocol::SquadOrder::Idle;
+    squad.target = Protocol::NO_ENTITY;
+    for (const Protocol::EntityId unitId : squad.units)
+    {
+      Unit& unit = m_units.at(unitId);
+      while (next < near.size() && !Free(occupancy, unit, CellOf(near[next])))
+      {
+        ++next;
+      }
+      // With no cell left, it stays at the building's origin, as it stood inside.
+      if (next < near.size())
+      {
+        unit.cellVoxels = near[next++];
+      }
+      unit.position = CellFloorMiddle(unit.cellVoxels);
+      unit.stepFromCell = CellOf(unit.cellVoxels);
+      unit.reservedCell = NO_CELL;
+      unit.trailStep = OFF_TRAIL;
+      unit.stepEffort = 0;
+      for (const PathSearch::CellIndex cell : Footprint(unit, CellOf(unit.cellVoxels)))
+      {
+        occupancy.occupied.emplace(cell, unitId);
+      }
+    }
+  }
+}
+
+Protocol::VoxelPosition World::LoosingCell(const Box& _box, Protocol::VoxelPosition _targetCellVoxels, std::int32_t _standVoxels) const
+{
+  const auto outside = [](std::int32_t _target, std::int32_t _low, std::int32_t _extent)
+  {
+    if (_target < _low)
+    {
+      return _low - 1;
+    }
+    if (_target >= _low + _extent)
+    {
+      return _low + _extent;
+    }
+    return _target;
+  };
+  return {.xVoxels = outside(_targetCellVoxels.xVoxels, _box.min.xVoxels, _box.widthVoxels),
+          .yVoxels = _box.min.yVoxels + _standVoxels,
+          .zVoxels = outside(_targetCellVoxels.zVoxels, _box.min.zVoxels, _box.depthVoxels)};
+}
+
+void World::LooseFromGarrisons()
+{
+  // Each ranged figure in a building looses, when its reload is due, at the nearest enemy figure it reaches from the cell
+  // outside the building's face nearest that enemy, at the stand height, its elevation counted from there, with nothing
+  // solid on the line; ties to the lower id (ADR-024, decision 5; ADR-023, decision 5).
+  const Rules& rules = Data().Tuning();
+  for (auto& [id, unit] : m_units)
+  {
+    const UnitStats& stats = Data().Stats(unit.kind);
+    if (!Garrisoned(unit) || stats.attack <= 0 || stats.rangeVoxels <= 0 || unit.reloadTicks > 0)
+    {
+      continue;
+    }
+    const Structure& building = m_structures.at(m_squads.at(unit.squad).garrisonedIn);
+    const TemplateRules* templateRules = Data().FindTemplateRules(building.templateId);
+    const std::optional<Box> box = BoxOf(building);
+    if (templateRules == nullptr || !box.has_value())
+    {
+      continue;
+    }
+    Protocol::EntityId nearest = Protocol::NO_ENTITY;
+    std::int64_t best = 0;
+    Protocol::VoxelPosition from{};
+    for (const auto& [otherId, other] : m_units)
+    {
+      if (other.owner == unit.owner || Garrisoned(other))
+      {
+        continue;
+      }
+      const Protocol::VoxelPosition loosing = LoosingCell(*box, other.cellVoxels, templateRules->standHeightVoxels);
+      const std::int64_t dx = std::int64_t{other.cellVoxels.xVoxels} - loosing.xVoxels;
+      const std::int64_t dz = std::int64_t{other.cellVoxels.zVoxels} - loosing.zVoxels;
+      const std::int64_t distance = (dx * dx) + (dz * dz);
+      const std::int64_t reach =
+        ArrowRangeVoxels(stats.rangeVoxels, ElevationSteps(loosing.yVoxels, other.cellVoxels.yVoxels, rules), rules);
+      if (distance > reach * reach || (nearest != Protocol::NO_ENTITY && distance >= best))
+      {
+        continue;
+      }
+      const ArrowLine line = AimArrow(loosing, other.cellVoxels, rules);
+      if (!FirstSolid(line.start, line.end, m_voxels).has_value())
+      {
+        nearest = otherId;
+        best = distance;
+        from = loosing;
+      }
+    }
+    if (nearest == Protocol::NO_ENTITY)
+    {
+      continue;
+    }
+    const Unit& foe = m_units.at(nearest);
+    const Protocol::EntityId arrow = NewEntityId();
+    m_shots.emplace(arrow,
+                    Shot{.id = arrow,
+                         .engine = unit.squad,
+                         .owner = unit.owner,
+                         .flight = AimArrow(from, foe.cellVoxels, rules),
+                         .ticksFlown = 0,
+                         .kind = Protocol::ShotKind::Arrow,
+                         .shooter = id,
+                         .target = nearest,
+                         .damage = Damage(stats, Data().Stats(foe.kind), ElevationSteps(from.yVoxels, foe.cellVoxels.yVoxels, rules))});
+    unit.reloadTicks = stats.reloadTicks;
+  }
+}
+
+void World::HealGarrisons()
+{
+  const std::int32_t every = Data().Tuning().garrisonHealTicksPerHitPoint;
+  if (every <= 0 || m_tick % static_cast<std::uint32_t>(every) != 0)
+  {
+    return;
+  }
+  for (auto& [id, unit] : m_units)
+  {
+    if (Garrisoned(unit))
+    {
+      unit.hitPoints = std::min(unit.hitPoints + 1, Data().Stats(unit.kind).hitPoints);
+    }
   }
 }
 

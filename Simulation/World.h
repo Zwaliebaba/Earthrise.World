@@ -552,6 +552,30 @@ private:
   /// After a load: navigation reads the open gates' voxels as air again, and their tiles are rebuilt.
   void RestoreGates();
 
+  // ADR-024, decision 5: garrisons.
+  /// Sends a squad of _player's to garrison a building of theirs; it goes in when its lead reaches the footprint.
+  void Garrison(std::uint8_t _player, const Protocol::GarrisonSquad& _garrison);
+  /// Puts a building's garrison out, at its owner's order.
+  void Eject(std::uint8_t _player, const Protocol::EjectGarrison& _eject);
+  /// The units garrisoned in _structure.
+  [[nodiscard]] std::size_t GarrisonedCount(Protocol::EntityId _structure) const;
+  /// Each squad walking to garrison a building goes in once its lead reaches the footprint, or stops when it no longer
+  /// may, the building no longer working or full.
+  void EnterGarrisons();
+  /// Puts every squad garrisoned in _structure out, in squad then unit-id order, on the nearest free cells foot can use,
+  /// on its owner's side first, clear of its footprint and of every falling piece's strip.
+  void PutOut(const Structure& _structure);
+  /// The centre of _owner's keep, doubled so that it is whole, when they have one: the trial's keep, or else their first T2.
+  [[nodiscard]] std::optional<std::pair<std::int64_t, std::int64_t>> KeepCenterTwice(std::uint8_t _owner) const;
+  /// Where a garrison of _structure looses at a target in _targetCellVoxels from: the cell just outside the face of its box
+  /// nearest the target, at the building's stand height (ADR-024, decision 5).
+  [[nodiscard]] Protocol::VoxelPosition LoosingCell(const Box& _box, Protocol::VoxelPosition _targetCellVoxels,
+                                                    std::int32_t _standVoxels) const;
+  /// Step 4: every ranged garrisoned figure whose reload is due looses at the nearest enemy it can reach from its building.
+  void LooseFromGarrisons();
+  /// Step 2: garrisoned figures heal a hit point every garrisonHealTicksPerHitPoint.
+  void HealGarrisons();
+
   // ADR-023, decisions 3 and 4: targets and melee, in step 3.
   /// Each figure's target for the tick, and each squad's order as its target and its arrival leave it.
   void Acquire();
