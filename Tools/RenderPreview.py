@@ -1,9 +1,14 @@
-"""Renders a layer file's preview, a .png for Design/Previews/ (MvpAssets.md, *Previews*).
+"""Renders a layer file's preview, a .png for Design/Previews/ (MvpAssets.md, *Previews*), or the font's atlases.
 
 The preview is the layer file as drawn: y up, +z the front, +x to the right, seen from the front right and above in an
 isometric projection, each voxel a cube of its legend's colour with its top, front and right faces shaded apart. Only
 faces open to air are drawn, back to front. Nothing reads the previews; they are for the owner to judge an asset by.
 It needs Pillow, which a build-time tool may use (AGENTS.md, R14): nothing here ships or links.
+
+Given the font's glyph file, GameData/Client/Fonts/EarthriseMason-glyphs.json, it writes EarthriseMason-atlas-1x.png,
+-2x.png and -3x.png instead (Hud.md §9): each glyph's rows in white on transparent at its cell's x and y, below its top,
+16 cells of 10 texels across, scaled by nearest neighbour. The atlas the client builds, Client::GlyphAtlas, lays the
+cells out the same way, in code-point order.
 
 Usage:
   python Tools/RenderPreview.py GameData/Server/Templates/earthrise-t5-gatehouse-1m.json [more files]
@@ -79,6 +84,25 @@ def Render(_path, _out, _pixels):
   return target
 
 
+def RenderFontAtlas(_path, _out):
+  """The font's three atlas previews."""
+  data = json.loads(Path(_path).read_text(encoding="utf-8"))
+  cell = data["cell"]
+  rows = max(glyph["y"] for glyph in data["glyphs"]) // cell + 1
+  atlas = Image.new("RGBA", (16 * cell, rows * cell), (0, 0, 0, 0))
+  for glyph in data["glyphs"]:
+    for row, text in enumerate(glyph["rows"]):
+      for column, pixel in enumerate(text):
+        if pixel == "#":
+          atlas.putpixel((glyph["x"] + column, glyph["y"] + glyph["top"] + row), (255, 255, 255, 255))
+  written = []
+  for scale in (1, 2, 3):
+    target = Path(_out) / f"EarthriseMason-atlas-{scale}x.png"
+    atlas.resize((atlas.width * scale, atlas.height * scale), Image.NEAREST).save(target)
+    written.append(target)
+  return written
+
+
 def Main(_arguments):
   parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
   parser.add_argument("files", nargs="+", type=Path)
@@ -86,7 +110,11 @@ def Main(_arguments):
   parser.add_argument("--pixels", type=int, default=12, help="a voxel's edge on screen")
   arguments = parser.parse_args(_arguments)
   for path in arguments.files:
-    print(f"RenderPreview: wrote {Render(path, arguments.out, arguments.pixels)}")
+    if path.name.endswith("-glyphs.json"):
+      for target in RenderFontAtlas(path, arguments.out):
+        print(f"RenderPreview: wrote {target}")
+    else:
+      print(f"RenderPreview: wrote {Render(path, arguments.out, arguments.pixels)}")
   return 0
 
 

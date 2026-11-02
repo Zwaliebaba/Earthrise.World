@@ -13,7 +13,7 @@ namespace
 {
 
 constexpr char32_t FIRST_ICON = 0xE000;
-constexpr char32_t LAST_ICON = 0xE018;
+constexpr char32_t LAST_ICON = 0xE01C; // M4-B5: SPLIT, MERGE, DEPLOY and WALL at U+E019 to U+E01C
 constexpr std::uint8_t ICON_PIXELS = 9;
 
 } // namespace
@@ -41,6 +41,21 @@ public:
     Assert::AreEqual(std::uint8_t{1}, one->topRow);
     Assert::AreEqual(std::uint8_t{6}, one->advancePixels);
     Assert::IsFalse(one->icon);
+  }
+
+  TEST_METHOD(HoldsM4sFourIconsAmongItsGlyphs)
+  {
+    // M4-B5 (MvpPlan.md, M4, input 21): 131 glyphs, the last four the icons SPLIT, MERGE, DEPLOY and WALL, each 9 x 9.
+    Assert::AreEqual(std::size_t{131}, Content::Glyphs().size());
+    for (const char32_t code : {char32_t{0xE019}, char32_t{0xE01A}, char32_t{0xE01B}, char32_t{0xE01C}})
+    {
+      const Content::Glyph* icon = Content::FindGlyph(code);
+      Assert::IsNotNull(icon);
+      Assert::IsTrue(icon->icon);
+      Assert::AreEqual(ICON_PIXELS, icon->widthPixels);
+      Assert::AreEqual(ICON_PIXELS, icon->heightPixels);
+    }
+    Assert::IsTrue(Content::Glyphs().back().codePoint == char32_t{0xE01C});
   }
 
   TEST_METHOD(LacksTheDollarSign)

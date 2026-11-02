@@ -58,9 +58,9 @@ What it checks, and how each rule is read against the files:
    contiguously from 0 to the drawn length, each with a `color` that is `#rrggbb` or `faction` and a `widthPixels` of at
    least 1. The bake reads line models with this check's code, so a problem here stops the bake too. Check 8 covers
    their manifest entries, and a layer file in Client/Lines/ is a problem: voxel models go in Client/Models/.
-13. The font's glyph file, GameData/Client/Fonts/EarthriseMason-glyphs.json (Hud.md §9; ADR-019, decision 1), holds 127
+13. The font's glyph file, GameData/Client/Fonts/EarthriseMason-glyphs.json (Hud.md §9; ADR-019, decision 1), holds 131
    glyphs, no code point twice. Each glyph's rows are made of `.` and `#`, each as wide as its `w` says, at most 16 so
-   that a row is one 16-bit mask, and they fit the cell below their `top`. The 15 symbols and the 25 icons of Hud.md §9
+   that a row is one 16-bit mask, and they fit the cell below their `top`. The 15 symbols and the 29 icons of Hud.md §9
    are present, the icons marked as icons. The bake reads the font with this check's code.
 14. Manifest.json's `debrisByRubble` (MvpAssets.md, *Poses, projectiles, gates and debris*): each row names a palette
    index whose behaviour is a rubble, once; models, by id, that are in GameData/Client/Models/; and a tint, if any,
@@ -632,13 +632,13 @@ def ReadLineModels(_report, _root):
 # ── Check 13, the font ──────────────────────────────────────────────────────────────────────────
 
 FONT_FILE = "Client/Fonts/EarthriseMason-glyphs.json"
-FONT_GLYPH_COUNT = 127
+FONT_GLYPH_COUNT = 131
 FONT_CELL_ROWS = 10    # Hud.md §9: one row above the caps, two below the baseline
 FONT_BASELINE_ROW = 7
 FONT_ROW_BITS = 16
-# Hud.md §9: the 15 symbols, and the 25 command icons at U+E000 to U+E018.
+# Hud.md §9: the 15 symbols, and the 29 command icons at U+E000 to U+E01C (M4-B5 added SPLIT, MERGE, DEPLOY and WALL).
 FONT_SYMBOLS = "·×²³°←→↑↓↺↻…–—’"
-FONT_ICONS = range(0xE000, 0xE019)
+FONT_ICONS = range(0xE000, 0xE01D)
 
 
 class Glyph:

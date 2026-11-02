@@ -292,6 +292,7 @@ BROKEN = {
   "a symbol missing": (lambda r: Change(r, FONT, lambda f: f["glyphs"].remove(GlyphOf(f, "·"))), "lacks the symbol(s) ·"),
   "an icon not marked as one": (lambda r: Change(r, FONT, lambda f: GlyphOf(f, "\ue018").update(icon=False)),
                                 "lacks the command icon(s) U+E018"),
+  "M4's wall icon missing": (lambda r: Change(r, FONT, lambda f: f["glyphs"].remove(GlyphOf(f, "\ue01c"))), "lacks the command icon(s) U+E01C"),
   # 14. The debris table.
   "debris naming a model that does not exist": (lambda r: Change(r, MANIFEST, lambda m: DebrisRow(m, 26).update(debris=["D9"])),
                                                 "names the model 'D9', which is not in GameData/Client/Models/"),

@@ -23,7 +23,7 @@ struct Glyph
 /// The cell every glyph sits in: one row above the caps and two below the baseline.
 inline constexpr std::uint32_t FONT_CELL_ROWS = 10;
 inline constexpr std::uint32_t FONT_BASELINE_ROW = 7;
-inline constexpr std::uint32_t FONT_GLYPH_COUNT = 127;
+inline constexpr std::uint32_t FONT_GLYPH_COUNT = 131; // M4-B5 added four icons
 
 /// Every glyph, in ascending code point.
 [[nodiscard]] std::span<const Glyph> Glyphs() noexcept;

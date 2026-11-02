@@ -223,10 +223,10 @@ Hovering a cell shows the tooltip: hotkey, label and a one-line rule.
   - caps and digits are 5 × 7, lowercase has a 5-row x-height and 2-row descenders;
   - the cell is 10 rows: one above the caps and two below the baseline;
   - a glyph advances by its width plus 1.
-- **Coverage:** 127 glyphs:
+- **Coverage:** 131 glyphs:
   - 87 printable ASCII characters (it lacks `$ @ \ ^ ` { } ~`);
   - 15 symbols: · × ² ³ ° ← → ↑ ↓ ↺ ↻ … – — ’;
-  - 25 command icons of 9 × 9 at U+E000–U+E018.
+  - 29 command icons of 9 × 9 at U+E000–U+E01C: M3's 25, and SPLIT, MERGE, DEPLOY and WALL at U+E019–U+E01C, which the implementer drew in M4-B5 and the owner may redraw (MvpPlan.md, M4, input 21).
   
   A test checks that every string the HUD can draw has its glyphs (Decided 2026-11-01, with [ADR-019](ADR/ADR-019-text-and-the-interface-pass.md), decision 4).
 - **The source is `GameData/Client/Fonts/EarthriseMason-glyphs.json`.** Each glyph's `rows` are its bitmap as text, and its atlases, in [Previews/](Previews/), are previews. The package's `earthrise-font.js` and `.otf` stay in Reference/HudPrototype/ as its own editing tools. Its JavaScript and its JSON agree glyph for glyph, and its three atlases match the rows pixel for pixel; both were checked on import.

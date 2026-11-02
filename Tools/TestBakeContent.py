@@ -404,11 +404,11 @@ class FontAndDebrisBakeTests(unittest.TestCase):
     self.assertIn("inline constexpr std::array<std::uint16_t, 7> GLYPH_0031_ROWS = {4, 6, 4, 4, 4, 4, 14};", self.font)
     self.assertIn("{.codePoint = 0x0031U, .widthPixels = 5, .heightPixels = 7, .topRow = 1, .advancePixels = 6, .icon = false, "
                   ".rows = GLYPH_0031_ROWS},", self.font)
-    self.assertIn("inline constexpr std::array<Glyph, 127> GLYPHS = {{", self.font)
+    self.assertIn("inline constexpr std::array<Glyph, 131> GLYPHS = {{", self.font)
 
   def test_the_glyphs_come_in_ascending_code_point(self):
     codes = [int(code, 16) for code in re.findall(r"\.codePoint = 0x([0-9A-F]+)U", self.font)]
-    self.assertEqual(127, len(codes))
+    self.assertEqual(131, len(codes))
     self.assertEqual(sorted(codes), codes)
 
   def test_rock_rubble_bakes_three_stones_tinted_its_own_index(self):
