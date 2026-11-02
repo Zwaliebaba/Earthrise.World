@@ -128,6 +128,7 @@ void WriteRecord(Core::ByteWriter& _writer, const Squad& _squad)
     _writer.WriteI64(cell);
   }
   _writer.WriteU64(_squad.garrisonedIn);
+  _writer.WriteU8(static_cast<std::uint8_t>(_squad.kind));
 }
 
 Squad ReadSquad(Core::ByteReader& _reader)
@@ -141,7 +142,8 @@ Squad ReadSquad(Core::ByteReader& _reader)
               .path = {},
               .shortOfGoal = false,
               .trail = {},
-              .garrisonedIn = Protocol::NO_ENTITY};
+              .garrisonedIn = Protocol::NO_ENTITY,
+              .kind = UnitKind::Spearman};
   const std::uint32_t units = _reader.ReadU32();
   for (std::uint32_t number = 0; number < units; ++number)
   {
@@ -159,6 +161,7 @@ Squad ReadSquad(Core::ByteReader& _reader)
     squad.trail.push_back(_reader.ReadI64());
   }
   squad.garrisonedIn = _reader.ReadU64();
+  squad.kind = ReadEnum(_reader, UnitKind::Trebuchet, "kind of unit");
   return squad;
 }
 
@@ -173,6 +176,7 @@ void WriteRecord(Core::ByteWriter& _writer, const Unit& _unit)
   _writer.WriteU32(_unit.trailStep);
   _writer.WriteI64(_unit.stepEffort);
   _writer.WriteU8(static_cast<std::uint8_t>(_unit.kind));
+  _writer.WriteI32(_unit.hitPoints);
 }
 
 Unit ReadUnit(Core::ByteReader& _reader)
@@ -185,7 +189,8 @@ Unit ReadUnit(Core::ByteReader& _reader)
           .cellVoxels = ReadPosition(_reader),
           .trailStep = _reader.ReadU32(),
           .stepEffort = _reader.ReadI64(),
-          .kind = ReadEnum(_reader, UnitKind::Trebuchet, "kind of unit")};
+          .kind = ReadEnum(_reader, UnitKind::Trebuchet, "kind of unit"),
+          .hitPoints = _reader.ReadI32()};
 }
 
 void WriteRecord(Core::ByteWriter& _writer, const SiegeEngine& _engine)
@@ -198,6 +203,7 @@ void WriteRecord(Core::ByteWriter& _writer, const SiegeEngine& _engine)
   _writer.WriteU32(_engine.reloadTicks);
   _writer.WriteU8(static_cast<std::uint8_t>(_engine.quarterTurns));
   _writer.WriteU8(static_cast<std::uint8_t>(_engine.state));
+  _writer.WriteU64(_engine.squad);
 }
 
 SiegeEngine ReadSiegeEngine(Core::ByteReader& _reader)
@@ -209,7 +215,8 @@ SiegeEngine ReadSiegeEngine(Core::ByteReader& _reader)
           .cellVoxels = ReadPosition(_reader),
           .reloadTicks = _reader.ReadU32(),
           .quarterTurns = ReadQuarterTurns(_reader),
-          .state = ReadEnum(_reader, EngineState::Packing, "engine state")};
+          .state = ReadEnum(_reader, EngineState::Packing, "engine state"),
+          .squad = _reader.ReadU64()};
 }
 
 void WriteFixed(Core::ByteWriter& _writer, Core::Fixed _value)
@@ -523,8 +530,10 @@ std::uint16_t RecordVersion(SaveEntityTag _tag) noexcept
 {
   switch (_tag)
   {
-  case SaveEntityTag::Squad:       // M4-B4: the building it is garrisoned in
-  case SaveEntityTag::SiegeEngine: // M4-B4: its state
+  case SaveEntityTag::Squad:       // M4-B4: the building it is garrisoned in; M4-C1: its kind
+  case SaveEntityTag::SiegeEngine: // M4-B4: its state; M4-C1: its body's squad
+    return 3;
+  case SaveEntityTag::Unit: // M4-C1: its hit points
     return 2;
   default:
     return 1;

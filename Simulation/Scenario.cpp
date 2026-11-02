@@ -251,7 +251,7 @@ void LoadScenario(World& _world, std::string_view _scenarioId)
   }
   for (const ScenarioSquad& squad : scenario.squads)
   {
-    static_cast<void>(_world.AddSquad(squad.owner, _world.Data().Stats(squad.kind).navigationClass, squad.cellsVoxels, squad.kind));
+    static_cast<void>(_world.AddSquad(squad.owner, squad.kind, squad.cellsVoxels));
   }
   for (const ScenarioEngine& engine : scenario.engines)
   {
@@ -263,8 +263,7 @@ void LoadScenario(World& _world, std::string_view _scenarioId)
     const Protocol::EntityId building = named.at(garrison.structure);
     const Structure& structure = _world.Structures().at(building);
     const std::vector<Protocol::VoxelPosition> cells(_world.Data().Stats(garrison.kind).squadFigures, structure.originVoxels);
-    const Protocol::EntityId squad =
-      _world.AddSquad(garrison.owner, _world.Data().Stats(garrison.kind).navigationClass, cells, garrison.kind);
+    const Protocol::EntityId squad = _world.AddSquad(garrison.owner, garrison.kind, cells);
     _world.PlaceInGarrison(squad, building);
   }
   const ScenarioTrial& trial = scenario.trial;

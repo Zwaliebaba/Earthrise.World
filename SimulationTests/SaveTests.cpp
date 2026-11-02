@@ -28,8 +28,8 @@ Simulation::World Start()
   Simulation::World world(FlatWorld::Desc());
   const std::array<Protocol::VoxelPosition, 2> first = {Cell(3, 3), Cell(4, 3)};
   const std::array<Protocol::VoxelPosition, 2> second = {Cell(40, 40), Cell(41, 40)};
-  static_cast<void>(world.AddSquad(PLAYER, Simulation::NavigationClass::Foot, first));
-  static_cast<void>(world.AddSquad(PLAYER + 1, Simulation::NavigationClass::Cavalry, second, Simulation::UnitKind::Outrider));
+  static_cast<void>(world.AddSquad(PLAYER, Simulation::UnitKind::Spearman, first));
+  static_cast<void>(world.AddSquad(PLAYER + 1, Simulation::UnitKind::Outrider, second));
   static_cast<void>(world.AddSiegeEngine(PLAYER, Simulation::EngineKind::Trebuchet, Cell(10, 50)));
   return world;
 }
@@ -142,8 +142,7 @@ public:
       {.id = PLAYER + 1, .side = Protocol::Side::Defender, .stoneHundredthsCubicMeters = 20000, .timberHundredthsCubicMeters = 2000});
     const Protocol::EntityId tower = world.AddStructure(PLAYER + 1, "T4", Cell(30, 30), 0, "SW", 1);
     const std::array<Protocol::VoxelPosition, 2> archers = {Cell(50, 50), Cell(51, 50)};
-    const Protocol::EntityId garrison =
-      world.AddSquad(PLAYER + 1, Simulation::NavigationClass::Foot, archers, Simulation::UnitKind::Archer);
+    const Protocol::EntityId garrison = world.AddSquad(PLAYER + 1, Simulation::UnitKind::Archer, archers);
     world.PlaceInGarrison(garrison, tower);
     static_cast<void>(world.AddSiegeEngine(PLAYER, Simulation::EngineKind::Ram, Cell(20, 50), 1, Protocol::EngineState::Packed));
     world.SetTrial({.version = Protocol::TrialVersion::Voxel,
@@ -172,6 +171,31 @@ public:
     {
       Assert::IsTrue(loaded.Units().at(unit).cellVoxels == Cell(30, 30));
     }
+  }
+
+  TEST_METHOD(KeepsHitPointsAndAnEnginesBody)
+  {
+    // M4-C1: a unit's hit points, a squad's kind and an engine's body are saved and hashed. Slump is off, so the pit
+    // stays a pit.
+    Simulation::World world(FlatWorld::Desc(2, 2, FlatWorld::NoSlump()));
+    static_cast<void>(world.AddSiegeEngine(PLAYER, Simulation::EngineKind::Trebuchet, Cell(10, 50)));
+    const std::array<Protocol::VoxelPosition, 1> cell = {Cell(50, 10)};
+    const Protocol::EntityId squad = world.AddSquad(PLAYER, Simulation::UnitKind::ManAtArms, cell);
+    const Protocol::EntityId unit = world.Squads().at(squad).units.front();
+    world.Tick();
+    // A 5 m pit under the man-at-arms: 20 crush.
+    for (std::int32_t y = FlatWorld::GROUND_VOXELS - 5; y < FlatWorld::GROUND_VOXELS; ++y)
+    {
+      world.Voxels().Edit({.xVoxels = 50, .yVoxels = y, .zVoxels = 10}, 0);
+    }
+    world.Tick();
+    Assert::AreEqual(std::int32_t{50}, world.Units().at(unit).hitPoints);
+    const Simulation::World loaded = Simulation::LoadSave(Simulation::WriteSave(world), FlatWorld::Desc(2, 2, FlatWorld::NoSlump()));
+    Assert::AreEqual(Simulation::StateHash(world), Simulation::StateHash(loaded));
+    Assert::AreEqual(std::int32_t{50}, loaded.Units().at(unit).hitPoints);
+    Assert::IsTrue(loaded.Squads().at(squad).kind == Simulation::UnitKind::ManAtArms);
+    const Simulation::SiegeEngine& engine = loaded.SiegeEngines().begin()->second;
+    Assert::IsTrue(loaded.Squads().at(engine.squad).kind == Simulation::UnitKind::Trebuchet);
   }
 
   TEST_METHOD(RefusesASaveFromAnotherBuildDataGeneratorOrFormat)

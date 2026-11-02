@@ -410,6 +410,10 @@ public:
     }
     for (const Protocol::UnitView& unit : state.units)
     {
+      if (unit.kind == Protocol::UnitKind::Ram || unit.kind == Protocol::UnitKind::Trebuchet)
+      {
+        continue; // an engine's body, which its engine draws (M4-C1)
+      }
       // Facing north, into the courtyard, until units carry a facing; the player's in the attacker's colour, and the
       // Siege castle's defenders in the defender's (M4-B4).
       Client::ModelPlacement placement = Centered(UnitModel(unit.kind), unit.cellVoxels, 0,

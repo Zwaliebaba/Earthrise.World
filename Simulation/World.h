@@ -64,6 +64,7 @@ struct Squad
   /// The building it is garrisoned in, or NO_ENTITY (ADR-024, decision 5): its units then stand in no
   /// cell, move and settle not at all, and are left out of the state update.
   Protocol::EntityId garrisonedIn;
+  Protocol::UnitKind kind; // its figures', and so its stats (ADR-023, decision 1)
 };
 
 /// One figure of a squad.
@@ -78,6 +79,7 @@ struct Unit
   std::uint32_t trailStep;            // the cell of its squad's trail it stands in, or steps toward
   std::int64_t stepEffort;            // how far into that step, in Fixed's raw meters times the ground's factor; 0 when it stands
   Protocol::UnitKind kind;            // which figure it is, and so which model the client draws
+  std::int32_t hitPoints;             // from its kind's stats; it dies at 0 (ADR-023, decision 2)
 };
 
 using Protocol::EngineKind;
@@ -96,6 +98,7 @@ struct SiegeEngine
   std::uint32_t reloadTicks;  // until it can fire again; 0 when loaded
   std::uint32_t quarterTurns; // which way its model faces: quarter turns clockwise seen from above, as Engine::VoxelPass::Batch counts them
   EngineState state;          // a ram stays Packed (MvpPlan.md, M4, input 17)
+  Protocol::EntityId squad;   // its body's squad of one, whose unit it moves as and whose hit points are its (ADR-023)
 };
 
 /// A player of the match: their side and their stockpiles, in hundredths of a cubic metre (MvpPlan-M4.md,
@@ -106,6 +109,34 @@ struct Player
   Protocol::Side side;
   std::int32_t stoneHundredthsCubicMeters;
   std::int32_t timberHundredthsCubicMeters;
+};
+
+/// What the simulation records happening in a tick for the trial's log and the tests, never the client (ADR-026,
+/// decision 5). M4-C1 raises UnitDied; the rest come with the orders that make them.
+enum class TrialEventKind : std::uint8_t
+{
+  ShotFired,
+  ShotLanded,
+  SectionOpened,
+  FigurePassed,
+  StoneSpent,
+  TimberSpent,
+  StructureStopped,
+  StructureWorks,
+  UnitDied,
+  Outcome
+};
+
+/// One event: UnitDied names its player, the unit, its squad, its kind as the amount and its cell.
+struct TrialEvent
+{
+  TrialEventKind kind;
+  std::uint32_t tick;
+  std::uint8_t player;
+  Protocol::EntityId subject;
+  Protocol::EntityId other;
+  std::int32_t amount;
+  Protocol::VoxelPosition voxel;
 };
 
 /// The Siege trial's rules, from a scenario (ADR-026, decision 4).
@@ -261,9 +292,19 @@ public:
   /// unit standing still. What the breach lab's fast-forward stops on (M3-B7).
   [[nodiscard]] bool Quiet() const noexcept;
 
-  /// What step 11 published at the end of the last tick: the whole state the player sees, as values
-  /// (ADR-020, decision 3). Empty before the first tick, and after a load until the next.
-  [[nodiscard]] const Protocol::StateUpdate& State() const noexcept;
+  /// What step 11 published at the end of the last tick for _player: the whole state they see, as
+  /// values (ADR-020, decision 3), with the stockpiles of their own alone and the commands of theirs
+  /// the tick refused. Step 11 publishes for every player of the match, and for player 1 in a world
+  /// that has none. Empty before the first tick, after a load until the next, and for a player it
+  /// does not publish for.
+  [[nodiscard]] const Protocol::StateUpdate& State(std::uint8_t _player) const;
+
+  /// M3's: State(1).
+  [[nodiscard]] const Protocol::StateUpdate& State() const;
+
+  /// The last tick's events, unfiltered: for Earthrise's log and the tests, never the client (ADR-026,
+  /// decision 5).
+  [[nodiscard]] std::span<const TrialEvent> LastTickEvents() const noexcept;
 
   [[nodiscard]] const Desc& Description() const noexcept;
   [[nodiscard]] const ServerData& Data() const noexcept;
@@ -292,12 +333,14 @@ public:
   [[nodiscard]] std::span<const Protocol::VoxelPosition> LastTickEdits() const noexcept;
 
   /// Places a squad of _owner's figures of _kind, with one unit standing in each of _cellsVoxels, for
-  /// scenarios and tests. The squad takes the first new id and its units the next, in the order given.
-  Protocol::EntityId AddSquad(std::uint8_t _owner, NavigationClass _class, std::span<const Protocol::VoxelPosition> _cellsVoxels,
-                              UnitKind _kind = UnitKind::Spearman);
+  /// scenarios and tests, their class and hit points their kind's (ADR-023, decision 1). The squad
+  /// takes the first new id and its units the next, in the order given.
+  Protocol::EntityId AddSquad(std::uint8_t _owner, UnitKind _kind, std::span<const Protocol::VoxelPosition> _cellsVoxels);
 
   /// Places a siege engine of _owner's standing in _cellVoxels, facing _quarterTurns, in _state, for
-  /// scenarios and tests. M2's and M3's engines are deployed.
+  /// scenarios and tests, and its body, a squad of one of the kind Ram or Trebuchet in the same cell,
+  /// which it moves as while packed (ADR-023). The engine takes the first new id, then its body's
+  /// squad and unit. M2's and M3's engines are deployed.
   Protocol::EntityId AddSiegeEngine(std::uint8_t _owner, EngineKind _kind, Protocol::VoxelPosition _cellVoxels,
                                     std::uint32_t _quarterTurns = 0, EngineState _state = EngineState::Deployed);
 
@@ -379,6 +422,17 @@ private:
   [[nodiscard]] Protocol::EntityId StructureHolding(Protocol::VoxelPosition _voxel) const;
   /// Whether _unit's squad is in a building.
   [[nodiscard]] bool Garrisoned(const Unit& _unit) const;
+  /// Records a command refused for _player, which their next update names (ADR-023, decision 10).
+  void Refuse(std::uint8_t _player, const Protocol::Command& _command, Protocol::Refusal _reason);
+  /// The engine whose body _squad is, or null.
+  [[nodiscard]] SiegeEngine* EngineOfBody(Protocol::EntityId _squad);
+  /// Takes _amount of crush from _unit, less its armor against crush, at least 1 (ADR-023, decision 8).
+  void Crush(Unit& _unit, std::int32_t _amount);
+  /// The end of a step that may have killed: every unit at 0 hit points removed in unit-id order, a squad left with no
+  /// figure with it, an engine with its body, each death an event (ADR-023, decision 2).
+  void RemoveDead();
+  /// Puts each engine where its body stands.
+  void FollowBodies();
 
   /// Asks for a squad's search from where its first unit stands, or the cell it is stepping into, to
   /// its goal, replacing any it has.
@@ -416,7 +470,9 @@ private:
   // The collapses whose fall ended this tick, as their last view: step 11 publishes them once more,
   // so the client sees the last of their landing land. Not saved: the next tick reads nothing of it.
   std::vector<Protocol::CollapseView> m_endedCollapses;
-  Protocol::StateUpdate m_state;
+  std::map<std::uint8_t, Protocol::StateUpdate> m_states;                     // step 11's, by player
+  std::vector<std::pair<std::uint8_t, Protocol::RefusalView>> m_tickRefusals; // the tick's step 1's, by player, in order
+  std::vector<TrialEvent> m_tickEvents;
   std::deque<SubmittedCommand> m_pendingQueries; // a query is bytes from a player, as a command is
   std::vector<std::vector<std::byte>> m_answers;
   std::vector<ShotHit> m_tickHits;

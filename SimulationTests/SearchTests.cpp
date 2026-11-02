@@ -44,7 +44,7 @@ void Fill(Simulation::World& _world, Protocol::VoxelPosition _low, Protocol::Vox
 Protocol::EntityId Order(Simulation::World& _world, Protocol::VoxelPosition _from, Protocol::VoxelPosition _to)
 {
   const std::array<Protocol::VoxelPosition, 1> cells = {_from};
-  const Protocol::EntityId squad = _world.AddSquad(PLAYER, Simulation::NavigationClass::Foot, cells);
+  const Protocol::EntityId squad = _world.AddSquad(PLAYER, Simulation::UnitKind::Spearman, cells);
   Core::ByteWriter writer;
   Protocol::Encode(Protocol::MoveSquad{.squad = squad, .goalVoxels = _to}, writer);
   _world.Submit(PLAYER, writer.Bytes());

@@ -59,7 +59,7 @@ Simulation::UnitKind KindOf(Simulation::NavigationClass _class)
 Protocol::EntityId Order(Simulation::World& _world, std::span<const Protocol::VoxelPosition> _cells, Protocol::VoxelPosition _to,
                          Simulation::NavigationClass _class = Simulation::NavigationClass::Foot)
 {
-  const Protocol::EntityId squad = _world.AddSquad(PLAYER, _class, _cells, KindOf(_class));
+  const Protocol::EntityId squad = _world.AddSquad(PLAYER, KindOf(_class), _cells);
   Core::ByteWriter writer;
   Protocol::Encode(Protocol::MoveSquad{.squad = squad, .goalVoxels = _to}, writer);
   _world.Submit(PLAYER, writer.Bytes());

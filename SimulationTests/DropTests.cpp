@@ -41,9 +41,10 @@ void Fill(Simulation::World& _world, Protocol::VoxelPosition _low, Protocol::Vox
 Protocol::EntityId Place(Simulation::World& _world, Simulation::NavigationClass _class, Protocol::VoxelPosition _cell)
 {
   const std::array<Protocol::VoxelPosition, 1> cells = {_cell};
+  // Men-at-arms on foot, whose 70 hit points outlast a collapse's 60 crush (M4-C1), so that each lives to be lifted.
   const Simulation::UnitKind kind =
-    _class == Simulation::NavigationClass::Cavalry ? Simulation::UnitKind::Outrider : Simulation::UnitKind::Spearman;
-  const Protocol::EntityId squad = _world.AddSquad(PLAYER, _class, cells, kind);
+    _class == Simulation::NavigationClass::Cavalry ? Simulation::UnitKind::Outrider : Simulation::UnitKind::ManAtArms;
+  const Protocol::EntityId squad = _world.AddSquad(PLAYER, kind, cells);
   return _world.Squads().at(squad).units.front();
 }
 

@@ -222,6 +222,10 @@ public:
     Simulation::World world = Castle();
     world.Tick(); // step 8 brings navigation up to the levelled site
     std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> taken;
+    for (const Simulation::ScenarioEngine& engine : Siege().engines)
+    {
+      taken.insert({engine.cellVoxels.xVoxels, engine.cellVoxels.yVoxels, engine.cellVoxels.zVoxels}); // its body's cell
+    }
     for (const Simulation::ScenarioSquad& squad : Siege().squads)
     {
       for (const Protocol::VoxelPosition& cell : squad.cellsVoxels)
@@ -343,6 +347,10 @@ public:
     std::size_t garrisoned = 0;
     for (const auto& [id, squad] : world.Squads())
     {
+      if (squad.kind == Protocol::UnitKind::Ram || squad.kind == Protocol::UnitKind::Trebuchet)
+      {
+        continue; // an engine's body
+      }
       figures[squad.owner] += squad.units.size();
       garrisoned += squad.garrisonedIn != Protocol::NO_ENTITY ? squad.units.size() : 0;
     }

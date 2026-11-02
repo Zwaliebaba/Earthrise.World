@@ -430,12 +430,13 @@ void Overlays::AskReach(Session& _session, std::span<const Protocol::ChunkSnapsh
                         std::uint8_t _player, bool _passabilityView)
 {
   m_visible.assign(_visible.begin(), _visible.end());
-  // The start: the cell the first figure of the player's squad stands in.
+  // The start: the cell the first figure of the player's squad stands in, an engine's body apart (M4-C1).
   const Protocol::StateUpdate& state = _session.State();
   std::optional<Protocol::VoxelPosition> start;
   for (const Protocol::SquadView& squad : state.squads)
   {
-    if (squad.owner == _player && !squad.units.empty())
+    const bool body = squad.kind == Protocol::UnitKind::Ram || squad.kind == Protocol::UnitKind::Trebuchet;
+    if (squad.owner == _player && !squad.units.empty() && !body)
     {
       const auto unit = std::ranges::find(state.units, squad.units.front(), &Protocol::UnitView::id);
       if (unit != state.units.end())

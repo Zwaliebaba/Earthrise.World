@@ -57,8 +57,8 @@ Run FallEast(Simulation::World& _world, std::uint8_t _index)
   Fill(_world, At(12, GROUND, 10), At(12, GROUND + 1, 12), _index);
   const std::array<Protocol::VoxelPosition, 1> inside = {At(14, GROUND, 11)};
   const std::array<Protocol::VoxelPosition, 1> outside = {At(20, GROUND, 11)};
-  static_cast<void>(_world.AddSquad(PLAYER, Simulation::NavigationClass::Foot, inside));
-  static_cast<void>(_world.AddSquad(PLAYER, Simulation::NavigationClass::Foot, outside));
+  static_cast<void>(_world.AddSquad(PLAYER, Simulation::UnitKind::Spearman, inside));
+  static_cast<void>(_world.AddSquad(PLAYER, Simulation::UnitKind::Spearman, outside));
   _world.Tick();
   Assert::IsTrue(_world.Collapses().empty());
   Fill(_world, At(12, GROUND, 10), At(12, GROUND + 1, 12), 0);

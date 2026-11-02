@@ -113,6 +113,8 @@ void World::Tick()
 {
   m_tickCrushes.clear();
   m_endedCollapses.clear();
+  m_tickEvents.clear();
+  m_tickRefusals.clear();
   ApplyCommands();
   AdvanceJobs();
   MoveUnits();
@@ -164,9 +166,21 @@ std::vector<Protocol::ChunkSnapshot> World::Publish()
   return m_voxels.Publish();
 }
 
-const Protocol::StateUpdate& World::State() const noexcept
+const Protocol::StateUpdate& World::State(std::uint8_t _player) const
 {
-  return m_state;
+  static const Protocol::StateUpdate NONE{};
+  const auto found = m_states.find(_player);
+  return found == m_states.end() ? NONE : found->second;
+}
+
+const Protocol::StateUpdate& World::State() const
+{
+  return State(1);
+}
+
+std::span<const TrialEvent> World::LastTickEvents() const noexcept
+{
+  return m_tickEvents;
 }
 
 const World::Desc& World::Description() const noexcept
@@ -253,32 +267,35 @@ std::span<const Protocol::VoxelPosition> World::LastTickEdits() const noexcept
   return m_lastTickEdits;
 }
 
-Protocol::EntityId World::AddSquad(std::uint8_t _owner, NavigationClass _class, std::span<const Protocol::VoxelPosition> _cellsVoxels,
-                                   UnitKind _kind)
+Protocol::EntityId World::AddSquad(std::uint8_t _owner, UnitKind _kind, std::span<const Protocol::VoxelPosition> _cellsVoxels)
 {
+  const UnitStats& stats = Data().Stats(_kind);
+  const NavigationClass navigationClass = stats.navigationClass;
   const Protocol::EntityId squadId = NewEntityId();
   Squad squad{.id = squadId,
               .owner = _owner,
-              .navigationClass = _class,
+              .navigationClass = navigationClass,
               .units = {},
               .hasGoal = false,
               .goalVoxels = {},
               .path = {},
               .shortOfGoal = false,
               .trail = {},
-              .garrisonedIn = Protocol::NO_ENTITY};
+              .garrisonedIn = Protocol::NO_ENTITY,
+              .kind = _kind};
   for (const Protocol::VoxelPosition& cell : _cellsVoxels)
   {
     const Protocol::EntityId unitId = NewEntityId();
     m_units.emplace(unitId, Unit{.id = unitId,
                                  .owner = _owner,
-                                 .navigationClass = _class,
+                                 .navigationClass = navigationClass,
                                  .squad = squadId,
                                  .position = CellFloorMiddle(cell),
                                  .cellVoxels = cell,
                                  .trailStep = 0,
                                  .stepEffort = 0,
-                                 .kind = _kind});
+                                 .kind = _kind,
+                                 .hitPoints = stats.hitPoints});
     squad.units.push_back(unitId);
   }
   m_squads.emplace(squadId, std::move(squad));
@@ -289,6 +306,8 @@ Protocol::EntityId World::AddSiegeEngine(std::uint8_t _owner, EngineKind _kind, 
                                          std::uint32_t _quarterTurns, EngineState _state)
 {
   const Protocol::EntityId id = NewEntityId();
+  const std::array<Protocol::VoxelPosition, 1> body = {_cellVoxels};
+  const Protocol::EntityId squad = AddSquad(_owner, _kind == EngineKind::Ram ? UnitKind::Ram : UnitKind::Trebuchet, body);
   m_siegeEngines.emplace(id, SiegeEngine{.id = id,
                                          .owner = _owner,
                                          .kind = _kind,
@@ -296,7 +315,8 @@ Protocol::EntityId World::AddSiegeEngine(std::uint8_t _owner, EngineKind _kind, 
                                          .cellVoxels = _cellVoxels,
                                          .reloadTicks = 0,
                                          .quarterTurns = _quarterTurns % 4,
-                                         .state = _state});
+                                         .state = _state,
+                                         .squad = squad});
   return id;
 }
 
@@ -427,6 +447,75 @@ bool World::Garrisoned(const Unit& _unit) const
   return squad != m_squads.end() && squad->second.garrisonedIn != Protocol::NO_ENTITY;
 }
 
+void World::Refuse(std::uint8_t _player, const Protocol::Command& _command, Protocol::Refusal _reason)
+{
+  m_tickRefusals.emplace_back(_player, Protocol::RefusalView{.commandTag = Protocol::CommandTag(_command), .reason = _reason});
+}
+
+SiegeEngine* World::EngineOfBody(Protocol::EntityId _squad)
+{
+  const auto found = std::ranges::find_if(m_siegeEngines, [_squad](const auto& _engine) { return _engine.second.squad == _squad; });
+  return found == m_siegeEngines.end() ? nullptr : &found->second;
+}
+
+void World::Crush(Unit& _unit, std::int32_t _amount)
+{
+  const std::int32_t armor = Data().Stats(_unit.kind).armor.at(static_cast<std::size_t>(Protocol::DamageType::Crush));
+  _unit.hitPoints -= std::max(1, _amount - armor);
+}
+
+void World::RemoveDead()
+{
+  std::vector<Protocol::EntityId> dead;
+  for (const auto& [id, unit] : m_units)
+  {
+    if (unit.hitPoints <= 0)
+    {
+      dead.push_back(id);
+    }
+  }
+  for (const Protocol::EntityId id : dead)
+  {
+    const Unit unit = m_units.at(id);
+    m_tickEvents.push_back({.kind = TrialEventKind::UnitDied,
+                            .tick = m_tick,
+                            .player = unit.owner,
+                            .subject = id,
+                            .other = unit.squad,
+                            .amount = static_cast<std::int32_t>(unit.kind),
+                            .voxel = unit.cellVoxels});
+    m_units.erase(id);
+    const auto squad = m_squads.find(unit.squad);
+    if (squad == m_squads.end())
+    {
+      continue;
+    }
+    std::erase(squad->second.units, id);
+    if (!squad->second.units.empty())
+    {
+      continue;
+    }
+    // Its last figure: the squad goes, and an engine with its body.
+    std::erase_if(m_siegeEngines, [&unit](const auto& _engine) { return _engine.second.squad == unit.squad; });
+    RemoveSquad(unit.squad);
+  }
+}
+
+void World::FollowBodies()
+{
+  for (auto& [id, engine] : m_siegeEngines)
+  {
+    const auto squad = m_squads.find(engine.squad);
+    if (squad == m_squads.end() || squad->second.units.empty())
+    {
+      continue;
+    }
+    const Unit& body = m_units.at(squad->second.units.front());
+    engine.cellVoxels = body.cellVoxels;
+    engine.position = body.position;
+  }
+}
+
 Protocol::EntityId World::StructureHolding(Protocol::VoxelPosition _voxel) const
 {
   for (const auto& [id, structure] : m_structures)
@@ -485,20 +574,39 @@ void World::ApplyCommands()
 
 void World::Apply(std::uint8_t _player, const Protocol::Command& _command)
 {
+  // A refused command does nothing, and its player's next update names it (ADR-023, decision 10).
   if (const auto* move = std::get_if<Protocol::MoveSquad>(&_command))
   {
-    // A command for a squad that does not exist, or is not the player's, is refused and does nothing.
     const auto squad = m_squads.find(move->squad);
-    if (squad != m_squads.end() && squad->second.owner == _player && squad->second.garrisonedIn == Protocol::NO_ENTITY)
+    if (squad == m_squads.end() || squad->second.garrisonedIn != Protocol::NO_ENTITY)
     {
-      squad->second.hasGoal = true;
-      squad->second.goalVoxels = move->goalVoxels;
-      RequestSearch(squad->second);
+      Refuse(_player, _command, Protocol::Refusal::Invalid);
+      return;
     }
+    if (squad->second.owner != _player)
+    {
+      Refuse(_player, _command, Protocol::Refusal::NotOwned);
+      return;
+    }
+    // An engine moves as its body's squad, while packed (ADR-023).
+    const SiegeEngine* engine = EngineOfBody(move->squad);
+    if (engine != nullptr && engine->state != EngineState::Packed)
+    {
+      Refuse(_player, _command, Protocol::Refusal::NotPacked);
+      return;
+    }
+    squad->second.hasGoal = true;
+    squad->second.goalVoxels = move->goalVoxels;
+    RequestSearch(squad->second);
   }
   else if (const auto* fire = std::get_if<Protocol::FireEngine>(&_command))
   {
     Fire(_player, *fire);
+  }
+  else
+  {
+    // M4's other commands land with the orders that build them.
+    Refuse(_player, _command, Protocol::Refusal::Invalid);
   }
 }
 
@@ -507,13 +615,25 @@ void World::Fire(std::uint8_t _player, const Protocol::FireEngine& _fire)
   // Refused, and doing nothing, for an engine that is not the player's or is reloading, and for a
   // target out of range (GameDesign.md, M2's values, item 12).
   const auto engine = m_siegeEngines.find(_fire.engine);
-  if (engine == m_siegeEngines.end() || engine->second.owner != _player || engine->second.reloadTicks > 0)
+  if (engine == m_siegeEngines.end() || engine->second.kind != EngineKind::Trebuchet)
   {
+    Refuse(_player, _fire, Protocol::Refusal::Invalid);
+    return;
+  }
+  if (engine->second.owner != _player)
+  {
+    Refuse(_player, _fire, Protocol::Refusal::NotOwned);
+    return;
+  }
+  if (engine->second.reloadTicks > 0)
+  {
+    Refuse(_player, _fire, Protocol::Refusal::Reloading);
     return;
   }
   const std::optional<ShotArc> arc = AimShot(engine->second.cellVoxels, _fire.targetVoxels, Data().Tuning());
   if (!arc.has_value())
   {
+    Refuse(_player, _fire, Protocol::Refusal::Invalid);
     return;
   }
   const Protocol::EntityId id = NewEntityId();
@@ -581,6 +701,7 @@ void World::MoveUnits()
       }
     }
   }
+  FollowBodies();
 }
 
 void World::FormTrail(Squad& _squad)
@@ -838,6 +959,7 @@ void World::AdvanceCollapses()
   {
     m_collapses.erase(id);
   }
+  RemoveDead();
 }
 
 bool World::Fall(Collapse& _collapse)
@@ -901,6 +1023,7 @@ void World::Strike(Collapse& _collapse, Protocol::EntityId _unit)
   }
   _collapse.struck.insert(at, _unit);
   m_tickCrushes.push_back({.unit = _unit, .collapse = _collapse.id, .dropVoxels = 0});
+  Crush(m_units.at(_unit), Data().Tuning().collapseCrushDamage);
 }
 
 void World::SettleLoose()
@@ -1176,7 +1299,10 @@ void World::SettleUnits()
     // it in step 6.
     if (unit.cellVoxels.yVoxels - height > CRUSHING_DROP_VOXELS)
     {
-      m_tickCrushes.push_back({.unit = id, .collapse = Protocol::NO_ENTITY, .dropVoxels = unit.cellVoxels.yVoxels - height});
+      // Crush for each metre beyond 3 (ADR-023, decision 8).
+      const std::int32_t drop = unit.cellVoxels.yVoxels - height;
+      m_tickCrushes.push_back({.unit = id, .collapse = Protocol::NO_ENTITY, .dropVoxels = drop});
+      Crush(unit, Data().Tuning().dropCrushDamagePerVoxel * (drop - CRUSHING_DROP_VOXELS));
     }
     unit.cellVoxels.yVoxels = height;
     unit.position.yMeters = Core::Fixed::FromWhole(height);
@@ -1198,6 +1324,8 @@ void World::SettleUnits()
     }
     RequestSearch(squad->second);
   }
+  RemoveDead();
+  FollowBodies();
 }
 
 void World::CheckRules()
@@ -1207,15 +1335,37 @@ void World::CheckRules()
 
 void World::PublishState()
 {
-  // Step 11: the state update, filtered by what the player sees (ADR-002, decision 4; ADR-020,
-  // decision 3). Publish() hands the chunks to whoever asks.
-  m_state = StateFor(0);
+  // Step 11: the state update for each player, filtered by what they see (ADR-002, decision 4; ADR-020,
+  // decision 3), and for player 1 in a world with no players, as M3's was. Publish() hands the chunks to
+  // whoever asks.
+  m_states.clear();
+  if (m_players.empty())
+  {
+    m_states.emplace(std::uint8_t{1}, StateFor(1));
+  }
+  for (const auto& [id, player] : m_players)
+  {
+    m_states.emplace(id, StateFor(id));
+  }
 }
 
-Protocol::StateUpdate World::StateFor([[maybe_unused]] std::uint8_t _player) const
+Protocol::StateUpdate World::StateFor(std::uint8_t _player) const
 {
-  Protocol::StateUpdate state{
-    .tick = m_tick, .structures = {}, .engines = {}, .squads = {}, .units = {}, .shots = {}, .collapses = {}, .hits = {}, .players = {}};
+  Protocol::StateUpdate state{.tick = m_tick,
+                              .structures = {},
+                              .engines = {},
+                              .squads = {},
+                              .units = {},
+                              .shots = {},
+                              .collapses = {},
+                              .hits = {},
+                              .players = {},
+                              .player = _player,
+                              .refusals = {},
+                              .trial = {},
+                              .widthCells = m_navigation.WidthCells(),
+                              .depthCells = m_navigation.DepthCells(),
+                              .visibleCells = {}};
   // A structure's box after its turn: its template's shape, with width and depth swapped by an odd turn.
   const auto extentOf = [this](const Structure& _structure)
   {
@@ -1230,16 +1380,35 @@ Protocol::StateUpdate World::StateFor([[maybe_unused]] std::uint8_t _player) con
     const bool across = _structure.quarterTurns % 2 == 1;
     return Protocol::VoxelPosition{across ? depth : width, static_cast<std::int32_t>(shape.heightVoxels), across ? width : depth};
   };
+  // The figures garrisoned in each building, which only its owner's update counts (ADR-024, decision 5).
+  std::map<Protocol::EntityId, std::size_t> garrisoned;
+  for (const auto& [id, squad] : m_squads)
+  {
+    if (squad.garrisonedIn != Protocol::NO_ENTITY && squad.owner == _player)
+    {
+      garrisoned[squad.garrisonedIn] += squad.units.size();
+    }
+  }
   for (const auto& [id, structure] : m_structures)
   {
+    const TemplateRules* rules = Data().FindTemplateRules(structure.templateId);
+    const auto count = garrisoned.find(id);
     state.structures.push_back({.id = id,
                                 .owner = structure.owner,
                                 .templateId = structure.templateId,
                                 .originVoxels = structure.originVoxels,
                                 .quarterTurns = structure.quarterTurns,
                                 .extentVoxels = extentOf(structure),
-                                .name = structure.name});
+                                .name = structure.name,
+                                .garrisonCount = static_cast<std::uint8_t>(count == garrisoned.end() ? 0 : count->second),
+                                .garrisonCapacity = rules == nullptr ? std::uint8_t{0} : rules->garrisonCapacity});
   }
+  // An engine's hit points are its body's.
+  const auto bodyOf = [this](const SiegeEngine& _engine) -> const Unit*
+  {
+    const auto squad = m_squads.find(_engine.squad);
+    return squad == m_squads.end() || squad->second.units.empty() ? nullptr : &m_units.at(squad->second.units.front());
+  };
   for (const auto& [id, engine] : m_siegeEngines)
   {
     state.engines.push_back({.id = id,
@@ -1248,7 +1417,12 @@ Protocol::StateUpdate World::StateFor([[maybe_unused]] std::uint8_t _player) con
                              .cellVoxels = engine.cellVoxels,
                              .quarterTurns = engine.quarterTurns,
                              .reloadTicks = engine.reloadTicks,
-                             .state = engine.state});
+                             .state = engine.state,
+                             .squad = engine.squad,
+                             .stateTicksLeft = 0,
+                             .position = engine.position,
+                             .hitPoints = bodyOf(engine) == nullptr ? 0 : bodyOf(engine)->hitPoints,
+                             .maxHitPoints = Data().Stats(engine.kind == EngineKind::Ram ? UnitKind::Ram : UnitKind::Trebuchet).hitPoints});
   }
   for (const auto& [id, squad] : m_squads)
   {
@@ -1258,7 +1432,13 @@ Protocol::StateUpdate World::StateFor([[maybe_unused]] std::uint8_t _player) con
                             .hasGoal = squad.hasGoal,
                             .goalVoxels = squad.goalVoxels,
                             .shortOfGoal = squad.shortOfGoal,
-                            .garrisonedIn = squad.garrisonedIn});
+                            .garrisonedIn = squad.garrisonedIn,
+                            .kind = squad.kind,
+                            .order = squad.garrisonedIn != Protocol::NO_ENTITY
+                                       ? Protocol::SquadOrder::Garrisoned
+                                       : (squad.hasGoal ? Protocol::SquadOrder::Move : Protocol::SquadOrder::Idle),
+                            .fullFigures = Data().Stats(squad.kind).squadFigures,
+                            .target = Protocol::NO_ENTITY});
   }
   for (const auto& [id, unit] : m_units)
   {
@@ -1266,12 +1446,22 @@ Protocol::StateUpdate World::StateFor([[maybe_unused]] std::uint8_t _player) con
     {
       continue;
     }
-    state.units.push_back(
-      {.id = id, .squad = unit.squad, .owner = unit.owner, .kind = unit.kind, .position = unit.position, .cellVoxels = unit.cellVoxels});
+    state.units.push_back({.id = id,
+                           .squad = unit.squad,
+                           .owner = unit.owner,
+                           .kind = unit.kind,
+                           .position = unit.position,
+                           .cellVoxels = unit.cellVoxels,
+                           .hitPoints = unit.hitPoints,
+                           .maxHitPoints = Data().Stats(unit.kind).hitPoints});
   }
   for (const auto& [id, shot] : m_shots)
   {
-    state.shots.push_back({.id = id, .engine = shot.engine, .position = ShotPositionAt(shot.arc, shot.ticksFlown)});
+    state.shots.push_back({.id = id,
+                           .engine = shot.engine,
+                           .position = ShotPositionAt(shot.arc, shot.ticksFlown),
+                           .kind = Protocol::ShotKind::Stone,
+                           .owner = shot.owner});
   }
   // The collapses still running and those whose fall ended this tick, in id order.
   for (const auto& [id, collapse] : m_collapses)
@@ -1284,12 +1474,32 @@ Protocol::StateUpdate World::StateFor([[maybe_unused]] std::uint8_t _player) con
   {
     state.hits.push_back({.shot = hit.shot, .voxel = hit.voxel});
   }
+  // Every player, with the stockpiles of the update's player alone.
   for (const auto& [id, player] : m_players)
   {
+    const bool own = id == _player;
     state.players.push_back({.player = id,
                              .side = player.side,
-                             .stoneHundredthsCubicMeters = player.stoneHundredthsCubicMeters,
-                             .timberHundredthsCubicMeters = player.timberHundredthsCubicMeters});
+                             .stoneHundredthsCubicMeters = own ? player.stoneHundredthsCubicMeters : 0,
+                             .timberHundredthsCubicMeters = own ? player.timberHundredthsCubicMeters : 0});
+  }
+  for (const auto& [player, refusal] : m_tickRefusals)
+  {
+    if (player == _player)
+    {
+      state.refusals.push_back(refusal);
+    }
+  }
+  if (m_trial.has_value())
+  {
+    state.trial = {.version = m_trial->version,
+                   .outcome = Protocol::TrialOutcome::Running,
+                   .ticksLeft = m_trial->timeLimitTicks > m_tick ? m_trial->timeLimitTicks - m_tick : 0,
+                   .keep = m_trial->keep,
+                   .keepWorking = true,
+                   .holdTicks = 0,
+                   .holdTicksNeeded = m_trial->holdTicks,
+                   .holdContested = false};
   }
   return state;
 }

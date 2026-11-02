@@ -31,7 +31,7 @@ Protocol::VoxelPosition Cell(std::int32_t _x, std::int32_t _z)
 Protocol::EntityId AddFootSquad(Simulation::World& _world, std::uint8_t _owner)
 {
   const std::array<Protocol::VoxelPosition, 3> cells = {Cell(4, 4), Cell(5, 4), Cell(6, 4)};
-  return _world.AddSquad(_owner, Simulation::NavigationClass::Foot, cells);
+  return _world.AddSquad(_owner, Simulation::UnitKind::Spearman, cells);
 }
 
 } // namespace
@@ -72,8 +72,10 @@ public:
     world.RemoveSquad(squad);
     Assert::IsTrue(world.Squads().empty());
     Assert::IsTrue(world.Units().empty());
+    // An engine takes the next id, and its body's squad and unit the two after it (M4-C1).
     Assert::AreEqual(Protocol::EntityId{5}, world.AddSiegeEngine(PLAYER, Simulation::EngineKind::Trebuchet, Cell(10, 10)));
-    Assert::AreEqual(Protocol::EntityId{6}, world.NewEntityId());
+    Assert::AreEqual(Protocol::EntityId{6}, world.SiegeEngines().at(5).squad);
+    Assert::AreEqual(Protocol::EntityId{8}, world.NewEntityId());
   }
 
   TEST_METHOD(TwoWorldsGivenTheSameScriptAgree)
