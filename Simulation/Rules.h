@@ -125,6 +125,10 @@ struct Rules
   // The commanders' cadence and their work a tick (ADR-027, decision 4; items 18 and 27, Proposed until M4-J4).
   std::int32_t commanderDecisionTicks;
   std::int32_t commanderWorkPerTick;
+  // The Siege defender's sally and gate (MvpPlan.md, M4, inputs 13 and 18): how far out from the curtain an engine draws a
+  // sally and the sally may go, and how near an enemy soldier shuts the gate.
+  std::int32_t sallyLeashVoxels;
+  std::int32_t gateShutVoxels;
 };
 
 } // namespace Simulation

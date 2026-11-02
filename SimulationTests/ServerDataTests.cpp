@@ -201,7 +201,9 @@ public:
                                        "waitBeforeSearchTicks",
                                        "revealTicks",
                                        "commanderDecisionTicks",
-                                       "commanderWorkPerTick"})
+                                       "commanderWorkPerTick",
+                                       "sallyLeashVoxels",
+                                       "gateShutVoxels"})
     {
       const std::string refusal = Refusal(BakedServerDataWithout(key));
       Assert::IsTrue(refusal.find("RULE lacks the key " + std::string(key)) != std::string::npos);

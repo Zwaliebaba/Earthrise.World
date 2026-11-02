@@ -101,6 +101,42 @@ std::vector<Protocol::Command> DefendersCommands(const Simulation::World& _world
   return commands;
 }
 
+/// The defender's men-at-arms and outriders, its sally and its reserve.
+std::vector<Protocol::EntityId> Force(const Simulation::World& _world)
+{
+  std::vector<Protocol::EntityId> force;
+  for (const auto& [id, squad] : _world.Squads())
+  {
+    if (squad.owner == DEFENDER && (squad.kind == Simulation::UnitKind::ManAtArms || squad.kind == Simulation::UnitKind::Outrider))
+    {
+      force.push_back(id);
+    }
+  }
+  return force;
+}
+
+/// Whether a figure of the force stands outside the castle, south of the gatehouse's footprint, z 302 to 308.
+bool ForceOutside(const Simulation::World& _world)
+{
+  for (const Protocol::EntityId squad : Force(_world))
+  {
+    for (const Protocol::EntityId unit : _world.Squads().at(squad).units)
+    {
+      if (_world.Units().at(unit).cellVoxels.zVoxels < 302)
+      {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/// A trebuchet of the attacker's, deployed, _metres south of S3's outer face at z 305.
+Protocol::EntityId EngineOut(Simulation::World& _world, std::int32_t _metres)
+{
+  return _world.AddSiegeEngine(ATTACKER, Simulation::EngineKind::Trebuchet, At(343, SITE, 305 - _metres));
+}
+
 } // namespace
 
 TEST_CLASS(SiegeDefenderTests)
@@ -267,6 +303,107 @@ public:
       }
     }
     Assert::IsTrue(aims > 0);
+  }
+
+  TEST_METHOD(ATrebuchet60MFromTheCurtainDrawsASallyThatKillsItReturnsAndShutsTheGateBehindIt)
+  {
+    // 60 m out, inside the 70 m leash and beyond every garrison's reach, and seen from the gatehouse's 80 m.
+    Simulation::World world = Castle();
+    const Protocol::EntityId engine = EngineOut(world, 60);
+    const Protocol::EntityId gate = Named(world, "GH");
+    bool opened = false;
+    bool shutBehind = false;
+    for (std::uint32_t tick = 0; tick < 4000 && world.SiegeEngines().contains(engine); ++tick)
+    {
+      world.Tick();
+      opened = opened || world.Structures().at(gate).gateOpen;
+      shutBehind = shutBehind || (opened && !world.Structures().at(gate).gateOpen && ForceOutside(world));
+    }
+    Assert::IsFalse(world.SiegeEngines().contains(engine));
+    Assert::IsTrue(opened && shutBehind);
+    for (std::uint32_t tick = 0; tick < 4000 && (ForceOutside(world) || world.Structures().at(gate).gateOpen); ++tick)
+    {
+      world.Tick();
+    }
+    Assert::IsFalse(ForceOutside(world));
+    Assert::IsFalse(world.Structures().at(gate).gateOpen);
+  }
+
+  TEST_METHOD(ATrebuchet80MOutDrawsNoSally)
+  {
+    Simulation::World world = Castle();
+    EngineOut(world, 80);
+    const Protocol::EntityId gate = Named(world, "GH");
+    for (std::uint32_t tick = 0; tick < 400; ++tick)
+    {
+      world.Tick();
+      Assert::IsFalse(world.Structures().at(gate).gateOpen);
+      for (const Protocol::EntityId squad : Force(world))
+      {
+        Assert::IsTrue(world.Squads().at(squad).order != Protocol::SquadOrder::Attack);
+      }
+    }
+  }
+
+  TEST_METHOD(AnAttackerSoldierNearTheOpenGateShutsItWithTheSallyStillOut)
+  {
+    // Once the sally has killed the trebuchet and the gate opens for it to come home, a man-at-arms of the attacker's 6 m
+    // from the gatehouse's outer face, nearer it than any of the sally, shuts it, the sally still out. A spearman there
+    // falls to the gatehouse's arrows before the defender's next half second; a man-at-arms takes 1 from each.
+    Simulation::World world = Castle();
+    const Protocol::EntityId engine = EngineOut(world, 60);
+    const Protocol::EntityId gate = Named(world, "GH");
+    for (std::uint32_t tick = 0; tick < 4000 && world.SiegeEngines().contains(engine); ++tick)
+    {
+      world.Tick();
+    }
+    for (std::uint32_t tick = 0; tick < 400 && !world.Structures().at(gate).gateOpen; ++tick)
+    {
+      world.Tick();
+    }
+    Assert::IsTrue(world.Structures().at(gate).gateOpen && ForceOutside(world));
+    Column(world, ATTACKER, Simulation::UnitKind::ManAtArms, 336, 296, 1);
+    for (std::uint32_t tick = 0; tick < 25 && world.Structures().at(gate).gateOpen; ++tick)
+    {
+      world.Tick();
+    }
+    Assert::IsFalse(world.Structures().at(gate).gateOpen);
+    Assert::IsTrue(ForceOutside(world));
+  }
+
+  TEST_METHOD(AnOpenedSectionDrawsTheReserveToItsInnerMouth)
+  {
+    // S3 cut away to its rock, x 341 to 348 and z 305 to 306: it opens, and the force storms to its inner mouth, 2 m
+    // inside its inner face at its middle, (345, 9, 308), and gets there.
+    Simulation::World world = Castle();
+    for (std::int32_t y = SITE - 1; y <= SITE + 6; ++y)
+    {
+      for (std::int32_t z = 305; z <= 306; ++z)
+      {
+        for (std::int32_t x = 341; x <= 348; ++x)
+        {
+          world.Voxels().Edit(At(x, y, z), Protocol::Chunk::EMPTY);
+        }
+      }
+    }
+    const Protocol::VoxelPosition mouth = At(345, SITE, 308);
+    bool sent = false;
+    for (std::uint32_t tick = 0; tick < 2000; ++tick)
+    {
+      world.Tick();
+      sent = sent || std::ranges::all_of(Force(world),
+                                         [&world, mouth](Protocol::EntityId _squad)
+                                         {
+                                           const Simulation::Squad& squad = world.Squads().at(_squad);
+                                           return squad.order == Protocol::SquadOrder::Storm && squad.goalVoxels == mouth;
+                                         });
+    }
+    Assert::IsTrue(sent);
+    for (const Protocol::EntityId squad : Force(world))
+    {
+      const Protocol::VoxelPosition lead = world.Units().at(world.Squads().at(squad).units.front()).cellVoxels;
+      Assert::IsTrue(std::abs(lead.xVoxels - mouth.xVoxels) <= 4 && std::abs(lead.zVoxels - mouth.zVoxels) <= 4);
+    }
   }
 };
 

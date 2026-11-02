@@ -36,7 +36,7 @@ struct RuleField
 
 // Every key the simulation reads, in ascending order, as the bake writes them. A key the file holds
 // and this table does not is refused, and so is one this table needs and the file lacks.
-constexpr std::array<RuleField, 75> RULE_FIELDS = {{
+constexpr std::array<RuleField, 77> RULE_FIELDS = {{
   {"arrowAimHeightVoxels", &Rules::arrowAimHeightVoxels, nullptr},
   {"arrowHitReachCells", &Rules::arrowHitReachCells, nullptr},
   {"arrowLaunchHeightCentimeters", &Rules::arrowLaunchHeightCentimeters, nullptr},
@@ -72,6 +72,7 @@ constexpr std::array<RuleField, 75> RULE_FIELDS = {{
   {"footSpeedMetersPerTick", nullptr, &Rules::footSpeedMetersPerTick},
   {"footWidthVoxels", &Rules::footWidthVoxels, nullptr},
   {"garrisonHealTicksPerHitPoint", &Rules::garrisonHealTicksPerHitPoint, nullptr},
+  {"gateShutVoxels", &Rules::gateShutVoxels, nullptr},
   {"gravityMetersPerTickSquared", nullptr, &Rules::gravityMetersPerTickSquared},
   {"leavesCraterVoxels", &Rules::leavesCraterVoxels, nullptr},
   {"leavesSpanVoxels", &Rules::leavesSpanVoxels, nullptr},
@@ -96,6 +97,7 @@ constexpr std::array<RuleField, 75> RULE_FIELDS = {{
   {"repairLockTicks", &Rules::repairLockTicks, nullptr},
   {"repairReachVoxels", &Rules::repairReachVoxels, nullptr},
   {"revealTicks", &Rules::revealTicks, nullptr},
+  {"sallyLeashVoxels", &Rules::sallyLeashVoxels, nullptr},
   {"shotCrushDamage", &Rules::shotCrushDamage, nullptr},
   {"shotLaunchHeightVoxels", &Rules::shotLaunchHeightVoxels, nullptr},
   {"shotMaxRangeVoxels", &Rules::shotMaxRangeVoxels, nullptr},
