@@ -1519,12 +1519,12 @@ void World::CrushAround(Protocol::VoxelPosition _struck)
       continue;
     }
     const Protocol::VoxelPosition& cell = unit.cellVoxels;
-    const bool near = std::abs(cell.xVoxels - _struck.xVoxels) <= 1 && std::abs(cell.zVoxels - _struck.zVoxels) <= 1 &&
-                      std::abs(cell.yVoxels - (_struck.yVoxels + 1)) <= 1;
+    const bool beside = std::abs(cell.xVoxels - _struck.xVoxels) <= 1 && std::abs(cell.zVoxels - _struck.zVoxels) <= 1 &&
+                        std::abs(cell.yVoxels - (_struck.yVoxels + 1)) <= 1;
     const std::int32_t side = unit.navigationClass == NavigationClass::Machines ? machineSide : 1;
     const bool holds = _struck.xVoxels >= cell.xVoxels && _struck.xVoxels < cell.xVoxels + side && _struck.zVoxels >= cell.zVoxels &&
                        _struck.zVoxels < cell.zVoxels + side;
-    if (near || holds)
+    if (beside || holds)
     {
       Crush(unit, damage);
     }
@@ -3837,8 +3837,8 @@ void World::PutOut(const Structure& _structure)
   Occupancy occupancy = BuildOccupancy();
   // Rings about the box, nearest first, each in index order: the owner's side's cells first, then the rest.
   constexpr std::int32_t PUT_OUT_RINGS = 12;
-  std::vector<Protocol::VoxelPosition> near;
-  std::vector<Protocol::VoxelPosition> far;
+  std::vector<Protocol::VoxelPosition> ownSide;
+  std::vector<Protocol::VoxelPosition> otherSide;
   for (std::int32_t ring = 1; ring <= PUT_OUT_RINGS; ++ring)
   {
     for (std::int32_t z = box->min.zVoxels - ring; z < box->min.zVoxels + box->depthVoxels + ring; ++z)
@@ -3852,11 +3852,11 @@ void World::PutOut(const Structure& _structure)
           continue;
         }
         const Protocol::VoxelPosition cell{.xVoxels = x, .yVoxels = m_navigation.WalkableHeight(x, z), .zVoxels = z};
-        (OnOwnersSide(*box, keep, x, z) ? near : far).push_back(cell);
+        (OnOwnersSide(*box, keep, x, z) ? ownSide : otherSide).push_back(cell);
       }
     }
   }
-  near.insert(near.end(), far.begin(), far.end());
+  ownSide.insert(ownSide.end(), otherSide.begin(), otherSide.end());
   std::size_t next = 0;
   for (const Protocol::EntityId id : squads)
   {
@@ -3867,14 +3867,14 @@ void World::PutOut(const Structure& _structure)
     for (const Protocol::EntityId unitId : squad.units)
     {
       Unit& unit = m_units.at(unitId);
-      while (next < near.size() && !Free(occupancy, unit, CellOf(near[next])))
+      while (next < ownSide.size() && !Free(occupancy, unit, CellOf(ownSide[next])))
       {
         ++next;
       }
       // With no cell left, it stays at the building's origin, as it stood inside.
-      if (next < near.size())
+      if (next < ownSide.size())
       {
-        unit.cellVoxels = near[next++];
+        unit.cellVoxels = ownSide[next++];
       }
       unit.position = CellFloorMiddle(unit.cellVoxels);
       unit.stepFromCell = CellOf(unit.cellVoxels);

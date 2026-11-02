@@ -278,17 +278,17 @@ void SiegeAttacker::Decide(CommanderView& _view, std::vector<Protocol::Command>&
     const Protocol::EngineView& engine = *engines.at(index);
     const Protocol::VoxelPosition at = standOf(static_cast<std::int32_t>(index));
     const auto body = std::ranges::find(state.squads, engine.squad, &Protocol::SquadView::id);
-    const bool near = std::abs(engine.cellVoxels.xVoxels - at.xVoxels) <= NEAR_STAND_CELLS &&
-                      std::abs(engine.cellVoxels.zVoxels - at.zVoxels) <= NEAR_STAND_CELLS;
+    const bool nearStand = std::abs(engine.cellVoxels.xVoxels - at.xVoxels) <= NEAR_STAND_CELLS &&
+                           std::abs(engine.cellVoxels.zVoxels - at.zVoxels) <= NEAR_STAND_CELLS;
     const bool arrived =
       (std::abs(engine.cellVoxels.xVoxels - at.xVoxels) <= AT_STAND_CELLS &&
        std::abs(engine.cellVoxels.zVoxels - at.zVoxels) <= AT_STAND_CELLS) ||
-      (near && body != state.squads.end() && (body->order != Protocol::SquadOrder::Move || !body->hasGoal || body->shortOfGoal));
+      (nearStand && body != state.squads.end() && (body->order != Protocol::SquadOrder::Move || !body->hasGoal || body->shortOfGoal));
     if (m_phase == Phase::ToWaypoint)
     {
       // Passing through: packed, on to the first stand once every engine is near the waypoint.
-      allDeployed = allDeployed && near;
-      if (engine.state == Protocol::EngineState::Packed && body != state.squads.end() && !near &&
+      allDeployed = allDeployed && nearStand;
+      if (engine.state == Protocol::EngineState::Packed && body != state.squads.end() && !nearStand &&
           (body->order != Protocol::SquadOrder::Move || body->goalVoxels != at))
       {
         _commands.emplace_back(Protocol::MoveSquad{.squad = body->id, .goalVoxels = at});
@@ -390,8 +390,8 @@ void SiegeAttacker::Decide(CommanderView& _view, std::vector<Protocol::Command>&
   const Protocol::UnitView* threat = nullptr;
   for (const Protocol::EngineView* engine : engines)
   {
-    const Protocol::UnitView* near = nearestEnemy(engine->cellVoxels, ESCORT_REACH_CELLS);
-    threat = threat == nullptr ? near : threat;
+    const Protocol::UnitView* enemy = nearestEnemy(engine->cellVoxels, ESCORT_REACH_CELLS);
+    threat = threat == nullptr ? enemy : threat;
   }
   const bool moving = m_phase == Phase::ToWaypoint || m_phase == Phase::ToFirstStand || m_phase == Phase::ToSecondStand;
   const Protocol::VoxelPosition guarded = moving && !engines.empty() ? engines.front()->cellVoxels : stand;
@@ -477,12 +477,12 @@ void SiegeAttacker::Decide(CommanderView& _view, std::vector<Protocol::Command>&
                                   .yVoxels = castle.groundY,
                                   .zVoxels = castle.farEndZ + (beyond * HOLD_OUT_CELLS)}};
         const Protocol::VoxelPosition corner = corners.at(m_sweep % corners.size());
-        const Protocol::UnitView* near = nearestEnemy(lead->cellVoxels, SWEEP_REACH_CELLS);
-        if (near != nullptr)
+        const Protocol::UnitView* enemy = nearestEnemy(lead->cellVoxels, SWEEP_REACH_CELLS);
+        if (enemy != nullptr)
         {
-          if (squad.order != Protocol::SquadOrder::Attack || squad.target != near->squad)
+          if (squad.order != Protocol::SquadOrder::Attack || squad.target != enemy->squad)
           {
-            _commands.emplace_back(Protocol::AttackTarget{.squad = squad.id, .target = near->squad});
+            _commands.emplace_back(Protocol::AttackTarget{.squad = squad.id, .target = enemy->squad});
           }
         }
         else if (DistanceSquared(lead->cellVoxels, corner) <= SWEEP_ARRIVED_CELLS * SWEEP_ARRIVED_CELLS)
@@ -500,12 +500,12 @@ void SiegeAttacker::Decide(CommanderView& _view, std::vector<Protocol::Command>&
                                          .zVoxels = castle.farEndZ + (beyond * (HOLD_OUT_CELLS - (index / HOLD_PLACES)))};
       const bool there = std::abs(lead->cellVoxels.xVoxels - goal.xVoxels) <= HOLD_SPACING_CELLS &&
                          std::abs(lead->cellVoxels.zVoxels - goal.zVoxels) <= HOLD_SPACING_CELLS;
-      const Protocol::UnitView* near = there ? nearestEnemy(lead->cellVoxels, HUNT_REACH_CELLS) : nullptr;
-      if (near != nullptr)
+      const Protocol::UnitView* enemy = there ? nearestEnemy(lead->cellVoxels, HUNT_REACH_CELLS) : nullptr;
+      if (enemy != nullptr)
       {
-        if (squad.order != Protocol::SquadOrder::Attack || squad.target != near->squad)
+        if (squad.order != Protocol::SquadOrder::Attack || squad.target != enemy->squad)
         {
-          _commands.emplace_back(Protocol::AttackTarget{.squad = squad.id, .target = near->squad});
+          _commands.emplace_back(Protocol::AttackTarget{.squad = squad.id, .target = enemy->squad});
         }
       }
       else if (there && squad.order != Protocol::SquadOrder::Hold)
