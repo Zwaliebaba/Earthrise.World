@@ -67,14 +67,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
 
     env:
       CONFIGURATION: Debug
       PLATFORM: x64
       # One list a named shard, ';' between shards and spaces between classes, in the order of the matrix's first
-      # shards. At M4-F3 these three took 17 of the 26 minutes.
-      SHARD_CLASSES: SiegeDefenderTests TrenchTests BreachLabTests
+      # shards. In one shard these three took 25 minutes of tests, a 28-minute job, on the run of 2026-11-02 that
+      # first sharded them; the last shard took 15.
+      SHARD_CLASSES: SiegeDefenderTests;TrenchTests BreachLabTests
 
     steps:
       - uses: actions/checkout@v4
