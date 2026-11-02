@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include "Hud.h"
 #include "LabModel.h"
 
 #include <set>
@@ -14,15 +15,17 @@ namespace ClientTests
 namespace
 {
 
-/// P0 and L01 to L16, each asking _shots shots.
-std::vector<Client::LabItemSpec> Items(std::uint32_t _shots)
+/// P0, set up by one shot and asking one, and L01 to L16, each set up by _priorShots and asking _shots.
+std::vector<Client::LabItemSpec> Items(std::uint32_t _shots, std::uint32_t _priorShots = 0)
 {
   std::vector<Client::LabItemSpec> items;
-  items.push_back({.id = "P0", .shotsAsked = 1, .markVoxels = {380, 9, 180}});
+  items.push_back({.id = "P0", .shotsAsked = 1, .markVoxels = {380, 9, 180}, .priorShots = 1});
   for (std::uint32_t index = 1; index <= 16; ++index)
   {
-    items.push_back(
-      {.id = std::format("L{:02}", index), .shotsAsked = _shots, .markVoxels = {378 + static_cast<std::int32_t>(index % 5), 9, 180}});
+    items.push_back({.id = std::format("L{:02}", index),
+                     .shotsAsked = _shots,
+                     .markVoxels = {378 + static_cast<std::int32_t>(index % 5), 9, 180},
+                     .priorShots = _priorShots});
   }
   return items;
 }
@@ -95,9 +98,10 @@ public:
   {
     Client::LabModel lab(Items(3), 1);
     Assert::AreEqual(std::string("FREE FIRE · 1:59 LEFT"), lab.Mode(20).banner);
+    Assert::AreEqual(std::string("CLICK THE TREBUCHET · F TO FIRE"), lab.Mode(20).hint);
     Assert::IsFalse(lab.Objective().has_value());
     lab.FreeFireTicked(Client::LabModel::FREE_FIRE_TICKS);
-    Assert::AreEqual(std::string("WATCH"), lab.Mode(0).banner);
+    Assert::AreEqual(std::string("SETTING UP THE PRACTICE ITEM · 1 SHOT · 10×"), lab.Mode(0).banner);
     Assert::AreEqual(std::string("PRACTICE"), lab.Objective().value_or(Client::HudObjective{}).title);
     lab.PriorShotsDone(1.0);
     Assert::AreEqual(std::string("WILL W2 BE OPEN TO FOOT AFTER 1 SHOT AT THE MARK?"), lab.Mode(0).banner);
@@ -118,6 +122,147 @@ public:
     Assert::AreEqual(std::string("SHUT · H"), mode.buttons.at(1).label);
     // The item is the third of the participant's order after the practice item.
     Assert::AreEqual(std::string("L14"), lab.Current()->id);
+  }
+
+  TEST_METHOD(SaysWhatRunsAtTenTimesWhileTheShotsRun)
+  {
+    // M3-H2: the banner names the item, the shots that set it up and the speed, then the shots the question asks.
+    Client::LabModel lab(Items(2, 3), 1);
+    lab.FreeFireTicked(Client::LabModel::FREE_FIRE_TICKS);
+    RunItem(lab, Client::LabAnswer::Open); // the practice item
+    RunItem(lab, Client::LabAnswer::Open); // item 1
+    const Client::HudMode watching = lab.Mode(0);
+    Assert::AreEqual(std::string("SETTING UP ITEM 2 · 3 SHOTS · 10×"), watching.banner);
+    Assert::IsTrue(watching.buttons.empty());
+    lab.PriorShotsDone(20.0);
+    Assert::IsTrue(lab.Answer(Client::LabAnswer::Shut, 21.0, true, false));
+    Assert::AreEqual(std::string("2 SHOTS AT THE MARK · 10×"), lab.Mode(0).banner);
+    // An item with nothing to set it up says so with no shot count.
+    Client::LabModel bare(Items(1, 0), 1);
+    bare.FreeFireTicked(Client::LabModel::FREE_FIRE_TICKS);
+    RunItem(bare, Client::LabAnswer::Open);
+    Assert::AreEqual(std::string("SETTING UP ITEM 1 · 10×"), bare.Mode(0).banner);
+    bare.PriorShotsDone(1.0);
+    Assert::IsTrue(bare.Answer(Client::LabAnswer::Open, 2.0, true, false));
+    Assert::AreEqual(std::string("1 SHOT AT THE MARK · 10×"), bare.Mode(0).banner);
+  }
+
+  TEST_METHOD(ShowsTheAskedShotsInTheTopBarAndNothingElseInAnItem)
+  {
+    // M3-H4: free fire has the breach run's TIME and SHOTS; an item has SHOTS AT THE MARK k OF N while the asked shots
+    // run and at the result, and nothing while the prior shots run or the question is up.
+    Client::LabModel lab(Items(2, 3), 1);
+    const std::vector<Client::HudResource> freeFire = lab.Resources(1200, 4, 0);
+    Assert::AreEqual(std::size_t{2}, freeFire.size());
+    Assert::AreEqual(std::string("TIME"), freeFire.at(0).key);
+    Assert::AreEqual(std::string("1:00"), freeFire.at(0).value);
+    Assert::AreEqual(std::string("SHOTS"), freeFire.at(1).key);
+    Assert::AreEqual(std::string("4"), freeFire.at(1).value);
+    lab.FreeFireTicked(Client::LabModel::FREE_FIRE_TICKS);
+    RunItem(lab, Client::LabAnswer::Open); // the practice item
+    Assert::IsTrue(lab.Phase() == Client::LabPhase::Watching);
+    Assert::IsTrue(lab.Resources(100, 2, 2).empty()); // the prior shots' count is the banner's
+    lab.PriorShotsDone(10.0);
+    Assert::IsTrue(lab.Resources(200, 3, 3).empty());
+    Assert::IsTrue(lab.Answer(Client::LabAnswer::Open, 11.0, true, false));
+    const std::vector<Client::HudResource> shooting = lab.Resources(210, 4, 1);
+    Assert::AreEqual(std::size_t{1}, shooting.size());
+    Assert::AreEqual(std::string("SHOTS AT THE MARK"), shooting.at(0).key);
+    Assert::AreEqual(std::string("1 OF 2"), shooting.at(0).value);
+    lab.AskedShotsDone(true);
+    Assert::AreEqual(std::string("2 OF 2"), lab.Resources(300, 5, 2).at(0).value);
+  }
+
+  TEST_METHOD(FitsTheQuestionsBannerWithTheViewsKeysAtEverySize)
+  {
+    // M3-H4: the question names F1 F2 VIEWS after its two buttons, in one row or two, and every string of the lab's
+    // top bar and banner fits its element at the owner's sizes, nothing over anything.
+    Client::LabModel lab(Items(5), 1);
+    lab.FreeFireTicked(Client::LabModel::FREE_FIRE_TICKS);
+    RunItem(lab, Client::LabAnswer::Open);
+    lab.PriorShotsDone(1.0);
+    const Client::HudMode mode = lab.Mode(0);
+    Assert::AreEqual(std::string("F1 F2 VIEWS"), mode.hint);
+    const Client::HudModel model{.resources = lab.Resources(0, 0, 0),
+                                 .objective = lab.Objective().value_or(Client::HudObjective{}),
+                                 .mode = mode,
+                                 .alerts = {},
+                                 .selectedEngine = Protocol::NO_ENTITY,
+                                 .integrityView = true,
+                                 .passabilityView = false};
+    for (const float scale : {1.0F, 1.5F, 2.0F})
+    {
+      for (const std::uint32_t width : {1280U, 1920U})
+      {
+        Client::Hud hud;
+        std::vector<Client::ScreenQuad> quads;
+        hud.Build(model, width, width * 9 / 16, scale, quads);
+        const std::span<const Client::HudText> texts = hud.Texts();
+        // The camera buttons' four, the objective, and the banner's text, two buttons and hint.
+        Assert::AreEqual(std::size_t{4 + 1 + 4}, texts.size());
+        const Client::PixelRect screen{0, 0, static_cast<std::int32_t>(width), 720};
+        for (std::size_t index = 0; index < texts.size(); ++index)
+        {
+          Assert::IsTrue(texts[index].cell.Inside(texts[index].element));
+          Assert::IsTrue(texts[index].element.Inside(screen));
+          for (std::size_t other = index + 1; other < texts.size(); ++other)
+          {
+            Assert::IsFalse(texts[index].cell.Overlaps(texts[other].cell));
+          }
+        }
+      }
+    }
+  }
+
+  TEST_METHOD(SelectsInFreeFireAloneAndDropsTheHintOnceSelected)
+  {
+    // M3-H3: a click selects the trebuchet in free fire, and free fire's banner says so until it first does; in an
+    // item the lab fires, and selection is off from the prior shots to the result.
+    Client::LabModel lab(Items(2), 1);
+    Assert::IsTrue(lab.SelectionAllowed());
+    Assert::IsFalse(lab.Mode(0).hint.empty());
+    lab.Selected();
+    Assert::IsTrue(lab.Mode(0).hint.empty());
+    lab.FreeFireTicked(Client::LabModel::FREE_FIRE_TICKS);
+    Assert::IsFalse(lab.SelectionAllowed()); // the prior shots
+    lab.PriorShotsDone(1.0);
+    Assert::IsFalse(lab.SelectionAllowed()); // the question
+    Assert::IsTrue(lab.Answer(Client::LabAnswer::Open, 2.0, true, false));
+    Assert::IsFalse(lab.SelectionAllowed()); // the asked shots
+    lab.AskedShotsDone(true);
+    Assert::IsFalse(lab.SelectionAllowed()); // the result
+  }
+
+  TEST_METHOD(FitsFreeFiresBannerWithItsHintAtEverySize)
+  {
+    Client::LabModel lab(Items(2), 1);
+    const Client::HudModel model{.resources = lab.Resources(20, 0, 0),
+                                 .objective = {.title = "BREACH W2", .detail = "OPEN IT TO FOOT", .detailOff = false},
+                                 .mode = lab.Mode(20),
+                                 .alerts = {},
+                                 .selectedEngine = Protocol::NO_ENTITY,
+                                 .integrityView = true,
+                                 .passabilityView = false};
+    for (const float scale : {1.0F, 1.5F, 2.0F})
+    {
+      for (const std::uint32_t width : {1280U, 1920U})
+      {
+        Client::Hud hud;
+        std::vector<Client::ScreenQuad> quads;
+        hud.Build(model, width, width * 9 / 16, scale, quads);
+        const Client::PixelRect screen{0, 0, static_cast<std::int32_t>(width), static_cast<std::int32_t>(width * 9 / 16)};
+        const std::span<const Client::HudText> texts = hud.Texts();
+        for (std::size_t index = 0; index < texts.size(); ++index)
+        {
+          Assert::IsTrue(texts[index].cell.Inside(texts[index].element));
+          Assert::IsTrue(texts[index].element.Inside(screen));
+          for (std::size_t other = index + 1; other < texts.size(); ++other)
+          {
+            Assert::IsFalse(texts[index].cell.Overlaps(texts[other].cell));
+          }
+        }
+      }
+    }
   }
 
   TEST_METHOD(WritesAnAnsweredItemsRowWithEveryColumn)

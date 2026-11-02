@@ -126,30 +126,30 @@ public:
     // rebuilds only the first tile, so only the first searches again, and goes round it.
     constexpr std::int32_t WIDE = 128;
     Simulation::World world(FlatWorld::Desc(4, 2));
-    const Protocol::EntityId near = Order(world, Cell(5, 5), Cell(25, 25));
-    const Protocol::EntityId far = Order(world, Cell(100, 5), Cell(120, 25));
+    const Protocol::EntityId nearSquad = Order(world, Cell(5, 5), Cell(25, 25));
+    const Protocol::EntityId farSquad = Order(world, Cell(100, 5), Cell(120, 25));
     RunUntilFound(world);
-    Assert::IsTrue(std::ranges::contains(world.Squads().at(near).path, Index(15, 15, WIDE)));
-    const std::vector<std::int64_t> farPath = world.Squads().at(far).path;
+    Assert::IsTrue(std::ranges::contains(world.Squads().at(nearSquad).path, Index(15, 15, WIDE)));
+    const std::vector<std::int64_t> farPath = world.Squads().at(farSquad).path;
 
     Fill(world, Cell(15, 15), {.xVoxels = 15, .yVoxels = WALL_HIGH, .zVoxels = 15}, MASONRY);
     world.Tick();
-    Assert::IsTrue(Searching(world, near));
-    Assert::IsFalse(Searching(world, far));
+    Assert::IsTrue(Searching(world, nearSquad));
+    Assert::IsFalse(Searching(world, farSquad));
     RunUntilFound(world);
-    const Simulation::Squad& found = world.Squads().at(near);
+    const Simulation::Squad& found = world.Squads().at(nearSquad);
     Assert::IsFalse(found.shortOfGoal);
     Assert::AreEqual(Index(25, 25, WIDE), found.path.back());
     Assert::IsFalse(std::ranges::contains(found.path, Index(15, 15, WIDE)));
-    Assert::IsTrue(farPath == world.Squads().at(far).path);
+    Assert::IsTrue(farPath == world.Squads().at(farSquad).path);
   }
 
   TEST_METHOD(StartsASearchNotDoneAgainAfterARebuild)
   {
     // At 5 nodes a tick the search is still going when a pillar rises far from it; it starts again,
     // asked for in the tick of the rebuild.
-    const Simulation::ServerData small = BakedServerDataWith("pathNodesPerTick", 5);
-    Simulation::World world(FlatWorld::Desc(2, 2, &small));
+    const Simulation::ServerData fiveNodesATick = BakedServerDataWith("pathNodesPerTick", 5);
+    Simulation::World world(FlatWorld::Desc(2, 2, &fiveNodesATick));
     const Protocol::EntityId squad = Order(world, Cell(3, 3), Cell(50, 40));
     world.Tick();
     world.Tick();

@@ -145,8 +145,8 @@ public:
     const Protocol::EntityId squad = Order(whole, Cell(3, 60), Cell(60, 4));
     RunUntilFound(whole);
 
-    const Simulation::ServerData small = BakedServerDataWith("pathNodesPerTick", 7);
-    Simulation::World split(FlatWorld::Desc(2, 2, &small));
+    const Simulation::ServerData sevenNodesATick = BakedServerDataWith("pathNodesPerTick", 7);
+    Simulation::World split(FlatWorld::Desc(2, 2, &sevenNodesATick));
     Fill(split, Cell(30, 10), {.xVoxels = 31, .yVoxels = GROUND + 3, .zVoxels = 55}, MASONRY);
     split.Tick();
     static_cast<void>(Order(split, Cell(3, 60), Cell(60, 4)));
@@ -175,15 +175,15 @@ public:
 
   TEST_METHOD(ContinuesASearchFromASave)
   {
-    const Simulation::ServerData small = BakedServerDataWith("pathNodesPerTick", 5);
-    Simulation::World straight(FlatWorld::Desc(2, 2, &small));
+    const Simulation::ServerData fiveNodesATick = BakedServerDataWith("pathNodesPerTick", 5);
+    Simulation::World straight(FlatWorld::Desc(2, 2, &fiveNodesATick));
     const Protocol::EntityId squad = Order(straight, Cell(3, 3), Cell(50, 40));
     for (std::uint32_t tick = 0; tick < 4; ++tick)
     {
       straight.Tick();
     }
     Assert::IsFalse(straight.Searches().empty());
-    Simulation::World loaded = Simulation::LoadSave(Simulation::WriteSave(straight), FlatWorld::Desc(2, 2, &small));
+    Simulation::World loaded = Simulation::LoadSave(Simulation::WriteSave(straight), FlatWorld::Desc(2, 2, &fiveNodesATick));
     Assert::AreEqual(Simulation::StateHash(straight), Simulation::StateHash(loaded));
     RunUntilFound(straight);
     RunUntilFound(loaded);

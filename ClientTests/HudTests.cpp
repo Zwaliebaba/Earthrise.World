@@ -4,6 +4,7 @@
 #include "Hud.h"
 #include "HudAlerts.h"
 #include "HudModel.h"
+#include "Look.h"
 #include "Strings.h"
 #include "UiScale.h"
 
@@ -74,7 +75,7 @@ public:
     {
       Client::Hud hud;
       std::vector<Client::ScreenQuad> quads;
-      hud.Build(WidestModel(), 1280, scale, quads);
+      hud.Build(WidestModel(), 1280, 720, scale, quads);
       const std::vector<Client::HudTarget> targets = CameraTargets(hud);
       Assert::AreEqual(CAMERA_BUTTONS.size(), targets.size());
       for (std::size_t index = 0; index < targets.size(); ++index)
@@ -97,7 +98,7 @@ public:
   {
     Client::Hud hud;
     std::vector<Client::ScreenQuad> quads;
-    hud.Build(WidestModel(), 1280, 1.0F, quads);
+    hud.Build(WidestModel(), 1280, 720, 1.0F, quads);
     for (const Client::HudTarget& target : CameraTargets(hud))
     {
       // Its corners, inside the 44 x 44 target though outside the 36 x 36 button.
@@ -151,7 +152,7 @@ public:
     model.alerts.push_back(Alert("A FOURTH", "", true));
     Client::Hud hud;
     std::vector<Client::ScreenQuad> quads;
-    hud.Build(model, 1280, 1.0F, quads);
+    hud.Build(model, 1280, 720, 1.0F, quads);
     Assert::AreEqual(std::ptrdiff_t{2}, std::ranges::count(hud.Targets(), Client::HudControl::Jump, &Client::HudTarget::control));
   }
 
@@ -168,7 +169,7 @@ public:
       {
         Client::Hud hud;
         std::vector<Client::ScreenQuad> quads;
-        hud.Build(WidestModel(), width, scale, quads);
+        hud.Build(WidestModel(), width, width * 9 / 16, scale, quads);
         const std::span<const Client::HudText> texts = hud.Texts();
         const bool detailFits = !(scale == 2.0F && width == 1280);
         Assert::AreEqual(detailFits ? ALL_TEXTS : ALL_TEXTS - 1, texts.size());
@@ -213,7 +214,7 @@ public:
       {
         Client::Hud hud;
         std::vector<Client::ScreenQuad> quads;
-        hud.Build(model, width, scale, quads);
+        hud.Build(model, width, width * 9 / 16, scale, quads);
         const std::span<const Client::HudTarget> targets = hud.Targets();
         const auto open = std::ranges::find(targets, Client::HudControl::AnswerOpen, &Client::HudTarget::control);
         const auto shut = std::ranges::find(targets, Client::HudControl::AnswerShut, &Client::HudTarget::control);
@@ -239,6 +240,139 @@ public:
         if (width == 1280 && scale == 2.0F)
         {
           Assert::IsTrue(stacked);
+        }
+      }
+    }
+  }
+
+  TEST_METHOD(CentersAButtonlessBannersTextAndTheObjectiveOnTheScreen)
+  {
+    // M3-H2: with no button after it, the banner's text has as much room on its right as on its left, and the
+    // objective's middle is the screen's, at the owner's two widths and every scale. The lab's two longest banners: the
+    // practice item has no prior shots, and an item has at most 4.
+    Client::HudModel model = WidestModel();
+    model.alerts.clear();
+    model.objective = {.title = std::format(Client::ITEM_OBJECTIVE, 16, 16), .detail = "", .detailOff = false};
+    for (const std::string_view text : {"SETTING UP THE PRACTICE ITEM · 10×", "SETTING UP ITEM 16 · 4 SHOTS · 10×"})
+    {
+      model.mode = {.command = "WATCH", .banner = std::string(text), .buttons = {}};
+      for (const float scale : SCALES)
+      {
+        for (const std::uint32_t width : WIDTHS_PIXELS)
+        {
+          Client::Hud hud;
+          std::vector<Client::ScreenQuad> quads;
+          hud.Build(model, width, width * 9 / 16, scale, quads);
+          const std::int32_t barHeight = Client::ScaledPixels(56.0F, scale);
+          std::vector<Client::HudText> banner;
+          std::ranges::copy_if(hud.Texts(), std::back_inserter(banner),
+                               [barHeight](const Client::HudText& _text) { return _text.cell.yPixels >= barHeight; });
+          Assert::AreEqual(std::size_t{1}, banner.size());
+          const Client::PixelRect& cell = banner.front().cell;
+          const Client::PixelRect& inside = banner.front().element;
+          const std::int32_t left = cell.xPixels - inside.xPixels;
+          const std::int32_t right = (inside.xPixels + inside.widthPixels) - (cell.xPixels + cell.widthPixels);
+          Assert::AreEqual(left, right);
+          Assert::IsTrue(cell.Inside(inside));
+          Assert::IsTrue(inside.Inside({0, 0, static_cast<std::int32_t>(width), 1080}));
+          Assert::IsTrue(std::abs((2 * inside.xPixels) + inside.widthPixels - static_cast<std::int32_t>(width)) <= 1);
+          // The objective's title is laid after the camera buttons' four labels and the two resources' four strings.
+          const Client::PixelRect& title = hud.Texts()[8].cell;
+          Assert::IsTrue(std::abs((2 * title.xPixels) + title.widthPixels - static_cast<std::int32_t>(width)) <= 1);
+        }
+      }
+    }
+  }
+
+  TEST_METHOD(DocksTheReadoutAndLeavesOutAnAlertThatWouldMeetIt)
+  {
+    // M3-H1: the readout in the bottom-left corner, as wide as its longest row, under the alerts. At 1280 x 720 and a UI
+    // scale of 2 the third alert would reach it and is left out; the readout itself lays out at a scale of 1 there, no
+    // taller than READOUT_HEIGHT_FRACTION of the screen.
+    Client::HudModel model = WidestModel();
+    model.readout = Client::HudReadout{
+      .title = "W2",
+      .rows = {
+        {.key = "HOLE", .value = "4 m · falls at 5 m", .srgb = Client::TEXT_SRGB, .flashing = true, .fill = 0.8F},
+        {.key = "OPENING", .value = "stone 1 m up 4 m · no footing", .srgb = Client::TEXT_SRGB, .flashing = false, .fill = std::nullopt},
+        {.key = "GAP", .value = "4 m · falls at 5 m", .srgb = Client::TEXT_SRGB, .flashing = false, .fill = 0.8F},
+        {.key = "GROUND", .value = "earth · can be undermined", .srgb = Client::BAD_SRGB, .flashing = false, .fill = std::nullopt},
+        {.key = "FALLS", .value = "", .srgb = Client::BAD_SRGB, .flashing = false, .fill = std::nullopt}}};
+    constexpr std::size_t HUD_TEXTS = 4 + 2 + 4 + 2 + 3 + 2 + 2; // as FitsEveryLabelInItsElementAtEveryScale counts them
+    constexpr std::size_t READOUT_TEXTS = 1 + (4 * 2) + 1;       // the title, four keys and values, and FALLS alone
+    for (const float scale : SCALES)
+    {
+      for (const std::uint32_t width : WIDTHS_PIXELS)
+      {
+        const std::uint32_t height = width * 9 / 16;
+        Client::Hud hud;
+        std::vector<Client::ScreenQuad> quads;
+        hud.Build(model, width, height, scale, quads);
+        const Client::PixelRect screen{0, 0, static_cast<std::int32_t>(width), static_cast<std::int32_t>(height)};
+        const Client::PixelRect readout = hud.Readout().value_or(Client::PixelRect{});
+        Assert::IsTrue(readout.widthPixels > 0 && readout.Inside(screen));
+        Assert::AreEqual(Client::ScaledPixels(8.0F, scale), readout.xPixels);
+        Assert::AreEqual(static_cast<std::int32_t>(height) - Client::ScaledPixels(8.0F, scale), readout.yPixels + readout.heightPixels);
+        Assert::IsTrue(static_cast<float>(readout.heightPixels) <= Client::Hud::READOUT_HEIGHT_FRACTION * static_cast<float>(height));
+        Assert::IsTrue(hud.Covers(readout.xPixels + 1, readout.yPixels + 1));
+        const bool cramped = width == 1280 && scale == 2.0F;
+        Assert::AreEqual(HUD_TEXTS + READOUT_TEXTS - (cramped ? 1 + 2 : 0), hud.Texts().size()); // the detail and the third alert
+        const std::span<const Client::HudText> texts = hud.Texts();
+        for (std::size_t index = 0; index < texts.size(); ++index)
+        {
+          Assert::IsTrue(texts[index].cell.Inside(texts[index].element));
+          Assert::IsTrue(texts[index].element.Inside(screen));
+          for (std::size_t other = index + 1; other < texts.size(); ++other)
+          {
+            Assert::IsFalse(texts[index].cell.Overlaps(texts[other].cell));
+          }
+        }
+      }
+    }
+  }
+
+  TEST_METHOD(FitsTheSelectionsChipBesideTheResourcesAtEverySize)
+  {
+    // M3-H3: TREBUCHET with RELOADING, the wider detail, in a chip after the widest resources. Where the detail would
+    // reach the camera buttons the chip has its name alone, and the objective gives way before either.
+    Client::HudModel model = WidestModel();
+    model.alerts.clear();
+    model.selection =
+      Client::HudSelection{.name = std::string(Client::TREBUCHET_NAME), .detail = std::string(Client::RELOADING_DETAIL), .detailOff = true};
+    for (const float scale : SCALES)
+    {
+      for (const std::uint32_t width : WIDTHS_PIXELS)
+      {
+        Client::Hud hud;
+        std::vector<Client::ScreenQuad> quads;
+        hud.Build(model, width, width * 9 / 16, scale, quads);
+        const std::span<const Client::HudText> texts = hud.Texts();
+        // The camera buttons' four labels and the resources' four strings, then the chip's name.
+        Assert::IsTrue(texts.size() > 9);
+        const Client::HudText& name = texts[8];
+        const Client::HudText& lastResource = texts[7];
+        Assert::IsTrue(name.cell.xPixels > lastResource.cell.xPixels + lastResource.cell.widthPixels);
+        Assert::IsTrue(name.element.yPixels > 0 && name.element.yPixels + name.element.heightPixels < Client::ScaledPixels(44.0F, scale));
+        const Client::HudText& next = texts[9];
+        const bool withDetail = next.element.xPixels == name.element.xPixels && next.element.widthPixels == name.element.widthPixels;
+        if (width == 1920 || scale == 1.0F)
+        {
+          Assert::IsTrue(withDetail);
+        }
+        const Client::PixelRect screen{0, 0, static_cast<std::int32_t>(width), static_cast<std::int32_t>(width * 9 / 16)};
+        for (std::size_t index = 0; index < texts.size(); ++index)
+        {
+          Assert::IsTrue(texts[index].cell.Inside(texts[index].element));
+          Assert::IsTrue(texts[index].element.Inside(screen));
+          for (std::size_t other = index + 1; other < texts.size(); ++other)
+          {
+            Assert::IsFalse(texts[index].cell.Overlaps(texts[other].cell));
+          }
+        }
+        // The chip never runs under a camera button's target.
+        for (const Client::HudTarget& target : CameraTargets(hud))
+        {
+          Assert::IsFalse(name.element.Overlaps(target.rect));
         }
       }
     }

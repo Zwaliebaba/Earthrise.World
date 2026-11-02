@@ -5,9 +5,9 @@
 #include "ChunkSnapshot.h"
 #include "EntityId.h"
 #include "HudAlerts.h"
+#include "HudModel.h"
 #include "OverlayBox.h"
 #include "Query.h"
-#include "ScreenQuad.h"
 #include "Session.h"
 #include "StateUpdate.h"
 
@@ -17,41 +17,38 @@
 #include <set>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 namespace Client
 {
 
-/// A row of a section's integrity label: its text, a KEY and its value, and its colour.
+/// A row of a section's integrity reading: its text, a KEY and its value, and its colour.
 struct IntegrityRow
 {
   std::string text;
   std::uint32_t srgb;
 };
 
-/// Where a label is drawn, and what it shows, for the test that it stays on screen.
-struct PlacedLabel
-{
-  Protocol::EntityId structure;
-  std::int32_t xPixels;
-  std::int32_t yPixels;
-  std::int32_t widthPixels;
-  std::int32_t heightPixels;
-  bool nameOnly; // its rows would have covered a nearer label
-};
-
 /// A navigation tile, 32 x 32 cells: one chunk column (ADR-015).
 using Tile = std::pair<std::int32_t, std::int32_t>;
 
 /// The readability views, built from what the session was told (ADR-021, decisions 3 and 4): the collapse preview and
-/// its alerts (M3-F1), the integrity view (M3-F2) and the passability view (M3-F3). The views are boxes for the overlay pipeline and labels for the
-/// interface pass; the alerts are the HUD's, and they are raised whether or not a view is on.
+/// its alerts (M3-F1), the integrity view (M3-F2, and its readout, M3-H1) and the passability view (M3-F3). The views
+/// are boxes for the overlay pipeline and the readout for the HUD; the alerts are the HUD's, and they are raised whether
+/// or not a view is on.
 class Overlays
 {
 public:
+  /// How long a reading's row that changed shows in accent.
+  static constexpr double FLASH_SECONDS = 2.0;
+  /// The section the readout shows by default: the one M3's banners, questions and objective name.
+  static constexpr std::string_view TARGET_NAME = "W2";
+
   /// Reads the session's state for the frame at _nowSeconds: raises each collapse's alert, W2 WILL FALL IN n S while it
-  /// is in warning, counting down, and W2 HAS FALLEN once it falls, both urgent and at the piece.
+  /// is in warning, counting down, and W2 HAS FALLEN once it falls, both urgent and at the piece; and notes each row of
+  /// each reading that changed, which the readout flashes for FLASH_SECONDS. A section's first reading flashes nothing.
   void Update(const Session& _session, double _nowSeconds, HudAlerts& _alerts);
 
   /// While _integrityView is on, asks each structure's integrity: the first time, when the view is turned on, when a
@@ -63,14 +60,20 @@ public:
   /// point has its box in accent.
   [[nodiscard]] std::vector<OverlayLayer> Layers(const Session& _session, double _seconds, bool _integrityView) const;
 
-  /// While _integrityView is on, lays each section's label above its middle, on a target _widthPixels by _heightPixels
-  /// whose top _topPixels the top bar covers, at _uiScale: its name at the names' size, then its rows at the labels'.
-  /// Only a section whose anchor is on screen has one, kept inside the screen below the top bar. Labels are placed
-  /// nearest the camera first, and one whose rows would cover a nearer one shows its name alone, or nothing when even
-  /// that would. Returns where each went.
-  std::vector<PlacedLabel> LayLabels(const Session& _session, const DirectX::XMFLOAT4X4& _viewProjection, std::uint32_t _widthPixels,
-                                     std::uint32_t _heightPixels, std::int32_t _topPixels, float _uiScale, bool _integrityView,
-                                     std::vector<ScreenQuad>& _quads) const;
+  /// The section under the pointer this frame, or NO_ENTITY: the readout shows it while the pointer is over it.
+  void Hover(Protocol::EntityId _section) noexcept;
+  /// A click in the world: on _section, which the readout then keeps, or on anything else with NO_ENTITY, which lets
+  /// it go back to the target. Esc lets it go too.
+  void Select(Protocol::EntityId _section) noexcept;
+  /// The section the readout shows (M3-H1): the one under the pointer, else the one clicked, else TARGET_NAME's, each
+  /// while the state holds it; NO_ENTITY when there is none.
+  [[nodiscard]] Protocol::EntityId Focused(const Session& _session) const;
+  /// While _integrityView is on, the readout of the focused section at _nowSeconds, once it has a reading: its name, and
+  /// its rows split into KEY and value, HOLE's and GAP's with a bar of their width over their fall width when one falls,
+  /// and those that changed within FLASH_SECONDS flashing.
+  [[nodiscard]] std::optional<HudReadout> Readout(const Session& _session, double _nowSeconds, bool _integrityView) const;
+  /// The section whose box holds _voxels, or NO_ENTITY.
+  [[nodiscard]] static Protocol::EntityId SectionAt(const Protocol::StateUpdate& _state, const Protocol::VoxelPosition& _voxels);
 
   /// Watches _goalVoxels, the courtyard's middle: Update raises BREACH OPEN AT W2 once, the first time its cell reads
   /// reached (M3-F3).
@@ -98,9 +101,20 @@ public:
   [[nodiscard]] static std::string HasFallenText(const Protocol::StateUpdate& _state, const Protocol::CollapseView& _collapse);
 
   /// A reading's rows, in the paper test's words: HOLE, OPENING, GAP and GROUND, and FALLS in bad while it falls.
+  /// GROUND is dim, unless the section can be undermined and a gap lies under it, when it is bad (M3-H1).
   [[nodiscard]] static std::vector<IntegrityRow> IntegrityRows(const Protocol::IntegrityReading& _reading);
 
 private:
+  /// A section's rows as last read, and when each last changed.
+  struct SeenRows
+  {
+    std::vector<std::string> texts;
+    std::vector<double> changedSeconds;
+  };
+
+  Protocol::EntityId m_hovered = Protocol::NO_ENTITY;
+  Protocol::EntityId m_selected = Protocol::NO_ENTITY;
+  std::map<Protocol::EntityId, SeenRows> m_seenRows;
   bool m_integrityAsked = false;                                                      // the view was on at the last Ask
   std::set<Protocol::EntityId> m_asked;                                               // structures asked about since
   std::map<Protocol::EntityId, std::pair<Protocol::EntityId, bool>> m_collapsePhases; // collapse: its structure, in warning

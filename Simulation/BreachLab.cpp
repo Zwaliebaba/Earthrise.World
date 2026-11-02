@@ -286,6 +286,11 @@ bool LabShots::TimedOut() const noexcept
   return m_timedOut;
 }
 
+std::size_t LabShots::Fired() const noexcept
+{
+  return m_fired;
+}
+
 bool CourtyardOpen(const World& _world, const LabSetup& _setup)
 {
   const NavigationGrid& navigation = _world.Navigation();

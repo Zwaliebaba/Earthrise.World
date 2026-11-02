@@ -8,7 +8,7 @@
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
-// Picking in the world as the client was told it (M3-E3; Hud.md §5).
+// Picking in the world as the client was told it (M3-E3 and H3; Hud.md §5).
 
 namespace ClientTests
 {
@@ -83,13 +83,18 @@ Engine::PickHit VoxelOf(const Client::WorldPick& _pick)
 TEST_CLASS(WorldPickerTests)
 {
 public:
-  TEST_METHOD(SelectsTheTrebuchetUnderAPixelOverItsFootprint)
+  TEST_METHOD(SelectsTheTrebuchetUnderAPixelOverItsModelsBox)
   {
     Client::WorldPicker picker;
     const Protocol::ChunkSnapshot site = Site();
     picker.TakeSnapshots(std::span(&site, 1));
-    const std::array<Client::EngineFootprint, 1> engines = {
-      {{.engine = TREBUCHET, .xMeters = 4.0F, .zMeters = 6.0F, .widthMeters = 5.0F, .depthMeters = 5.0F, .groundMeters = 2.0F}}};
+    const std::array<Client::EngineBox, 1> engines = {{{.engine = TREBUCHET,
+                                                        .xMeters = 4.0F,
+                                                        .zMeters = 6.0F,
+                                                        .widthMeters = 5.0F,
+                                                        .depthMeters = 5.0F,
+                                                        .groundMeters = 2.0F,
+                                                        .heightMeters = 8.0F}}};
     const DirectX::XMFLOAT4X4 viewProjection = ViewProjection();
 
     const auto [x, y] = PixelOf(viewProjection, 6.5F, 2.0F, 8.5F);
@@ -101,12 +106,44 @@ public:
     Assert::AreEqual(GROUND_VOXELS - 1, ground.cell[1]);
     Assert::IsTrue(ground.face == Engine::VoxelFace::PositiveY);
 
-    // A pixel beside the footprint picks the ground and no engine.
+    // A pixel over the arm, 7 m up: its ray comes down on the ground behind the footprint, and still picks the engine.
+    const auto [armX, armY] = PixelOf(viewProjection, 6.5F, 9.0F, 8.5F);
+    const Client::WorldPick arm =
+      picker.Pick(Client::WorldPicker::RayThrough(viewProjection, armX, armY, WIDTH_PIXELS, HEIGHT_PIXELS), engines);
+    Assert::AreEqual(TREBUCHET, arm.engine);
+    const Engine::PickHit behind = VoxelOf(arm);
+    Assert::AreEqual(GROUND_VOXELS - 1, behind.cell[1]);
+    Assert::IsTrue(behind.cell[0] >= 9 || behind.cell[2] >= 11); // past the footprint's far corner, from the south-west
+
+    // A pixel beside the model picks the ground and no engine.
     const auto [besideX, besideY] = PixelOf(viewProjection, 14.5F, 2.0F, 8.5F);
     const Client::WorldPick beside =
       picker.Pick(Client::WorldPicker::RayThrough(viewProjection, besideX, besideY, WIDTH_PIXELS, HEIGHT_PIXELS), engines);
     Assert::AreEqual(Protocol::NO_ENTITY, beside.engine);
     Assert::IsTrue(beside.voxel.has_value());
+  }
+
+  TEST_METHOD(OutlinesTheFootprintOneCellOutOnTheGround)
+  {
+    // A box from 4.25 to 8.75 along x and 6 to 11 along z covers cells 4 to 8 and 6 to 10; the ring is 3 to 9 and 5 to
+    // 11, on the voxel under its foot.
+    const Client::EngineBox box{.engine = TREBUCHET,
+                                .xMeters = 4.25F,
+                                .zMeters = 6.0F,
+                                .widthMeters = 4.5F,
+                                .depthMeters = 5.0F,
+                                .groundMeters = 2.0F,
+                                .heightMeters = 8.0F};
+    const std::vector<Client::OverlayBox> ring = Client::WorldPicker::Outline(box, Client::OVERLAY_ACCENT_INDEX);
+    Assert::AreEqual(std::size_t{(2 * 7) + (2 * 5)}, ring.size());
+    for (const Client::OverlayBox& cell : ring)
+    {
+      Assert::AreEqual(GROUND_VOXELS - 1, cell.cellVoxels.yVoxels);
+      Assert::AreEqual(Client::OVERLAY_ACCENT_INDEX, cell.paletteIndex);
+      const bool onRing =
+        cell.cellVoxels.xVoxels == 3 || cell.cellVoxels.xVoxels == 9 || cell.cellVoxels.zVoxels == 5 || cell.cellVoxels.zVoxels == 11;
+      Assert::IsTrue(onRing);
+    }
   }
 
   TEST_METHOD(PicksTheWallsVoxelAndFaceUnderAPixelOverIt)
@@ -142,9 +179,14 @@ public:
     Assert::AreEqual(forward.x, ray.direction.x, 1.0e-4F);
     Assert::AreEqual(forward.y, ray.direction.y, 1.0e-4F);
     Assert::AreEqual(forward.z, ray.direction.z, 1.0e-4F);
-    // A wall hides an engine's footprint behind it.
-    const std::array<Client::EngineFootprint, 1> hidden = {
-      {{.engine = TREBUCHET, .xMeters = 10.0F, .zMeters = 21.0F, .widthMeters = 12.0F, .depthMeters = 8.0F, .groundMeters = 2.0F}}};
+    // A wall hides the model of an engine behind it.
+    const std::array<Client::EngineBox, 1> hidden = {{{.engine = TREBUCHET,
+                                                       .xMeters = 10.0F,
+                                                       .zMeters = 21.0F,
+                                                       .widthMeters = 12.0F,
+                                                       .depthMeters = 8.0F,
+                                                       .groundMeters = 2.0F,
+                                                       .heightMeters = 8.0F}}};
     Assert::AreEqual(Protocol::NO_ENTITY, picker.Pick(ray, hidden).engine);
   }
 };

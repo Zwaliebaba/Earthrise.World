@@ -2,6 +2,7 @@
 
 #include "ByteReader.h"
 #include "ByteWriter.h"
+#include "Hud.h"
 #include "HudAlerts.h"
 #include "Look.h"
 #include "OrthographicCamera.h"
@@ -10,7 +11,7 @@
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
-// The readability views and their alerts (M3-F1 to F3; ADR-021, decision 4; Hud.md §10).
+// The readability views and their alerts (M3-F1 to F3 and H1; ADR-021, decision 4; Hud.md §10).
 
 namespace ClientTests
 {
@@ -112,13 +113,6 @@ void AnswerIntegrity(Client::Session& _session, const Protocol::StateUpdate& _st
   _session.Receive(_state, {}, answers);
 }
 
-/// A view-projection that maps world x and y from 0 to 100 m onto the whole target, z ignored, at one depth.
-DirectX::XMFLOAT4X4 FlatProjection()
-{
-  constexpr float SCALE = 1.0F / 50.0F;
-  return {SCALE, 0.0F, 0.0F, 0.0F, 0.0F, SCALE, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -1.0F, -1.0F, 0.5F, 1.0F};
-}
-
 constexpr std::uint8_t PLAYER = 1;
 constexpr Protocol::VoxelPosition GOAL{.xVoxels = 380, .yVoxels = 9, .zVoxels = 190}; // tile (11, 5), cell (28, 30)
 
@@ -211,6 +205,58 @@ Protocol::StructureView Section(Protocol::EntityId _id, Protocol::VoxelPosition 
           .quarterTurns = 0,
           .extentVoxels = _extent,
           .name = "W" + std::to_string(_id)};
+}
+
+/// The lab's W2 and W5, as Simulation::BuildLabSite places them.
+Protocol::StateUpdate LabSections()
+{
+  Protocol::StateUpdate state{};
+  state.structures.push_back(Section(2, {377, 9, 180}, {8, 7, 2}));
+  state.structures.push_back(Section(5, {391, 9, 190}, {2, 7, 8}));
+  return state;
+}
+
+/// The default framing on a target _widthPixels by _heightPixels whose top bar is _topBarPixels high, as Client::Camera
+/// draws it: looking at W2's foot, the look-at point moved down half the top bar.
+DirectX::XMMATRIX DefaultFraming(float _widthPixels, float _heightPixels, float _topBarPixels)
+{
+  const Engine::OrthographicCamera camera({.elevationRadians = DirectX::XMConvertToRadians(Client::ELEVATION_DEGREES),
+                                           .azimuthRadians = DirectX::XMConvertToRadians(Client::AZIMUTH_DEGREES),
+                                           .viewHeightMeters = Client::DEFAULT_VIEW_HEIGHT_METERS,
+                                           .minViewHeightMeters = Client::MIN_VIEW_HEIGHT_METERS,
+                                           .maxViewHeightMeters = Client::MAX_VIEW_HEIGHT_METERS,
+                                           .rotationSeconds = 0.0F,
+                                           .targetMeters = {381.5F, 9.0F, 180.0F}});
+  return DirectX::XMMatrixMultiply(camera.ViewProjection(_widthPixels / _heightPixels),
+                                   DirectX::XMMatrixTranslation(0.0F, -_topBarPixels / _heightPixels, 0.0F));
+}
+
+/// The pixels a structure's box covers on screen: the bounds of its eight corners.
+Client::PixelRect OnScreen(const Protocol::StructureView& _structure, const DirectX::XMMATRIX& _viewProjection, float _widthPixels,
+                           float _heightPixels)
+{
+  float left = std::numeric_limits<float>::max();
+  float top = std::numeric_limits<float>::max();
+  float right = std::numeric_limits<float>::lowest();
+  float bottom = std::numeric_limits<float>::lowest();
+  for (std::uint32_t corner = 0; corner < 8; ++corner)
+  {
+    const auto along = [corner](std::uint32_t _bit, std::int32_t _origin, std::int32_t _extent)
+    { return static_cast<float>((corner & _bit) != 0 ? _origin + _extent : _origin); };
+    const DirectX::XMVECTOR point = DirectX::XMVectorSet(along(1, _structure.originVoxels.xVoxels, _structure.extentVoxels.xVoxels),
+                                                         along(2, _structure.originVoxels.yVoxels, _structure.extentVoxels.yVoxels),
+                                                         along(4, _structure.originVoxels.zVoxels, _structure.extentVoxels.zVoxels), 1.0F);
+    DirectX::XMFLOAT4 clip{};
+    DirectX::XMStoreFloat4(&clip, DirectX::XMVector4Transform(point, _viewProjection));
+    const float x = (clip.x / clip.w + 1.0F) * 0.5F * _widthPixels;
+    const float y = (1.0F - clip.y / clip.w) * 0.5F * _heightPixels;
+    left = std::min(left, x);
+    right = std::max(right, x);
+    top = std::min(top, y);
+    bottom = std::max(bottom, y);
+  }
+  return {static_cast<std::int32_t>(std::floor(left)), static_cast<std::int32_t>(std::floor(top)),
+          static_cast<std::int32_t>(std::ceil(right - std::floor(left))), static_cast<std::int32_t>(std::ceil(bottom - std::floor(top)))};
 }
 
 } // namespace
@@ -317,7 +363,7 @@ public:
     const std::vector<Client::IntegrityRow> rows = Client::Overlays::IntegrityRows(slot);
     Assert::IsTrue(Texts(rows) == std::vector<std::string>{"HOLE 4 m · falls at 5 m", "OPENING ground 1 m · too low", "GAP none",
                                                            "GROUND earth · can be undermined"});
-    Assert::AreEqual(Client::BAD_SRGB, rows.back().srgb);
+    Assert::AreEqual(Client::DIM_SRGB, rows.back().srgb); // no gap under it (M3-H1)
 
     // W05's slit: its floor stone 1 m up, 4 m clear, on rock; a hole that never falls in the section holds.
     Protocol::IntegrityReading slit = Sound(W2);
@@ -330,7 +376,7 @@ public:
     const std::vector<Client::IntegrityRow> slitRows = Client::Overlays::IntegrityRows(slit);
     Assert::IsTrue(Texts(slitRows) == std::vector<std::string>{"HOLE 1 m · holds", "OPENING stone 1 m up 4 m · no footing", "GAP none",
                                                                "GROUND rock · cannot be undermined"});
-    Assert::AreEqual(Client::GOOD_SRGB, slitRows.back().srgb);
+    Assert::AreEqual(Client::DIM_SRGB, slitRows.back().srgb);
 
     // W07's hole, a route now; W10's gap against its fall run; a gap that never falls; and a section falling.
     Protocol::IntegrityReading hole = Sound(W2);
@@ -364,70 +410,180 @@ public:
     }
     Assert::AreEqual(std::size_t{12}, accent); // 3 x 2 x 2, both corners included
 
-    // F1 off: no tint and no label.
+    // F1 off: no tint and no readout.
     for (const Client::OverlayLayer& layer : overlays.Layers(session, 0.0, false))
     {
       Assert::IsTrue(layer.boxes.empty());
     }
-    std::vector<Client::ScreenQuad> quads;
-    const DirectX::XMFLOAT4X4 projection = FlatProjection();
-    Assert::IsTrue(overlays.LayLabels(session, projection, 600, 600, 30, 1.0F, false, quads).empty());
-    Assert::IsTrue(quads.empty());
+    Assert::IsFalse(overlays.Readout(session, 0.0, false).has_value());
   }
 
-  TEST_METHOD(KeepsALabelOnScreenWhenItsAnchorIsNearAnEdge)
+  TEST_METHOD(FocusesW2UntilThePointerIsOverAnotherSectionOrOneIsClicked)
   {
-    // At 1200 px, a world x of 1 m is 12 px from the left and a height of 97 m is 36 px from the top, just under the
-    // top bar's 30; the other's anchor is 24 px from the right and 12 px from the bottom. A label at a UI scale of 2 is
-    // about 820 px wide, as at 1280 px.
-    Protocol::StateUpdate state{};
-    state.structures.push_back(Section(1, {0, 0, 0}, {2, 96, 2}));
-    state.structures.push_back(Section(2, {97, -1, 0}, {2, 1, 2}));
+    const Protocol::StateUpdate state = LabSections();
+    Client::Session session;
+    Tell(session, state);
+    Client::Overlays overlays;
+    Assert::AreEqual(Protocol::EntityId{2}, overlays.Focused(session)); // W2, with the pointer over nothing
+    // The pointer over a voxel of W5's box.
+    overlays.Hover(Client::Overlays::SectionAt(state, {392, 12, 195}));
+    Assert::AreEqual(Protocol::EntityId{5}, overlays.Focused(session));
+    overlays.Hover(Client::Overlays::SectionAt(state, {380, 9, 170})); // the ground south of the wall
+    Assert::AreEqual(Protocol::EntityId{2}, overlays.Focused(session));
+    // W5 clicked keeps it, the pointer over W2 shows W2 while it is there, and a click elsewhere lets W5 go.
+    overlays.Select(5);
+    Assert::AreEqual(Protocol::EntityId{5}, overlays.Focused(session));
+    overlays.Hover(2);
+    Assert::AreEqual(Protocol::EntityId{2}, overlays.Focused(session));
+    overlays.Hover(Protocol::NO_ENTITY);
+    Assert::AreEqual(Protocol::EntityId{5}, overlays.Focused(session));
+    overlays.Select(Protocol::NO_ENTITY);
+    Assert::AreEqual(Protocol::EntityId{2}, overlays.Focused(session));
+    // A section the state no longer holds is not focused.
+    overlays.Select(7);
+    Assert::AreEqual(Protocol::EntityId{2}, overlays.Focused(session));
+  }
+
+  TEST_METHOD(ReadsTheFocusedSectionWithBarsOfItsWidthsOverTheirFallWidths)
+  {
+    const Protocol::StateUpdate state = LabSections();
     Client::Session session;
     Tell(session, state);
     Client::Overlays overlays;
     overlays.Ask(session, {}, true);
-    AnswerIntegrity(session, state, {Sound(1), Sound(2)});
+    Protocol::IntegrityReading w2 = Sound(2);
+    w2.holeWidthVoxels = 2; // falls at 5
+    w2.gapRunVoxels = 0;    // falls at 5
+    Protocol::IntegrityReading w5 = Sound(5);
+    w5.holeWidthVoxels = 1;
+    w5.holeFallWidthVoxels = 0; // a hole that never falls in the section has no bar
+    w5.gapRunVoxels = 6;        // past its fall run: full, in bad
+    AnswerIntegrity(session, state, {w2, w5});
+    Client::HudAlerts alerts;
+    overlays.Update(session, 0.0, alerts);
+    const std::optional<Client::HudReadout> readout = overlays.Readout(session, 0.0, true);
+    Assert::IsTrue(readout.has_value());
+    const Client::HudReadout shown = readout.value_or(Client::HudReadout{});
+    Assert::AreEqual(std::string("W2"), shown.title);
+    Assert::AreEqual(std::size_t{4}, shown.rows.size());
+    Assert::AreEqual(std::string("HOLE"), shown.rows.at(0).key);
+    Assert::AreEqual(std::string("2 m · falls at 5 m"), shown.rows.at(0).value);
+    Assert::AreEqual(0.4F, shown.rows.at(0).fill.value_or(-1.0F));
+    Assert::IsFalse(shown.rows.at(1).fill.has_value()); // OPENING
+    Assert::AreEqual(0.0F, shown.rows.at(2).fill.value_or(-1.0F));
+    Assert::IsFalse(shown.rows.at(3).fill.has_value()); // GROUND
+    overlays.Hover(5);
+    const Client::HudReadout other = overlays.Readout(session, 0.0, true).value_or(Client::HudReadout{});
+    Assert::AreEqual(std::string("W5"), other.title);
+    Assert::IsFalse(other.rows.at(0).fill.has_value());
+    Assert::AreEqual(1.2F, other.rows.at(2).fill.value_or(-1.0F));
+    // F1 off: no readout.
+    Assert::IsFalse(overlays.Readout(session, 0.0, false).has_value());
+  }
+
+  TEST_METHOD(FlashesARowThatChangedAndNoOther)
+  {
+    const Protocol::StateUpdate state = LabSections();
+    Client::Session session;
+    Tell(session, state);
+    Client::Overlays overlays;
+    Client::HudAlerts alerts;
+    overlays.Ask(session, {}, true);
+    AnswerIntegrity(session, state, {Sound(2), Sound(5)});
+    overlays.Update(session, 10.0, alerts);
+    for (const Client::HudReadoutRow& row : overlays.Readout(session, 10.0, true).value_or(Client::HudReadout{}).rows)
+    {
+      Assert::IsFalse(row.flashing); // the first reading flashes nothing
+    }
+    // The next shot widens the hole: the view asks again, and HOLE alone flashes for FLASH_SECONDS.
+    Protocol::IntegrityReading hit = Sound(2);
+    hit.holeWidthVoxels = 3;
+    overlays.Ask(session, {}, false);
+    overlays.Ask(session, {}, true);
+    AnswerIntegrity(session, state, {hit, Sound(5)});
+    overlays.Update(session, 12.0, alerts);
+    const Client::HudReadout flashing = overlays.Readout(session, 13.0, true).value_or(Client::HudReadout{});
+    Assert::AreEqual(std::size_t{4}, flashing.rows.size());
+    Assert::IsTrue(flashing.rows.at(0).flashing);
+    Assert::IsFalse(flashing.rows.at(1).flashing);
+    Assert::IsFalse(flashing.rows.at(2).flashing);
+    Assert::IsFalse(flashing.rows.at(3).flashing);
+    overlays.Update(session, 14.5, alerts);
+    Assert::IsFalse(
+      overlays.Readout(session, 12.0 + Client::Overlays::FLASH_SECONDS, true).value_or(Client::HudReadout{}).rows.at(0).flashing);
+  }
+
+  TEST_METHOD(ReadsGroundDimOnEarthWithNoGapAndBadWithOne)
+  {
+    Protocol::IntegrityReading earth = Sound(2);
+    earth.ground = Protocol::GroundKind::Earth;
+    earth.canBeUndermined = true;
+    Assert::AreEqual(Client::DIM_SRGB, Client::Overlays::IntegrityRows(earth).at(3).srgb);
+    earth.gapRunVoxels = 2;
+    Assert::AreEqual(Client::BAD_SRGB, Client::Overlays::IntegrityRows(earth).at(3).srgb);
+    // On rock a gap undermines nothing.
+    Protocol::IntegrityReading rock = Sound(2);
+    rock.gapRunVoxels = 2;
+    Assert::AreEqual(Client::DIM_SRGB, Client::Overlays::IntegrityRows(rock).at(3).srgb);
+  }
+
+  TEST_METHOD(DocksTheReadoutClearOfW2AtTheDefaultFraming)
+  {
+    // The longest reading the paper test words: a stone floor up, its widest verdict, a gap on earth, and falling.
+    const Protocol::StateUpdate state = LabSections();
+    Client::Session session;
+    Tell(session, state);
+    Client::Overlays overlays;
+    overlays.Ask(session, {}, true);
+    Protocol::IntegrityReading widest = Sound(2);
+    widest.holeWidthVoxels = 4;
+    widest.hasOpening = true;
+    widest.openingFloor = Protocol::OpeningFloor::Stone;
+    widest.openingFloorVoxels = 1;
+    widest.openingClearVoxels = 4;
+    widest.gapRunVoxels = 4;
+    widest.ground = Protocol::GroundKind::Earth;
+    widest.canBeUndermined = true;
+    widest.falling = true;
+    AnswerIntegrity(session, state, {widest, Sound(5)});
+    const Client::HudModel model{.resources = {},
+                                 .objective = {.title = "ITEM 16 OF 16", .detail = "", .detailOff = false},
+                                 .mode = {},
+                                 .alerts = {},
+                                 .selectedEngine = Protocol::NO_ENTITY,
+                                 .integrityView = true,
+                                 .passabilityView = false,
+                                 .readout = overlays.Readout(session, 0.0, true)};
+    Assert::AreEqual(std::size_t{5}, model.readout.value_or(Client::HudReadout{}).rows.size());
     for (const float scale : {1.0F, 1.5F, 2.0F})
     {
-      std::vector<Client::ScreenQuad> quads;
-      const DirectX::XMFLOAT4X4 projection = FlatProjection();
-      const std::vector<Client::PlacedLabel> labels = overlays.LayLabels(session, projection, 1200, 1200, 30, scale, true, quads);
-      Assert::AreEqual(std::size_t{2}, labels.size());
-      for (const Client::PlacedLabel& label : labels)
+      for (const auto& [width, height] : {std::pair{1280U, 720U}, std::pair{1920U, 1080U}})
       {
-        Assert::IsFalse(label.nameOnly);
-        Assert::IsTrue(label.xPixels >= 0 && label.xPixels + label.widthPixels <= 1200);
-        Assert::IsTrue(label.yPixels >= 30 && label.yPixels + label.heightPixels <= 1200);
-      }
-      for (const Client::ScreenQuad& quad : quads)
-      {
-        Assert::IsTrue(quad.xPixels >= 0.0F && quad.xPixels + quad.widthPixels <= 1200.0F);
-        Assert::IsTrue(quad.yPixels >= 30.0F && quad.yPixels + quad.heightPixels <= 1200.0F);
-        Assert::AreEqual(std::floor(quad.xPixels), quad.xPixels);
-        Assert::AreEqual(std::floor(quad.yPixels), quad.yPixels);
+        Client::Hud hud;
+        std::vector<Client::ScreenQuad> quads;
+        hud.Build(model, width, height, scale, quads);
+        Assert::IsTrue(hud.Readout().has_value());
+        const Client::PixelRect readout = hud.Readout().value_or(Client::PixelRect{});
+        const Client::PixelRect screen{0, 0, static_cast<std::int32_t>(width), static_cast<std::int32_t>(height)};
+        Assert::IsTrue(readout.Inside(screen));
+        const auto widthPixels = static_cast<float>(width);
+        const auto heightPixels = static_cast<float>(height);
+        const Client::PixelRect w2 =
+          OnScreen(state.structures.front(), DefaultFraming(widthPixels, heightPixels, Client::TOP_BAR_LOGICAL_PIXELS * scale), widthPixels,
+                   heightPixels);
+        Assert::IsFalse(readout.Overlaps(w2));
+        // Every string inside the readout, nothing over anything.
+        const std::span<const Client::HudText> texts = hud.Texts();
+        for (std::size_t index = 0; index < texts.size(); ++index)
+        {
+          Assert::IsTrue(texts[index].cell.Inside(texts[index].element));
+          for (std::size_t other = index + 1; other < texts.size(); ++other)
+          {
+            Assert::IsFalse(texts[index].cell.Overlaps(texts[other].cell));
+          }
+        }
       }
     }
-  }
-
-  TEST_METHOD(ShowsANameAloneWhereItsRowsWouldCoverANearerLabel)
-  {
-    // Two anchors 16 m apart up the screen, 96 px: the first's rows fill the 138 px above it, so the second's would
-    // cover them, and it shows its name alone in the 42 px above its anchor.
-    Protocol::StateUpdate state{};
-    state.structures.push_back(Section(1, {49, 49, 0}, {2, 1, 2}));
-    state.structures.push_back(Section(2, {49, 33, 0}, {2, 1, 2}));
-    Client::Session session;
-    Tell(session, state);
-    Client::Overlays overlays;
-    overlays.Ask(session, {}, true);
-    AnswerIntegrity(session, state, {Sound(1), Sound(2)});
-    std::vector<Client::ScreenQuad> quads;
-    const DirectX::XMFLOAT4X4 projection = FlatProjection();
-    const std::vector<Client::PlacedLabel> labels = overlays.LayLabels(session, projection, 600, 600, 30, 1.0F, true, quads);
-    Assert::AreEqual(std::size_t{2}, labels.size());
-    Assert::IsFalse(labels.at(0).nameOnly);
-    Assert::IsTrue(labels.at(1).nameOnly);
   }
 
   TEST_METHOD(AsksEachSectionOnceAndAgainWhenItsGroundOrItsCollapseChanges)

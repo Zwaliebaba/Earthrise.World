@@ -4,9 +4,7 @@
 
 #include "Look.h"
 #include "Strings.h"
-#include "TextLayout.h"
 #include "TickClock.h"
-#include "UiScale.h"
 
 #include <limits>
 #include <numbers>
@@ -41,43 +39,27 @@ Protocol::VoxelPosition PieceFoot(const Protocol::CollapseView& _collapse) noexc
   return {(low.xVoxels + high.xVoxels) / 2, low.yVoxels, (low.zVoxels + high.zVoxels) / 2};
 }
 
-// The integrity label's padding and the gap between its lines, in logical pixels.
-constexpr float LABEL_PADDING_LOGICAL_PIXELS = 6.0F;
-constexpr float LABEL_LINE_GAP_LOGICAL_PIXELS = 4.0F;
 /// An opening lower than this does not let foot through: the reason the paper test gives, not the verdict, which is the
 /// resolver's routeNow.
 constexpr std::uint8_t FOOT_CLEARANCE_VOXELS = 2;
+// IntegrityRows' order, which the readout's bars go by.
+constexpr std::size_t HOLE_ROW = 0;
+constexpr std::size_t GAP_ROW = 2;
 
-ScreenQuad Solid(std::int32_t _x, std::int32_t _y, std::int32_t _width, std::int32_t _height, std::uint32_t _srgb, float _alpha)
+/// _width over _fallWidth, or nothing when nothing falls within the section.
+std::optional<float> Fill(std::uint8_t _width, std::uint8_t _fallWidth) noexcept
 {
-  return {.xPixels = static_cast<float>(_x),
-          .yPixels = static_cast<float>(_y),
-          .widthPixels = static_cast<float>(_width),
-          .heightPixels = static_cast<float>(_height),
-          .u0 = 0.0F,
-          .v0 = 0.0F,
-          .u1 = 0.0F,
-          .v1 = 0.0F,
-          .color = LinearColor(_srgb, _alpha),
-          .textured = false};
+  if (_fallWidth == 0)
+  {
+    return std::nullopt;
+  }
+  return static_cast<float>(_width) / static_cast<float>(_fallWidth);
 }
 
-/// A row's text laid out at _x: its key in dim and its value in its colour, or all of it in its colour when it is a
-/// key alone.
-void LayRow(const IntegrityRow& _row, std::int32_t _x, std::int32_t _y, std::uint32_t _scale, std::vector<ScreenQuad>& _quads)
+/// Whether the state holds the structure _id.
+bool Holds(const Protocol::StateUpdate& _state, Protocol::EntityId _id)
 {
-  const std::string_view text(_row.text);
-  const std::size_t space = text.find(' ');
-  if (space == std::string_view::npos)
-  {
-    TextLayout::Lay(text, _x, _y, _scale, LinearColor(_row.srgb), _quads);
-    return;
-  }
-  // The value starts where it would in the whole string: after the key's and the space's advances.
-  const std::string_view key = text.substr(0, space + 1);
-  TextLayout::Lay(key, _x, _y, _scale, LinearColor(DIM_SRGB), _quads);
-  TextLayout::Lay(text.substr(space + 1), _x + static_cast<std::int32_t>(TextLayout::Advance(key, _scale)), _y, _scale,
-                  LinearColor(_row.srgb), _quads);
+  return _id != Protocol::NO_ENTITY && std::ranges::find(_state.structures, _id, &Protocol::StructureView::id) != _state.structures.end();
 }
 
 constexpr std::int32_t TILE_CELLS = Protocol::CHUNK_EDGE_VOXELS;
@@ -175,6 +157,38 @@ void Overlays::Update(const Session& _session, double _nowSeconds, HudAlerts& _a
                    .urgent = true,
                    .expiresSeconds = warning ? std::numeric_limits<double>::infinity() : _nowSeconds + HudAlerts::LIFETIME_SECONDS});
   }
+  // The rows that changed, for the readout's flash.
+  for (const Protocol::StructureView& structure : state.structures)
+  {
+    const Protocol::IntegrityReading* reading = _session.Integrity(structure.id);
+    if (reading == nullptr)
+    {
+      continue;
+    }
+    std::vector<std::string> texts;
+    for (IntegrityRow& row : IntegrityRows(*reading))
+    {
+      texts.push_back(std::move(row.text));
+    }
+    const auto seen = m_seenRows.find(structure.id);
+    if (seen == m_seenRows.end())
+    {
+      const std::size_t count = texts.size();
+      m_seenRows.emplace(structure.id, SeenRows{.texts = std::move(texts),
+                                                .changedSeconds = std::vector<double>(count, -std::numeric_limits<double>::infinity())});
+      continue;
+    }
+    SeenRows& rows = seen->second;
+    rows.changedSeconds.resize(texts.size(), -std::numeric_limits<double>::infinity());
+    for (std::size_t index = 0; index < texts.size(); ++index)
+    {
+      if (index >= rows.texts.size() || rows.texts.at(index) != texts.at(index))
+      {
+        rows.changedSeconds.at(index) = _nowSeconds;
+      }
+    }
+    rows.texts = std::move(texts);
+  }
 }
 
 std::vector<IntegrityRow> Overlays::IntegrityRows(const Protocol::IntegrityReading& _reading)
@@ -227,8 +241,10 @@ std::vector<IntegrityRow> Overlays::IntegrityRows(const Protocol::IntegrityReadi
   const std::string_view ground = _reading.ground == Protocol::GroundKind::Earth  ? GROUND_EARTH
                                   : _reading.ground == Protocol::GroundKind::Rock ? GROUND_ROCK
                                                                                   : GROUND_BEDROCK;
-  rows.push_back(_reading.canBeUndermined ? IntegrityRow{.text = std::format(GROUND_UNDERMINED, ground), .srgb = BAD_SRGB}
-                                          : IntegrityRow{.text = std::format(GROUND_SAFE, ground), .srgb = GOOD_SRGB});
+  // GROUND matters only where a gap lies under a section that can be undermined; elsewhere it is dim (M3-H1).
+  const std::uint32_t groundSrgb = _reading.canBeUndermined && _reading.gapRunVoxels != 0 ? BAD_SRGB : DIM_SRGB;
+  rows.push_back(_reading.canBeUndermined ? IntegrityRow{.text = std::format(GROUND_UNDERMINED, ground), .srgb = groundSrgb}
+                                          : IntegrityRow{.text = std::format(GROUND_SAFE, ground), .srgb = groundSrgb});
   if (_reading.falling)
   {
     rows.push_back({.text = std::string(FALLS), .srgb = BAD_SRGB});
@@ -299,125 +315,74 @@ void Overlays::Ask(Session& _session, std::span<const Protocol::ChunkSnapshot> _
   }
 }
 
-std::vector<PlacedLabel> Overlays::LayLabels(const Session& _session, const DirectX::XMFLOAT4X4& _viewProjection,
-                                             std::uint32_t _widthPixels, std::uint32_t _heightPixels, std::int32_t _topPixels,
-                                             float _uiScale, bool _integrityView, std::vector<ScreenQuad>& _quads) const
+void Overlays::Hover(Protocol::EntityId _section) noexcept
 {
-  std::vector<PlacedLabel> placed;
-  if (!_integrityView || _widthPixels == 0 || _heightPixels == 0)
-  {
-    return placed;
-  }
-  const auto width = static_cast<std::int32_t>(_widthPixels);
-  const auto height = static_cast<std::int32_t>(_heightPixels);
-  const DirectX::XMMATRIX viewProjection = DirectX::XMLoadFloat4x4(&_viewProjection);
+  m_hovered = _section;
+}
 
-  // Each section with a reading whose anchor, a meter above the middle of its top, is on screen, nearest first.
-  struct Anchor
-  {
-    const Protocol::StructureView* structure;
-    const Protocol::IntegrityReading* reading;
-    std::int32_t xPixels;
-    std::int32_t yPixels;
-    float depth; // reversed Z: nearer is larger
-  };
-  std::vector<Anchor> anchors;
-  for (const Protocol::StructureView& structure : _session.State().structures)
-  {
-    const Protocol::IntegrityReading* reading = _session.Integrity(structure.id);
-    if (reading == nullptr)
-    {
-      continue;
-    }
-    const DirectX::XMVECTOR top = DirectX::XMVectorSet(
-      static_cast<float>(structure.originVoxels.xVoxels) + (0.5F * static_cast<float>(structure.extentVoxels.xVoxels)),
-      static_cast<float>(structure.originVoxels.yVoxels + structure.extentVoxels.yVoxels + 1),
-      static_cast<float>(structure.originVoxels.zVoxels) + (0.5F * static_cast<float>(structure.extentVoxels.zVoxels)), 1.0F);
-    DirectX::XMFLOAT4 clip{};
-    DirectX::XMStoreFloat4(&clip, DirectX::XMVector4Transform(top, viewProjection));
-    if (clip.w <= 0.0F)
-    {
-      continue;
-    }
-    const float x = (clip.x / clip.w + 1.0F) * 0.5F * static_cast<float>(width);
-    const float y = (1.0F - clip.y / clip.w) * 0.5F * static_cast<float>(height);
-    if (x < 0.0F || x >= static_cast<float>(width) || y < 0.0F || y >= static_cast<float>(height))
-    {
-      continue;
-    }
-    anchors.push_back({.structure = &structure,
-                       .reading = reading,
-                       .xPixels = static_cast<std::int32_t>(std::floor(x)),
-                       .yPixels = static_cast<std::int32_t>(std::floor(y)),
-                       .depth = clip.z / clip.w});
-  }
-  std::ranges::stable_sort(anchors, [](const Anchor& _left, const Anchor& _right) { return _left.depth > _right.depth; });
+void Overlays::Select(Protocol::EntityId _section) noexcept
+{
+  m_selected = _section;
+}
 
-  const std::uint32_t nameScale = TextLayout::PixelsPerFontPixel(TextSize::Name, _uiScale);
-  const std::uint32_t labelScale = TextLayout::PixelsPerFontPixel(TextSize::Label, _uiScale);
-  const std::int32_t padding = ScaledPixels(LABEL_PADDING_LOGICAL_PIXELS, _uiScale);
-  const std::int32_t lineGap = ScaledPixels(LABEL_LINE_GAP_LOGICAL_PIXELS, _uiScale);
-  const auto nameCell = static_cast<std::int32_t>(TextLayout::CellPixels(nameScale));
-  const auto labelCell = static_cast<std::int32_t>(TextLayout::CellPixels(labelScale));
-  const auto overlapsPlaced = [&placed](std::int32_t _x, std::int32_t _y, std::int32_t _w, std::int32_t _h)
+Protocol::EntityId Overlays::Focused(const Session& _session) const
+{
+  const Protocol::StateUpdate& state = _session.State();
+  if (Holds(state, m_hovered))
   {
-    return std::ranges::any_of(placed,
-                               [&](const PlacedLabel& _other)
-                               {
-                                 return _x < _other.xPixels + _other.widthPixels && _other.xPixels < _x + _w &&
-                                        _y < _other.yPixels + _other.heightPixels && _other.yPixels < _y + _h;
-                               });
-  };
-  for (const Anchor& anchor : anchors)
-  {
-    const std::string name = anchor.structure->name.empty() ? anchor.structure->templateId : anchor.structure->name;
-    const std::vector<IntegrityRow> rows = IntegrityRows(*anchor.reading);
-    const auto nameWidth = static_cast<std::int32_t>(TextLayout::Measure(name, nameScale));
-    std::int32_t rowsWidth = 0;
-    for (const IntegrityRow& row : rows)
-    {
-      rowsWidth = std::max(rowsWidth, static_cast<std::int32_t>(TextLayout::Measure(row.text, labelScale)));
-    }
-    // Its block sits on the anchor, centred, kept inside the screen below the top bar.
-    const auto place = [&](bool _nameOnly)
-    {
-      const std::int32_t blockWidth = (2 * padding) + std::max(nameWidth, _nameOnly ? 0 : rowsWidth);
-      const std::int32_t blockHeight =
-        (2 * padding) + nameCell + (_nameOnly ? 0 : static_cast<std::int32_t>(rows.size()) * (lineGap + labelCell));
-      const std::int32_t x = std::clamp(anchor.xPixels - (blockWidth / 2), 0, std::max(0, width - blockWidth));
-      const std::int32_t y = std::clamp(anchor.yPixels - blockHeight, std::min(_topPixels, std::max(0, height - blockHeight)),
-                                        std::max(0, height - blockHeight));
-      return PlacedLabel{.structure = anchor.structure->id,
-                         .xPixels = x,
-                         .yPixels = y,
-                         .widthPixels = blockWidth,
-                         .heightPixels = blockHeight,
-                         .nameOnly = _nameOnly};
-    };
-    PlacedLabel label = place(false);
-    if (overlapsPlaced(label.xPixels, label.yPixels, label.widthPixels, label.heightPixels))
-    {
-      label = place(true);
-      if (overlapsPlaced(label.xPixels, label.yPixels, label.widthPixels, label.heightPixels))
-      {
-        continue;
-      }
-    }
-    _quads.push_back(Solid(label.xPixels, label.yPixels, label.widthPixels, label.heightPixels, PANEL_SRGB, PANEL_ALPHA));
-    TextLayout::Lay(name, label.xPixels + padding, label.yPixels + padding, nameScale, LinearColor(TEXT_SRGB), _quads);
-    if (!label.nameOnly)
-    {
-      std::int32_t y = label.yPixels + padding + nameCell;
-      for (const IntegrityRow& row : rows)
-      {
-        y += lineGap;
-        LayRow(row, label.xPixels + padding, y, labelScale, _quads);
-        y += labelCell;
-      }
-    }
-    placed.push_back(label);
+    return m_hovered;
   }
-  return placed;
+  if (Holds(state, m_selected))
+  {
+    return m_selected;
+  }
+  const auto target = std::ranges::find(state.structures, TARGET_NAME, &Protocol::StructureView::name);
+  return target != state.structures.end() ? target->id : Protocol::NO_ENTITY;
+}
+
+std::optional<HudReadout> Overlays::Readout(const Session& _session, double _nowSeconds, bool _integrityView) const
+{
+  const Protocol::EntityId focused = _integrityView ? Focused(_session) : Protocol::NO_ENTITY;
+  const Protocol::IntegrityReading* reading = focused != Protocol::NO_ENTITY ? _session.Integrity(focused) : nullptr;
+  const auto structure = std::ranges::find(_session.State().structures, focused, &Protocol::StructureView::id);
+  if (reading == nullptr || structure == _session.State().structures.end())
+  {
+    return std::nullopt;
+  }
+  HudReadout readout{.title = structure->name.empty() ? structure->templateId : structure->name, .rows = {}};
+  const auto seen = m_seenRows.find(focused);
+  const std::vector<IntegrityRow> rows = IntegrityRows(*reading);
+  for (std::size_t index = 0; index < rows.size(); ++index)
+  {
+    const std::string_view text(rows.at(index).text);
+    const std::size_t space = text.find(' ');
+    const bool flashing = seen != m_seenRows.end() && index < seen->second.changedSeconds.size() &&
+                          _nowSeconds - seen->second.changedSeconds.at(index) < FLASH_SECONDS;
+    readout.rows.push_back({.key = std::string(text.substr(0, space)),
+                            .value = space == std::string_view::npos ? std::string() : std::string(text.substr(space + 1)),
+                            .srgb = rows.at(index).srgb,
+                            .flashing = flashing,
+                            .fill = index == HOLE_ROW  ? Fill(reading->holeWidthVoxels, reading->holeFallWidthVoxels)
+                                    : index == GAP_ROW ? Fill(reading->gapRunVoxels, reading->gapFallRunVoxels)
+                                                       : std::nullopt});
+  }
+  return readout;
+}
+
+Protocol::EntityId Overlays::SectionAt(const Protocol::StateUpdate& _state, const Protocol::VoxelPosition& _voxels)
+{
+  const auto inside = [](std::int32_t _at, std::int32_t _origin, std::int32_t _extent)
+  { return _at >= _origin && _at < _origin + _extent; };
+  for (const Protocol::StructureView& structure : _state.structures)
+  {
+    if (inside(_voxels.xVoxels, structure.originVoxels.xVoxels, structure.extentVoxels.xVoxels) &&
+        inside(_voxels.yVoxels, structure.originVoxels.yVoxels, structure.extentVoxels.yVoxels) &&
+        inside(_voxels.zVoxels, structure.originVoxels.zVoxels, structure.extentVoxels.zVoxels))
+    {
+      return structure.id;
+    }
+  }
+  return Protocol::NO_ENTITY;
 }
 
 void Overlays::WatchBreach(const Protocol::VoxelPosition& _goalVoxels)

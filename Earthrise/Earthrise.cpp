@@ -266,6 +266,12 @@ std::pair<float, float> Footprint(const Content::ModelView& _model) noexcept
           Client::MODEL_VOXEL_METERS * static_cast<float>(_model.grid.depthVoxels)};
 }
 
+/// A model's height, in meters.
+float Height(const Content::ModelView& _model) noexcept
+{
+  return Client::MODEL_VOXEL_METERS * static_cast<float>(_model.grid.heightVoxels);
+}
+
 /// The minimum corner, after _turns quarter turns clockwise seen from above, of a footprint from _xMeters along x,
 /// _widthMeters wide and _depthMeters deep, in a model's own frame: a turn takes +z towards +x.
 std::pair<float, float> TurnedMinimum(float _xMeters, float _widthMeters, float _depthMeters, std::uint32_t _turns) noexcept
@@ -338,23 +344,25 @@ Client::ModelPlacement EnginePlacement(const Protocol::EngineView& _engine, std:
   return Trebuchet(_engine, Released(_engine, _tick, _tally));
 }
 
-/// Each engine's footprint on the ground, in the pose it is drawn in, where a click selects it (M3-E3).
-std::vector<Client::EngineFootprint> EngineFootprints(const Client::Session& _session, const Client::FireTally& _tally)
+/// Each engine's model's box, in the pose it is drawn in, where a click selects it (M3-E3; M3-H3).
+std::vector<Client::EngineBox> EngineBoxes(const Client::Session& _session, const Client::FireTally& _tally)
 {
-  std::vector<Client::EngineFootprint> footprints;
+  std::vector<Client::EngineBox> boxes;
   for (const Protocol::EngineView& engine : _session.State().engines)
   {
     const Client::ModelPlacement placement = EnginePlacement(engine, _session.State().tick, _tally);
-    const auto [width, depth] = Footprint(Model(placement.modelId));
+    const Content::ModelView& model = Model(placement.modelId);
+    const auto [width, depth] = Footprint(model);
     const bool across = placement.quarterTurns % 2 == 1;
-    footprints.push_back({.engine = engine.id,
-                          .xMeters = placement.xMeters,
-                          .zMeters = placement.zMeters,
-                          .widthMeters = across ? depth : width,
-                          .depthMeters = across ? width : depth,
-                          .groundMeters = placement.yMeters});
+    boxes.push_back({.engine = engine.id,
+                     .xMeters = placement.xMeters,
+                     .zMeters = placement.zMeters,
+                     .widthMeters = across ? depth : width,
+                     .depthMeters = across ? width : depth,
+                     .groundMeters = placement.yMeters,
+                     .heightMeters = Height(model)});
   }
-  return footprints;
+  return boxes;
 }
 
 std::string_view UnitModel(Protocol::UnitKind _kind) noexcept
@@ -546,6 +554,11 @@ public:
     return true;
   }
 
+  [[nodiscard]] bool SelectionAllowed() const noexcept override
+  {
+    return true;
+  }
+
   [[nodiscard]] bool PassabilityForced() const noexcept override
   {
     return false;
@@ -564,6 +577,16 @@ public:
   [[nodiscard]] std::optional<Client::HudObjective> Objective() const override
   {
     return std::nullopt;
+  }
+
+  [[nodiscard]] std::vector<Client::HudResource> Resources(std::uint32_t _tick, std::uint32_t _shotsFired) const override
+  {
+    return Client::BreachResources(_tick, _shotsFired);
+  }
+
+  [[nodiscard]] bool ShowsFigures() const noexcept override
+  {
+    return true;
   }
 
   [[nodiscard]] std::vector<Client::OverlayBox> Marks(const Client::Session& /* _session */) const override
@@ -657,6 +680,11 @@ public:
     return true;
   }
 
+  [[nodiscard]] bool SelectionAllowed() const noexcept override
+  {
+    return true;
+  }
+
   [[nodiscard]] bool PassabilityForced() const noexcept override
   {
     return false;
@@ -675,6 +703,17 @@ public:
   [[nodiscard]] std::optional<Client::HudObjective> Objective() const override
   {
     return Client::HudObjective{.title = std::string(Client::SIEGE_OBJECTIVE_TITLE), .detail = {}, .detailOff = false};
+  }
+
+  /// The breach run's resources until M4-J1 gives the trial its own.
+  [[nodiscard]] std::vector<Client::HudResource> Resources(std::uint32_t _tick, std::uint32_t _shotsFired) const override
+  {
+    return Client::BreachResources(_tick, _shotsFired);
+  }
+
+  [[nodiscard]] bool ShowsFigures() const noexcept override
+  {
+    return true;
   }
 
   [[nodiscard]] std::vector<Client::OverlayBox> Marks(const Client::Session& /* _session */) const override
@@ -853,7 +892,11 @@ int Run(const Options& _options)
 
     // A left click on the HUD is the HUD's (M3-E2): the camera buttons turn and zoom, JUMP, or Space for the newest
     // alert with a place, looks at the alert's place, and the lab's question takes its answer. One on the world
-    // selects the engine whose footprint it lands on, or nothing, and Esc deselects (M3-E3).
+    // selects the engine whose model's box it lands on, or nothing, where the scenario lets the player select, and Esc
+    // deselects (M3-E3; M3-H3); one on a section gives it the integrity readout until the next click or Esc (M3-H1).
+    const bool selectionAllowed = run->SelectionAllowed();
+    const std::vector<Client::EngineBox> engineBoxes =
+      selectionAllowed ? EngineBoxes(client.session, client.tally) : std::vector<Client::EngineBox>{};
     bool answerOpen = false;
     bool answerShut = false;
     if (pointer.WasPressed(Engine::PointerInput::Button::Left))
@@ -863,7 +906,14 @@ int Run(const Options& _options)
       {
         const Engine::PickRay ray = Client::WorldPicker::RayThrough(*drawnViewProjection, pointer.XPixels(), pointer.YPixels(),
                                                                     swapChain.WidthPixels(), swapChain.HeightPixels());
-        client.selected = client.picker.Pick(ray, EngineFootprints(client.session, client.tally)).engine;
+        const Client::WorldPick pick = client.picker.Pick(ray, engineBoxes);
+        client.selected = pick.engine;
+        Protocol::EntityId section = Protocol::NO_ENTITY;
+        if (pick.engine == Protocol::NO_ENTITY && pick.voxel.has_value())
+        {
+          section = Client::Overlays::SectionAt(client.session.State(), {pick.voxel->cell[0], pick.voxel->cell[1], pick.voxel->cell[2]});
+        }
+        client.views.Select(section);
       }
       if (hit.has_value())
       {
@@ -902,9 +952,10 @@ int Run(const Options& _options)
     // The selection, while its engine is there.
     const auto selectedEngine = std::ranges::find(client.session.State().engines, client.selected, &Protocol::EngineView::id);
     const Protocol::EngineView* selectedView = selectedEngine != client.session.State().engines.end() ? &*selectedEngine : nullptr;
-    if (selectedView == nullptr)
+    if (selectedView == nullptr || !selectionAllowed)
     {
       client.selected = Protocol::NO_ENTITY;
+      selectedView = nullptr;
     }
     // FIRE (M3-E4), from the world voxel under the pointer, off the HUD, while an engine is selected and the run
     // lets the player fire. Esc leaves the mode, and with none on deselects.
@@ -913,18 +964,26 @@ int Run(const Options& _options)
     {
       client.fire.Cancel();
     }
+    // The world voxel under the pointer, off the HUD: FIRE aims at it, and the section it is in has the readout.
     const bool pointerOnHud = hud.Covers(pointer.XPixels(), pointer.YPixels());
-    std::optional<Protocol::VoxelPosition> pointed;
-    if (selectedView != nullptr && !pointerOnHud && drawnViewProjection.has_value())
+    std::optional<Protocol::VoxelPosition> underPointer;
+    Protocol::EntityId hovered = Protocol::NO_ENTITY;
+    Protocol::EntityId hoveredEngine = Protocol::NO_ENTITY; // the pointer answers with the hand and the outline (M3-H3)
+    if (!pointerOnHud && drawnViewProjection.has_value())
     {
       const Engine::PickRay ray = Client::WorldPicker::RayThrough(*drawnViewProjection, pointer.XPixels(), pointer.YPixels(),
                                                                   swapChain.WidthPixels(), swapChain.HeightPixels());
-      const Client::WorldPick pick = client.picker.Pick(ray, {});
+      const Client::WorldPick pick = client.picker.Pick(ray, engineBoxes);
+      hoveredEngine = pick.engine;
       if (pick.voxel.has_value())
       {
-        pointed = Protocol::VoxelPosition{pick.voxel->cell[0], pick.voxel->cell[1], pick.voxel->cell[2]};
+        const Protocol::VoxelPosition voxel{pick.voxel->cell[0], pick.voxel->cell[1], pick.voxel->cell[2]};
+        underPointer = voxel;
+        hovered = Client::Overlays::SectionAt(client.session.State(), voxel);
       }
     }
+    client.views.Hover(hovered);
+    const std::optional<Protocol::VoxelPosition> pointed = selectedView != nullptr ? underPointer : std::nullopt;
     const bool usedEscape =
       client.fire.Update({.fPressed = fireAllowed && keyboard.WasPressed('F'),
                           .escapePressed = keyboard.WasPressed(VK_ESCAPE),
@@ -936,9 +995,12 @@ int Run(const Options& _options)
     if (keyboard.WasPressed(VK_ESCAPE) && !usedEscape)
     {
       client.selected = Protocol::NO_ENTITY;
+      client.views.Select(Protocol::NO_ENTITY);
       client.fire.Update({}, nullptr, client.session);
     }
-    window.ShowCrosshair(client.fire.Active());
+    window.ShowPointer(client.fire.Active()                   ? Engine::PointerShape::Crosshair
+                       : hoveredEngine != Protocol::NO_ENTITY ? Engine::PointerShape::Hand
+                                                              : Engine::PointerShape::Arrow);
     if (keyboard.WasPressed(VK_F1))
     {
       integrityView = !integrityView;
@@ -970,7 +1032,8 @@ int Run(const Options& _options)
                 .quarterTurns = quarterTurns,
                 .zoomNotches = zoomNotches,
                 .integrityOn = integrityView,
-                .passabilityOn = passabilityShown},
+                .passabilityOn = passabilityShown,
+                .engineSelected = client.selected != Protocol::NO_ENTITY},
                client.session);
     client.presentation.Place(client.session, client.tally, clock.TickFraction(), placements, debris, static_cast<float>(seconds));
 
@@ -994,49 +1057,66 @@ int Run(const Options& _options)
     const std::vector<Client::Tile> visibleTiles = Client::Overlays::VisibleTiles(
       viewProjection, swapChain.WidthPixels(), swapChain.HeightPixels(), static_cast<float>(Simulation::BreachRun::GROUND_VOXELS));
     client.views.AskReach(client.session, snapshots, visibleTiles, PLAYER, passabilityShown);
-    // The HUD, built from the session (M3-E2), and the frame's figures under it in the bottom-left corner, over the
-    // integrity view's labels (M3-F2).
+    // The HUD, built from the session (M3-E2), with the integrity readout (M3-H1), and the frame's figures under it,
+    // outside the lab (M3-H4).
     client.views.Update(client.session, seconds, client.alerts);
     client.alerts.Expire(seconds);
-    // The objective line: the run's, or the selection while there is one, with FIRE's key, or RELOADING in off
-    // text, or the breach.
-    const bool ready = selectedView != nullptr && client.selected != Protocol::NO_ENTITY && Client::FireMode::Ready(*selectedView);
-    const Client::HudObjective objective = run->Objective().value_or(
-      client.selected != Protocol::NO_ENTITY
-        ? Client::HudObjective{.title = std::string(Client::TREBUCHET_NAME),
-                               .detail = std::string(ready ? Client::FIRE_READY_DETAIL : Client::RELOADING_DETAIL),
-                               .detailOff = !ready}
-        : Client::HudObjective{.title = std::string(Client::BREACH_OBJECTIVE_TITLE),
-                               .detail = std::string(Client::BREACH_OBJECTIVE_DETAIL),
-                               .detailOff = false});
+    // The objective line: the run's, or the breach. The selection has its chip beside the resources, with FIRE's
+    // key, or RELOADING in off text (M3-H3).
+    const Client::HudObjective objective = run->Objective().value_or(Client::HudObjective{
+      .title = std::string(Client::BREACH_OBJECTIVE_TITLE), .detail = std::string(Client::BREACH_OBJECTIVE_DETAIL), .detailOff = false});
+    std::optional<Client::HudSelection> selection;
+    if (selectedView != nullptr)
+    {
+      const bool ready = Client::FireMode::Ready(*selectedView);
+      selection = Client::HudSelection{.name = std::string(Client::TREBUCHET_NAME),
+                                       .detail = std::string(ready ? Client::FIRE_READY_DETAIL : Client::RELOADING_DETAIL),
+                                       .detailOff = !ready};
+    }
     // The banner: FIRE's while it is on, else the run's.
     const Client::HudMode mode = client.fire.Active() ? client.fire.Mode() : run->Mode().value_or(client.fire.Mode());
-    hudModel = {.resources = Client::BreachResources(client.session.State().tick, client.tally.Fired(PLAYER)),
+    hudModel = {.resources = run->Resources(client.session.State().tick, client.tally.Fired(PLAYER)),
                 .objective = objective,
                 .mode = mode,
                 .alerts = client.alerts.Shown(),
                 .selectedEngine = client.selected,
                 .integrityView = integrityView,
-                .passabilityView = passabilityShown};
+                .passabilityView = passabilityShown,
+                .readout = client.views.Readout(client.session, seconds, integrityView),
+                .selection = selection};
     interfaceQuads.clear();
-    const std::uint32_t figuresScale = Client::TextLayout::PixelsPerFontPixel(Client::TextSize::Label, uiScale);
-    const std::int32_t margin = Client::ScaledPixels(FIGURES_MARGIN_LOGICAL_PIXELS, uiScale);
-    Client::TextLayout::Lay(std::format(Client::FIGURES, renderer.VoxelPassMilliseconds(), client.session.State().tick, run->Speed()),
-                            margin,
-                            static_cast<std::int32_t>(swapChain.HeightPixels()) - margin -
-                              static_cast<std::int32_t>(Client::TextLayout::CellPixels(figuresScale)),
-                            figuresScale, figuresColor, interfaceQuads);
-    client.views.LayLabels(client.session, viewProjection, swapChain.WidthPixels(), swapChain.HeightPixels(),
-                           static_cast<std::int32_t>(std::lround(topBarPixels)), uiScale, integrityView, interfaceQuads);
-    hud.Build(hudModel, swapChain.WidthPixels(), uiScale, interfaceQuads);
+    if (run->ShowsFigures())
+    {
+      const std::uint32_t figuresScale = Client::TextLayout::PixelsPerFontPixel(Client::TextSize::Label, uiScale);
+      const std::int32_t margin = Client::ScaledPixels(FIGURES_MARGIN_LOGICAL_PIXELS, uiScale);
+      // In the bottom-right corner, since the readout is docked in the bottom-left (M3-H1).
+      const std::string figures = std::format(Client::FIGURES, renderer.VoxelPassMilliseconds(), client.session.State().tick, run->Speed());
+      Client::TextLayout::Lay(figures,
+                              static_cast<std::int32_t>(swapChain.WidthPixels()) - margin -
+                                static_cast<std::int32_t>(Client::TextLayout::Measure(figures, figuresScale)),
+                              static_cast<std::int32_t>(swapChain.HeightPixels()) - margin -
+                                static_cast<std::int32_t>(Client::TextLayout::CellPixels(figuresScale)),
+                              figuresScale, figuresColor, interfaceQuads);
+    }
+    hud.Build(hudModel, swapChain.WidthPixels(), swapChain.HeightPixels(), uiScale, interfaceQuads);
     const std::optional<Client::AttackCursor> cursor = client.fire.Cursor(client.session);
     if (cursor.has_value() && !pointerOnHud)
     {
       hud.LayCursor(*cursor, pointer.XPixels(), pointer.YPixels(), uiScale, interfaceQuads);
     }
-    // The world overlays (ADR-021): the views, then FIRE's strike mark and the run's marks.
+    // The world overlays (ADR-021): the views, the outline of the engine under the pointer and the selected one (M3-H3),
+    // then FIRE's strike mark and the run's marks.
     std::vector<Client::OverlayLayer> overlays = client.views.Layers(client.session, seconds, integrityView);
     overlays.push_back(client.views.PassabilityLayer(client.session, passabilityShown));
+    Client::OverlayLayer outlines{.alpha = Client::OUTLINE_ALPHA, .boxes = {}};
+    for (const Client::EngineBox& box : engineBoxes)
+    {
+      if (box.engine == hoveredEngine || box.engine == client.selected)
+      {
+        std::ranges::copy(Client::WorldPicker::Outline(box, Client::OVERLAY_ACCENT_INDEX), std::back_inserter(outlines.boxes));
+      }
+    }
+    overlays.push_back(std::move(outlines));
     overlays.push_back({.alpha = Client::STRIKE_MARK_ALPHA, .boxes = client.fire.StrikeMark(client.session)});
     overlays.push_back({.alpha = Client::STRIKE_MARK_ALPHA, .boxes = run->Marks(client.session)});
     Client::WorldRenderer::Frame frame{.commandList = commandList,

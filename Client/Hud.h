@@ -51,9 +51,9 @@ struct HudText
 
 /// The HUD's first pieces (Hud.md §3; M3-E2), laid out from the model in logical pixels at the UI scale and drawn as
 /// interface quads on whole pixels: the top bar, with the resources on the left, the objective in the middle of the
-/// room left between them and the camera buttons ↺ ↻ - + on the right; the mode banner, with CANCEL · ESC; and the
-/// alerts, newest first. It keeps what it laid out, so the next frame's clicks land on what was drawn, and a click
-/// anywhere on it is the HUD's, never the world's.
+/// screen and the camera buttons ↺ ↻ - + on the right; the mode banner, with CANCEL · ESC; the integrity readout in
+/// the bottom-left corner (M3-H1); and the alerts, newest first. It keeps what it laid out, so the next frame's clicks
+/// land on what was drawn, and a click anywhere on it is the HUD's, never the world's.
 class Hud
 {
 public:
@@ -62,8 +62,14 @@ public:
   static constexpr float BUTTON_LOGICAL_PIXELS = 36.0F;
   static constexpr float HIT_LOGICAL_PIXELS = 44.0F;
 
-  /// Lays _model out over a target _widthPixels wide at _uiScale and appends its quads, in drawing order.
-  void Build(const HudModel& _model, std::uint32_t _widthPixels, float _uiScale, std::vector<ScreenQuad>& _quads);
+  /// The readout takes at most this much of the screen's height, laying out at a smaller UI scale where it would take
+  /// more: at the default framing W2's foot is drawn 55 % of the way down a 1280 x 720 screen (M3-H1).
+  static constexpr float READOUT_HEIGHT_FRACTION = 0.3F;
+
+  /// Lays _model out over a target _widthPixels by _heightPixels at _uiScale and appends its quads, in drawing order. An
+  /// alert that would meet the readout is left out, with those older than it.
+  void Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_t _heightPixels, float _uiScale,
+             std::vector<ScreenQuad>& _quads);
 
   /// Appends the attack cursor around the pointer at (_xPixels, _yPixels): the ring centred on it and the reading on a
   /// panel to its right. It covers nothing: a click through it is the world's.
@@ -78,11 +84,14 @@ public:
 
   [[nodiscard]] std::span<const HudTarget> Targets() const noexcept;
   [[nodiscard]] std::span<const HudText> Texts() const noexcept;
+  /// Where the readout was laid, as last built, or nothing.
+  [[nodiscard]] std::optional<PixelRect> Readout() const noexcept;
 
 private:
   std::vector<PixelRect> m_panels;
   std::vector<HudTarget> m_targets;
   std::vector<HudText> m_texts;
+  std::optional<PixelRect> m_readout;
 };
 
 } // namespace Client
