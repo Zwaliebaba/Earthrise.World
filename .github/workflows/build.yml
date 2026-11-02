@@ -59,7 +59,9 @@ jobs:
   windows:
     name: Debug|x64
     runs-on: windows-latest
-    timeout-minutes: 30
+    # The tests take most of this job in Debug: 19 minutes at M4-E1 and 21 at M4-F1, with clang-tidy's 7 after them,
+    # and M4's trial tests add more. 60 minutes leaves them room and still stops a run that hangs.
+    timeout-minutes: 60
 
     env:
       CONFIGURATION: Debug
