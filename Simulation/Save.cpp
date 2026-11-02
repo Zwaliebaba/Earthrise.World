@@ -648,6 +648,48 @@ void WritePendingWork(Core::ByteWriter& _writer, std::span<const SubmittedComman
   }
 }
 
+/// How the trial stands (M4-F1): its outcome, the tick of it and the storming clock, the sections opened in id order,
+/// and each figure in a section's footprint, in figure order, with its section and the side it came in by.
+void WriteTrialProgress(Core::ByteWriter& _writer, const TrialProgress& _progress)
+{
+  _writer.WriteU8(static_cast<std::uint8_t>(_progress.outcome));
+  _writer.WriteU32(_progress.endTick);
+  _writer.WriteU32(_progress.holdTicks);
+  _writer.WriteU32(static_cast<std::uint32_t>(_progress.openedSections.size()));
+  for (const Protocol::EntityId section : _progress.openedSections)
+  {
+    _writer.WriteU64(section);
+  }
+  _writer.WriteU32(static_cast<std::uint32_t>(_progress.passing.size()));
+  for (const auto& [unit, passing] : _progress.passing)
+  {
+    _writer.WriteU64(unit);
+    _writer.WriteU64(passing.first);
+    _writer.WriteU8(passing.second ? std::uint8_t{1} : std::uint8_t{0});
+  }
+}
+
+TrialProgress ReadTrialProgress(Core::ByteReader& _reader)
+{
+  TrialProgress progress;
+  progress.outcome = ReadEnum(_reader, Protocol::TrialOutcome::LostArmy, "trial's outcome");
+  progress.endTick = _reader.ReadU32();
+  progress.holdTicks = _reader.ReadU32();
+  const std::uint32_t opened = _reader.ReadU32();
+  for (std::uint32_t number = 0; number < opened; ++number)
+  {
+    progress.openedSections.insert(_reader.ReadU64());
+  }
+  const std::uint32_t passing = _reader.ReadU32();
+  for (std::uint32_t number = 0; number < passing; ++number)
+  {
+    const Protocol::EntityId unit = _reader.ReadU64();
+    const Protocol::EntityId section = _reader.ReadU64();
+    progress.passing.emplace(unit, std::pair{section, ReadBool(_reader)});
+  }
+  return progress;
+}
+
 void WriteStructureView(Core::ByteWriter& _writer, const Protocol::StructureView& _view)
 {
   _writer.WriteU64(_view.id);
@@ -742,6 +784,7 @@ std::vector<std::byte> WriteSave(const World& _world)
   writer.WriteU32(_world.m_tick);
   writer.WriteU64(_world.m_nextEntityId);
   WriteMatch(writer, _world);
+  WriteTrialProgress(writer, _world.m_trialProgress);
 
   // The edited chunks that still differ from their base, in rising key order.
   std::vector<std::pair<std::uint64_t, std::vector<std::byte>>> chunks;
@@ -820,6 +863,7 @@ World LoadSave(std::span<const std::byte> _save, const World::Desc& _desc)
     world.m_tick = reader.ReadU32();
     world.m_nextEntityId = reader.ReadU64();
     ReadMatch(reader, world);
+    world.m_trialProgress = ReadTrialProgress(reader);
 
     const std::uint32_t chunks = reader.ReadU32();
     for (std::uint32_t number = 0; number < chunks; ++number)
@@ -972,6 +1016,7 @@ std::uint64_t StateHash(const World& _world)
   writer.WriteU32(_world.m_tick);
   writer.WriteU64(_world.m_nextEntityId);
   WriteMatch(writer, _world);
+  WriteTrialProgress(writer, _world.m_trialProgress);
   WriteEntities(writer, _world);
   WritePendingWork(writer, _world.m_pendingCommands, _world.m_unsearchedEdits, _world.m_voxels.TickEdits(), _world.m_slumpQueue,
                    _world.m_openedColumns, _world.m_searches);

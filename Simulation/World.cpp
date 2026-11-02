@@ -161,6 +161,8 @@ bool World::Quiet() const
 
 void World::Tick()
 {
+  m_keepRestored = false;
+  m_tilesRebuilt = false;
   m_tickCrushes.clear();
   m_endedCollapses.clear();
   m_tickEvents.clear();
@@ -342,7 +344,8 @@ Protocol::StructureView World::StructureViewFor(std::uint8_t _player, const Stru
           .gateOpen = _structure.gateOpen,
           .garrisonCount = static_cast<std::uint8_t>(garrisoned),
           .garrisonCapacity = rules == nullptr ? std::uint8_t{0} : rules->garrisonCapacity,
-          .hitPoints = _structure.hitPoints};
+          .hitPoints = _structure.hitPoints,
+          .opened = m_trialProgress.openedSections.contains(_structure.id)};
 }
 
 bool World::AnswerVisible(std::uint8_t _player, const Protocol::Query& _query) const
@@ -2920,6 +2923,7 @@ void World::RebuildTiles(const std::vector<std::pair<std::int32_t, std::int32_t>
   // Reach too, so the queries of step 12 and whoever reads navigation between ticks find it current
   // (M3-B5). It labels only the tiles the rebuild changed, as the next search would have.
   m_navigation.UpdateReach();
+  m_tilesRebuilt = true;
   // Then, in squad-id order, the squads to search again in the next tick's step 3 (ADR-015,
   // decision 5): each short of its goal, each whose path crosses a rebuilt tile, and each whose
   // search is not done, since the cells it has closed may have changed under it.
@@ -3095,8 +3099,225 @@ bool World::MoveToFreeCell(Unit& _unit, Occupancy& _occupancy)
 
 void World::CheckRules()
 {
-  // Step 10: the structures' parts and whether each works (ADR-024, decision 2); the trial's rules are M4-F1's.
+  // Step 10: the structures' parts and whether each works (ADR-024, decision 2), then the trial's rules and its events
+  // (ADR-026, decisions 4 and 5).
   UpdateStructures();
+  CheckTrial();
+}
+
+bool World::IsSection(const Structure& _structure) const
+{
+  const ServerTemplate* found = Data().FindTemplate(_structure.templateId);
+  return found != nullptr && found->criticalPart.empty();
+}
+
+void World::CheckTrial()
+{
+  // ADR-026, decision 4; MvpPlan.md, M4, inputs 15 and 16. Once decided, the outcome stands and the clock is stopped.
+  if (!m_trial.has_value())
+  {
+    return;
+  }
+  const TrialRules& rules = *m_trial;
+  TrialProgress& progress = m_trialProgress;
+  FindOpenedSections();
+  TrackPassing();
+  progress.contested = false;
+  if (progress.outcome != Protocol::TrialOutcome::Running)
+  {
+    return;
+  }
+  const auto keep = m_structures.find(rules.keep);
+  const std::optional<Box> box = keep == m_structures.end() ? std::nullopt : BoxOf(keep->second);
+  // The keep's foot: the cells within ringCells of its footprint, outside it. A soldier is a figure that is no engine's
+  // body; a garrisoned figure stands in no cell.
+  const auto inRing = [this, &box, &rules](const Unit& _unit)
+  {
+    if (!box.has_value() || Garrisoned(_unit))
+    {
+      return false;
+    }
+    const Protocol::VoxelPosition& cell = _unit.cellVoxels;
+    const std::int32_t distance = std::max(Outside(cell.xVoxels, box->min.xVoxels, box->min.xVoxels + box->widthVoxels - 1),
+                                           Outside(cell.zVoxels, box->min.zVoxels, box->min.zVoxels + box->depthVoxels - 1));
+    return distance >= 1 && distance <= rules.ringCells;
+  };
+  bool attackers = false;
+  bool defenders = false;
+  bool army = false;
+  for (const auto& [id, unit] : m_units)
+  {
+    const bool soldier = unit.kind != Protocol::UnitKind::Ram && unit.kind != Protocol::UnitKind::Trebuchet;
+    army = army || unit.owner == rules.attacker;
+    attackers = attackers || (unit.owner == rules.attacker && soldier && inRing(unit));
+    defenders = defenders || (unit.owner == rules.defender && inRing(unit));
+  }
+  // The clock resets while the keep works, when the ring holds no attacker's soldier or a voxel is put back in the keep;
+  // it pauses while both sides stand there, and otherwise counts.
+  const bool keepWorking = keep == m_structures.end() || keep->second.working;
+  if (keepWorking || !attackers || m_keepRestored)
+  {
+    progress.holdTicks = 0;
+  }
+  else if (defenders)
+  {
+    progress.contested = true;
+  }
+  else
+  {
+    ++progress.holdTicks;
+  }
+  if (progress.holdTicks >= rules.holdTicks)
+  {
+    progress.outcome = Protocol::TrialOutcome::Won;
+  }
+  else if (!army)
+  {
+    progress.outcome = Protocol::TrialOutcome::LostArmy;
+  }
+  else if (m_tick + 1 >= rules.timeLimitTicks)
+  {
+    progress.outcome = Protocol::TrialOutcome::LostToClock;
+  }
+  if (progress.outcome != Protocol::TrialOutcome::Running)
+  {
+    progress.endTick = m_tick + 1;
+    m_tickEvents.push_back({.kind = TrialEventKind::Outcome,
+                            .tick = m_tick,
+                            .player = rules.attacker,
+                            .subject = rules.keep,
+                            .other = Protocol::NO_ENTITY,
+                            .amount = static_cast<std::int32_t>(progress.outcome),
+                            .voxel = {}});
+  }
+}
+
+void World::FindOpenedSections()
+{
+  // ADR-026, decision 5: a column of the footprint foot can use and reach from the camp, linked to a cell beside the
+  // footprint on the section's inner side, the side of its centre line nearer its owner's keep. Reach changes only with
+  // navigation, so only a tick that rebuilt a tile looks.
+  if (!m_trial.has_value() || !m_tilesRebuilt)
+  {
+    return;
+  }
+  const TrialRules& rules = *m_trial;
+  std::optional<PathSearch::CellIndex> camp;
+  for (std::int32_t z = rules.campMinVoxels.zVoxels; z <= rules.campMaxVoxels.zVoxels && !camp.has_value(); ++z)
+  {
+    for (std::int32_t x = rules.campMinVoxels.xVoxels; x <= rules.campMaxVoxels.xVoxels && !camp.has_value(); ++x)
+    {
+      if (m_navigation.Usable(x, z, NavigationClass::Foot))
+      {
+        camp = CellOf({.xVoxels = x, .yVoxels = 0, .zVoxels = z});
+      }
+    }
+  }
+  if (!camp.has_value())
+  {
+    return;
+  }
+  for (const auto& [id, structure] : m_structures)
+  {
+    const std::optional<Box> box = BoxOf(structure);
+    if (m_trialProgress.openedSections.contains(id) || !IsSection(structure) || !box.has_value())
+    {
+      continue;
+    }
+    const std::optional<std::pair<std::int64_t, std::int64_t>> keep = KeepCenterTwice(structure.owner);
+    std::optional<Protocol::VoxelPosition> through;
+    for (std::int32_t z = box->min.zVoxels; z < box->min.zVoxels + box->depthVoxels && !through.has_value(); ++z)
+    {
+      for (std::int32_t x = box->min.xVoxels; x < box->min.xVoxels + box->widthVoxels && !through.has_value(); ++x)
+      {
+        const PathSearch::CellIndex column = CellOf({.xVoxels = x, .yVoxels = 0, .zVoxels = z});
+        if (!m_navigation.Usable(x, z, NavigationClass::Foot) ||
+            m_navigation.NearestReachable(*camp, column, NavigationClass::Foot) != column)
+        {
+          continue;
+        }
+        for (std::int32_t innerZ = box->min.zVoxels - 1; innerZ <= box->min.zVoxels + box->depthVoxels && !through.has_value(); ++innerZ)
+        {
+          for (std::int32_t innerX = box->min.xVoxels - 1; innerX <= box->min.xVoxels + box->widthVoxels && !through.has_value(); ++innerX)
+          {
+            const bool beside = innerX < box->min.xVoxels || innerX >= box->min.xVoxels + box->widthVoxels || innerZ < box->min.zVoxels ||
+                                innerZ >= box->min.zVoxels + box->depthVoxels;
+            const PathSearch::CellIndex inner = CellOf({.xVoxels = innerX, .yVoxels = 0, .zVoxels = innerZ});
+            if (beside && OnOwnersSide(*box, keep, innerX, innerZ) && m_navigation.Usable(innerX, innerZ, NavigationClass::Foot) &&
+                m_navigation.NearestReachable(column, inner, NavigationClass::Foot) == inner)
+            {
+              through = Protocol::VoxelPosition{.xVoxels = x, .yVoxels = m_navigation.WalkableHeight(x, z), .zVoxels = z};
+            }
+          }
+        }
+      }
+    }
+    if (through.has_value())
+    {
+      m_trialProgress.openedSections.insert(id);
+      m_tickEvents.push_back({.kind = TrialEventKind::SectionOpened,
+                              .tick = m_tick,
+                              .player = structure.owner,
+                              .subject = id,
+                              .other = Protocol::NO_ENTITY,
+                              .amount = 0,
+                              .voxel = *through});
+    }
+  }
+}
+
+void World::TrackPassing()
+{
+  // ADR-026, decision 5: a figure that comes into a section's footprint from one side of its centre line is counted when
+  // it leaves it on the other, inwards as 1 and outwards as -1; one leaving the way it came is not. Which side it came in
+  // by is the half of the footprint it is first found in.
+  std::map<Protocol::EntityId, std::pair<Protocol::EntityId, bool>>& passing = m_trialProgress.passing;
+  std::erase_if(passing, [this](const auto& _entry) { return !m_units.contains(_entry.first) || Garrisoned(m_units.at(_entry.first)); });
+  std::vector<std::pair<Protocol::EntityId, Box>> sections;
+  for (const auto& [id, structure] : m_structures)
+  {
+    if (const std::optional<Box> box = BoxOf(structure); IsSection(structure) && box.has_value())
+    {
+      sections.emplace_back(id, *box);
+    }
+  }
+  for (const auto& [id, unit] : m_units)
+  {
+    if (Garrisoned(unit))
+    {
+      continue;
+    }
+    const Protocol::VoxelPosition& cell = unit.cellVoxels;
+    const auto holds = [&cell](const Box& _box)
+    {
+      return cell.xVoxels >= _box.min.xVoxels && cell.xVoxels < _box.min.xVoxels + _box.widthVoxels && cell.zVoxels >= _box.min.zVoxels &&
+             cell.zVoxels < _box.min.zVoxels + _box.depthVoxels;
+    };
+    const auto in = std::ranges::find_if(sections, [&holds](const auto& _section) { return holds(_section.second); });
+    const auto tracked = passing.find(id);
+    if (tracked != passing.end() && (in == sections.end() || in->first != tracked->second.first))
+    {
+      const Structure& section = m_structures.at(tracked->second.first);
+      const std::optional<Box> box = BoxOf(section);
+      const bool inner = box.has_value() && OnOwnersSide(*box, KeepCenterTwice(section.owner), cell.xVoxels, cell.zVoxels);
+      if (inner != tracked->second.second)
+      {
+        m_tickEvents.push_back({.kind = TrialEventKind::FigurePassed,
+                                .tick = m_tick,
+                                .player = unit.owner,
+                                .subject = id,
+                                .other = section.id,
+                                .amount = inner ? 1 : -1,
+                                .voxel = cell});
+      }
+      passing.erase(tracked);
+    }
+    if (in != sections.end() && !passing.contains(id))
+    {
+      const Structure& section = m_structures.at(in->first);
+      passing.emplace(id, std::pair{in->first, OnOwnersSide(in->second, KeepCenterTwice(section.owner), cell.xVoxels, cell.zVoxels)});
+    }
+  }
 }
 
 Protocol::VoxelPosition World::TemplateVoxel(const Structure& _structure, const ServerTemplate& _template, std::uint32_t _x,
@@ -3700,16 +3921,19 @@ void World::PassageAttacks()
 bool World::OnOwnersSide(const Box& _box, const std::optional<std::pair<std::int64_t, std::int64_t>>& _keepTwice, std::int32_t _x,
                          std::int32_t _z) noexcept
 {
-  if (!_keepTwice.has_value())
+  // The side of the footprint's centre line nearer the keep (ADR-024, decisions 3 and 5; ADR-026, decision 5): the line
+  // runs along its longer side, so a wall's is the line between its faces; a square footprint's runs across the keep's
+  // larger offset. In doubled coordinates, so that the centre is whole. Every side of the keep itself is its owner's.
+  const std::int64_t centerX = (2 * std::int64_t{_box.min.xVoxels}) + _box.widthVoxels - 1;
+  const std::int64_t centerZ = (2 * std::int64_t{_box.min.zVoxels}) + _box.depthVoxels - 1;
+  if (!_keepTwice.has_value() || (_keepTwice->first == centerX && _keepTwice->second == centerZ))
   {
     return true;
   }
-  // In doubled coordinates, so that the footprint's centre is whole.
-  const std::int64_t centerX = (2 * std::int64_t{_box.min.xVoxels}) + _box.widthVoxels - 1;
-  const std::int64_t centerZ = (2 * std::int64_t{_box.min.zVoxels}) + _box.depthVoxels - 1;
-  return (((2 * std::int64_t{_x}) - centerX) * (_keepTwice->first - centerX)) +
-           (((2 * std::int64_t{_z}) - centerZ) * (_keepTwice->second - centerZ)) >
-         0;
+  const std::int64_t keepX = _keepTwice->first - centerX;
+  const std::int64_t keepZ = _keepTwice->second - centerZ;
+  const bool alongX = _box.widthVoxels != _box.depthVoxels ? _box.widthVoxels > _box.depthVoxels : std::abs(keepZ) >= std::abs(keepX);
+  return alongX ? (((2 * std::int64_t{_z}) - centerZ) * keepZ) > 0 : (((2 * std::int64_t{_x}) - centerX) * keepX) > 0;
 }
 
 void World::OrderRepair(std::uint8_t _player, const Protocol::RepairStructure& _repair)
@@ -3924,6 +4148,7 @@ void World::AdvanceRepairs()
     }
     structure.repairProgress -= Core::Fixed::FromRaw(Core::Fixed::ONE_RAW);
     m_voxels.Edit(next->first, next->second);
+    m_keepRestored = m_keepRestored || (m_trial.has_value() && m_trial->keep == structure.id);
     if (player != m_players.end())
     {
       (timber ? player->second.timberHundredthsCubicMeters : player->second.stoneHundredthsCubicMeters) -= CUBIC_METER_HUNDREDTHS;
@@ -4497,14 +4722,18 @@ Protocol::StateUpdate World::StateFor(std::uint8_t _player) const
   }
   if (m_trial.has_value())
   {
+    // The ticks left once this one has run; the clock stops at the outcome.
+    const TrialProgress& progress = m_trialProgress;
+    const std::uint32_t ran = progress.outcome == Protocol::TrialOutcome::Running ? m_tick + 1 : progress.endTick;
+    const auto keep = m_structures.find(m_trial->keep);
     state.trial = {.version = m_trial->version,
-                   .outcome = Protocol::TrialOutcome::Running,
-                   .ticksLeft = m_trial->timeLimitTicks > m_tick ? m_trial->timeLimitTicks - m_tick : 0,
+                   .outcome = progress.outcome,
+                   .ticksLeft = m_trial->timeLimitTicks > ran ? m_trial->timeLimitTicks - ran : 0,
                    .keep = m_trial->keep,
-                   .keepWorking = true,
-                   .holdTicks = 0,
+                   .keepWorking = keep != m_structures.end() && keep->second.working,
+                   .holdTicks = progress.holdTicks,
                    .holdTicksNeeded = m_trial->holdTicks,
-                   .holdContested = false};
+                   .holdContested = progress.contested};
   }
   return state;
 }

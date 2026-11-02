@@ -162,5 +162,8 @@
     <ClCompile Include="FogTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="TrialRuleTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

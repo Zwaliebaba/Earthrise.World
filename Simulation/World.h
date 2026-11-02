@@ -184,6 +184,19 @@ struct TrialRules
   Protocol::VoxelPosition campMaxVoxels;
 };
 
+/// How the Siege trial stands (ADR-026, decisions 4 and 5): saved after the match, but for the tick's contest, which step
+/// 10 sets afresh.
+struct TrialProgress
+{
+  Protocol::TrialOutcome outcome = Protocol::TrialOutcome::Running;
+  std::uint32_t endTick = 0;   // the tick its outcome came on, which stops the clock
+  std::uint32_t holdTicks = 0; // the storming clock
+  bool contested = false;      // this tick's: both sides stood in the keep's ring
+  std::set<Protocol::EntityId> openedSections;
+  /// Each figure standing in a section's footprint: the section, and whether it came in from the section's inner side.
+  std::map<Protocol::EntityId, std::pair<Protocol::EntityId, bool>> passing;
+};
+
 /// A template placed in the world (ADR-005, decision 10, without the built mask, which M4's
 /// construction adds as the record's version 2).
 struct Structure
@@ -575,6 +588,18 @@ private:
   /// Step 10's part: the structures the tick touched, by an edit in their box or a collapse of theirs starting or ending.
   void UpdateStructures();
 
+  // ADR-026, decisions 4 and 5: the trial's rules and its events, in step 10.
+  /// Whether _structure is a section: its template names no critical part, as T3's and T6's do not.
+  [[nodiscard]] bool IsSection(const Structure& _structure) const;
+  /// The storming clock and the outcome: won when the keep has not worked and the ring held an attacker's soldier and no
+  /// defender for holdTicks; lost to the clock at the time limit; lost by the army with no unit of the attacker's left.
+  void CheckTrial();
+  /// After a tick that rebuilt navigation, each section not yet opened whose footprint holds a column foot can use, reach
+  /// from the camp and leave by to its inner side opens, and raises SectionOpened.
+  void FindOpenedSections();
+  /// Each figure that leaves a section's footprint on the side across from the one it came in by raises FigurePassed.
+  void TrackPassing();
+
   // ADR-024, decision 6: gates.
   /// Whether _structure's template has a gate: its critical part is named Gate, as T5's and T7's are.
   [[nodiscard]] bool HasGate(const Structure& _structure) const;
@@ -642,8 +667,9 @@ private:
   /// under it, moves to the lowest neighbour a trench has opened more than a voxel below it, ties north, east, south,
   /// west, and opens (_x, _z). Returns where it went.
   std::optional<std::pair<std::int32_t, std::int32_t>> SlumpFromUnder(std::int32_t _x, std::int32_t _z);
-  /// Whether (_x, _z) is on the owner's side of _box: the half-plane through its footprint's centre that holds the
-  /// owner's keep, given doubled as _keepTwice, or any side when there is none (ADR-024, decisions 3 and 5).
+  /// Whether (_x, _z) is on the owner's side of _box: the side of its footprint's centre line, along its longer side or
+  /// across the keep's larger offset when square, that holds the owner's keep, given doubled as _keepTwice, or any side
+  /// when there is none or _box is the keep's (ADR-024, decisions 3 and 5; ADR-026, decision 5).
   [[nodiscard]] static bool OnOwnersSide(const Box& _box, const std::optional<std::pair<std::int64_t, std::int64_t>>& _keepTwice,
                                          std::int32_t _x, std::int32_t _z) noexcept;
 
@@ -801,6 +827,11 @@ private:
   /// The voxels of gates opened or shut in this tick's step 1, whose tiles step 8 rebuilds; empty between ticks.
   std::vector<Protocol::VoxelPosition> m_gateTouches;
   std::optional<TrialRules> m_trial;
+  TrialProgress m_trialProgress;
+  // This tick's, cleared as it starts: whether repair put a voxel back in the keep, and whether step 8 or a gate shut in
+  // step 10 rebuilt a navigation tile (ADR-026, decisions 4 and 5).
+  bool m_keepRestored = false;
+  bool m_tilesRebuilt = false;
   // The collapses whose fall ended this tick, as their last view: step 11 publishes them once more,
   // so the client sees the last of their landing land. Not saved: the next tick reads nothing of it.
   std::vector<Protocol::CollapseView> m_endedCollapses;

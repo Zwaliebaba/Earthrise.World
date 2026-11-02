@@ -158,7 +158,7 @@ public:
 
   TEST_METHOD(EjectPutsThemOnFreeCellsOnTheOwnersSideClearOfTheFootprint)
   {
-    // The defender's keep stands to the south-east, so its side of the tower is the half facing it.
+    // The defender's keep stands to the south-east, farther south than east, so its side of the tower is the south.
     Site site;
     Simulation::World& world = site.world;
     world.AddStructure(DEFENDER, "T2", At(50, GROUND, 20), 0, "KEEP");
@@ -175,7 +175,9 @@ public:
       const Protocol::VoxelPosition cell = world.Units().at(id).cellVoxels;
       Assert::IsFalse(InFootprint(cell));
       Assert::IsTrue(world.Navigation().Usable(cell.xVoxels, cell.zVoxels, Simulation::NavigationClass::Foot));
-      Assert::IsTrue((((2 * cell.xVoxels) - 46) * (111 - 46)) + (((2 * cell.zVoxels) - 126) * (54 - 126)) > 0);
+      // The tower is square and the keep lies farther south than east of it, 72 to 65 doubled, so its side is south of
+      // the tower's centre line across z.
+      Assert::IsTrue(((2 * cell.zVoxels) - 126) * (54 - 126) > 0);
       cells.emplace(cell.xVoxels, cell.zVoxels);
     }
     Assert::AreEqual(std::size_t{6}, cells.size());

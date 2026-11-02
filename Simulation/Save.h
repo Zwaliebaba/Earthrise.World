@@ -20,6 +20,9 @@ namespace Simulation
 //      order; then u8 1 and the
 //      trial's rules, or u8 0 for none: u8 its version, its attacker and its defender, u64 its keep,
 //      u32 its time limit and its hold in ticks, i32 its ring in cells, and the camp's two corners;
+//   1b. the trial's progress (M4-F1): u8 its outcome, u32 the tick of it and u32 the storming clock; u32 the sections
+//      opened, then each u64 in id order; u32 the figures in a section's footprint, then each as its u64 id, the u64
+//      section and u8 1 when it came in from the inner side, in figure order;
 //   2. the edited chunks: u32 their count, then in rising key order each chunk that differs from its
 //      generated base, as its u64 packed key and its edits in ChunkEdits.h's shorter form;
 //   3. the entities: u32 their count, then every entity in id order, each as a u16 type tag, a u16
@@ -55,8 +58,8 @@ namespace Simulation
 // load rebuilds them.
 
 /// 2 from M4-B4, which gave the save its match; 3 from M4-D6, which saves the columns trenches opened; 4 from M4-E1, which
-/// saves fog's last-seen structures and chunks sent.
-inline constexpr std::uint32_t SAVE_FORMAT_VERSION = 4;
+/// saves fog's last-seen structures and chunks sent; 5 from M4-F1, which saves the trial's progress.
+inline constexpr std::uint32_t SAVE_FORMAT_VERSION = 5;
 
 /// The type tag each kind of entity is saved under.
 enum class SaveEntityTag : std::uint16_t
