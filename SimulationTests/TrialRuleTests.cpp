@@ -131,7 +131,7 @@ public:
     // The keep stopped and a spearman of the attacker's at its west foot: the clock counts; a defender's spearman at its
     // east foot, 15 m off and out of the other's sight, pauses it; it counts again once he walks away, and goes to 0 when
     // the attacker's walks away too. Back at the foot, a laborer of the defender's at the keep pauses it, and the voxel
-    // he puts back sets it to 0.
+    // he puts back leaves it as it is, since the keep still does not work (the owner, 2026-11-02).
     Castle castle;
     Simulation::World& world = castle.world;
     castle.StopKeep();
@@ -165,6 +165,50 @@ public:
       restored = Raised(world, Simulation::TrialEventKind::StoneSpent) > 0;
     }
     Assert::IsTrue(restored);
+    Assert::IsTrue(before > 0);
+    Assert::IsFalse(castle.Trial().keepWorking);
+    Assert::AreEqual(before, castle.Trial().holdTicks);
+  }
+
+  TEST_METHOD(TheClockResetsWhenRepairBringsTheKeepBackToWorking)
+  {
+    // A spearman of the attacker's at the keep's west foot; the keep's great tower cut from the top down only until it
+    // stops, which starts the clock; a laborer of the defender's puts voxels back, which leave the clock as it is while the
+    // keep does not work and set it to 0 once it works again.
+    Castle castle;
+    Simulation::World& world = castle.world;
+    Holding(world, ATTACKER, Simulation::UnitKind::Spearman, At(48, GROUND, 95));
+    for (std::int32_t y = GROUND + 21; y >= GROUND && castle.Trial().keepWorking; --y)
+    {
+      for (std::int32_t z = KEEP.zVoxels; z <= KEEP.zVoxels + 11 && castle.Trial().keepWorking; ++z)
+      {
+        for (std::int32_t x = KEEP.xVoxels; x <= KEEP.xVoxels + 11 && castle.Trial().keepWorking; ++x)
+        {
+          if (world.Voxels().At(At(x, y, z)) != Protocol::Chunk::EMPTY)
+          {
+            world.Voxels().Edit(At(x, y, z), Protocol::Chunk::EMPTY);
+            world.Tick();
+          }
+        }
+      }
+    }
+    Assert::IsFalse(castle.Trial().keepWorking);
+    Run(world, 50);
+    Assert::IsTrue(castle.Trial().holdTicks > 0);
+    const std::array<Protocol::VoxelPosition, 1> cell = {At(48, GROUND, 105)};
+    const Protocol::EntityId laborer = world.AddSquad(DEFENDER, Simulation::UnitKind::Laborer, cell);
+    Order(world, DEFENDER, Protocol::RepairStructure{.laborer = laborer, .structure = castle.keep});
+    std::uint32_t before = 0;
+    for (std::uint32_t tick = 0; tick < 3000 && !castle.Trial().keepWorking; ++tick)
+    {
+      before = castle.Trial().holdTicks;
+      world.Tick();
+      if (!castle.Trial().keepWorking)
+      {
+        Assert::IsTrue(castle.Trial().holdTicks >= before);
+      }
+    }
+    Assert::IsTrue(castle.Trial().keepWorking);
     Assert::IsTrue(before > 0);
     Assert::AreEqual(std::uint32_t{0}, castle.Trial().holdTicks);
   }

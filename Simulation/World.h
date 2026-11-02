@@ -890,9 +890,8 @@ private:
   std::vector<Protocol::VoxelPosition> m_gateTouches;
   std::optional<TrialRules> m_trial;
   TrialProgress m_trialProgress;
-  // This tick's, cleared as it starts: whether repair put a voxel back in the keep, and whether step 8 or a gate shut in
-  // step 10 rebuilt a navigation tile (ADR-026, decisions 4 and 5).
-  bool m_keepRestored = false;
+  // This tick's, cleared as it starts: whether step 8 or a gate shut in step 10 rebuilt a navigation tile (ADR-026,
+  // decision 5).
   bool m_tilesRebuilt = false;
   // This tick's too: the structures whose pool of hit points changed in the control, which step 10 looks at as it does
   // one with an edit in its box (ADR-028).

@@ -356,7 +356,7 @@ public:
   TEST_METHOD(TheStormingClockResetsWhenTheKeepRegainsAHitPoint)
   {
     // The keep, a T2, pounded to 0 stops; a soldier of the attacker's at its foot starts the clock; a laborer of the
-    // defender's brings it back to 50, which sets the clock to 0.
+    // defender's brings it back to 50, which makes it work again and so sets the clock to 0.
     Site site("T2", At(50, GROUND, 60), Protocol::TrialVersion::Control, 0, true);
     Simulation::World& world = site.world;
     const Protocol::EntityId engine = world.AddSiegeEngine(ATTACKER, Simulation::EngineKind::Trebuchet, At(54, GROUND, 105));

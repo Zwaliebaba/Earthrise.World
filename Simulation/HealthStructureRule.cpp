@@ -86,7 +86,6 @@ void HealthStructureRule::Repair(World& _world, Structure& _structure) const
   _structure.hitPoints = std::min(rules->controlHitPoints, _structure.hitPoints + rules->controlHitPointsPerCubicMeter);
   _world.Pay(_structure.owner, timber, _structure.id, _structure.originVoxels);
   _world.TouchStructure(_structure.id);
-  _world.m_keepRestored = _world.m_keepRestored || (_world.m_trial.has_value() && _world.m_trial->keep == _structure.id);
 }
 
 void HealthStructureRule::UpdateWorking(World& _world, Structure& _structure,

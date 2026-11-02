@@ -163,7 +163,6 @@ bool World::Quiet() const
 
 void World::Tick()
 {
-  m_keepRestored = false;
   m_tilesRebuilt = false;
   m_touchedStructures.clear();
   m_tickCrushes.clear();
@@ -3183,10 +3182,11 @@ void World::CheckTrial()
     attackers = attackers || (unit.owner == rules.attacker && soldier && inRing(unit));
     defenders = defenders || (unit.owner == rules.defender && inRing(unit));
   }
-  // The clock resets while the keep works, when the ring holds no attacker's soldier or a voxel is put back in the keep;
-  // it pauses while both sides stand there, and otherwise counts.
+  // The clock resets while the keep works, so when repair brings it back to working, and when the ring holds no attacker's
+  // soldier; it pauses while both sides stand there, and otherwise counts. A voxel or a hit point put back in a keep that
+  // still does not work leaves it as it is (the owner, 2026-11-02).
   const bool keepWorking = keep == m_structures.end() || keep->second.working;
-  if (keepWorking || !attackers || m_keepRestored)
+  if (keepWorking || !attackers)
   {
     progress.holdTicks = 0;
   }
@@ -3559,7 +3559,6 @@ void World::VoxelRepair(Structure& _structure)
   }
   _structure.repairProgress -= Core::Fixed::FromRaw(Core::Fixed::ONE_RAW);
   m_voxels.Edit(next->first, next->second);
-  m_keepRestored = m_keepRestored || (m_trial.has_value() && m_trial->keep == _structure.id);
   Pay(_structure.owner, timber, _structure.id, next->first);
 }
 
