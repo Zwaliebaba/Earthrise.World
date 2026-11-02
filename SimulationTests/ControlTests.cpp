@@ -6,7 +6,8 @@ using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 // The control (M4-F4; ADR-028): structures with one pool of hit points, behind the same seam as the voxel version. A
 // stone on a structure takes 100 and cuts nothing; a ram's blow 100, a fourth of it on stone; at 0 a section falls whole,
-// a building stops and stands, and a gate goes; repair puts back 50 a cubic metre of stone at the voxel version's rate.
+// a building stops and stands, and stones past 0 take its pool on down to minus its full pool, so that repair must bring
+// it back above 0 before it works; a gate goes; repair puts back 50 a cubic metre of stone at the voxel version's rate.
 // Every structure starts with 900, input 19's first value, until M4-F5 calibrates them.
 
 namespace SimulationTests
@@ -106,6 +107,18 @@ std::size_t Solid(const Simulation::World& _world, Protocol::VoxelPosition _min,
     }
   }
   return solid;
+}
+
+/// _template's pool in the control (ADR-028, decision 5).
+std::int32_t PoolOf(const Simulation::World& _world, std::string_view _template)
+{
+  return _world.Data().FindTemplateRules(_template)->controlHitPoints;
+}
+
+/// The stones that take _template's pool to 0.
+std::size_t ShotsToZero(const Simulation::World& _world, std::string_view _template)
+{
+  return static_cast<std::size_t>(PoolOf(_world, _template) / 100);
 }
 
 /// The ticks the voxel version's rate takes to repair one cubic metre.
@@ -216,6 +229,51 @@ public:
     Assert::IsFalse(site.Of().working);
     Assert::IsTrue(world.Collapses().empty());
     Assert::AreEqual(before, Solid(world, At(40, GROUND, 60), At(46, GROUND + 12, 66)));
+  }
+
+  TEST_METHOD(StonesPastTheStopTakeAT4BelowZeroAndRepairMustBringItBackAboveZero)
+  {
+    // Two stones past its stop take a T4 to -200, which its view shows as 0. Once its lock runs out, a laborer's first
+    // 4 m^3 bring it back to 0, still stopped, and the fifth to 50, working (the owner, 2026-11-02).
+    Site site("T4", At(40, GROUND, 60));
+    Simulation::World& world = site.world;
+    const std::array<Protocol::VoxelPosition, 1> cell = {At(43, GROUND, 57)};
+    const Protocol::EntityId laborer = world.AddSquad(DEFENDER, Simulation::UnitKind::Laborer, cell);
+    Order(world, DEFENDER, Protocol::RepairStructure{.laborer = laborer, .structure = site.structure});
+    const Protocol::EntityId engine = world.AddSiegeEngine(ATTACKER, Simulation::EngineKind::Trebuchet, At(42, GROUND, 98));
+    Pound(world, engine, At(43, GROUND + 4, 66), ShotsToZero(world, "T4") + 2);
+    Assert::AreEqual(-200, site.Of().hitPoints);
+    world.Tick();
+    Assert::IsFalse(site.Of().working);
+    Assert::AreEqual(0, world.State(DEFENDER).structures.front().hitPoints);
+    for (std::uint32_t tick = 0; tick < 1000 && site.Of().repairLockTicks > 0; ++tick)
+    {
+      world.Tick();
+    }
+    for (std::uint32_t tick = 0; tick < 2000 && site.Of().hitPoints < 0; ++tick)
+    {
+      world.Tick();
+    }
+    Assert::AreEqual(0, site.Of().hitPoints);
+    world.Tick();
+    Assert::IsFalse(site.Of().working);
+    for (std::uint32_t tick = 0; tick < 2000 && site.Of().hitPoints <= 0; ++tick)
+    {
+      world.Tick();
+    }
+    Assert::AreEqual(50, site.Of().hitPoints);
+    world.Tick();
+    Assert::IsTrue(site.Of().working);
+  }
+
+  TEST_METHOD(ItsPoolGoesNoLowerThanMinusItsFullPool)
+  {
+    // A T4 struck its pool's worth twice over and once more stands at minus its pool.
+    Site site("T4", At(40, GROUND, 60));
+    Simulation::World& world = site.world;
+    const Protocol::EntityId engine = world.AddSiegeEngine(ATTACKER, Simulation::EngineKind::Trebuchet, At(42, GROUND, 98));
+    Pound(world, engine, At(43, GROUND + 4, 66), (2 * ShotsToZero(world, "T4")) + 1);
+    Assert::AreEqual(-PoolOf(world, "T4"), site.Of().hitPoints);
   }
 
   TEST_METHOD(AShotOnT5sStoneTakesFromTheOnePoolAndAtZeroTheGateGoesAndGHStops)

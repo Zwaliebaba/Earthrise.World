@@ -64,11 +64,11 @@ void HealthStructureRule::Repair(World& _world, Structure& _structure) const
 {
   // The voxel version's rate, a cubic metre at a time, each worth controlHitPointsPerCubicMeter and paid for in the
   // template's material (decision 4).
-  // A section at 0 has fallen whole and a gate at 0 has lost its gate, so neither is repaired; a building at 0 stands, and
-  // is (decision 4, as amended).
+  // A section at 0 has fallen whole and a gate at 0 has lost its gate, so neither is repaired; a building at or below 0
+  // stands, and is, from below 0 too (decisions 3 and 4, as amended).
   const TemplateRules* rules = _world.Data().FindTemplateRules(_structure.templateId);
   if (rules == nullptr || _structure.hitPoints >= rules->controlHitPoints ||
-      (_structure.hitPoints == 0 && (_world.IsSection(_structure) || _world.HasGate(_structure))))
+      (_structure.hitPoints <= 0 && (_world.IsSection(_structure) || _world.HasGate(_structure))))
   {
     return;
   }
@@ -119,8 +119,12 @@ std::int32_t HealthStructureRule::MaxHitPoints(const World& _world, const Struct
 
 void HealthStructureRule::Damage(World& _world, Structure& _structure, std::int32_t _amount)
 {
+  // A hit takes its pool below 0 too, down to minus the full pool: stones on a stopped building cut it further from
+  // working, as the voxel version's cut its critical part further below its threshold (decision 3, as amended).
   const bool standing = _structure.hitPoints > 0;
-  _structure.hitPoints = std::max(0, _structure.hitPoints - _amount);
+  const TemplateRules* rules = _world.Data().FindTemplateRules(_structure.templateId);
+  const std::int32_t pool = rules == nullptr ? 0 : rules->controlHitPoints;
+  _structure.hitPoints = std::max(-pool, _structure.hitPoints - _amount);
   _structure.repairLockTicks = _world.LockTicksFor(_structure);
   _world.TouchStructure(_structure.id);
   if (!standing || _structure.hitPoints > 0)

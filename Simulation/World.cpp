@@ -347,7 +347,7 @@ Protocol::StructureView World::StructureViewFor(std::uint8_t _player, const Stru
           .gateOpen = _structure.gateOpen,
           .garrisonCount = static_cast<std::uint8_t>(garrisoned),
           .garrisonCapacity = rules == nullptr ? std::uint8_t{0} : rules->garrisonCapacity,
-          .hitPoints = _structure.hitPoints,
+          .hitPoints = std::max(0, _structure.hitPoints), // a control pool below 0 shows as 0 (ADR-028, decision 3)
           .maxHitPoints = Rule().MaxHitPoints(*this, _structure),
           .opened = m_trialProgress.openedSections.contains(_structure.id),
           .lastSeen = false,
