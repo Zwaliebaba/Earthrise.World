@@ -4,6 +4,7 @@
 #include "Hud.h"
 #include "HudAlerts.h"
 #include "HudModel.h"
+#include "Look.h"
 #include "Strings.h"
 #include "UiScale.h"
 
@@ -74,7 +75,7 @@ public:
     {
       Client::Hud hud;
       std::vector<Client::ScreenQuad> quads;
-      hud.Build(WidestModel(), 1280, scale, quads);
+      hud.Build(WidestModel(), 1280, 720, scale, quads);
       const std::vector<Client::HudTarget> targets = CameraTargets(hud);
       Assert::AreEqual(CAMERA_BUTTONS.size(), targets.size());
       for (std::size_t index = 0; index < targets.size(); ++index)
@@ -97,7 +98,7 @@ public:
   {
     Client::Hud hud;
     std::vector<Client::ScreenQuad> quads;
-    hud.Build(WidestModel(), 1280, 1.0F, quads);
+    hud.Build(WidestModel(), 1280, 720, 1.0F, quads);
     for (const Client::HudTarget& target : CameraTargets(hud))
     {
       // Its corners, inside the 44 x 44 target though outside the 36 x 36 button.
@@ -151,7 +152,7 @@ public:
     model.alerts.push_back(Alert("A FOURTH", "", true));
     Client::Hud hud;
     std::vector<Client::ScreenQuad> quads;
-    hud.Build(model, 1280, 1.0F, quads);
+    hud.Build(model, 1280, 720, 1.0F, quads);
     Assert::AreEqual(std::ptrdiff_t{2}, std::ranges::count(hud.Targets(), Client::HudControl::Jump, &Client::HudTarget::control));
   }
 
@@ -168,7 +169,7 @@ public:
       {
         Client::Hud hud;
         std::vector<Client::ScreenQuad> quads;
-        hud.Build(WidestModel(), width, scale, quads);
+        hud.Build(WidestModel(), width, width * 9 / 16, scale, quads);
         const std::span<const Client::HudText> texts = hud.Texts();
         const bool detailFits = !(scale == 2.0F && width == 1280);
         Assert::AreEqual(detailFits ? ALL_TEXTS : ALL_TEXTS - 1, texts.size());
@@ -213,7 +214,7 @@ public:
       {
         Client::Hud hud;
         std::vector<Client::ScreenQuad> quads;
-        hud.Build(model, width, scale, quads);
+        hud.Build(model, width, width * 9 / 16, scale, quads);
         const std::span<const Client::HudTarget> targets = hud.Targets();
         const auto open = std::ranges::find(targets, Client::HudControl::AnswerOpen, &Client::HudTarget::control);
         const auto shut = std::ranges::find(targets, Client::HudControl::AnswerShut, &Client::HudTarget::control);
@@ -261,7 +262,7 @@ public:
         {
           Client::Hud hud;
           std::vector<Client::ScreenQuad> quads;
-          hud.Build(model, width, scale, quads);
+          hud.Build(model, width, width * 9 / 16, scale, quads);
           const std::int32_t barHeight = Client::ScaledPixels(56.0F, scale);
           std::vector<Client::HudText> banner;
           std::ranges::copy_if(hud.Texts(), std::back_inserter(banner),
@@ -278,6 +279,53 @@ public:
           // The objective's title is laid after the camera buttons' four labels and the two resources' four strings.
           const Client::PixelRect& title = hud.Texts()[8].cell;
           Assert::IsTrue(std::abs((2 * title.xPixels) + title.widthPixels - static_cast<std::int32_t>(width)) <= 1);
+        }
+      }
+    }
+  }
+
+  TEST_METHOD(DocksTheReadoutAndLeavesOutAnAlertThatWouldMeetIt)
+  {
+    // M3-H1: the readout in the bottom-left corner, as wide as its longest row, under the alerts. At 1280 x 720 and a UI
+    // scale of 2 the third alert would reach it and is left out; the readout itself lays out at a scale of 1 there, no
+    // taller than READOUT_HEIGHT_FRACTION of the screen.
+    Client::HudModel model = WidestModel();
+    model.readout = Client::HudReadout{
+      .title = "W2",
+      .rows = {
+        {.key = "HOLE", .value = "4 m · falls at 5 m", .srgb = Client::TEXT_SRGB, .flashing = true, .fill = 0.8F},
+        {.key = "OPENING", .value = "stone 1 m up 4 m · no footing", .srgb = Client::TEXT_SRGB, .flashing = false, .fill = std::nullopt},
+        {.key = "GAP", .value = "4 m · falls at 5 m", .srgb = Client::TEXT_SRGB, .flashing = false, .fill = 0.8F},
+        {.key = "GROUND", .value = "earth · can be undermined", .srgb = Client::BAD_SRGB, .flashing = false, .fill = std::nullopt},
+        {.key = "FALLS", .value = "", .srgb = Client::BAD_SRGB, .flashing = false, .fill = std::nullopt}}};
+    constexpr std::size_t HUD_TEXTS = 4 + 2 + 4 + 2 + 3 + 2 + 2; // as FitsEveryLabelInItsElementAtEveryScale counts them
+    constexpr std::size_t READOUT_TEXTS = 1 + (4 * 2) + 1;       // the title, four keys and values, and FALLS alone
+    for (const float scale : SCALES)
+    {
+      for (const std::uint32_t width : WIDTHS_PIXELS)
+      {
+        const std::uint32_t height = width * 9 / 16;
+        Client::Hud hud;
+        std::vector<Client::ScreenQuad> quads;
+        hud.Build(model, width, height, scale, quads);
+        const Client::PixelRect screen{0, 0, static_cast<std::int32_t>(width), static_cast<std::int32_t>(height)};
+        const Client::PixelRect readout = hud.Readout().value_or(Client::PixelRect{});
+        Assert::IsTrue(readout.widthPixels > 0 && readout.Inside(screen));
+        Assert::AreEqual(Client::ScaledPixels(8.0F, scale), readout.xPixels);
+        Assert::AreEqual(static_cast<std::int32_t>(height) - Client::ScaledPixels(8.0F, scale), readout.yPixels + readout.heightPixels);
+        Assert::IsTrue(static_cast<float>(readout.heightPixels) <= Client::Hud::READOUT_HEIGHT_FRACTION * static_cast<float>(height));
+        Assert::IsTrue(hud.Covers(readout.xPixels + 1, readout.yPixels + 1));
+        const bool small = width == 1280 && scale == 2.0F;
+        Assert::AreEqual(HUD_TEXTS + READOUT_TEXTS - (small ? 1 + 2 : 0), hud.Texts().size()); // the detail and the third alert
+        const std::span<const Client::HudText> texts = hud.Texts();
+        for (std::size_t index = 0; index < texts.size(); ++index)
+        {
+          Assert::IsTrue(texts[index].cell.Inside(texts[index].element));
+          Assert::IsTrue(texts[index].element.Inside(screen));
+          for (std::size_t other = index + 1; other < texts.size(); ++other)
+          {
+            Assert::IsFalse(texts[index].cell.Overlaps(texts[other].cell));
+          }
         }
       }
     }

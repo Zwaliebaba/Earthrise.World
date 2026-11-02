@@ -705,7 +705,8 @@ int Run(const Options& _options)
 
     // A left click on the HUD is the HUD's (M3-E2): the camera buttons turn and zoom, JUMP, or Space for the newest
     // alert with a place, looks at the alert's place, and the lab's question takes its answer. One on the world
-    // selects the engine whose footprint it lands on, or nothing, and Esc deselects (M3-E3).
+    // selects the engine whose footprint it lands on, or nothing, and Esc deselects (M3-E3); one on a section gives it
+    // the integrity readout until the next click or Esc (M3-H1).
     bool answerOpen = false;
     bool answerShut = false;
     if (pointer.WasPressed(Engine::PointerInput::Button::Left))
@@ -715,7 +716,14 @@ int Run(const Options& _options)
       {
         const Engine::PickRay ray = Client::WorldPicker::RayThrough(*drawnViewProjection, pointer.XPixels(), pointer.YPixels(),
                                                                     swapChain.WidthPixels(), swapChain.HeightPixels());
-        client.selected = client.picker.Pick(ray, EngineFootprints(client.session, client.tally)).engine;
+        const Client::WorldPick pick = client.picker.Pick(ray, EngineFootprints(client.session, client.tally));
+        client.selected = pick.engine;
+        Protocol::EntityId section = Protocol::NO_ENTITY;
+        if (pick.engine == Protocol::NO_ENTITY && pick.voxel.has_value())
+        {
+          section = Client::Overlays::SectionAt(client.session.State(), {pick.voxel->cell[0], pick.voxel->cell[1], pick.voxel->cell[2]});
+        }
+        client.views.Select(section);
       }
       if (hit.has_value())
       {
@@ -765,18 +773,24 @@ int Run(const Options& _options)
     {
       client.fire.Cancel();
     }
+    // The world voxel under the pointer, off the HUD: FIRE aims at it, and the section it is in has the readout.
     const bool pointerOnHud = hud.Covers(pointer.XPixels(), pointer.YPixels());
-    std::optional<Protocol::VoxelPosition> pointed;
-    if (selectedView != nullptr && !pointerOnHud && drawnViewProjection.has_value())
+    std::optional<Protocol::VoxelPosition> underPointer;
+    Protocol::EntityId hovered = Protocol::NO_ENTITY;
+    if (!pointerOnHud && drawnViewProjection.has_value())
     {
       const Engine::PickRay ray = Client::WorldPicker::RayThrough(*drawnViewProjection, pointer.XPixels(), pointer.YPixels(),
                                                                   swapChain.WidthPixels(), swapChain.HeightPixels());
       const Client::WorldPick pick = client.picker.Pick(ray, {});
       if (pick.voxel.has_value())
       {
-        pointed = Protocol::VoxelPosition{pick.voxel->cell[0], pick.voxel->cell[1], pick.voxel->cell[2]};
+        const Protocol::VoxelPosition voxel{pick.voxel->cell[0], pick.voxel->cell[1], pick.voxel->cell[2]};
+        underPointer = voxel;
+        hovered = Client::Overlays::SectionAt(client.session.State(), voxel);
       }
     }
+    client.views.Hover(hovered);
+    const std::optional<Protocol::VoxelPosition> pointed = selectedView != nullptr ? underPointer : std::nullopt;
     const bool usedEscape =
       client.fire.Update({.fPressed = fireAllowed && keyboard.WasPressed('F'),
                           .escapePressed = keyboard.WasPressed(VK_ESCAPE),
@@ -788,6 +802,7 @@ int Run(const Options& _options)
     if (keyboard.WasPressed(VK_ESCAPE) && !usedEscape)
     {
       client.selected = Protocol::NO_ENTITY;
+      client.views.Select(Protocol::NO_ENTITY);
       client.fire.Update({}, nullptr, client.session);
     }
     window.ShowCrosshair(client.fire.Active());
@@ -846,8 +861,8 @@ int Run(const Options& _options)
     const std::vector<Client::Tile> visibleTiles = Client::Overlays::VisibleTiles(
       viewProjection, swapChain.WidthPixels(), swapChain.HeightPixels(), static_cast<float>(Simulation::BreachRun::GROUND_VOXELS));
     client.views.AskReach(client.session, snapshots, visibleTiles, PLAYER, passabilityShown);
-    // The HUD, built from the session (M3-E2), and the frame's figures under it in the bottom-left corner, over the
-    // integrity view's labels (M3-F2), outside the lab (M3-H4).
+    // The HUD, built from the session (M3-E2), with the integrity readout (M3-H1), and the frame's figures under it,
+    // outside the lab (M3-H4).
     client.views.Update(client.session, seconds, client.alerts);
     client.alerts.Expire(seconds);
     // The objective line: the scenario's, or the selection while there is one, with FIRE's key, or RELOADING in off
@@ -869,21 +884,24 @@ int Run(const Options& _options)
                 .alerts = client.alerts.Shown(),
                 .selectedEngine = client.selected,
                 .integrityView = integrityView,
-                .passabilityView = passabilityShown};
+                .passabilityView = passabilityShown,
+                .readout = client.views.Readout(client.session, seconds, integrityView)};
     interfaceQuads.clear();
     if (scenario->ShowsFigures())
     {
       const std::uint32_t figuresScale = Client::TextLayout::PixelsPerFontPixel(Client::TextSize::Label, uiScale);
       const std::int32_t margin = Client::ScaledPixels(FIGURES_MARGIN_LOGICAL_PIXELS, uiScale);
-      Client::TextLayout::Lay(
-        std::format(Client::FIGURES, renderer.VoxelPassMilliseconds(), client.session.State().tick, scenario->Speed()), margin,
-        static_cast<std::int32_t>(swapChain.HeightPixels()) - margin -
-          static_cast<std::int32_t>(Client::TextLayout::CellPixels(figuresScale)),
-        figuresScale, figuresColor, interfaceQuads);
+      // In the bottom-right corner, since the readout is docked in the bottom-left (M3-H1).
+      const std::string figures =
+        std::format(Client::FIGURES, renderer.VoxelPassMilliseconds(), client.session.State().tick, scenario->Speed());
+      Client::TextLayout::Lay(figures,
+                              static_cast<std::int32_t>(swapChain.WidthPixels()) - margin -
+                                static_cast<std::int32_t>(Client::TextLayout::Measure(figures, figuresScale)),
+                              static_cast<std::int32_t>(swapChain.HeightPixels()) - margin -
+                                static_cast<std::int32_t>(Client::TextLayout::CellPixels(figuresScale)),
+                              figuresScale, figuresColor, interfaceQuads);
     }
-    client.views.LayLabels(client.session, viewProjection, swapChain.WidthPixels(), swapChain.HeightPixels(),
-                           static_cast<std::int32_t>(std::lround(topBarPixels)), uiScale, integrityView, interfaceQuads);
-    hud.Build(hudModel, swapChain.WidthPixels(), uiScale, interfaceQuads);
+    hud.Build(hudModel, swapChain.WidthPixels(), swapChain.HeightPixels(), uiScale, interfaceQuads);
     const std::optional<Client::AttackCursor> cursor = client.fire.Cursor(client.session);
     if (cursor.has_value() && !pointerOnHud)
     {

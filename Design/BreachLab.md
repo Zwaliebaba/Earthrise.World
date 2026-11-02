@@ -38,7 +38,7 @@ Earthrise --lab P03
 **Say:**
 - what *open* means: foot soldiers have a route into the courtyard through W2 once everything has settled. It is what the passability view shows, its cells in good;
 - that no more shots will be fired than the question says, all of them at the mark;
-- what the views are and how to toggle them: F1 the integrity view, on by default, with each section's HOLE, OPENING, GAP and GROUND and its weak point; F2 the passability view, the cells foot can reach in good and the rest it could stand in, in dim;
+- what the views are and how to toggle them: F1 the integrity view, on by default: the readout in the bottom-left corner, with HOLE, OPENING, GAP and GROUND for W2, or for the section under the pointer, or the one clicked last, and each section's weak point tinted in the world; F2 the passability view, the cells foot can reach in good and the rest it could stand in, in dim;
 - how to move the camera: W, A, S and D or the arrows to pan, the wheel or + and - to zoom, [ and ] to turn, or the top bar's buttons;
 - during free fire, how FIRE works, as above.
 

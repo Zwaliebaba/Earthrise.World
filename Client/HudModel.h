@@ -65,6 +65,24 @@ struct HudAlert
   double expiresSeconds; // on the client's clock; infinity for one that stays until it is replaced
 };
 
+/// A row of the readout: its key in dim and its value in its colour, both in accent while it flashes, and a bar under
+/// it when it has a fill.
+struct HudReadoutRow
+{
+  std::string key;
+  std::string value;
+  std::uint32_t srgb;
+  bool flashing;             // it changed within Overlays::FLASH_SECONDS
+  std::optional<float> fill; // HOLE's and GAP's width over the width at which the stone falls, 1 and over full
+};
+
+/// The integrity view's readout of the focused section (M3-H1), docked in the bottom-left corner.
+struct HudReadout
+{
+  std::string title; // the section's name
+  std::vector<HudReadoutRow> rows;
+};
+
 struct HudModel
 {
   std::vector<HudResource> resources;
@@ -74,6 +92,7 @@ struct HudModel
   Protocol::EntityId selectedEngine = Protocol::NO_ENTITY; // M4 brings squads
   bool integrityView = true;                               // F1, on by default
   bool passabilityView = false;                            // F2
+  std::optional<HudReadout> readout = std::nullopt;        // while F1 is on and the focused section has a reading
 };
 
 /// The top bar's resources in the breach lab (M3-E2): TIME m:ss of game time, at _tick, and SHOTS n.

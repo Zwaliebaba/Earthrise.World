@@ -195,7 +195,7 @@ public:
       {
         Client::Hud hud;
         std::vector<Client::ScreenQuad> quads;
-        hud.Build(model, width, scale, quads);
+        hud.Build(model, width, width * 9 / 16, scale, quads);
         const std::span<const Client::HudText> texts = hud.Texts();
         // The camera buttons' four, the objective, and the banner's text, two buttons and hint.
         Assert::AreEqual(std::size_t{4 + 1 + 4}, texts.size());

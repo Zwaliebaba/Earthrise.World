@@ -42,6 +42,17 @@ constexpr float RING_LOGICAL_PIXELS = 24.0F;
 constexpr float CURSOR_LABEL_OFFSET_LOGICAL_PIXELS = 18.0F; // from the pointer to the label's panel
 constexpr float CURSOR_PADDING_X_LOGICAL_PIXELS = 6.0F;
 constexpr float CURSOR_PADDING_Y_LOGICAL_PIXELS = 4.0F;
+// The integrity readout (M3-H1): docked in the bottom-left corner, at least Hud.md §3's readout width, and as wide as
+// the paper test's longest row.
+constexpr float READOUT_LEFT_LOGICAL_PIXELS = 8.0F;
+constexpr float READOUT_BOTTOM_LOGICAL_PIXELS = 8.0F;
+constexpr float READOUT_MIN_WIDTH_LOGICAL_PIXELS = 340.0F;
+constexpr float READOUT_PADDING_LOGICAL_PIXELS = 8.0F;
+constexpr float READOUT_LINE_GAP_LOGICAL_PIXELS = 4.0F;
+constexpr float READOUT_BAR_GAP_LOGICAL_PIXELS = 3.0F;
+constexpr float READOUT_BAR_HEIGHT_LOGICAL_PIXELS = 4.0F;
+// The UI scales the readout steps down through where it would be too tall (Hud.md §2's bands).
+constexpr std::array<float, 3> READOUT_SCALES = {2.0F, 1.5F, 1.0F};
 
 // A cap stands on rows 1 to 7 of the font's cell (Hud.md §9), so text is centred on that band.
 constexpr std::int32_t CAP_TOP_ROW = 1;
@@ -54,6 +65,7 @@ public:
   Painter(float _uiScale, std::vector<ScreenQuad>& _quads, std::vector<HudText>& _texts)
     : m_uiScale(_uiScale),
       m_scale(TextLayout::PixelsPerFontPixel(TextSize::Label, _uiScale)),
+      m_nameScale(TextLayout::PixelsPerFontPixel(TextSize::Name, _uiScale)),
       m_quads(_quads),
       m_texts(_texts)
   {
@@ -72,6 +84,22 @@ public:
   [[nodiscard]] std::int32_t Cell() const noexcept
   {
     return static_cast<std::int32_t>(TextLayout::CellPixels(m_scale));
+  }
+
+  /// How far _text moves the pen, its last glyph's gap included: where the text after it starts.
+  [[nodiscard]] std::int32_t Advance(std::string_view _text) const
+  {
+    return static_cast<std::int32_t>(TextLayout::Advance(_text, m_scale));
+  }
+
+  [[nodiscard]] std::int32_t NameWidth(std::string_view _text) const
+  {
+    return static_cast<std::int32_t>(TextLayout::Measure(_text, m_nameScale));
+  }
+
+  [[nodiscard]] std::int32_t NameCell() const noexcept
+  {
+    return static_cast<std::int32_t>(TextLayout::CellPixels(m_nameScale));
   }
 
   /// The top of a line's cell whose caps are centred in the band _heightPixels high from _topPixels.
@@ -117,6 +145,13 @@ public:
     m_texts.push_back({.cell = {_xPixels, _yPixels, Width(_text), Cell()}, .element = _element});
   }
 
+  /// _text at the names' size.
+  void NameText(std::string_view _text, std::int32_t _xPixels, std::int32_t _yPixels, std::uint32_t _srgb, const PixelRect& _element)
+  {
+    TextLayout::Lay(_text, _xPixels, _yPixels, m_nameScale, LinearColor(_srgb), m_quads);
+    m_texts.push_back({.cell = {_xPixels, _yPixels, NameWidth(_text), NameCell()}, .element = _element});
+  }
+
   /// A button: a bordered box with _text centred in it.
   void Button(const PixelRect& _rect, std::string_view _text)
   {
@@ -128,9 +163,38 @@ public:
 private:
   float m_uiScale;
   std::uint32_t m_scale;
+  std::uint32_t m_nameScale;
   std::vector<ScreenQuad>& m_quads;
   std::vector<HudText>& m_texts;
 };
+
+/// The readout's size at one scale.
+struct ReadoutSize
+{
+  std::int32_t widthPixels;
+  std::int32_t heightPixels;
+  std::int32_t contentWidthPixels;
+};
+
+ReadoutSize MeasureReadout(const HudReadout& _readout, const Painter& _paint)
+{
+  const std::int32_t border = _paint.Pixels(BORDER_LOGICAL_PIXELS);
+  const std::int32_t padding = _paint.Pixels(READOUT_PADDING_LOGICAL_PIXELS);
+  std::int32_t content = _paint.NameWidth(_readout.title);
+  std::int32_t height = (2 * border) + (2 * padding) + _paint.NameCell();
+  for (const HudReadoutRow& row : _readout.rows)
+  {
+    const std::int32_t rowWidth = row.value.empty() ? _paint.Width(row.key) : _paint.Advance(row.key + " ") + _paint.Width(row.value);
+    content = std::max(content, rowWidth);
+    height += _paint.Pixels(READOUT_LINE_GAP_LOGICAL_PIXELS) + _paint.Cell();
+    if (row.fill.has_value())
+    {
+      height += _paint.Pixels(READOUT_BAR_GAP_LOGICAL_PIXELS) + _paint.Pixels(READOUT_BAR_HEIGHT_LOGICAL_PIXELS);
+    }
+  }
+  const std::int32_t width = std::max(_paint.Pixels(READOUT_MIN_WIDTH_LOGICAL_PIXELS), (2 * border) + (2 * padding) + content);
+  return {.widthPixels = width, .heightPixels = height, .contentWidthPixels = width - (2 * border) - (2 * padding)};
+}
 
 } // namespace
 
@@ -151,13 +215,16 @@ bool PixelRect::Overlaps(const PixelRect& _other) const noexcept
          yPixels < _other.yPixels + _other.heightPixels && _other.yPixels < yPixels + heightPixels;
 }
 
-void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, float _uiScale, std::vector<ScreenQuad>& _quads)
+void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_t _heightPixels, float _uiScale,
+                std::vector<ScreenQuad>& _quads)
 {
   m_panels.clear();
   m_targets.clear();
   m_texts.clear();
+  m_readout.reset();
   Painter paint(_uiScale, _quads, m_texts);
   const auto width = static_cast<std::int32_t>(_widthPixels);
+  const auto height = static_cast<std::int32_t>(_heightPixels);
 
   // The top bar, its border along its foot.
   const std::int32_t barHeight = paint.Pixels(TOP_BAR_LOGICAL_PIXELS);
@@ -275,8 +342,70 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, float _uiSca
     }
   }
 
+  // The integrity readout, docked in the bottom-left corner: the focused section's name, then its rows, each key in dim
+  // and its value in its colour, both in accent while the row flashes, and HOLE's and GAP's bars under them. It lays out
+  // at the UI scale, or at the largest band below it at which it is no taller than READOUT_HEIGHT_FRACTION of the screen.
+  if (_model.readout.has_value())
+  {
+    const HudReadout& readout = *_model.readout;
+    const auto fits = [&](float _scale)
+    {
+      const Painter trial(_scale, _quads, m_texts);
+      return static_cast<float>(MeasureReadout(readout, trial).heightPixels) <= READOUT_HEIGHT_FRACTION * static_cast<float>(height);
+    };
+    float readoutScale = _uiScale;
+    for (const float band : READOUT_SCALES)
+    {
+      if (fits(readoutScale))
+      {
+        break;
+      }
+      readoutScale = std::min(readoutScale, band);
+    }
+    Painter readoutPaint(readoutScale, _quads, m_texts);
+    const ReadoutSize size = MeasureReadout(readout, readoutPaint);
+    const std::int32_t margin = paint.Pixels(READOUT_LEFT_LOGICAL_PIXELS);
+    const PixelRect box{margin, height - paint.Pixels(READOUT_BOTTOM_LOGICAL_PIXELS) - size.heightPixels,
+                        std::min(size.widthPixels, width - (2 * margin)), size.heightPixels};
+    const PixelRect inside = readoutPaint.Box(box, LINE_SRGB, PANEL_SRGB, PANEL_ALPHA);
+    m_panels.push_back(box);
+    m_readout = box;
+    const std::int32_t padding = readoutPaint.Pixels(READOUT_PADDING_LOGICAL_PIXELS);
+    const std::int32_t left = inside.xPixels + padding;
+    const std::int32_t barWidth = std::min(size.contentWidthPixels, inside.widthPixels - (2 * padding));
+    std::int32_t y = inside.yPixels + padding;
+    readoutPaint.NameText(readout.title, left, y, TEXT_SRGB, inside);
+    y += readoutPaint.NameCell();
+    for (const HudReadoutRow& row : readout.rows)
+    {
+      y += readoutPaint.Pixels(READOUT_LINE_GAP_LOGICAL_PIXELS);
+      // A key alone, such as FALLS, is in the row's colour.
+      const std::uint32_t keySrgb = row.flashing ? ACCENT_SRGB : (row.value.empty() ? row.srgb : DIM_SRGB);
+      readoutPaint.Text(row.key, left, y, keySrgb, inside);
+      if (!row.value.empty())
+      {
+        readoutPaint.Text(row.value, left + readoutPaint.Advance(row.key + " "), y, row.flashing ? ACCENT_SRGB : row.srgb, inside);
+      }
+      y += readoutPaint.Cell();
+      if (row.fill.has_value())
+      {
+        // The track, and over it the width so far, in bad from the width at which the stone falls.
+        y += readoutPaint.Pixels(READOUT_BAR_GAP_LOGICAL_PIXELS);
+        const std::int32_t trackHeight = readoutPaint.Pixels(READOUT_BAR_HEIGHT_LOGICAL_PIXELS);
+        readoutPaint.Fill({left, y, barWidth, trackHeight}, LINE_SRGB);
+        const float fill = std::clamp(*row.fill, 0.0F, 1.0F);
+        const auto filled = static_cast<std::int32_t>(std::lround(fill * static_cast<float>(barWidth)));
+        if (filled > 0)
+        {
+          readoutPaint.Fill({left, y, filled, trackHeight}, *row.fill >= 1.0F ? BAD_SRGB : TEXT_SRGB);
+        }
+        y += trackHeight;
+      }
+    }
+  }
+
   // The alerts, newest first, down the left: the text in accent, or bad when urgent, a second line in sub, and JUMP
-  // when the alert has a place.
+  // when the alert has a place. One that would meet the readout is left out, with those older than it.
   std::int32_t y = paint.Pixels(ALERTS_TOP_LOGICAL_PIXELS);
   const std::int32_t paddingX = paint.Pixels(ALERT_PADDING_X_LOGICAL_PIXELS);
   const std::int32_t paddingY = paint.Pixels(ALERT_PADDING_Y_LOGICAL_PIXELS);
@@ -295,6 +424,10 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, float _uiSca
     const std::int32_t alertWidth =
       std::min((2 * border) + (2 * paddingX) + textWidth + jumpRoom, paint.Pixels(ALERT_MAX_WIDTH_LOGICAL_PIXELS));
     const PixelRect box{paint.Pixels(ALERTS_LEFT_LOGICAL_PIXELS), y, alertWidth, (2 * border) + (2 * paddingY) + content};
+    if (m_readout.has_value() && box.Overlaps(*m_readout))
+    {
+      break;
+    }
     const PixelRect inside = paint.Box(box, color, PANEL_SRGB, PANEL_ALPHA);
     m_panels.push_back(box);
     const PixelRect column{inside.xPixels + paddingX, inside.yPixels + paddingY, inside.widthPixels - (2 * paddingX) - jumpRoom, content};
@@ -358,6 +491,11 @@ std::span<const HudTarget> Hud::Targets() const noexcept
 std::span<const HudText> Hud::Texts() const noexcept
 {
   return m_texts;
+}
+
+std::optional<PixelRect> Hud::Readout() const noexcept
+{
+  return m_readout;
 }
 
 } // namespace Client
