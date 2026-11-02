@@ -429,6 +429,11 @@ public:
     const float shotHeight = Client::MODEL_VOXEL_METERS * static_cast<float>(shotModel.grid.heightVoxels);
     for (const Protocol::ShotView& shot : state.shots)
     {
+      // An arrow is a line model, which the line pass draws from M4-H2 (ADR-018); M3's client draws stones alone.
+      if (shot.kind == Protocol::ShotKind::Arrow)
+      {
+        continue;
+      }
       // Between its positions in the last two updates, a tick behind (GameDesign.md, M3's values, item 17).
       DirectX::XMFLOAT3 at{Meters(shot.position.xMeters), Meters(shot.position.yMeters), Meters(shot.position.zMeters)};
       const auto before = std::ranges::find(_session.PreviousState().shots, shot.id, &Protocol::ShotView::id);

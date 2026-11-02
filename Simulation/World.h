@@ -9,6 +9,7 @@
 #include "Fixed.h"
 #include "FixedPosition.h"
 #include "NavigationGrid.h"
+#include "Arrow.h"
 #include "PathSearch.h"
 #include "Query.h"
 #include "ServerData.h"
@@ -26,6 +27,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 namespace Simulation
@@ -186,10 +188,16 @@ struct Structure
 struct Shot
 {
   Protocol::EntityId id;
-  Protocol::EntityId engine;
+  Protocol::EntityId engine; // its shooter: the engine, or for an arrow the squad of the figure that loosed it
   std::uint8_t owner;
-  ShotArc arc;
+  std::variant<ShotArc, ArrowLine> flight; // a stone's arc, or an arrow's line (ADR-023, decision 5)
   std::uint32_t ticksFlown;
+  Protocol::ShotKind kind = Protocol::ShotKind::Stone;
+  // An arrow's: the figure that loosed it, the figure it was loosed at, and the damage it deals that figure, fixed when it
+  // was loosed by the shooter's stats and the elevation then.
+  Protocol::EntityId shooter = Protocol::NO_ENTITY;
+  Protocol::EntityId target = Protocol::NO_ENTITY;
+  std::int32_t damage = 0;
 };
 
 /// A piece that lost support, warning and then falling (ADR-004, decisions 3 and 4).
@@ -454,12 +462,19 @@ private:
   // ADR-023, decisions 3 and 4: targets and melee, in step 3.
   /// Each figure's target for the tick, and each squad's order as its target and its arrival leave it.
   void Acquire();
-  /// The nearest enemy figure to _unit among _candidates' units within _rangeVoxels, ties to the lower id, or NO_ENTITY.
+  /// The nearest enemy figure to _unit within _rangeVoxels, of _onlySquad unless it is NO_ENTITY, ties to the lower id, or
+  /// NO_ENTITY. A ranged _unit also takes one beyond _rangeVoxels that its reach at the elevation to it covers.
   [[nodiscard]] Protocol::EntityId Nearest(const Unit& _unit, std::int64_t _rangeVoxels, Protocol::EntityId _onlySquad) const;
   /// Whether two units' footprints touch: one in a neighbouring cell of the other's.
   [[nodiscard]] bool Adjacent(const Unit& _first, const Unit& _second) const;
   /// The tick's melee: worked out from the state before any strike lands, then applied together.
   void Melee();
+  /// Whether _unit, ranged, can loose at _foe now: in its reach at the elevation, with nothing solid on the line.
+  [[nodiscard]] bool CanLoose(const Unit& _unit, const Unit& _foe) const;
+  /// Every ranged figure whose reload is due looses an arrow at its target when it can (ADR-023, decision 5).
+  void Loose();
+  /// The attack cursor's reading for a ranged squad of _player's, as its lead's arrow would fly (M4-C4).
+  [[nodiscard]] Protocol::AimReading SquadAimReadingFor(std::uint8_t _player, const Protocol::SquadAim& _aim) const;
   /// The squad an order names when _player may order it, or null after refusing the command.
   [[nodiscard]] Squad* OrderableSquad(std::uint8_t _player, const Protocol::Command& _command, Protocol::EntityId _squad);
   /// The squad an AttackTarget's target fights as: the squad, or an engine's body.

@@ -254,30 +254,65 @@ Core::Fixed ReadFixed(Core::ByteReader& _reader)
 
 void WriteRecord(Core::ByteWriter& _writer, const Shot& _shot)
 {
+  // Version 2 (M4-C4): the kind, then a stone's arc or an arrow's line, then an arrow's shooter, target and damage.
   _writer.WriteU64(_shot.id);
   _writer.WriteU64(_shot.engine);
   _writer.WriteU8(_shot.owner);
-  WriteFixedPosition(_writer, _shot.arc.start);
-  WriteFixed(_writer, _shot.arc.acrossXMeters);
-  WriteFixed(_writer, _shot.arc.acrossZMeters);
-  WriteFixed(_writer, _shot.arc.flightTicks);
-  WriteFixed(_writer, _shot.arc.riseMetersPerTick);
-  WriteFixed(_writer, _shot.arc.gravityMetersPerTickSquared);
+  _writer.WriteU8(static_cast<std::uint8_t>(_shot.kind));
+  if (const auto* line = std::get_if<ArrowLine>(&_shot.flight))
+  {
+    WriteFixedPosition(_writer, line->start);
+    WriteFixedPosition(_writer, line->end);
+    WriteFixed(_writer, line->flightTicks);
+  }
+  else
+  {
+    const ShotArc& arc = std::get<ShotArc>(_shot.flight);
+    WriteFixedPosition(_writer, arc.start);
+    WriteFixed(_writer, arc.acrossXMeters);
+    WriteFixed(_writer, arc.acrossZMeters);
+    WriteFixed(_writer, arc.flightTicks);
+    WriteFixed(_writer, arc.riseMetersPerTick);
+    WriteFixed(_writer, arc.gravityMetersPerTickSquared);
+  }
   _writer.WriteU32(_shot.ticksFlown);
+  _writer.WriteU64(_shot.shooter);
+  _writer.WriteU64(_shot.target);
+  _writer.WriteI32(_shot.damage);
 }
 
 Shot ReadShot(Core::ByteReader& _reader)
 {
-  return {.id = _reader.ReadU64(),
-          .engine = _reader.ReadU64(),
-          .owner = _reader.ReadU8(),
-          .arc = {.start = ReadFixedPosition(_reader),
-                  .acrossXMeters = ReadFixed(_reader),
-                  .acrossZMeters = ReadFixed(_reader),
-                  .flightTicks = ReadFixed(_reader),
-                  .riseMetersPerTick = ReadFixed(_reader),
-                  .gravityMetersPerTickSquared = ReadFixed(_reader)},
-          .ticksFlown = _reader.ReadU32()};
+  Shot shot{.id = _reader.ReadU64(),
+            .engine = _reader.ReadU64(),
+            .owner = _reader.ReadU8(),
+            .flight = ShotArc{},
+            .ticksFlown = 0,
+            .kind = ReadEnum(_reader, Protocol::ShotKind::Arrow, "kind of shot"),
+            .shooter = Protocol::NO_ENTITY,
+            .target = Protocol::NO_ENTITY,
+            .damage = 0};
+  if (shot.kind == Protocol::ShotKind::Arrow)
+  {
+    ArrowLine line{.start = ReadFixedPosition(_reader), .end = {}, .flightTicks = {}};
+    line.end = ReadFixedPosition(_reader);
+    line.flightTicks = ReadFixed(_reader);
+    shot.flight = line;
+  }
+  else
+  {
+    shot.flight = ShotArc{.start = ReadFixedPosition(_reader),
+                          .acrossXMeters = ReadFixed(_reader),
+                          .acrossZMeters = ReadFixed(_reader),
+                          .flightTicks = ReadFixed(_reader),
+                          .riseMetersPerTick = ReadFixed(_reader),
+                          .gravityMetersPerTickSquared = ReadFixed(_reader)};
+  }
+  shot.ticksFlown = _reader.ReadU32();
+  shot.shooter = _reader.ReadU64();
+  shot.target = _reader.ReadU64();
+  shot.damage = _reader.ReadI32();
+  return shot;
 }
 
 void WritePositions(Core::ByteWriter& _writer, std::span<const Protocol::VoxelPosition> _positions)
@@ -559,6 +594,8 @@ std::uint16_t RecordVersion(SaveEntityTag _tag) noexcept
     return 4;
   case SaveEntityTag::SiegeEngine: // M4-B4: its state; M4-C1: its body's squad
     return 3;
+  case SaveEntityTag::Shot: // M4-C4: its kind, an arrow's line, shooter, target and damage
+    return 2;
   default:
     return 1;
   }

@@ -103,7 +103,7 @@ void Check(const Simulation::World& _world, std::uint32_t _tick, const std::set<
   for (const Protocol::ShotView& view : state.shots)
   {
     const Simulation::Shot& shot = _world.Shots().at(view.id);
-    if (!(view.position == Simulation::ShotPositionAt(shot.arc, shot.ticksFlown)))
+    if (!(view.position == Simulation::ShotPositionAt(std::get<Simulation::ShotArc>(shot.flight), shot.ticksFlown)))
     {
       fault("shot " + std::to_string(view.id) + " is not where its arc puts it");
     }

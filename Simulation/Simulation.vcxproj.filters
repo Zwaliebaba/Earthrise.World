@@ -28,6 +28,9 @@
     <Filter Include="Destruction">
       <UniqueIdentifier>{C0D574BE-2CD3-535B-B9D6-497E3B257FFE}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Combat">
+      <UniqueIdentifier>{EB5BC3C4-5E07-51C3-9616-6E0545B8A0E5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -173,6 +176,12 @@
     </ClInclude>
     <ClCompile Include="Formation.cpp">
       <Filter>Navigation</Filter>
+    </ClCompile>
+    <ClInclude Include="Arrow.h">
+      <Filter>Combat</Filter>
+    </ClInclude>
+    <ClCompile Include="Arrow.cpp">
+      <Filter>Combat</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

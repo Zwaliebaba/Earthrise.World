@@ -601,8 +601,10 @@ void World::Acquire()
 
 Protocol::EntityId World::Nearest(const Unit& _unit, std::int64_t _rangeVoxels, Protocol::EntityId _onlySquad) const
 {
-  // By squared distance across the ground, cell to cell; an engine's body by its cell, its footprint's corner.
+  // By squared distance across the ground, cell to cell; an engine's body by its cell, its footprint's corner. A ranged
+  // figure also takes what its reach at the elevation covers, so that one standing high can shoot as far as it reaches.
   const std::int64_t limit = _rangeVoxels >= 3'037'000'499 ? std::numeric_limits<std::int64_t>::max() : _rangeVoxels * _rangeVoxels;
+  const std::int32_t rangeVoxels = Data().Stats(_unit.kind).rangeVoxels;
   Protocol::EntityId nearest = Protocol::NO_ENTITY;
   std::int64_t best = 0;
   for (const auto& [id, other] : m_units)
@@ -614,7 +616,11 @@ Protocol::EntityId World::Nearest(const Unit& _unit, std::int64_t _rangeVoxels, 
     const std::int64_t dx = std::int64_t{other.cellVoxels.xVoxels} - _unit.cellVoxels.xVoxels;
     const std::int64_t dz = std::int64_t{other.cellVoxels.zVoxels} - _unit.cellVoxels.zVoxels;
     const std::int64_t distance = (dx * dx) + (dz * dz);
-    if (distance <= limit && (nearest == Protocol::NO_ENTITY || distance < best))
+    const std::int64_t reach =
+      rangeVoxels > 0 ? ArrowRangeVoxels(rangeVoxels, ElevationSteps(_unit.cellVoxels.yVoxels, other.cellVoxels.yVoxels, Data().Tuning()),
+                                         Data().Tuning())
+                      : 0;
+    if ((distance <= limit || distance <= reach * reach) && (nearest == Protocol::NO_ENTITY || distance < best))
     {
       nearest = id;
       best = distance;
@@ -694,6 +700,55 @@ void World::Melee()
     m_units.at(strike.struck).hitPoints -= strike.damage;
     Unit& striker = m_units.at(strike.striker);
     striker.reloadTicks = Data().Stats(striker.kind).reloadTicks;
+  }
+}
+
+bool World::CanLoose(const Unit& _unit, const Unit& _foe) const
+{
+  // In its range across the ground plus a band for each elevation step, and with nothing solid between its loosing point
+  // and the aim point above the target's cell (ADR-023, decision 5).
+  const Rules& rules = Data().Tuning();
+  const std::int64_t reach =
+    ArrowRangeVoxels(Data().Stats(_unit.kind).rangeVoxels, ElevationSteps(_unit.cellVoxels.yVoxels, _foe.cellVoxels.yVoxels, rules), rules);
+  const std::int64_t dx = std::int64_t{_foe.cellVoxels.xVoxels} - _unit.cellVoxels.xVoxels;
+  const std::int64_t dz = std::int64_t{_foe.cellVoxels.zVoxels} - _unit.cellVoxels.zVoxels;
+  if ((dx * dx) + (dz * dz) > reach * reach)
+  {
+    return false;
+  }
+  const ArrowLine line = AimArrow(_unit.cellVoxels, _foe.cellVoxels, rules);
+  return !FirstSolid(line.start, line.end, m_voxels).has_value();
+}
+
+void World::Loose()
+{
+  // After melee, in unit-id order: each figure with a ranged attack whose reload is due looses an arrow at its target
+  // when it can. The arrow's damage is fixed now, by the elevation between the two (ADR-023, decisions 2 and 5).
+  const Rules& rules = Data().Tuning();
+  for (auto& [id, unit] : m_units)
+  {
+    const UnitStats& stats = Data().Stats(unit.kind);
+    if (Garrisoned(unit) || stats.attack <= 0 || stats.rangeVoxels <= 0 || unit.reloadTicks > 0)
+    {
+      continue;
+    }
+    const auto foe = m_units.find(unit.target);
+    if (foe == m_units.end() || !CanLoose(unit, foe->second))
+    {
+      continue;
+    }
+    const std::int32_t steps = ElevationSteps(unit.cellVoxels.yVoxels, foe->second.cellVoxels.yVoxels, rules);
+    const Protocol::EntityId arrow = NewEntityId();
+    m_shots.emplace(arrow, Shot{.id = arrow,
+                                .engine = unit.squad,
+                                .owner = unit.owner,
+                                .flight = AimArrow(unit.cellVoxels, foe->second.cellVoxels, rules),
+                                .ticksFlown = 0,
+                                .kind = Protocol::ShotKind::Arrow,
+                                .shooter = id,
+                                .target = unit.target,
+                                .damage = Damage(stats, Data().Stats(foe->second.kind), steps)});
+    unit.reloadTicks = stats.reloadTicks;
   }
 }
 
@@ -1024,7 +1079,15 @@ void World::Fire(std::uint8_t _player, const Protocol::FireEngine& _fire)
     return;
   }
   const Protocol::EntityId id = NewEntityId();
-  m_shots.emplace(id, Shot{.id = id, .engine = engine->first, .owner = _player, .arc = *arc, .ticksFlown = 0});
+  m_shots.emplace(id, Shot{.id = id,
+                           .engine = engine->first,
+                           .owner = _player,
+                           .flight = *arc,
+                           .ticksFlown = 0,
+                           .kind = Protocol::ShotKind::Stone,
+                           .shooter = Protocol::NO_ENTITY,
+                           .target = Protocol::NO_ENTITY,
+                           .damage = 0});
   engine->second.reloadTicks = static_cast<std::uint32_t>(Data().Tuning().shotReloadTicks);
 }
 
@@ -1060,6 +1123,7 @@ void World::MoveUnits()
   WalkFigures();
   FollowBodies();
   Melee();
+  Loose();
   RemoveDead();
 }
 
@@ -1293,7 +1357,9 @@ std::optional<World::Step> World::NextStep(const Unit& _unit, const Squad& _squa
   }
   if (const auto foe = m_units.find(_unit.target); foe != m_units.end())
   {
-    if (Adjacent(_unit, foe->second))
+    // A melee figure engages what it touches, a ranged one what it can loose at (decisions 5 and 6).
+    const bool ranged = Data().Stats(_unit.kind).rangeVoxels > 0;
+    if (ranged ? CanLoose(_unit, foe->second) : Adjacent(_unit, foe->second))
     {
       return std::nullopt;
     }
@@ -1778,17 +1844,42 @@ void World::AdvanceShots()
   std::vector<Protocol::EntityId> landed;
   for (auto& [id, shot] : m_shots)
   {
-    const ShotStep step = StepShot(shot.arc, shot.ticksFlown, m_voxels, WidthVoxels(), DepthVoxels());
+    if (const auto* line = std::get_if<ArrowLine>(&shot.flight))
+    {
+      // An arrow stops at the first solid voxel its step crosses and does nothing; one that reaches its end hits its
+      // target when the target stands within arrowHitReachCells of the cell it was aimed at, and otherwise falls
+      // harmlessly. It passes every other unit (ADR-023, decision 5).
+      const bool stopped =
+        FirstSolid(ArrowPositionAt(*line, shot.ticksFlown), ArrowPositionAt(*line, shot.ticksFlown + 1), m_voxels).has_value();
+      const bool arrives = ArrowArrives(*line, shot.ticksFlown);
+      ++shot.ticksFlown;
+      if (!stopped && arrives)
+      {
+        const std::int32_t reach = Data().Tuning().arrowHitReachCells;
+        const auto target = m_units.find(shot.target);
+        if (target != m_units.end() && !Garrisoned(target->second) &&
+            std::abs(target->second.cellVoxels.xVoxels - line->end.xMeters.FloorWhole()) <= reach &&
+            std::abs(target->second.cellVoxels.zVoxels - line->end.zMeters.FloorWhole()) <= reach)
+        {
+          target->second.hitPoints -= shot.damage;
+        }
+      }
+      if (stopped || arrives)
+      {
+        landed.push_back(id);
+      }
+      continue;
+    }
+    const ShotArc& arc = std::get<ShotArc>(shot.flight);
+    const ShotStep step = StepShot(arc, shot.ticksFlown, m_voxels, WidthVoxels(), DepthVoxels());
     ++shot.ticksFlown;
     const std::optional<Protocol::VoxelPosition>& hit = step.hit;
     if (hit.has_value())
     {
-      const bool alongX = std::abs(shot.arc.acrossXMeters.Raw()) >= std::abs(shot.arc.acrossZMeters.Raw());
+      const bool alongX = std::abs(arc.acrossXMeters.Raw()) >= std::abs(arc.acrossZMeters.Raw());
       const auto sign = [](Core::Fixed _value) { return _value.Raw() > 0 ? 1 : (_value.Raw() < 0 ? -1 : 0); };
-      const ShotHit& struck = m_tickHits.emplace_back(ShotHit{.shot = id,
-                                                              .voxel = *hit,
-                                                              .behindX = alongX ? sign(shot.arc.acrossXMeters) : 0,
-                                                              .behindZ = alongX ? 0 : sign(shot.arc.acrossZMeters)});
+      const ShotHit& struck = m_tickHits.emplace_back(ShotHit{
+        .shot = id, .voxel = *hit, .behindX = alongX ? sign(arc.acrossXMeters) : 0, .behindZ = alongX ? 0 : sign(arc.acrossZMeters)});
       // Its crater, as edits to empty (M2-E2).
       for (const Protocol::VoxelPosition& voxel : CraterVoxels(
              struck.voxel, struck.behindX, struck.behindZ, [this](Protocol::VoxelPosition _voxel) { return m_voxels.At(_voxel); },
@@ -1807,6 +1898,7 @@ void World::AdvanceShots()
   {
     m_shots.erase(id);
   }
+  RemoveDead();
 }
 
 void World::SearchSupport()
@@ -2454,8 +2546,10 @@ Protocol::StateUpdate World::StateFor(std::uint8_t _player) const
   {
     state.shots.push_back({.id = id,
                            .engine = shot.engine,
-                           .position = ShotPositionAt(shot.arc, shot.ticksFlown),
-                           .kind = Protocol::ShotKind::Stone,
+                           .position = std::holds_alternative<ArrowLine>(shot.flight)
+                                         ? ArrowPositionAt(std::get<ArrowLine>(shot.flight), shot.ticksFlown)
+                                         : ShotPositionAt(std::get<ShotArc>(shot.flight), shot.ticksFlown),
+                           .kind = shot.kind,
                            .owner = shot.owner});
   }
   // The collapses still running and those whose fall ended this tick, in id order.
@@ -2594,7 +2688,46 @@ Protocol::Reading World::Answer(std::uint8_t _player, const Protocol::Query& _qu
   {
     return TileReachReadingFor(*reach);
   }
+  if (const auto* squadAim = std::get_if<Protocol::SquadAim>(&_query))
+  {
+    return SquadAimReadingFor(_player, *squadAim);
+  }
   return AimReadingFor(_player, std::get<Protocol::AimCheck>(_query));
+}
+
+Protocol::AimReading World::SquadAimReadingFor(std::uint8_t _player, const Protocol::SquadAim& _aim) const
+{
+  // Hud.md §8's attack cursor for a ranged squad, from its lead's loosing point as its arrow would fly (M4-C4): OUT OF
+  // RANGE beyond its reach at the elevation, BLOCKED when the line meets a solid voxel, and otherwise IN RANGE.
+  Protocol::AimReading reading{.verdict = Protocol::AimVerdict::OutOfRange, .distanceMeters = 0, .strikes = false, .strikeVoxels = {}};
+  const auto squad = m_squads.find(_aim.squad);
+  if (squad == m_squads.end() || squad->second.owner != _player || squad->second.garrisonedIn != Protocol::NO_ENTITY ||
+      squad->second.units.empty() || Data().Stats(squad->second.kind).rangeVoxels <= 0)
+  {
+    return reading;
+  }
+  const Rules& rules = Data().Tuning();
+  const Protocol::VoxelPosition from = m_units.at(squad->second.units.front()).cellVoxels;
+  const std::int64_t acrossX = std::int64_t{_aim.targetVoxels.xVoxels} - from.xVoxels;
+  const std::int64_t acrossZ = std::int64_t{_aim.targetVoxels.zVoxels} - from.zVoxels;
+  const std::int64_t acrossSquared = (acrossX * acrossX) + (acrossZ * acrossZ);
+  reading.distanceMeters = static_cast<std::int32_t>(Core::IntegerSquareRoot(static_cast<std::uint64_t>(acrossSquared)));
+  const std::int64_t reach =
+    ArrowRangeVoxels(Data().Stats(squad->second.kind).rangeVoxels, ElevationSteps(from.yVoxels, _aim.targetVoxels.yVoxels, rules), rules);
+  if (acrossSquared > reach * reach)
+  {
+    return reading;
+  }
+  const ArrowLine line = AimArrow(from, _aim.targetVoxels, rules);
+  if (const std::optional<Protocol::VoxelPosition> strike = FirstSolid(line.start, line.end, m_voxels); strike.has_value())
+  {
+    reading.verdict = Protocol::AimVerdict::Blocked;
+    reading.strikes = true;
+    reading.strikeVoxels = *strike;
+    return reading;
+  }
+  reading.verdict = Protocol::AimVerdict::InRange;
+  return reading;
 }
 
 Protocol::TileReachReading World::TileReachReadingFor(const Protocol::TileReach& _reach) const

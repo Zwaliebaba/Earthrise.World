@@ -85,6 +85,8 @@
     <ClCompile Include="Scenario.cpp" />
     <ClInclude Include="Formation.h" />
     <ClCompile Include="Formation.cpp" />
+    <ClInclude Include="Arrow.h" />
+    <ClCompile Include="Arrow.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

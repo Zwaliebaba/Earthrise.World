@@ -49,7 +49,7 @@ TEST_CLASS(QueryTests)
 public:
   TEST_METHOD(RoundTripsEachQuery)
   {
-    const std::array<Protocol::QueryRequest, 3> requests = {{
+    const std::array<Protocol::QueryRequest, 4> requests = {{
       {.id = 1, .query = Protocol::AimCheck{.engine = 9, .targetVoxels = {.xVoxels = 100, .yVoxels = 9, .zVoxels = -3}}},
       {.id = 2, .query = Protocol::SectionIntegrity{.structure = 4}},
       {.id = 4000000000U,
@@ -57,6 +57,7 @@ public:
                                     .startCellVoxels = {.xVoxels = 5, .yVoxels = 8, .zVoxels = 6},
                                     .tileX = 11,
                                     .tileZ = 5}},
+      {.id = 5, .query = Protocol::SquadAim{.squad = 12, .targetVoxels = {.xVoxels = 40, .yVoxels = 15, .zVoxels = 30}}},
     }};
     for (const Protocol::QueryRequest& request : requests)
     {
@@ -110,7 +111,7 @@ public:
   {
     const std::vector<std::byte> bytes = Encoded(Protocol::QueryRequest{
       .id = 7, .query = Protocol::AimCheck{.engine = 3, .targetVoxels = {.xVoxels = 1, .yVoxels = 2, .zVoxels = 3}}});
-    const std::array<unsigned, 28> expected = {0x07, 0x00, 0x00, 0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00,
+    const std::array<unsigned, 28> expected = {0x07, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00,
                                                0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00};
     Assert::AreEqual(expected.size(), bytes.size());
     for (std::size_t index = 0; index < expected.size(); ++index)
@@ -122,10 +123,10 @@ public:
   TEST_METHOD(RefusesAnUnknownTagOrVersionOrValue)
   {
     std::vector<std::byte> bytes = Encoded(Protocol::QueryRequest{.id = 1, .query = Protocol::SectionIntegrity{.structure = 1}});
-    bytes[4] = std::byte{4};
+    bytes[4] = std::byte{5};
     Assert::ExpectException<std::invalid_argument>([&bytes] { static_cast<void>(DecodedRequest(bytes)); });
     bytes = Encoded(Protocol::QueryRequest{.id = 1, .query = Protocol::SectionIntegrity{.structure = 1}});
-    bytes[6] = std::byte{1}; // version 1, from before M3-F3 gave the tile reach reading its surfaces
+    bytes[6] = std::byte{2}; // version 2, M3-F3's, from before M4-C4 added the squad's aim
     Assert::ExpectException<std::invalid_argument>([&bytes] { static_cast<void>(DecodedRequest(bytes)); });
     bytes = Encoded(Protocol::QueryRequest{
       .id = 1,

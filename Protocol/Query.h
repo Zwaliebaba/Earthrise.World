@@ -48,7 +48,17 @@ struct TileReach
   friend constexpr bool operator==(const TileReach&, const TileReach&) = default;
 };
 
-using Query = std::variant<AimCheck, SectionIntegrity, TileReach>;
+/// The attack cursor for a ranged squad (M4-C4; ADR-023, decision 5): whether its lead, from its loosing point, would reach
+/// a target standing in _targetVoxels's cell, as its arrow would fly. Answered by an AimReading.
+struct SquadAim
+{
+  EntityId squad;
+  VoxelPosition targetVoxels;
+
+  friend constexpr bool operator==(const SquadAim&, const SquadAim&) = default;
+};
+
+using Query = std::variant<AimCheck, SectionIntegrity, TileReach, SquadAim>;
 
 struct QueryRequest
 {
@@ -60,7 +70,7 @@ struct QueryRequest
 
 /// The one record version each query and reading is written at. A new field is a new version.
 /// 2 from M3-F3, which gave the tile reach reading its surfaces.
-inline constexpr std::uint16_t QUERY_RECORD_VERSION = 2;
+inline constexpr std::uint16_t QUERY_RECORD_VERSION = 3; // M3-F3's 2; M4-C4 adds SquadAim
 
 /// Hud.md §8's four readings of the attack cursor.
 enum class AimVerdict : std::uint8_t

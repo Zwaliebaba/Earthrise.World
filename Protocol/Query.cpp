@@ -11,6 +11,7 @@ namespace
 constexpr std::uint16_t AIM_CHECK_TAG = 1;
 constexpr std::uint16_t SECTION_INTEGRITY_TAG = 2;
 constexpr std::uint16_t TILE_REACH_TAG = 3;
+constexpr std::uint16_t SQUAD_AIM_TAG = 4;
 
 void WritePosition(VoxelPosition _position, Core::ByteWriter& _writer)
 {
@@ -60,7 +61,7 @@ std::uint16_t ReadHeader(Core::ByteReader& _reader)
 {
   const std::uint16_t tag = _reader.ReadU16();
   const std::uint16_t version = _reader.ReadU16();
-  if (tag != AIM_CHECK_TAG && tag != SECTION_INTEGRITY_TAG && tag != TILE_REACH_TAG)
+  if (tag != AIM_CHECK_TAG && tag != SECTION_INTEGRITY_TAG && tag != TILE_REACH_TAG && tag != SQUAD_AIM_TAG)
   {
     throw std::invalid_argument("a query or answer with a tag this build does not know");
   }
@@ -108,6 +109,12 @@ void Encode(const QueryRequest& _request, Core::ByteWriter& _writer)
     _writer.WriteI32(reach->tileX);
     _writer.WriteI32(reach->tileZ);
   }
+  else if (const auto* squadAim = std::get_if<SquadAim>(&_request.query))
+  {
+    WriteHeader(SQUAD_AIM_TAG, _writer);
+    _writer.WriteU64(squadAim->squad);
+    WritePosition(squadAim->targetVoxels, _writer);
+  }
 }
 
 QueryRequest DecodeQueryRequest(Core::ByteReader& _reader)
@@ -122,6 +129,11 @@ QueryRequest DecodeQueryRequest(Core::ByteReader& _reader)
   if (tag == SECTION_INTEGRITY_TAG)
   {
     return {.id = id, .query = SectionIntegrity{.structure = _reader.ReadU64()}};
+  }
+  if (tag == SQUAD_AIM_TAG)
+  {
+    const EntityId squad = _reader.ReadU64();
+    return {.id = id, .query = SquadAim{.squad = squad, .targetVoxels = ReadPosition(_reader)}};
   }
   const NavigationClass navigationClass = ReadEnum(_reader, NavigationClass::Machines);
   const VoxelPosition start = ReadPosition(_reader);
