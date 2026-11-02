@@ -129,5 +129,8 @@
     <ClCompile Include="FormationTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="MeleeTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

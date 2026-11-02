@@ -80,6 +80,7 @@
     <ClCompile Include="ScenarioTests.cpp" />
     <ClCompile Include="DamageTests.cpp" />
     <ClCompile Include="FormationTests.cpp" />
+    <ClCompile Include="MeleeTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

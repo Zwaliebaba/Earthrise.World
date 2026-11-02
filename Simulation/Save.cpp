@@ -130,6 +130,8 @@ void WriteRecord(Core::ByteWriter& _writer, const Squad& _squad)
   _writer.WriteU64(_squad.garrisonedIn);
   _writer.WriteU8(static_cast<std::uint8_t>(_squad.kind));
   _writer.WriteU8(_squad.facing);
+  _writer.WriteU8(static_cast<std::uint8_t>(_squad.order));
+  _writer.WriteU64(_squad.target);
 }
 
 Squad ReadSquad(Core::ByteReader& _reader)
@@ -145,7 +147,9 @@ Squad ReadSquad(Core::ByteReader& _reader)
               .trail = {},
               .garrisonedIn = Protocol::NO_ENTITY,
               .kind = UnitKind::Spearman,
-              .facing = 0};
+              .facing = 0,
+              .order = Protocol::SquadOrder::Idle,
+              .target = Protocol::NO_ENTITY};
   const std::uint32_t units = _reader.ReadU32();
   for (std::uint32_t number = 0; number < units; ++number)
   {
@@ -169,6 +173,8 @@ Squad ReadSquad(Core::ByteReader& _reader)
   {
     Refuse("a squad faces a direction this build does not know");
   }
+  squad.order = ReadEnum(_reader, Protocol::SquadOrder::Garrisoned, "squad's order");
+  squad.target = _reader.ReadU64();
   return squad;
 }
 
@@ -187,6 +193,8 @@ void WriteRecord(Core::ByteWriter& _writer, const Unit& _unit)
   _writer.WriteI64(_unit.reservedCell);
   _writer.WriteI64(_unit.stepFromCell);
   _writer.WriteU32(_unit.waitTicks);
+  _writer.WriteU32(_unit.reloadTicks);
+  _writer.WriteU64(_unit.target);
 }
 
 Unit ReadUnit(Core::ByteReader& _reader)
@@ -203,7 +211,9 @@ Unit ReadUnit(Core::ByteReader& _reader)
           .hitPoints = _reader.ReadI32(),
           .reservedCell = _reader.ReadI64(),
           .stepFromCell = _reader.ReadI64(),
-          .waitTicks = _reader.ReadU32()};
+          .waitTicks = _reader.ReadU32(),
+          .reloadTicks = _reader.ReadU32(),
+          .target = _reader.ReadU64()};
 }
 
 void WriteRecord(Core::ByteWriter& _writer, const SiegeEngine& _engine)
@@ -543,10 +553,11 @@ std::uint16_t RecordVersion(SaveEntityTag _tag) noexcept
 {
   switch (_tag)
   {
-  case SaveEntityTag::Squad: // M4-B4: the building it is garrisoned in; M4-C1: its kind; M4-C2: its facing
+  case SaveEntityTag::Squad: // M4-B4: the building it is garrisoned in; M4-C1: its kind; M4-C2: its facing; M4-C3: its order
+    return 5;
+  case SaveEntityTag::Unit: // M4-C1: its hit points; M4-C2: its reservation, its step and its wait; M4-C3: its reload and target
     return 4;
   case SaveEntityTag::SiegeEngine: // M4-B4: its state; M4-C1: its body's squad
-  case SaveEntityTag::Unit:        // M4-C1: its hit points; M4-C2: its reservation, the cell it steps from and its wait
     return 3;
   default:
     return 1;

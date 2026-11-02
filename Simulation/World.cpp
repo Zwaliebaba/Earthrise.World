@@ -282,7 +282,9 @@ Protocol::EntityId World::AddSquad(std::uint8_t _owner, UnitKind _kind, std::spa
               .trail = {},
               .garrisonedIn = Protocol::NO_ENTITY,
               .kind = _kind,
-              .facing = 0};
+              .facing = 0,
+              .order = Protocol::SquadOrder::Idle,
+              .target = Protocol::NO_ENTITY};
   for (const Protocol::VoxelPosition& cell : _cellsVoxels)
   {
     const Protocol::EntityId unitId = NewEntityId();
@@ -298,7 +300,9 @@ Protocol::EntityId World::AddSquad(std::uint8_t _owner, UnitKind _kind, std::spa
                                  .hitPoints = stats.hitPoints,
                                  .reservedCell = NO_CELL,
                                  .stepFromCell = CellOf(cell),
-                                 .waitTicks = 0});
+                                 .waitTicks = 0,
+                                 .reloadTicks = 0,
+                                 .target = Protocol::NO_ENTITY});
     squad.units.push_back(unitId);
   }
   m_squads.emplace(squadId, std::move(squad));
@@ -522,6 +526,177 @@ void World::FollowBodies()
   }
 }
 
+void World::Acquire()
+{
+  // ADR-023, decision 4. A squad attacking a target that is gone turns idle where it stands; one whose target's lead has
+  // gone ATTACK_FOLLOW_CELLS from its goal searches again, towards where that lead stands now.
+  for (auto& [id, squad] : m_squads)
+  {
+    if (squad.garrisonedIn != Protocol::NO_ENTITY || squad.units.empty() || squad.order != Protocol::SquadOrder::Attack)
+    {
+      continue;
+    }
+    const Squad* target = TargetSquad(squad.target);
+    if (target == nullptr || target->garrisonedIn != Protocol::NO_ENTITY || target->units.empty())
+    {
+      Halt(squad, Protocol::SquadOrder::Idle);
+      continue;
+    }
+    const Protocol::VoxelPosition at = m_units.at(target->units.front()).cellVoxels;
+    if (!Holding(id) && (std::abs(at.xVoxels - squad.goalVoxels.xVoxels) > ATTACK_FOLLOW_CELLS ||
+                         std::abs(at.zVoxels - squad.goalVoxels.zVoxels) > ATTACK_FOLLOW_CELLS))
+    {
+      squad.goalVoxels = at;
+      RequestSearch(squad);
+    }
+  }
+  // Each figure with an attack takes the nearest enemy figure within its vision, ties to the lower id, or when its squad
+  // attacks, the nearest of its target's at any range. A moving squad's figures take none: they strike what they meet
+  // (decision 3) and walk on.
+  for (auto& [id, unit] : m_units)
+  {
+    unit.target = Protocol::NO_ENTITY;
+    const Squad& squad = m_squads.at(unit.squad);
+    if (Garrisoned(unit) || Data().Stats(unit.kind).attack <= 0 || squad.order == Protocol::SquadOrder::Move)
+    {
+      continue;
+    }
+    if (squad.order == Protocol::SquadOrder::Attack)
+    {
+      const Squad* target = TargetSquad(squad.target);
+      unit.target = target == nullptr ? Protocol::NO_ENTITY : Nearest(unit, std::numeric_limits<std::int64_t>::max(), target->id);
+    }
+    else
+    {
+      unit.target = Nearest(unit, Data().Stats(unit.kind).visionVoxels, Protocol::NO_ENTITY);
+    }
+  }
+  // A moving or storming squad whose lead stands at its trail's end has arrived, and turns idle. One whose lead left its
+  // trail to fight walks on from where the lead stands once it fights no more.
+  for (auto& [id, squad] : m_squads)
+  {
+    if (squad.garrisonedIn != Protocol::NO_ENTITY || squad.units.empty() || !squad.hasGoal || Holding(id))
+    {
+      continue;
+    }
+    const Unit& lead = m_units.at(squad.units.front());
+    const bool walking = squad.order == Protocol::SquadOrder::Move || squad.order == Protocol::SquadOrder::Storm;
+    if (lead.reservedCell >= 0 || !(walking || squad.order == Protocol::SquadOrder::Attack))
+    {
+      continue;
+    }
+    if (lead.trailStep == OFF_TRAIL)
+    {
+      if (lead.target == Protocol::NO_ENTITY)
+      {
+        RequestSearch(squad);
+      }
+    }
+    else if (walking && std::size_t{lead.trailStep} + 1 >= squad.trail.size())
+    {
+      squad.order = Protocol::SquadOrder::Idle;
+    }
+  }
+}
+
+Protocol::EntityId World::Nearest(const Unit& _unit, std::int64_t _rangeVoxels, Protocol::EntityId _onlySquad) const
+{
+  // By squared distance across the ground, cell to cell; an engine's body by its cell, its footprint's corner.
+  const std::int64_t limit = _rangeVoxels >= 3'037'000'499 ? std::numeric_limits<std::int64_t>::max() : _rangeVoxels * _rangeVoxels;
+  Protocol::EntityId nearest = Protocol::NO_ENTITY;
+  std::int64_t best = 0;
+  for (const auto& [id, other] : m_units)
+  {
+    if (other.owner == _unit.owner || Garrisoned(other) || (_onlySquad != Protocol::NO_ENTITY && other.squad != _onlySquad))
+    {
+      continue;
+    }
+    const std::int64_t dx = std::int64_t{other.cellVoxels.xVoxels} - _unit.cellVoxels.xVoxels;
+    const std::int64_t dz = std::int64_t{other.cellVoxels.zVoxels} - _unit.cellVoxels.zVoxels;
+    const std::int64_t distance = (dx * dx) + (dz * dz);
+    if (distance <= limit && (nearest == Protocol::NO_ENTITY || distance < best))
+    {
+      nearest = id;
+      best = distance;
+    }
+  }
+  return nearest;
+}
+
+bool World::Adjacent(const Unit& _first, const Unit& _second) const
+{
+  // Two footprints touch when they are at most a cell apart across x and across z: the eight neighbouring cells of a
+  // figure, and of each cell of a machine's square (ADR-023, decision 3).
+  const auto side = [this](const Unit& _unit)
+  { return _unit.navigationClass == NavigationClass::Machines ? std::max(1, Data().Tuning().machinesWidthVoxels) : 1; };
+  const Protocol::VoxelPosition& first = _first.cellVoxels;
+  const Protocol::VoxelPosition& second = _second.cellVoxels;
+  return second.xVoxels <= first.xVoxels + side(_first) && first.xVoxels <= second.xVoxels + side(_second) &&
+         second.zVoxels <= first.zVoxels + side(_first) && first.zVoxels <= second.zVoxels + side(_second);
+}
+
+void World::Melee()
+{
+  // ADR-023, decision 3. Reloads run down; then each figure with a melee attack whose reload is due strikes its target
+  // when it touches it, or else the nearest enemy figure that touches it, ties to the lower id. Every strike is worked
+  // out from the state before any lands, and all land together, so that ids decide nothing about who strikes first.
+  for (auto& [id, unit] : m_units)
+  {
+    if (unit.reloadTicks > 0)
+    {
+      --unit.reloadTicks;
+    }
+  }
+  struct Strike
+  {
+    Protocol::EntityId striker;
+    Protocol::EntityId struck;
+    std::int32_t damage;
+  };
+  std::vector<Strike> strikes;
+  for (const auto& [id, unit] : m_units)
+  {
+    const UnitStats& stats = Data().Stats(unit.kind);
+    if (Garrisoned(unit) || stats.attack <= 0 || stats.rangeVoxels > 0 || unit.reloadTicks > 0)
+    {
+      continue;
+    }
+    Protocol::EntityId struck = Protocol::NO_ENTITY;
+    if (const auto target = m_units.find(unit.target); target != m_units.end() && Adjacent(unit, target->second))
+    {
+      struck = unit.target;
+    }
+    else
+    {
+      std::int64_t best = std::numeric_limits<std::int64_t>::max();
+      for (const auto& [otherId, other] : m_units)
+      {
+        if (other.owner == unit.owner || Garrisoned(other) || !Adjacent(unit, other))
+        {
+          continue;
+        }
+        const std::int64_t dx = std::int64_t{other.cellVoxels.xVoxels} - unit.cellVoxels.xVoxels;
+        const std::int64_t dz = std::int64_t{other.cellVoxels.zVoxels} - unit.cellVoxels.zVoxels;
+        if ((dx * dx) + (dz * dz) < best)
+        {
+          best = (dx * dx) + (dz * dz);
+          struck = otherId;
+        }
+      }
+    }
+    if (struck != Protocol::NO_ENTITY)
+    {
+      strikes.push_back({.striker = id, .struck = struck, .damage = Damage(stats, Data().Stats(m_units.at(struck).kind), 0)});
+    }
+  }
+  for (const Strike& strike : strikes)
+  {
+    m_units.at(strike.struck).hitPoints -= strike.damage;
+    Unit& striker = m_units.at(strike.striker);
+    striker.reloadTicks = Data().Stats(striker.kind).reloadTicks;
+  }
+}
+
 Protocol::EntityId World::StructureHolding(Protocol::VoxelPosition _voxel) const
 {
   for (const auto& [id, structure] : m_structures)
@@ -583,15 +758,9 @@ void World::Apply(std::uint8_t _player, const Protocol::Command& _command)
   // A refused command does nothing, and its player's next update names it (ADR-023, decision 10).
   if (const auto* move = std::get_if<Protocol::MoveSquad>(&_command))
   {
-    const auto squad = m_squads.find(move->squad);
-    if (squad == m_squads.end() || squad->second.garrisonedIn != Protocol::NO_ENTITY)
+    Squad* squad = OrderableSquad(_player, _command, move->squad);
+    if (squad == nullptr)
     {
-      Refuse(_player, _command, Protocol::Refusal::Invalid);
-      return;
-    }
-    if (squad->second.owner != _player)
-    {
-      Refuse(_player, _command, Protocol::Refusal::NotOwned);
       return;
     }
     // An engine moves as its body's squad, while packed (ADR-023).
@@ -601,18 +770,230 @@ void World::Apply(std::uint8_t _player, const Protocol::Command& _command)
       Refuse(_player, _command, Protocol::Refusal::NotPacked);
       return;
     }
-    squad->second.hasGoal = true;
-    squad->second.goalVoxels = move->goalVoxels;
-    RequestSearch(squad->second);
+    squad->order = Protocol::SquadOrder::Move;
+    squad->target = Protocol::NO_ENTITY;
+    squad->hasGoal = true;
+    squad->goalVoxels = move->goalVoxels;
+    RequestSearch(*squad);
   }
   else if (const auto* fire = std::get_if<Protocol::FireEngine>(&_command))
   {
     Fire(_player, *fire);
   }
+  else if (const auto* attack = std::get_if<Protocol::AttackTarget>(&_command))
+  {
+    // A squad or an engine of another player, by a squad with an attack on units; a ram's structure is M4-C6's.
+    Squad* squad = OrderableSquad(_player, _command, attack->squad);
+    if (squad == nullptr)
+    {
+      return;
+    }
+    const Squad* target = TargetSquad(attack->target);
+    if (target == nullptr || target->owner == _player || target->garrisonedIn != Protocol::NO_ENTITY || target->units.empty() ||
+        Data().Stats(squad->kind).attack <= 0)
+    {
+      Refuse(_player, _command, Protocol::Refusal::Invalid);
+      return;
+    }
+    squad->order = Protocol::SquadOrder::Attack;
+    squad->target = attack->target;
+    squad->hasGoal = true;
+    squad->goalVoxels = m_units.at(target->units.front()).cellVoxels;
+    RequestSearch(*squad);
+  }
+  else if (const auto* storm = std::get_if<Protocol::StormTo>(&_command))
+  {
+    Squad* squad = OrderableSquad(_player, _command, storm->squad);
+    if (squad == nullptr)
+    {
+      return;
+    }
+    if (Data().Stats(squad->kind).attack <= 0)
+    {
+      Refuse(_player, _command, Protocol::Refusal::Invalid);
+      return;
+    }
+    squad->order = Protocol::SquadOrder::Storm;
+    squad->target = Protocol::NO_ENTITY;
+    squad->hasGoal = true;
+    squad->goalVoxels = storm->goalVoxels;
+    RequestSearch(*squad);
+  }
+  else if (const auto* stop = std::get_if<Protocol::StopSquad>(&_command))
+  {
+    if (Squad* squad = OrderableSquad(_player, _command, stop->squad); squad != nullptr)
+    {
+      Halt(*squad, Protocol::SquadOrder::Idle);
+    }
+  }
+  else if (const auto* hold = std::get_if<Protocol::HoldSquad>(&_command))
+  {
+    if (Squad* squad = OrderableSquad(_player, _command, hold->squad); squad != nullptr)
+    {
+      Halt(*squad, Protocol::SquadOrder::Hold);
+    }
+  }
+  else if (const auto* split = std::get_if<Protocol::SplitSquad>(&_command))
+  {
+    Split(_player, *split);
+  }
+  else if (const auto* merge = std::get_if<Protocol::MergeSquads>(&_command))
+  {
+    Merge(_player, *merge);
+  }
   else
   {
     // M4's other commands land with the orders that build them.
     Refuse(_player, _command, Protocol::Refusal::Invalid);
+  }
+}
+
+Squad* World::OrderableSquad(std::uint8_t _player, const Protocol::Command& _command, Protocol::EntityId _squad)
+{
+  const auto squad = m_squads.find(_squad);
+  if (squad == m_squads.end() || squad->second.garrisonedIn != Protocol::NO_ENTITY)
+  {
+    Refuse(_player, _command, Protocol::Refusal::Invalid);
+    return nullptr;
+  }
+  if (squad->second.owner != _player)
+  {
+    Refuse(_player, _command, Protocol::Refusal::NotOwned);
+    return nullptr;
+  }
+  return &squad->second;
+}
+
+const Squad* World::TargetSquad(Protocol::EntityId _target) const
+{
+  if (const auto squad = m_squads.find(_target); squad != m_squads.end())
+  {
+    return &squad->second;
+  }
+  if (const auto engine = m_siegeEngines.find(_target); engine != m_siegeEngines.end())
+  {
+    const auto body = m_squads.find(engine->second.squad);
+    return body == m_squads.end() ? nullptr : &body->second;
+  }
+  return nullptr;
+}
+
+void World::Halt(Squad& _squad, Protocol::SquadOrder _order)
+{
+  // Its figures finish the steps they are in and stand.
+  _squad.order = _order;
+  _squad.target = Protocol::NO_ENTITY;
+  _squad.hasGoal = false;
+  _squad.shortOfGoal = false;
+  _squad.path.clear();
+  _squad.trail.clear();
+  std::erase_if(m_searches, [&_squad](const auto& _search) { return _search.first.second == _squad.id; });
+  for (const Protocol::EntityId id : _squad.units)
+  {
+    m_units.at(id).trailStep = OFF_TRAIL;
+  }
+}
+
+void World::Split(std::uint8_t _player, const Protocol::SplitSquad& _split)
+{
+  // The highest-id figure leaves as a squad of one, standing where it is, idle (MvpPlan-M4.md, Contracts).
+  Squad* squad = OrderableSquad(_player, _split, _split.squad);
+  if (squad == nullptr)
+  {
+    return;
+  }
+  if (squad->units.size() < 2)
+  {
+    Refuse(_player, _split, Protocol::Refusal::Invalid);
+    return;
+  }
+  const Protocol::EntityId leaving = squad->units.back();
+  squad->units.pop_back();
+  const Protocol::EntityId id = NewEntityId();
+  Unit& unit = m_units.at(leaving);
+  unit.squad = id;
+  unit.trailStep = OFF_TRAIL;
+  unit.waitTicks = 0;
+  m_squads.emplace(id, Squad{.id = id,
+                             .owner = squad->owner,
+                             .navigationClass = squad->navigationClass,
+                             .units = {leaving},
+                             .hasGoal = false,
+                             .goalVoxels = {},
+                             .path = {},
+                             .shortOfGoal = false,
+                             .trail = {},
+                             .garrisonedIn = Protocol::NO_ENTITY,
+                             .kind = squad->kind,
+                             .facing = squad->facing,
+                             .order = Protocol::SquadOrder::Idle,
+                             .target = Protocol::NO_ENTITY});
+}
+
+void World::Merge(std::uint8_t _player, const Protocol::MergeSquads& _merge)
+{
+  // The first squad takes figures from the others in turn, the lowest ids first, up to its kind's full size, and a squad
+  // left with none goes (MvpPlan-M4.md, Contracts). Every squad is the player's, of one kind, and neither a body nor in a
+  // building; the first refuses when it is full already.
+  std::vector<Squad*> squads;
+  for (const Protocol::EntityId id : _merge.squads)
+  {
+    Squad* squad = OrderableSquad(_player, _merge, id);
+    if (squad == nullptr)
+    {
+      return;
+    }
+    if (std::ranges::find(squads, squad) != squads.end() || EngineOfBody(id) != nullptr ||
+        (!squads.empty() && squad->kind != squads.front()->kind))
+    {
+      Refuse(_player, _merge, Protocol::Refusal::Invalid);
+      return;
+    }
+    squads.push_back(squad);
+  }
+  if (squads.size() < 2)
+  {
+    Refuse(_player, _merge, Protocol::Refusal::Invalid);
+    return;
+  }
+  Squad& into = *squads.front();
+  const std::size_t full = Data().Stats(into.kind).squadFigures;
+  if (into.units.size() >= full)
+  {
+    Refuse(_player, _merge, Protocol::Refusal::Full);
+    return;
+  }
+  std::vector<Protocol::EntityId> emptied;
+  for (std::size_t from = 1; from < squads.size() && into.units.size() < full; ++from)
+  {
+    Squad& giving = *squads[from];
+    while (!giving.units.empty() && into.units.size() < full)
+    {
+      into.units.push_back(giving.units.front());
+      m_units.at(giving.units.front()).squad = into.id;
+      giving.units.erase(giving.units.begin());
+    }
+    if (giving.units.empty())
+    {
+      emptied.push_back(giving.id);
+    }
+  }
+  // Its figures in id order, the lowest its lead, form about the lead again, and walk on when it has a goal.
+  std::ranges::sort(into.units);
+  for (const Protocol::EntityId id : into.units)
+  {
+    m_units.at(id).trailStep = OFF_TRAIL;
+    m_units.at(id).waitTicks = 0;
+  }
+  into.trail.clear();
+  into.path.clear();
+  if (into.hasGoal)
+  {
+    RequestSearch(into);
+  }
+  for (const Protocol::EntityId id : emptied)
+  {
+    RemoveSquad(id);
   }
 }
 
@@ -654,9 +1035,10 @@ void World::AdvanceJobs()
 
 void World::MoveUnits()
 {
-  // Step 3: the searches, served in the order they were asked for, then squad id, within
-  // pathNodesPerTick nodes; one the budget cuts short goes on next tick (M2-F3; ADR-015, decision
-  // 5). Then movement (ADR-022).
+  // Step 3: each figure's target (ADR-023, decision 4); the searches, served in the order they were
+  // asked for, then squad id, within pathNodesPerTick nodes, one the budget cuts short going on next
+  // tick (M2-F3; ADR-015, decision 5); movement (ADR-022); then melee (ADR-023, decision 3).
+  Acquire();
   auto budget = static_cast<std::uint32_t>(std::max(0, Data().Tuning().pathNodesPerTick));
   while (budget > 0 && !m_searches.empty())
   {
@@ -677,6 +1059,8 @@ void World::MoveUnits()
   }
   WalkFigures();
   FollowBodies();
+  Melee();
+  RemoveDead();
 }
 
 void World::FormTrail(Squad& _squad)
@@ -901,6 +1285,28 @@ World::SquadPlan World::PlanFor(const Squad& _squad) const
 
 std::optional<World::Step> World::NextStep(const Unit& _unit, const Squad& _squad, std::size_t _place, const SquadPlan& _plan) const
 {
+  // ADR-023, decision 4: a holding squad never leaves its cells, and a figure engaging an enemy closes on it by greedy
+  // steps while they reach it within its vision, and stands once it touches it.
+  if (_squad.order == Protocol::SquadOrder::Hold)
+  {
+    return std::nullopt;
+  }
+  if (const auto foe = m_units.find(_unit.target); foe != m_units.end())
+  {
+    if (Adjacent(_unit, foe->second))
+    {
+      return std::nullopt;
+    }
+    const PathSearch::CellIndex from = CellOf(_unit.cellVoxels);
+    const PathSearch::CellIndex there = CellOf(foe->second.cellVoxels);
+    if (GreedyReaches(from, _unit.navigationClass, there, Data().Stats(_unit.kind).visionVoxels))
+    {
+      if (const std::optional<PathSearch::CellIndex> next = Towards(from, _unit.navigationClass, there); next.has_value() && *next != there)
+      {
+        return Step{.cell = *next, .trailStep = OFF_TRAIL};
+      }
+    }
+  }
   if (!_plan.moving)
   {
     return std::nullopt;
@@ -999,18 +1405,17 @@ std::optional<PathSearch::CellIndex> World::Towards(PathSearch::CellIndex _from,
   return step;
 }
 
-bool World::GreedyReaches(PathSearch::CellIndex _from, NavigationClass _class, PathSearch::CellIndex _target) const
+bool World::GreedyReaches(PathSearch::CellIndex _from, NavigationClass _class, PathSearch::CellIndex _target, std::int32_t _steps) const
 {
-  // Whether greedy steps from _from arrive at _target within GREEDY_REACH_STEPS. Each step brings it nearer, so they
-  // cannot circle; they stop against a wall between the two.
+  // Whether greedy steps from _from arrive at _target within _steps. Each step brings it nearer, so they cannot circle;
+  // they stop against a wall between the two.
   const std::int32_t width = m_navigation.WidthCells();
-  if (std::abs((_from % width) - (_target % width)) > GREEDY_REACH_STEPS ||
-      std::abs((_from / width) - (_target / width)) > GREEDY_REACH_STEPS)
+  if (std::abs((_from % width) - (_target % width)) > _steps || std::abs((_from / width) - (_target / width)) > _steps)
   {
     return false;
   }
   PathSearch::CellIndex cell = _from;
-  for (std::int32_t step = 0; step < GREEDY_REACH_STEPS && cell != _target; ++step)
+  for (std::int32_t step = 0; step < _steps && cell != _target; ++step)
   {
     const std::optional<PathSearch::CellIndex> next = Towards(cell, _class, _target);
     if (!next.has_value())
@@ -1210,8 +1615,8 @@ void World::WalkFigures()
       AdvanceStep(unit, squad, budget, occupancy);
     }
     walked.insert(id);
-    // It counts the ticks it has waited in a row.
-    unit.waitTicks = waited ? unit.waitTicks + 1 : 0;
+    // It counts the ticks it has waited in a row, unless it waits on purpose, engaging an enemy.
+    unit.waitTicks = waited && unit.target == Protocol::NO_ENTITY ? unit.waitTicks + 1 : 0;
   }
   // A squad blocked for long searches again from its lead's cell (ADR-022, decision 6).
   const auto patience = static_cast<std::uint32_t>(std::max(1, Data().Tuning().waitBeforeSearchTicks));
@@ -2026,11 +2431,9 @@ Protocol::StateUpdate World::StateFor(std::uint8_t _player) const
                             .shortOfGoal = squad.shortOfGoal,
                             .garrisonedIn = squad.garrisonedIn,
                             .kind = squad.kind,
-                            .order = squad.garrisonedIn != Protocol::NO_ENTITY
-                                       ? Protocol::SquadOrder::Garrisoned
-                                       : (squad.hasGoal ? Protocol::SquadOrder::Move : Protocol::SquadOrder::Idle),
+                            .order = squad.garrisonedIn != Protocol::NO_ENTITY ? Protocol::SquadOrder::Garrisoned : squad.order,
                             .fullFigures = Data().Stats(squad.kind).squadFigures,
-                            .target = Protocol::NO_ENTITY});
+                            .target = squad.target});
   }
   for (const auto& [id, unit] : m_units)
   {

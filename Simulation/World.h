@@ -66,6 +66,10 @@ struct Squad
   Protocol::EntityId garrisonedIn;
   Protocol::UnitKind kind; // its figures', and so its stats (ADR-023, decision 1)
   std::uint8_t facing;     // the direction of its lead's last step, 0 north and then clockwise in eighths (ADR-022)
+  /// What it was last ordered to do (ADR-023, decision 4): Move and Storm turn Idle when it arrives, Attack when its
+  /// target is gone. Garrisoned is read from garrisonedIn, never held here.
+  Protocol::SquadOrder order = Protocol::SquadOrder::Idle;
+  Protocol::EntityId target = Protocol::NO_ENTITY; // what an Attack names: a squad, or an engine
 };
 
 /// A unit's trail step when it is not on its squad's trail: in formation, or making for it (ADR-022).
@@ -91,6 +95,8 @@ struct Unit
   std::int64_t reservedCell;
   std::int64_t stepFromCell;
   std::uint32_t waitTicks;
+  std::uint32_t reloadTicks = 0;                   // until it can strike or loose again; 0 when it can (ADR-023)
+  Protocol::EntityId target = Protocol::NO_ENTITY; // the enemy figure it engages, chosen at the start of each step 3
 };
 
 using Protocol::EngineKind;
@@ -445,6 +451,24 @@ private:
   /// Puts each engine where its body stands.
   void FollowBodies();
 
+  // ADR-023, decisions 3 and 4: targets and melee, in step 3.
+  /// Each figure's target for the tick, and each squad's order as its target and its arrival leave it.
+  void Acquire();
+  /// The nearest enemy figure to _unit among _candidates' units within _rangeVoxels, ties to the lower id, or NO_ENTITY.
+  [[nodiscard]] Protocol::EntityId Nearest(const Unit& _unit, std::int64_t _rangeVoxels, Protocol::EntityId _onlySquad) const;
+  /// Whether two units' footprints touch: one in a neighbouring cell of the other's.
+  [[nodiscard]] bool Adjacent(const Unit& _first, const Unit& _second) const;
+  /// The tick's melee: worked out from the state before any strike lands, then applied together.
+  void Melee();
+  /// The squad an order names when _player may order it, or null after refusing the command.
+  [[nodiscard]] Squad* OrderableSquad(std::uint8_t _player, const Protocol::Command& _command, Protocol::EntityId _squad);
+  /// The squad an AttackTarget's target fights as: the squad, or an engine's body.
+  [[nodiscard]] const Squad* TargetSquad(Protocol::EntityId _target) const;
+  /// Ends a squad's walk where its figures stand, with _order.
+  void Halt(Squad& _squad, Protocol::SquadOrder _order);
+  void Split(std::uint8_t _player, const Protocol::SplitSquad& _split);
+  void Merge(std::uint8_t _player, const Protocol::MergeSquads& _merge);
+
   /// Asks for a squad's search from where its first unit stands, or the cell it is stepping into, to
   /// its goal, replacing any it has.
   void RequestSearch(Squad& _squad);
@@ -501,6 +525,7 @@ private:
   static constexpr std::int32_t ARRIVAL_FLOOD_CELLS = 8;    // and at the goal
   static constexpr std::uint32_t TRAIL_BEHIND_CELLS = 16;   // the trail a squad keeps behind its lead
   static constexpr std::int32_t GREEDY_REACH_STEPS = 8;     // how far a figure's greedy steps are followed to see they arrive
+  static constexpr std::int32_t ATTACK_FOLLOW_CELLS = 4;    // how far an attacked squad's lead strays from the goal before a new search
 
   [[nodiscard]] PathSearch::CellIndex CellOf(const Protocol::VoxelPosition& _cellVoxels) const noexcept;
   [[nodiscard]] std::int64_t SpeedOf(const Unit& _unit) const;
@@ -513,7 +538,8 @@ private:
   [[nodiscard]] std::optional<Step> NextStep(const Unit& _unit, const Squad& _squad, std::size_t _place, const SquadPlan& _plan) const;
   [[nodiscard]] std::optional<PathSearch::CellIndex> Towards(PathSearch::CellIndex _from, NavigationClass _class,
                                                              PathSearch::CellIndex _target) const;
-  [[nodiscard]] bool GreedyReaches(PathSearch::CellIndex _from, NavigationClass _class, PathSearch::CellIndex _target) const;
+  [[nodiscard]] bool GreedyReaches(PathSearch::CellIndex _from, NavigationClass _class, PathSearch::CellIndex _target,
+                                   std::int32_t _steps = GREEDY_REACH_STEPS) const;
   [[nodiscard]] Plans PlanAll() const;
   /// The step each standing figure of a squad not holding for its search wants, for the swap.
   [[nodiscard]] std::map<Protocol::EntityId, PathSearch::CellIndex> Wanted(const Plans& _plans) const;
