@@ -18,8 +18,9 @@ constexpr std::uint8_t ME = 1;
 constexpr std::uint8_t GRASS = 2; // two palette entries with different colours
 constexpr std::uint8_t MASONRY = 6;
 
-/// A 64 x 64 map of grass at y 8, with a masonry column at (60, 12, 60), as the session was sent it.
-Client::Session SessionWithMap()
+/// Sends _session a 64 x 64 map of grass at y 8, with a masonry column at (60, 12, 60). A session is built in place and
+/// never moved: with MSVC's library a map's move may allocate, so Session's move may throw (bugprone-exception-escape).
+void SendMap(Client::Session& _session)
 {
   std::vector<Protocol::ChunkSnapshot> snapshots;
   for (std::int32_t zChunk = 0; zChunk < 2; ++zChunk)
@@ -41,12 +42,10 @@ Client::Session SessionWithMap()
       snapshots.push_back({.coordinate = {.xChunks = xChunk, .yChunks = 0, .zChunks = zChunk}, .version = 1, .voxels = chunk});
     }
   }
-  Client::Session session;
   Protocol::StateUpdate state{};
   state.widthCells = 64;
   state.depthCells = 64;
-  session.Receive(state, snapshots, {});
-  return session;
+  _session.Receive(state, snapshots, {});
 }
 
 } // namespace
@@ -77,7 +76,8 @@ public:
 
   TEST_METHOD(TheBaseIsTheColumnsTopsShadedAndBuiltAgainOnlyWhenTheyChange)
   {
-    const Client::Session session = SessionWithMap();
+    Client::Session session;
+    SendMap(session);
     Client::Minimap minimap;
     minimap.Reset(64, 64, 1);
     std::vector<Protocol::ChunkSnapshot> chunks;
