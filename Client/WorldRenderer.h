@@ -102,6 +102,12 @@ public:
   void Release(std::uint64_t _completedFenceValue);
 
 private:
+  /// Draws each of Portraits.h's models once, on the first frame, after the shadow maps: lit as the world is, with no
+  /// shadow, through the voxel pass into a PORTRAIT_TEXELS square target, copied into its cell of the image atlas,
+  /// which the interface pass reads from then on (M4-I2; Hud.md §5). Each stands far outside the map, where the fog's
+  /// mask shades nothing.
+  void DrawPortraits(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, D3D12_GPU_VIRTUAL_ADDRESS _palette);
+
   /// Uploads the frame's fog mask when it differs from the one drawn, into one texture for the world, which the voxel
   /// pass shades the columns not seen by (ADR-025, decision 8). The first mask makes the texture; the world's map keeps
   /// its size, so a mask of another size before ResetWorld throws std::logic_error.
@@ -138,6 +144,10 @@ private:
   std::array<bool, Engine::FrameRing::FRAMES_IN_FLIGHT> m_timed{};
   double m_voxelPassMilliseconds = 0.0;
   double m_linePassMilliseconds = 0.0;
+  Engine::ColorTarget m_portraitTarget; // one portrait at a time, cleared to nothing
+  Engine::DepthTarget m_portraitDepth;
+  winrt::com_ptr<ID3D12Resource> m_portraitAtlas; // the image atlas: the portraits side by side
+  bool m_portraitsDrawn = false;
   winrt::com_ptr<ID3D12Resource> m_fogMask; // R8, one texel a cell, once the world has fog
   std::vector<std::uint8_t> m_fogTexels;    // as last uploaded
   std::int32_t m_fogWidthCells = 0;

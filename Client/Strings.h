@@ -110,6 +110,79 @@ inline constexpr std::string_view PRACTICE_OBJECTIVE = "PRACTICE";
 inline constexpr std::string_view ITEM_OBJECTIVE = "ITEM {} OF {}";
 inline constexpr std::string_view FINISHED_OBJECTIVE = "DONE";
 
+// The selection panel (Hud.md §5; M4-I2): nothing, one thing, or several by type.
+inline constexpr std::string_view NOTHING_SELECTED = "NOTHING SELECTED";
+inline constexpr std::string_view HINT_CLICK = "CLICK A SQUAD";
+inline constexpr std::string_view HINT_DRAG = "DRAG TO BOX-SELECT";
+inline constexpr std::string_view HINT_GROUPS = "1–9 GROUPS";
+inline constexpr std::string_view YOURS = "YOURS";
+inline constexpr std::string_view ENEMY = "ENEMY";
+inline constexpr std::string_view OUT_OF = "{} / {}";  // figures, hit points and a garrison
+inline constexpr std::string_view UNKNOWN_COUNT = "?"; // an enemy's garrison, which only its owner's update counts
+inline constexpr std::string_view SEVERAL_SQUADS = "{} SQUADS · TAB CYCLES TYPE";
+inline constexpr std::string_view SPEARMEN_NAME = "SPEARMEN";
+inline constexpr std::string_view ARCHERS_NAME = "ARCHERS";
+inline constexpr std::string_view OUTRIDERS_NAME = "OUTRIDERS";
+inline constexpr std::string_view MEN_AT_ARMS_NAME = "MEN-AT-ARMS";
+inline constexpr std::string_view SAPPERS_NAME = "SAPPERS";
+inline constexpr std::string_view LABORER_NAME = "LABORER";
+inline constexpr std::string_view RAM_NAME = "RAM";
+inline constexpr std::string_view TREB_LABEL = "TREB";
+inline constexpr std::string_view RAM_LABEL = "RAM";
+inline constexpr std::string_view ARMS_LABEL = "ARMS";
+inline constexpr std::string_view SPEAR_LABEL = "SPEAR";
+inline constexpr std::string_view ARCHER_LABEL = "ARCHER";
+inline constexpr std::string_view RIDER_LABEL = "RIDER";
+inline constexpr std::string_view SAPPER_LABEL = "SAPPER";
+inline constexpr std::string_view LABOR_LABEL = "LABOR";
+// Its stat rows, KEY and value (Hud.md §5's table; GameDesign.md, M4's values, items 5, 6 and 10).
+inline constexpr std::string_view ROLE_KEY = "ROLE";
+inline constexpr std::string_view ARMOR_KEY = "ARMOR";
+inline constexpr std::string_view STRONG_KEY = "STRONG";
+inline constexpr std::string_view WEAK_KEY = "WEAK";
+inline constexpr std::string_view HEIGHT_KEY = "HEIGHT";
+inline constexpr std::string_view DIGS_KEY = "DIGS";
+inline constexpr std::string_view TARGET_KEY = "TARGET";
+inline constexpr std::string_view STATE_KEY = "STATE";
+inline constexpr std::string_view RANGE_KEY = "RANGE";
+inline constexpr std::string_view SHOT_KEY = "SHOT";
+inline constexpr std::string_view GARRISON_KEY = "GARRISON";
+inline constexpr std::string_view PLATFORM_KEY = "PLATFORM";
+inline constexpr std::string_view GATE_KEY = "GATE";
+inline constexpr std::string_view TOWER_KEY = "TOWER";
+inline constexpr std::string_view REPAIR_KEY = "REPAIR";
+inline constexpr std::string_view TO_WIN_KEY = "TO WIN";
+inline constexpr std::string_view NAME_KEY = "NAME";
+inline constexpr std::string_view OPEN_KEY = "OPEN";
+inline constexpr std::string_view ORDER_KEY = "ORDER";
+inline constexpr std::string_view LABORER_ROLE = "Build, dig";
+inline constexpr std::string_view NO_ARMOR = "None";
+inline constexpr std::string_view SPEARMEN_STRONG = "Horse";
+inline constexpr std::string_view SPEARMEN_WEAK = "Archers, arms";
+inline constexpr std::string_view ARCHERS_HEIGHT = "+1 band, +15%";
+inline constexpr std::string_view ARCHERS_WEAK = "Horse, arms";
+inline constexpr std::string_view OUTRIDERS_STRONG = "Bows, engines";
+inline constexpr std::string_view OUTRIDERS_WEAK = "Spear, arms";
+inline constexpr std::string_view MEN_AT_ARMS_STRONG = "Spear, bows";
+inline constexpr std::string_view MEN_AT_ARMS_ROLE = "Storm breach";
+inline constexpr std::string_view SAPPERS_DIGS = "2× trench";
+inline constexpr std::string_view SAPPERS_ARMOR = "Pierce";
+inline constexpr std::string_view RAM_TARGET = "Gates, timber";
+inline constexpr std::string_view RAM_ARMOR = "Arrows";
+inline constexpr std::string_view STATE_DEPLOYED = "Deployed";
+inline constexpr std::string_view STATE_PACKING = "Packing…";
+inline constexpr std::string_view STATE_PACKED = "Packed";
+inline constexpr std::string_view STATE_DEPLOYING = "Deploying…";
+inline constexpr std::string_view TREBUCHET_RANGE = "12–50 m"; // GameDesign.md, M2's values, item 12
+inline constexpr std::string_view TREBUCHET_SHOT = "1.5 m³";   // GameDesign.md, M4's values, item 5
+inline constexpr std::string_view PERCENT_VALUE = "{}%";
+inline constexpr std::string_view REPAIR_READY = "Ready";
+inline constexpr std::string_view REPAIR_LOCKED = "Locked · {} s";
+inline constexpr std::string_view TO_WIN_VALUE = "Hold foot {}:{:02}";
+inline constexpr std::string_view OPEN_YES = "yes";
+inline constexpr std::string_view OPEN_NO = "no";
+inline constexpr std::string_view ORDER_MOVING = "Moving";
+
 /// Every string above, for the glyph coverage test.
 inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      TIME_KEY,
@@ -183,6 +256,76 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      FINISHED_BANNER,
                                                                      PRACTICE_OBJECTIVE,
                                                                      ITEM_OBJECTIVE,
-                                                                     FINISHED_OBJECTIVE});
+                                                                     FINISHED_OBJECTIVE,
+                                                                     NOTHING_SELECTED,
+                                                                     HINT_CLICK,
+                                                                     HINT_DRAG,
+                                                                     HINT_GROUPS,
+                                                                     YOURS,
+                                                                     ENEMY,
+                                                                     OUT_OF,
+                                                                     UNKNOWN_COUNT,
+                                                                     SEVERAL_SQUADS,
+                                                                     SPEARMEN_NAME,
+                                                                     ARCHERS_NAME,
+                                                                     OUTRIDERS_NAME,
+                                                                     MEN_AT_ARMS_NAME,
+                                                                     SAPPERS_NAME,
+                                                                     LABORER_NAME,
+                                                                     RAM_NAME,
+                                                                     TREB_LABEL,
+                                                                     RAM_LABEL,
+                                                                     ARMS_LABEL,
+                                                                     SPEAR_LABEL,
+                                                                     ARCHER_LABEL,
+                                                                     RIDER_LABEL,
+                                                                     SAPPER_LABEL,
+                                                                     LABOR_LABEL,
+                                                                     ROLE_KEY,
+                                                                     ARMOR_KEY,
+                                                                     STRONG_KEY,
+                                                                     WEAK_KEY,
+                                                                     HEIGHT_KEY,
+                                                                     DIGS_KEY,
+                                                                     TARGET_KEY,
+                                                                     STATE_KEY,
+                                                                     RANGE_KEY,
+                                                                     SHOT_KEY,
+                                                                     GARRISON_KEY,
+                                                                     PLATFORM_KEY,
+                                                                     GATE_KEY,
+                                                                     TOWER_KEY,
+                                                                     REPAIR_KEY,
+                                                                     TO_WIN_KEY,
+                                                                     NAME_KEY,
+                                                                     OPEN_KEY,
+                                                                     ORDER_KEY,
+                                                                     LABORER_ROLE,
+                                                                     NO_ARMOR,
+                                                                     SPEARMEN_STRONG,
+                                                                     SPEARMEN_WEAK,
+                                                                     ARCHERS_HEIGHT,
+                                                                     ARCHERS_WEAK,
+                                                                     OUTRIDERS_STRONG,
+                                                                     OUTRIDERS_WEAK,
+                                                                     MEN_AT_ARMS_STRONG,
+                                                                     MEN_AT_ARMS_ROLE,
+                                                                     SAPPERS_DIGS,
+                                                                     SAPPERS_ARMOR,
+                                                                     RAM_TARGET,
+                                                                     RAM_ARMOR,
+                                                                     STATE_DEPLOYED,
+                                                                     STATE_PACKING,
+                                                                     STATE_PACKED,
+                                                                     STATE_DEPLOYING,
+                                                                     TREBUCHET_RANGE,
+                                                                     TREBUCHET_SHOT,
+                                                                     PERCENT_VALUE,
+                                                                     REPAIR_READY,
+                                                                     REPAIR_LOCKED,
+                                                                     TO_WIN_VALUE,
+                                                                     OPEN_YES,
+                                                                     OPEN_NO,
+                                                                     ORDER_MOVING});
 
 } // namespace Client

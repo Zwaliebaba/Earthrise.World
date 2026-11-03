@@ -79,6 +79,10 @@ public:
   /// first makes sure the GPU no longer reads their buffers (a flush).
   void Forget();
 
+  /// Each palette index's jitter and corner-shade table, as the world's and the models' records are built with: the
+  /// portraits' too (M4-I2).
+  [[nodiscard]] const Engine::PaletteShading& Shading() const noexcept;
+
   /// Records across every chunk batch and model placement: what one frame draws.
   [[nodiscard]] std::uint64_t RecordsDrawn() const noexcept;
 

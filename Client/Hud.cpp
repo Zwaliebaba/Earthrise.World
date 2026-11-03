@@ -5,6 +5,7 @@
 #include "Font.h"
 #include "HudAlerts.h"
 #include "Look.h"
+#include "Portraits.h"
 #include "Strings.h"
 #include "TextLayout.h"
 #include "UiScale.h"
@@ -76,6 +77,19 @@ constexpr float SET_WIDTH_LOGICAL_PIXELS = 64.0F;
 constexpr float DECK_READOUT_RIGHT_LOGICAL_PIXELS = 416.0F;
 constexpr float DECK_READOUT_BOTTOM_LOGICAL_PIXELS = 212.0F;
 constexpr float ABOVE_STRIP_GAP_LOGICAL_PIXELS = 8.0F;
+// The selection panel (Hud.md §5; M4-I2): its padding; one thing's 96 px portrait, the hit-point bar 120 x 10 and the
+// gaps between lines; several things' tiles, 80 x 84, with a 40 px portrait.
+constexpr float PANEL_PADDING_LOGICAL_PIXELS = 8.0F;
+constexpr float PORTRAIT_LOGICAL_PIXELS = 96.0F;
+constexpr float HIT_BAR_WIDTH_LOGICAL_PIXELS = 120.0F;
+constexpr float HIT_BAR_HEIGHT_LOGICAL_PIXELS = 10.0F;
+constexpr float PANEL_LINE_GAP_LOGICAL_PIXELS = 4.0F;
+constexpr float TILE_WIDTH_LOGICAL_PIXELS = 80.0F;
+constexpr float TILE_HEIGHT_LOGICAL_PIXELS = 84.0F;
+constexpr float TILE_PORTRAIT_LOGICAL_PIXELS = 40.0F;
+constexpr float TILE_GAP_LOGICAL_PIXELS = 8.0F;
+constexpr float TILE_PADDING_LOGICAL_PIXELS = 4.0F;
+constexpr float TILE_BAR_HEIGHT_LOGICAL_PIXELS = 6.0F;
 
 // A cap stands on rows 1 to 7 of the font's cell (Hud.md §9), so text is centred on that band.
 constexpr std::int32_t CAP_TOP_ROW = 1;
@@ -175,6 +189,49 @@ public:
     m_texts.push_back({.cell = {_xPixels, _yPixels, NameWidth(_text), NameCell()}, .element = _element});
   }
 
+  /// The image atlas's _cell, a portrait (Portraits.h), drawn over _rect.
+  void Image(const PixelRect& _rect, std::uint32_t _cell)
+  {
+    const auto left = static_cast<float>(_cell * PORTRAIT_TEXELS);
+    m_quads.push_back({.xPixels = static_cast<float>(_rect.xPixels),
+                       .yPixels = static_cast<float>(_rect.yPixels),
+                       .widthPixels = static_cast<float>(_rect.widthPixels),
+                       .heightPixels = static_cast<float>(_rect.heightPixels),
+                       .u0 = left,
+                       .v0 = 0.0F,
+                       .u1 = left + static_cast<float>(PORTRAIT_TEXELS),
+                       .v1 = static_cast<float>(PORTRAIT_TEXELS),
+                       .color = LinearColor(IMAGE_TINT_SRGB),
+                       .textured = false,
+                       .image = true});
+  }
+
+  /// A bar _rect wide of the track, with _fraction of it filled in _srgb.
+  void Bar(const PixelRect& _rect, float _fraction, std::uint32_t _srgb)
+  {
+    Fill(_rect, LINE_SRGB);
+    const auto filled = static_cast<std::int32_t>(std::lround(std::clamp(_fraction, 0.0F, 1.0F) * static_cast<float>(_rect.widthPixels)));
+    if (filled > 0)
+    {
+      Fill({_rect.xPixels, _rect.yPixels, filled, _rect.heightPixels}, _srgb);
+    }
+  }
+
+  /// A portrait in _rect: the figure's render, or the structure's icon centred at the names' size.
+  void Portrait(const PixelRect& _rect, const HudPortrait& _portrait)
+  {
+    const PixelRect inside = Box(_rect, LINE_SRGB, BUTTON_SRGB, 1.0F);
+    if (_portrait.cell.has_value())
+    {
+      Image(inside, *_portrait.cell);
+    }
+    else if (!_portrait.icon.empty())
+    {
+      NameText(_portrait.icon, inside.xPixels + ((inside.widthPixels - NameWidth(_portrait.icon)) / 2),
+               inside.yPixels + ((inside.heightPixels - NameCell()) / 2), TEXT_SRGB, inside);
+    }
+  }
+
   /// A button: a bordered box with _text centred in it.
   void Button(const PixelRect& _rect, std::string_view _text)
   {
@@ -217,6 +274,128 @@ ReadoutSize MeasureReadout(const HudReadout& _readout, const Painter& _paint)
   }
   const std::int32_t width = std::max(_paint.Pixels(READOUT_MIN_WIDTH_LOGICAL_PIXELS), (2 * border) + (2 * padding) + content);
   return {.widthPixels = width, .heightPixels = height, .contentWidthPixels = width - (2 * border) - (2 * padding)};
+}
+
+/// The selection panel in _well (Hud.md §5; M4-I2): NOTHING SELECTED and its hints; one thing's portrait beside its
+/// name and owner tag, its figures and hit points, and its rows; or the several things' title and their tiles, row
+/// after row, as many as the well holds.
+void LayPanel(const HudPanel& _panel, const PixelRect& _well, Painter& _paint)
+{
+  const std::int32_t border = _paint.Pixels(BORDER_LOGICAL_PIXELS);
+  const std::int32_t padding = _paint.Pixels(PANEL_PADDING_LOGICAL_PIXELS);
+  const std::int32_t gap = _paint.Pixels(PANEL_LINE_GAP_LOGICAL_PIXELS);
+  const PixelRect inside{_well.xPixels + border, _well.yPixels + border, _well.widthPixels - (2 * border),
+                         _well.heightPixels - (2 * border)};
+  const std::int32_t left = inside.xPixels + padding;
+  const std::int32_t right = inside.xPixels + inside.widthPixels;
+  const std::int32_t bottom = inside.yPixels + inside.heightPixels;
+  std::int32_t y = inside.yPixels + padding;
+  if (_panel.shows == HudPanel::Shows::Nothing)
+  {
+    _paint.Text(NOTHING_SELECTED, left, y, TEXT_SRGB, inside);
+    for (const std::string_view hint : {HINT_CLICK, HINT_DRAG, HINT_GROUPS})
+    {
+      y += _paint.Cell() + gap;
+      _paint.Text(hint, left, y, DIM_SRGB, inside);
+    }
+    return;
+  }
+  if (_panel.shows == HudPanel::Shows::One)
+  {
+    const std::int32_t side = _paint.Pixels(PORTRAIT_LOGICAL_PIXELS);
+    _paint.Portrait({left, y, side, side}, _panel.portrait);
+    // The column beside the portrait reaches the well's inner edge less half its padding, so that a 220 px row fits
+    // the narrowest selection's 340 (Hud.md §5).
+    const std::int32_t columnLeft = left + side + padding;
+    const PixelRect column{columnLeft, y, right - (padding / 2) - columnLeft, bottom - y};
+    std::int32_t line = column.yPixels;
+    _paint.NameText(_panel.name, column.xPixels, line, TEXT_SRGB, column);
+    const std::string_view tag = _panel.enemy ? ENEMY : YOURS;
+    const std::uint32_t tagSrgb = _panel.enemy ? BAD_SRGB : ACCENT_SRGB;
+    const std::int32_t tagLeft = column.xPixels + _paint.NameWidth(_panel.name) + _paint.Pixels(KEY_GAP_LOGICAL_PIXELS);
+    if (tagLeft + _paint.Width(tag) <= column.xPixels + column.widthPixels)
+    {
+      // On the name's line, standing on its foot.
+      _paint.Text(tag, tagLeft, line + _paint.NameCell() - _paint.Cell(), tagSrgb, column);
+      line += _paint.NameCell() + gap;
+    }
+    else
+    {
+      line += _paint.NameCell() + gap;
+      _paint.Text(tag, column.xPixels, line, tagSrgb, column);
+      line += _paint.Cell() + gap;
+    }
+    if (!_panel.figures.empty() || _panel.hit.has_value())
+    {
+      std::int32_t x = column.xPixels;
+      if (!_panel.figures.empty())
+      {
+        _paint.Text(_panel.figures, x, line, TEXT_SRGB, column);
+        x += _paint.Width(_panel.figures) + _paint.Pixels(KEY_GAP_LOGICAL_PIXELS);
+      }
+      if (_panel.hit.has_value())
+      {
+        const std::int32_t barHeight = _paint.Pixels(HIT_BAR_HEIGHT_LOGICAL_PIXELS);
+        const std::int32_t barWidth = std::min(_paint.Pixels(HIT_BAR_WIDTH_LOGICAL_PIXELS), column.xPixels + column.widthPixels - x);
+        _paint.Bar({x, line + ((_paint.Cell() - barHeight) / 2), barWidth, barHeight}, *_panel.hit, GOOD_SRGB);
+        x += barWidth + _paint.Pixels(KEY_GAP_LOGICAL_PIXELS);
+        if (!_panel.hitText.empty() && x + _paint.Width(_panel.hitText) <= column.xPixels + column.widthPixels)
+        {
+          _paint.Text(_panel.hitText, x, line, SUB_SRGB, column);
+        }
+      }
+      line += _paint.Cell() + gap;
+    }
+    for (std::size_t index = 0; index < std::min<std::size_t>(_panel.rows.size(), 3); ++index)
+    {
+      if (line + _paint.Cell() > bottom)
+      {
+        break;
+      }
+      const HudStatRow& row = _panel.rows.at(index);
+      _paint.Text(row.key, column.xPixels, line, DIM_SRGB, column);
+      _paint.Text(row.value, column.xPixels + _paint.Advance(row.key + " "), line, row.srgb, column);
+      line += _paint.Cell() + gap;
+    }
+    return;
+  }
+  _paint.Text(_panel.title, left, y, TEXT_SRGB, inside);
+  y += _paint.Cell() + gap;
+  const std::int32_t tileWidth = _paint.Pixels(TILE_WIDTH_LOGICAL_PIXELS);
+  const std::int32_t tileHeight = _paint.Pixels(TILE_HEIGHT_LOGICAL_PIXELS);
+  const std::int32_t tileGap = _paint.Pixels(TILE_GAP_LOGICAL_PIXELS);
+  const std::int32_t tilePadding = _paint.Pixels(TILE_PADDING_LOGICAL_PIXELS);
+  const std::int32_t portrait = _paint.Pixels(TILE_PORTRAIT_LOGICAL_PIXELS);
+  std::int32_t x = left;
+  for (const HudPanelTile& tile : _panel.tiles)
+  {
+    if (x + tileWidth > right - padding)
+    {
+      x = left;
+      y += tileHeight + tileGap;
+    }
+    if (y + tileHeight > bottom)
+    {
+      break; // the panel scrolls when its content overflows (Hud.md §3), which M4 leaves to its owner's look
+    }
+    const PixelRect rect{x, y, tileWidth, tileHeight};
+    const PixelRect tileInside = _paint.Box(rect, tile.active ? ACCENT_SRGB : LINE_SRGB, PANEL_SRGB, PANEL_ALPHA);
+    const PixelRect picture{tileInside.xPixels + tilePadding, tileInside.yPixels + tilePadding, portrait, portrait};
+    _paint.Portrait(picture, tile.portrait);
+    const std::int32_t countLeft = picture.xPixels + portrait + tilePadding;
+    _paint.Text(tile.count, countLeft, picture.yPixels, ACCENT_SRGB, tileInside);
+    _paint.Text(tile.figures, countLeft, picture.yPixels + _paint.Cell(), SUB_SRGB, tileInside);
+    const std::int32_t barTop = picture.yPixels + portrait + tilePadding;
+    if (tile.hit.has_value())
+    {
+      _paint.Bar({picture.xPixels, barTop, tileInside.widthPixels - (2 * tilePadding), _paint.Pixels(TILE_BAR_HEIGHT_LOGICAL_PIXELS)},
+                 *tile.hit, GOOD_SRGB);
+    }
+    _paint.Text(tile.label, tileInside.xPixels + ((tileInside.widthPixels - _paint.Width(tile.label)) / 2),
+                tileInside.yPixels + tileInside.heightPixels - tilePadding - _paint.Cell(), tile.active ? ACCENT_SRGB : TEXT_SRGB,
+                tileInside);
+    x += tileWidth + tileGap;
+  }
 }
 
 } // namespace
@@ -459,6 +638,7 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
     strip = PixelRect{deck.groups.front().xPixels, slotTop, slotLeft - deck.groups.front().xPixels, slotHeight};
     m_panels.push_back(*strip);
     m_deck = deck;
+    LayPanel(_model.panel, deck.selection, paint);
   }
 
   // The integrity readout: the focused section's name, then its rows, each key in dim and its value in its colour, both

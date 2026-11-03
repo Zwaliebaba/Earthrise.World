@@ -29,6 +29,8 @@
 #include "Scenario.h"
 #include "ServerData.h"
 #include "Session.h"
+#include "Selection.h"
+#include "SelectionPanel.h"
 #include "SharedHash.h"
 #include "SiegeAttacker.h"
 #include "Strings.h"
@@ -82,6 +84,10 @@ constexpr float CELL_CENTER_METERS = 0.5F;
 // strip, which stands 212 above the bottom and is 44 tall (Hud.md §3).
 constexpr float FIGURES_MARGIN_LOGICAL_PIXELS = 8.0F;
 constexpr float FIGURES_ABOVE_DECK_LOGICAL_PIXELS = 212.0F + 44.0F + 8.0F;
+// A left press and release this far apart, in pixels along x and y together, is a drag, not a click; two clicks on one
+// squad this close together are a double-click (Hud.md §8).
+constexpr std::int32_t DRAG_PIXELS = 6;
+constexpr double DOUBLE_CLICK_SECONDS = 0.4;
 
 struct Options
 {
@@ -579,7 +585,11 @@ struct Play
   Client::FireMode fire;
   Client::HudAlerts alerts;
   Protocol::EntityId selected = Protocol::NO_ENTITY;
-  bool worldChanged = false;                                         // the last frame took a changed chunk
+  bool worldChanged = false;                                     // the last frame took a changed chunk
+  Client::Selection selection;                                   // layout A's (M4-I2)
+  std::optional<std::pair<std::int32_t, std::int32_t>> dragFrom; // where the left button went down on the world
+  Protocol::EntityId lastClickSquad = Protocol::NO_ENTITY;       // for the double-click
+  double lastClickSeconds = -1.0;
   std::vector<std::uint8_t> fogMask;                                 // the fog's column mask (ADR-025, decision 8)
   std::uint32_t fogTick = std::numeric_limits<std::uint32_t>::max(); // the tick it was made from
 };
@@ -738,6 +748,7 @@ int Run(const Options& _options)
     // selects the engine whose model's box it lands on, or nothing, where the scenario lets the player select, and Esc
     // deselects (M3-E3; M3-H3); one on a section gives it the integrity readout until the next click or Esc (M3-H1).
     const bool selectionAllowed = run->SelectionAllowed();
+    const bool deck = run->ShowsDeck(); // layout A, and its selection by squads (M4-I1, I2)
     const std::vector<Client::EngineBox> engineBoxes =
       selectionAllowed ? client.presentation.EngineBoxes() : std::vector<Client::EngineBox>{};
     bool answerOpen = false;
@@ -745,7 +756,14 @@ int Run(const Options& _options)
     if (pointer.WasPressed(Engine::PointerInput::Button::Left))
     {
       const std::optional<Client::HudTarget> hit = hud.HitTest(pointer.XPixels(), pointer.YPixels());
-      if (!hit.has_value() && !hud.Covers(pointer.XPixels(), pointer.YPixels()) && drawnViewProjection.has_value() && !client.fire.Active())
+      if (deck && !hit.has_value() && !hud.Covers(pointer.XPixels(), pointer.YPixels()) && drawnViewProjection.has_value() &&
+          !client.fire.Active())
+      {
+        // Layout A selects on the release: a click, or a drag's box (M4-I2).
+        client.dragFrom = std::pair{pointer.XPixels(), pointer.YPixels()};
+      }
+      else if (!hit.has_value() && !hud.Covers(pointer.XPixels(), pointer.YPixels()) && drawnViewProjection.has_value() &&
+               !client.fire.Active())
       {
         const Engine::PickRay ray = Client::WorldPicker::RayThrough(*drawnViewProjection, pointer.XPixels(), pointer.YPixels(),
                                                                     swapChain.WidthPixels(), swapChain.HeightPixels());
@@ -789,6 +807,82 @@ int Run(const Options& _options)
         case Client::HudControl::AnswerShut:
           answerShut = true;
           break;
+        }
+      }
+    }
+    // Layout A's selection (Hud.md §5 and §8; M4-I2), on the left button's release: a drag selects the player's squads
+    // whose figures' feet lie in its box; a click selects the engine whose model's box it lands on, or the squad whose
+    // footprint it lands in, or the structure whose voxel, and a second click on the same squad soon after selects
+    // every squad of its type on screen. Shift or Ctrl adds or removes. The engine FIRE aims is the active trebuchet's.
+    const Protocol::StateUpdate& shown = client.session.State();
+    if (deck && client.dragFrom.has_value() && !pointer.IsDown(Engine::PointerInput::Button::Left) && drawnViewProjection.has_value())
+    {
+      const auto [fromX, fromY] = *client.dragFrom;
+      client.dragFrom.reset();
+      const bool toggle = keyboard.IsDown(VK_SHIFT) || keyboard.IsDown(VK_CONTROL);
+      if (std::abs(pointer.XPixels() - fromX) + std::abs(pointer.YPixels() - fromY) > DRAG_PIXELS)
+      {
+        const std::vector<Protocol::EntityId> boxed =
+          Client::Selector::SquadsInBox(shown, PLAYER, *drawnViewProjection, swapChain.WidthPixels(), swapChain.HeightPixels(), fromX,
+                                        fromY, pointer.XPixels(), pointer.YPixels());
+        Client::Selector::Select(client.selection, shown, boxed, toggle);
+      }
+      else
+      {
+        const Engine::PickRay ray =
+          Client::WorldPicker::RayThrough(*drawnViewProjection, fromX, fromY, swapChain.WidthPixels(), swapChain.HeightPixels());
+        const Client::WorldPick pick = client.picker.Pick(ray, engineBoxes);
+        std::optional<Protocol::EntityId> squad;
+        if (pick.engine != Protocol::NO_ENTITY)
+        {
+          const auto engine = std::ranges::find(shown.engines, pick.engine, &Protocol::EngineView::id);
+          if (engine != shown.engines.end())
+          {
+            squad = engine->squad;
+          }
+        }
+        else
+        {
+          squad = Client::Selector::SquadAt(ray, shown);
+        }
+        Protocol::EntityId structure = Protocol::NO_ENTITY;
+        if (!squad.has_value() && pick.voxel.has_value())
+        {
+          structure = Client::Overlays::SectionAt(shown, {pick.voxel->cell[0], pick.voxel->cell[1], pick.voxel->cell[2]});
+        }
+        const bool twice = squad.has_value() && *squad == client.lastClickSquad && seconds - client.lastClickSeconds < DOUBLE_CLICK_SECONDS;
+        if (twice)
+        {
+          Client::Selector::SelectKind(client.selection, shown, *squad, *drawnViewProjection, swapChain.WidthPixels(),
+                                       swapChain.HeightPixels());
+        }
+        else
+        {
+          Client::Selector::Click(client.selection, shown, squad, structure, toggle);
+        }
+        client.lastClickSquad = squad.value_or(Protocol::NO_ENTITY);
+        client.lastClickSeconds = seconds;
+        client.views.Select(client.selection.structure);
+      }
+    }
+    if (deck)
+    {
+      if (keyboard.WasPressed(VK_TAB))
+      {
+        Client::Selector::CycleKind(client.selection, shown);
+      }
+      Client::Selector::Prune(client.selection, shown);
+      client.selected = Protocol::NO_ENTITY;
+      if (client.selection.activeKind == Protocol::UnitKind::Trebuchet)
+      {
+        for (const Protocol::EntityId squad : client.selection.squads)
+        {
+          const auto engine = std::ranges::find(shown.engines, squad, &Protocol::EngineView::squad);
+          if (engine != shown.engines.end() && engine->kind == Protocol::EngineKind::Trebuchet)
+          {
+            client.selected = engine->id;
+            break;
+          }
         }
       }
     }
@@ -837,6 +931,7 @@ int Run(const Options& _options)
                          selectedView, client.session);
     if (keyboard.WasPressed(VK_ESCAPE) && !usedEscape)
     {
+      client.selection = {};
       client.selected = Protocol::NO_ENTITY;
       client.views.Select(Protocol::NO_ENTITY);
       client.fire.Update({}, nullptr, client.session);
@@ -889,7 +984,6 @@ int Run(const Options& _options)
     const float aspect = static_cast<float>(swapChain.WidthPixels()) / static_cast<float>(swapChain.HeightPixels());
     // The UI scale: --ui-scale, or the display's band (Hud.md §2), capped where the deck needs the room (M4-I1). The
     // camera frames the area between the top bar and the deck.
-    const bool deck = run->ShowsDeck();
     const float bandScale = _options.uiScale.value_or(Client::UiScaleForDpi(window.Dpi()));
     const float uiScale = deck ? Client::CappedUiScale(bandScale, swapChain.WidthPixels()) : bandScale;
     const float topBarPixels = Client::TOP_BAR_LOGICAL_PIXELS * uiScale;
@@ -937,8 +1031,9 @@ int Run(const Options& _options)
                 .integrityView = integrityView,
                 .passabilityView = passabilityShown,
                 .readout = client.views.Readout(client.session, seconds, integrityView),
-                .selection = selection,
-                .deck = deck};
+                .selection = deck ? std::optional<Client::HudSelection>{} : selection, // layout A's panel names it in place of M3's chip
+                .deck = deck,
+                .panel = deck ? Client::BuildPanel(client.selection, client.session.State()) : Client::HudPanel{}};
     interfaceQuads.clear();
     if (run->ShowsFigures())
     {
@@ -957,6 +1052,31 @@ int Run(const Options& _options)
       Client::TextLayout::Lay(figures, figuresX, figuresY, figuresScale, figuresColor, interfaceQuads);
     }
     hud.Build(hudModel, swapChain.WidthPixels(), swapChain.HeightPixels(), uiScale, interfaceQuads);
+    // The drag's box, outlined in accent while it is wider than a click (M4-I2).
+    if (client.dragFrom.has_value() &&
+        std::abs(pointer.XPixels() - client.dragFrom->first) + std::abs(pointer.YPixels() - client.dragFrom->second) > DRAG_PIXELS)
+    {
+      const auto left = static_cast<float>(std::min(pointer.XPixels(), client.dragFrom->first));
+      const auto top = static_cast<float>(std::min(pointer.YPixels(), client.dragFrom->second));
+      const auto boxWidth = static_cast<float>(std::abs(pointer.XPixels() - client.dragFrom->first));
+      const auto boxHeight = static_cast<float>(std::abs(pointer.YPixels() - client.dragFrom->second));
+      const auto line = static_cast<float>(Client::ScaledPixels(2.0F, uiScale));
+      const std::array<float, 4> accent = Client::LinearColor(Client::ACCENT_SRGB);
+      for (const auto& [x, y, w, h] : {std::array{left, top, boxWidth, line}, std::array{left, top + boxHeight - line, boxWidth, line},
+                                       std::array{left, top, line, boxHeight}, std::array{left + boxWidth - line, top, line, boxHeight}})
+      {
+        interfaceQuads.push_back({.xPixels = x,
+                                  .yPixels = y,
+                                  .widthPixels = w,
+                                  .heightPixels = h,
+                                  .u0 = 0.0F,
+                                  .v0 = 0.0F,
+                                  .u1 = 0.0F,
+                                  .v1 = 0.0F,
+                                  .color = accent,
+                                  .textured = false});
+      }
+    }
     const std::optional<Client::AttackCursor> cursor = client.fire.Cursor(client.session);
     if (cursor.has_value() && !pointerOnHud)
     {

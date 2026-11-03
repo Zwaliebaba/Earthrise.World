@@ -695,6 +695,11 @@ void WorldView::Release(std::uint64_t _completedFenceValue)
   std::erase_if(m_retired, [_completedFenceValue](const auto& _retired) { return _retired.first <= _completedFenceValue; });
 }
 
+const Engine::PaletteShading& WorldView::Shading() const noexcept
+{
+  return m_shading;
+}
+
 std::uint64_t WorldView::RecordsDrawn() const noexcept
 {
   std::uint64_t total = 0;

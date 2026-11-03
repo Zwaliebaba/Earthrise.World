@@ -7,8 +7,9 @@ namespace Client
 {
 
 /// A quad the interface pass draws (ADR-019, decision 3), as the client builds it: a rectangle in the target's pixels,
-/// top-left origin, either a solid linear colour or a rectangle of the glyph atlas whose red channel is the alpha. The
-/// renderer copies each into an Engine::InterfaceQuad, field for field.
+/// top-left origin, either a solid linear colour, a rectangle of the glyph atlas whose red channel is the alpha, or a
+/// rectangle of the image atlas, the portraits', times the colour (M4-I2). The renderer copies each into an
+/// Engine::InterfaceQuad, field for field.
 struct ScreenQuad
 {
   float xPixels;
@@ -21,6 +22,7 @@ struct ScreenQuad
   float v1;
   std::array<float, 4> color; // linear RGBA
   bool textured;
+  bool image = false; // the image atlas's, in place of the glyph atlas's
 };
 
 /// An sRGB colour, 0xrrggbb, as linear RGBA at _alpha.

@@ -5,7 +5,9 @@
 #include "Catalog.h"
 #include "GlyphAtlas.h"
 #include "Look.h"
+#include "OrthographicCamera.h"
 #include "Palette.h"
+#include "Portraits.h"
 #include "ResourceBarrier.h"
 #include "SunProjection.h"
 
@@ -225,8 +227,24 @@ WorldRenderer::WorldRenderer(ID3D12Device* _device, ID3D12CommandQueue* _queue, 
     m_worldView(_device, 1.0F),
     m_interface(_device, {.targetFormat = _desc.targetFormat}),
     m_fontAtlas(_device),
-    m_palette(LinearPalette())
+    m_palette(LinearPalette()),
+    m_portraitTarget(_device, {.format = SCENE_FORMAT, .clearColor = {0.0F, 0.0F, 0.0F, 0.0F}}, PORTRAIT_TEXELS, PORTRAIT_TEXELS),
+    m_portraitDepth(_device, PORTRAIT_TEXELS, PORTRAIT_TEXELS)
 {
+  // The portraits' atlas, in the scene target's format, so that a copy of a portrait is a copy of its texels; drawn on
+  // the first frame (DrawPortraits).
+  const D3D12_HEAP_PROPERTIES heapProperties{.Type = D3D12_HEAP_TYPE_DEFAULT};
+  const D3D12_RESOURCE_DESC atlasDesc{.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+                                      .Width = PORTRAIT_ATLAS_WIDTH_TEXELS,
+                                      .Height = PORTRAIT_TEXELS,
+                                      .DepthOrArraySize = 1,
+                                      .MipLevels = 1,
+                                      .Format = SCENE_FORMAT,
+                                      .SampleDesc = {.Count = 1},
+                                      .Flags = D3D12_RESOURCE_FLAG_NONE};
+  winrt::check_hresult(_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &atlasDesc, D3D12_RESOURCE_STATE_COPY_DEST,
+                                                        nullptr, IID_PPV_ARGS(m_portraitAtlas.put())));
+  m_interface.SetImageAtlas(m_portraitAtlas.get(), PORTRAIT_ATLAS_WIDTH_TEXELS, PORTRAIT_TEXELS);
   m_pass.SetShadowMaps(m_staticShadow.Texture(), m_dynamicShadow.Texture());
   m_upscale.SetSource(m_sceneColor.Texture());
   // Content's line models (ADR-018, decision 2), in linear colour, the faction segments left to each instance.
@@ -277,6 +295,86 @@ void WorldRenderer::ResetWorld()
   m_fogTexels.clear();
   m_fogWidthCells = 0;
   m_fogDepthCells = 0;
+}
+
+void WorldRenderer::DrawPortraits(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, D3D12_GPU_VIRTUAL_ADDRESS _palette)
+{
+  // Seen from the front, +z, a little to its right and above, framing the model's largest side with a margin.
+  constexpr float ELEVATION_DEGREES_PORTRAIT = 20.0F;
+  constexpr float AZIMUTH_DEGREES_PORTRAIT = 30.0F;
+  constexpr float MARGIN = 1.15F;
+  constexpr DirectX::XMFLOAT3 FAR_CORNER{-200.0F, 0.0F, -200.0F}; // outside every map, where no column is shaded
+  for (std::uint32_t cell = 0; cell < PORTRAIT_MODELS.size(); ++cell)
+  {
+    const Content::ModelView* model = Content::FindModel(PORTRAIT_MODELS.at(cell));
+    if (model == nullptr)
+    {
+      continue;
+    }
+    const Content::VoxelGrid& grid = model->grid;
+    const float edge = static_cast<float>(grid.voxelEdgeMillimeters) / 1000.0F;
+    const DirectX::XMFLOAT3 size{edge * static_cast<float>(grid.widthVoxels), edge * static_cast<float>(grid.heightVoxels),
+                                 edge * static_cast<float>(grid.depthVoxels)};
+    const Engine::OrthographicCamera camera(
+      {.elevationRadians = DirectX::XMConvertToRadians(ELEVATION_DEGREES_PORTRAIT),
+       .azimuthRadians = DirectX::XMConvertToRadians(AZIMUTH_DEGREES_PORTRAIT),
+       .viewHeightMeters = MARGIN * std::max({size.x, size.y, size.z}),
+       .minViewHeightMeters = 0.1F,
+       .maxViewHeightMeters = 1000.0F,
+       .rotationSeconds = ROTATION_SECONDS,
+       .targetMeters = {FAR_CORNER.x + (0.5F * size.x), FAR_CORNER.y + (0.5F * size.y), FAR_CORNER.z + (0.5F * size.z)}});
+    DirectX::XMFLOAT4X4 viewProjection{};
+    DirectX::XMStoreFloat4x4(&viewProjection, camera.ViewProjection(1.0F));
+    DirectX::XMFLOAT3 forward{};
+    DirectX::XMStoreFloat3(&forward, camera.Forward());
+    Engine::VoxelPass::FrameConstants frame = MakeFrame(viewProjection, forward, PORTRAIT_TEXELS, PORTRAIT_TEXELS, m_sunViewProjection);
+    frame.shadowParameters.w = 0.0F; // no shadow
+    const std::vector<Engine::VoxelRecord> records = Engine::BuildVisibleRecords(
+      {.paletteIndices = grid.indices, .xVoxels = grid.widthVoxels, .yVoxels = grid.heightVoxels, .zVoxels = grid.depthVoxels},
+      [](std::int32_t, std::int32_t, std::int32_t) { return false; },
+      {.palette = &m_worldView.Shading(), .originCells = {0, 0, 0}, .jitterCellShift = 0, .alsoSolid = nullptr});
+    const D3D12_RESOURCE_BARRIER toTarget =
+      Engine::TransitionBarrier(m_portraitTarget.Texture(), Engine::ColorTarget::IDLE_STATE, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    _commandList->ResourceBarrier(1, &toTarget);
+    const D3D12_CPU_DESCRIPTOR_HANDLE targetView = m_portraitTarget.View();
+    const D3D12_CPU_DESCRIPTOR_HANDLE depthView = m_portraitDepth.View();
+    _commandList->OMSetRenderTargets(1, &targetView, FALSE, &depthView);
+    m_portraitTarget.Clear(_commandList);
+    m_portraitDepth.Clear(_commandList);
+    SetViewport(_commandList, PORTRAIT_TEXELS, PORTRAIT_TEXELS);
+    m_pass.Begin(_commandList, UploadConstants(_ring, frame), _palette);
+    if (!records.empty())
+    {
+      m_pass.Draw(_commandList, UploadArray(_ring, std::span<const Engine::VoxelRecord>(records)),
+                  static_cast<std::uint32_t>(records.size()),
+                  {.originMeters = FAR_CORNER,
+                   .voxelEdgeMeters = edge,
+                   .quarterTurns = 0,
+                   .widthCells = grid.widthVoxels,
+                   .depthCells = grid.depthVoxels,
+                   .swapFromIndex = FACTION_PALETTE_INDEX,
+                   .swapToIndex = ATTACKER_COLOR_INDEX});
+    }
+    const D3D12_RESOURCE_BARRIER toCopy =
+      Engine::TransitionBarrier(m_portraitTarget.Texture(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE);
+    _commandList->ResourceBarrier(1, &toCopy);
+    // The copy locations' unions are filled by member: designators cannot name an anonymous union's.
+    D3D12_TEXTURE_COPY_LOCATION source{};
+    source.pResource = m_portraitTarget.Texture();
+    source.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    source.SubresourceIndex = 0;
+    D3D12_TEXTURE_COPY_LOCATION destination{};
+    destination.pResource = m_portraitAtlas.get();
+    destination.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    destination.SubresourceIndex = 0;
+    _commandList->CopyTextureRegion(&destination, cell * PORTRAIT_TEXELS, 0, 0, &source, nullptr);
+    const D3D12_RESOURCE_BARRIER toIdle =
+      Engine::TransitionBarrier(m_portraitTarget.Texture(), D3D12_RESOURCE_STATE_COPY_SOURCE, Engine::ColorTarget::IDLE_STATE);
+    _commandList->ResourceBarrier(1, &toIdle);
+  }
+  const D3D12_RESOURCE_BARRIER toRead =
+    Engine::TransitionBarrier(m_portraitAtlas.get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+  _commandList->ResourceBarrier(1, &toRead);
 }
 
 void WorldRenderer::UpdateFog(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, const Frame& _frame)
@@ -415,6 +513,11 @@ void WorldRenderer::Draw(const Frame& _frame)
   }
   m_dynamicShadow.EndDrawing(commandList);
   m_gpuTimer.End(commandList, slot, DYNAMIC_SHADOW_SPAN);
+  if (!m_portraitsDrawn)
+  {
+    DrawPortraits(commandList, ring, paletteConstants);
+    m_portraitsDrawn = true;
+  }
 
   // The scene into its own target.
   const D3D12_RESOURCE_BARRIER toScene =
@@ -491,7 +594,7 @@ void WorldRenderer::Draw(const Frame& _frame)
                        .u1 = quad.u1,
                        .v1 = quad.v1,
                        .color = {quad.color[0], quad.color[1], quad.color[2], quad.color[3]},
-                       .textured = quad.textured ? 1U : 0U,
+                       .textured = quad.image ? 2U : (quad.textured ? 1U : 0U),
                        .reserved = {}});
     }
     m_interface.Draw(commandList, UploadArray(ring, std::span<const Engine::InterfaceQuad>(quads)),

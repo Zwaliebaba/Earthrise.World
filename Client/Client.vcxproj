@@ -52,6 +52,11 @@
     <ClCompile Include="ArrowDraw.cpp" />
     <ClInclude Include="FogMask.h" />
     <ClCompile Include="FogMask.cpp" />
+    <ClInclude Include="Selection.h" />
+    <ClCompile Include="Selection.cpp" />
+    <ClInclude Include="SelectionPanel.h" />
+    <ClCompile Include="SelectionPanel.cpp" />
+    <ClInclude Include="Portraits.h" />
     <ClInclude Include="Look.h" />
     <ClInclude Include="TickClock.h" />
     <ClCompile Include="TickClock.cpp" />

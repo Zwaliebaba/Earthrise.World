@@ -12,6 +12,9 @@ namespace Client
 /// The palette entries the two sides' faction colour is drawn in, beyond the materials' (RendererLook.md: red
 /// #b23a2e, blue #2f5d93).
 inline constexpr std::uint8_t ATTACKER_COLOR_INDEX = 240;
+/// The palette's faction entry, which a model's faction voxels hold and its side's colour replaces (GameData/Server/
+/// Palette.json).
+inline constexpr std::uint8_t FACTION_PALETTE_INDEX = 16;
 inline constexpr std::uint8_t DEFENDER_COLOR_INDEX = 241;
 inline constexpr std::uint32_t ATTACKER_COLOR_SRGB = 0xb23a2e;
 inline constexpr std::uint32_t DEFENDER_COLOR_SRGB = 0x2f5d93;
@@ -98,8 +101,9 @@ inline constexpr float TOP_BAR_LOGICAL_PIXELS = 44.0F;
 // Hud.md §2's colour tokens, as sRGB 0xrrggbb. Every panel is PANEL_SRGB at PANEL_ALPHA.
 inline constexpr std::uint32_t PANEL_SRGB = 0x151310;
 inline constexpr float PANEL_ALPHA = 0.92F;
-inline constexpr std::uint32_t BUTTON_SRGB = 0x2a2621; // panel-deep, for buttons
-inline constexpr std::uint32_t WELL_SRGB = 0x1f1c18;   // panel-deep, for inner wells
+inline constexpr std::uint32_t BUTTON_SRGB = 0x2a2621;     // panel-deep, for buttons
+inline constexpr std::uint32_t WELL_SRGB = 0x1f1c18;       // panel-deep, for inner wells
+inline constexpr std::uint32_t IMAGE_TINT_SRGB = 0xffffff; // an image quad's colour: its texels as they are
 inline constexpr std::uint32_t LINE_SRGB = 0x3a342c;
 inline constexpr std::uint32_t TEXT_SRGB = 0xf3ede2;
 inline constexpr std::uint32_t DIM_SRGB = 0xa69c8a;

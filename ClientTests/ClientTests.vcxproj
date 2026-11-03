@@ -58,6 +58,8 @@
     <ClCompile Include="ArrowDrawTests.cpp" />
     <ClCompile Include="FogDrawTests.cpp" />
     <ClCompile Include="HudLayoutTests.cpp" />
+    <ClCompile Include="SelectionTests.cpp" />
+    <ClCompile Include="SelectionPanelTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

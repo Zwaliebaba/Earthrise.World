@@ -31,6 +31,9 @@
     <Filter Include="Views">
       <UniqueIdentifier>{C8D20524-785A-50C8-A4E2-CA5AA774CEF8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Selection">
+      <UniqueIdentifier>{671756FE-7576-51DA-BB32-7CE6E4DD9E78}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Lab">
       <UniqueIdentifier>{B850AB04-44FA-50ED-9854-EF658A3CBE04}</UniqueIdentifier>
     </Filter>
@@ -152,6 +155,21 @@
     </ClInclude>
     <ClCompile Include="Hud.cpp">
       <Filter>Hud</Filter>
+    </ClCompile>
+    <ClInclude Include="SelectionPanel.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClCompile Include="SelectionPanel.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClInclude Include="Portraits.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="Selection.h">
+      <Filter>Selection</Filter>
+    </ClInclude>
+    <ClCompile Include="Selection.cpp">
+      <Filter>Selection</Filter>
     </ClCompile>
     <ClInclude Include="FireTally.h">
       <Filter>Session</Filter>
