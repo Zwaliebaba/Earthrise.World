@@ -66,12 +66,12 @@ public:
     std::span<const OverlayLayer> overlays; // in order, after the scene and before the upscale
     /// The fog's column mask (FogMask.h), fogWidthCells by fogDepthCells, uploaded when it changes; empty for no fog.
     std::span<const std::uint8_t> fogMask;
+    std::int32_t fogWidthCells;
+    std::int32_t fogDepthCells;
     /// The minimap's base when it was built again, minimapSidePixels square, 0xAABBGGRR in sRGB (Minimap.h), copied
     /// into the image atlas below the portraits; empty when it did not change.
     std::span<const std::uint32_t> minimapBase;
     std::uint32_t minimapSidePixels;
-    std::int32_t fogWidthCells;
-    std::int32_t fogDepthCells;
     DirectX::XMFLOAT4X4 viewProjection;
     DirectX::XMFLOAT3 forward;  // the camera's, along its rays
     float viewHeightMeters;     // for how large a model voxel is on screen
