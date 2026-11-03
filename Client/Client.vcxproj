@@ -100,6 +100,7 @@
     <ClInclude Include="WorldPicker.h" />
     <ClCompile Include="WorldPicker.cpp" />
     <ClInclude Include="OverlayBox.h" />
+    <ClCompile Include="OverlayBox.cpp" />
     <ClInclude Include="FireMode.h" />
     <ClCompile Include="FireMode.cpp" />
     <ClInclude Include="Overlays.h" />

@@ -50,6 +50,7 @@
     <ClCompile Include="HudTests.cpp" />
     <ClCompile Include="WorldPickerTests.cpp" />
     <ClCompile Include="FireModeTests.cpp" />
+    <ClCompile Include="OverlayBoxTests.cpp" />
     <ClCompile Include="OverlaysTests.cpp" />
     <ClCompile Include="LabTests.cpp" />
     <ClCompile Include="GlyphAtlasTests.cpp" />

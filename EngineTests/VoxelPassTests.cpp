@@ -856,6 +856,53 @@ public:
     AssertNoDebugErrors(device);
   }
 
+  TEST_METHOD(TintsOnceThroughOverlayBoxesThatJoinAndOnceABoxThroughThoseThatDoNot)
+  {
+    // Two green boxes stacked in the open, seen from above at half alpha, as the passability view's lie over open ground.
+    // Joined, the ray enters the lower box through its top, the face it shares with the upper one, and that hit is
+    // discarded: one blend, (0, 128, 0). Not joined, the ray blends at both tops: (0, 191, 0). The upper box's joined
+    // bottom, a face no ray from above enters, leaves the upper box drawn.
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const std::array<Engine::VoxelRecord, 2> loose = {Engine::MakeVoxelRecord(0, 0, 0, GREEN), Engine::MakeVoxelRecord(0, 1, 0, GREEN)};
+    const std::array<Engine::VoxelRecord, 2> joined = {
+      Engine::WithJoinedFaces(loose.at(0), Engine::JoinedBit(Engine::VoxelFace::PositiveY)),
+      Engine::WithJoinedFaces(loose.at(1), Engine::JOINED_BOTTOM)};
+    const Readback once = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), {}, PLAIN_BATCH, nullptr, {}, joined, 0.5F);
+    const Readback twice = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), {}, PLAIN_BATCH, nullptr, {}, loose, 0.5F);
+    for (std::uint32_t y = 0; y < TARGET_PIXELS; ++y)
+    {
+      for (std::uint32_t x = 0; x < TARGET_PIXELS; ++x)
+      {
+        const bool inside = x >= 32 && x < 48 && y >= 16 && y < 32;
+        Assert::IsTrue(inside ? Near(once.ColorAt(x, y), 0, 128, 0) : Near(once.ColorAt(x, y), 0, 0, 0),
+                       std::format(L"joined, pixel ({}, {}) is {}", x, y, Describe(once.ColorAt(x, y))).c_str());
+        Assert::IsTrue(inside ? Near(twice.ColorAt(x, y), 0, 191, 0) : Near(twice.ColorAt(x, y), 0, 0, 0),
+                       std::format(L"loose, pixel ({}, {}) is {}", x, y, Describe(twice.ColorAt(x, y))).c_str());
+      }
+    }
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(KeepsAnOverlaysJoinedFacesApartFromItsShade)
+  {
+    // The joined faces take bits 16 to 21 of the third word, and the cell, the palette index, the corner levels and the
+    // lightness offset read as they did; MakeVoxelRecord joins nothing.
+    Engine::VoxelShade shade = Engine::UNSHADED;
+    shade.cornerLevels.at(4) = {0, 1, 2, 3};
+    shade.lightnessOffset = -5.0F / Engine::LIGHTNESS_STEPS;
+    const Engine::VoxelRecord plain = Engine::MakeVoxelRecord(1, 2, 3, GREEN, shade);
+    Assert::AreEqual(std::uint8_t{0}, Engine::JoinedFaces(plain));
+    const auto faces = static_cast<std::uint8_t>(Engine::JoinedBit(Engine::VoxelFace::NegativeX) | Engine::JOINED_BOTTOM);
+    const Engine::VoxelRecord joined = Engine::WithJoinedFaces(plain, faces);
+    Assert::AreEqual(faces, Engine::JoinedFaces(joined));
+    Assert::AreEqual(plain.cellAndPalette, joined.cellAndPalette);
+    Assert::AreEqual(plain.cornerLevels, joined.cornerLevels);
+    Assert::AreEqual(std::uint8_t{2}, Engine::CornerLevel(joined, Engine::VoxelFace::PositiveZ, 2));
+    Assert::AreEqual(Engine::LightnessOffset(plain), Engine::LightnessOffset(joined));
+    Assert::AreEqual(std::uint8_t{0}, Engine::JoinedFaces(Engine::WithJoinedFaces(joined, 0)));
+    Assert::AreEqual(plain.lastFaceAndJitter, Engine::WithJoinedFaces(joined, 0).lastFaceAndJitter);
+  }
+
   TEST_METHOD(RefusesATurnItCannotMake)
   {
     Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});

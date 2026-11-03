@@ -37,7 +37,7 @@ VoxelInterpolants main(uint _vertexId : SV_VertexID, uint _instanceId : SV_Insta
   const uint recordIndex = RecordPaletteIndex(record.x);
   const uint paletteIndex = recordIndex == g_batch.swapFromIndex ? g_batch.swapToIndex : recordIndex;
   output.albedo = JitterLightness(g_palette.colors[paletteIndex].rgb, RecordLightnessOffset(record.z));
-  output.cornerLevels = uint2(record.y, record.z & 255u);
+  output.cornerLevels = uint2(record.y, record.z & 0x3f00ffu); // face 4's byte, and an overlay's joined faces
   output.shadeAndTurn = RecordShadeTable(record.x) | ((g_batch.turn & 3u) << 1);
   return output;
 }
