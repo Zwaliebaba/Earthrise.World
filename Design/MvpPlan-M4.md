@@ -332,6 +332,9 @@ struct HudMinimap { bool baseDirty; bool hasBase; std::vector<HudDot> dots; std:
 // I6 (input 23, as the owner amended it): the structures' lines in the world, which the HUD lays.
 struct HudWorldLabel { std::string line; std::string name; DirectX::XMFLOAT2 anchorPixels; std::uint32_t srgb; bool selected; };
 // HudModel gains: std::vector<HudWorldLabel> worldLabels.
+// I7: every command the player issues, for J2's command rows (Client/CommandLog.h).
+struct CommandRecord { std::uint32_t tick; double seconds; std::string command; std::string source; }; // source: key or click
+// Client/Strings.h gains HOVER_TABLE: each HudReading, what hover shows of it, and the key or click that reaches it.
 ```
 
 ### The trial's log (J2)

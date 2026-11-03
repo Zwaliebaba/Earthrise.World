@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <string_view>
 
 namespace Client
@@ -227,6 +228,49 @@ inline constexpr std::string_view PACK_RULE = "FOLD UP TO MOVE";
 inline constexpr std::string_view DEPLOY_RULE = "SET UP TO FIRE";
 inline constexpr std::string_view MODE_BANNER = "{} · {}";       // the label and the rule
 inline constexpr std::string_view CARD_TOOLTIP = "{} · {} · {}"; // the hotkey, the label and the rule
+
+// Every reading the HUD can show, and how it is reached without hover (ADR-007, decision 4; Hud.md §8; M4-I7). The
+// table is not drawn. Hover may speed a reading up, but it is never the only way to it, except where Hud.md §8 says:
+// the tooltip's rule for a command that acts at once, and the attack cursor's reading, which follows the pointer while a
+// mode is on, and reads where the pointer rests without moving it. Those two get press-and-hold with the touch scheme.
+enum class HudReading : std::uint8_t
+{
+  TopBar,
+  ModeBanner,
+  Alerts,
+  Readout,
+  StructureLines,
+  Panel,
+  CommandCard,
+  Tooltip,
+  AttackCursor,
+  ControlGroups,
+  Minimap
+};
+
+struct HoverWay
+{
+  HudReading reading;
+  std::string_view onHover;      // what hover shows of it, or empty where hover shows nothing
+  std::string_view withoutHover; // the key or the click that reaches it
+};
+
+inline constexpr std::array<HoverWay, 11> HOVER_TABLE = {{
+  {HudReading::TopBar, "", "always drawn: the resources, the objective and the camera's buttons"},
+  {HudReading::ModeBanner, "", "a targeted command's key or cell: its label and its rule"},
+  {HudReading::Alerts, "", "always drawn; JUMP, or Space for the newest, looks at its place"},
+  {HudReading::Readout, "the section under the pointer",
+   "a click selects a structure, and in layout A the readout shows the selected first"},
+  {HudReading::StructureLines, "", "F1 draws every structure's line in the world"},
+  {HudReading::Panel, "", "a click, a drawn box, Tab, or a control group's key"},
+  {HudReading::CommandCard, "", "always drawn: each cell's hotkey, label and state"},
+  {HudReading::Tooltip, "a cell's hotkey, label and rule",
+   "the cell draws its hotkey and label; a targeted command's rule is the banner's; an at-once command's rule waits for "
+   "the touch scheme's press-and-hold (Hud.md §8)"},
+  {HudReading::AttackCursor, "follows the pointer", "the attack's key or cell turns it on, and it reads where the pointer rests"},
+  {HudReading::ControlGroups, "", "1 to 9, and the strip's slots 1 to 5"},
+  {HudReading::Minimap, "", "always drawn in the deck; a press moves the camera, and a right click orders"},
+}};
 
 /// Every string above, for the glyph coverage test.
 inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,

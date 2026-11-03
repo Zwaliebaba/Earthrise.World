@@ -31,6 +31,7 @@
 #include "Session.h"
 #include "AlertWatch.h"
 #include "CommandCard.h"
+#include "CommandLog.h"
 #include "ControlGroups.h"
 #include "Minimap.h"
 #include "Orders.h"
@@ -494,9 +495,10 @@ public:
     return m_keepMiddle;
   }
 
-  bool Tick(Client::Session& _session, double /* _seconds */) override
+  bool Tick(Client::Session& _session, double _seconds) override
   {
-    for (const std::vector<std::byte>& command : _session.TakeCommands())
+    // Each of the player's commands, recorded with its source and its time for the trial's log (M4-I7).
+    for (const std::vector<std::byte>& command : m_commands.Take(_session, m_world.TickCount(), _seconds))
     {
       m_world.Submit(PLAYER, command);
     }
@@ -576,6 +578,7 @@ private:
   double m_speed;
   Protocol::VoxelPosition m_keepMiddle{};
   Protocol::VoxelPosition m_goal{};
+  Client::CommandLog m_commands; // J2 writes them
 };
 
 /// The client's side of one world: what it was told, and what it draws and asks from it. The lab replaces it with

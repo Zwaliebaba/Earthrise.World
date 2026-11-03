@@ -87,6 +87,12 @@
     <ClInclude Include="Session.h">
       <Filter>Session</Filter>
     </ClInclude>
+    <ClInclude Include="CommandLog.h">
+      <Filter>Session</Filter>
+    </ClInclude>
+    <ClCompile Include="CommandLog.cpp">
+      <Filter>Session</Filter>
+    </ClCompile>
     <ClCompile Include="Session.cpp">
       <Filter>Session</Filter>
     </ClCompile>

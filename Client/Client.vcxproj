@@ -69,6 +69,8 @@
     <ClInclude Include="TickClock.h" />
     <ClCompile Include="TickClock.cpp" />
     <ClInclude Include="Session.h" />
+    <ClInclude Include="CommandLog.h" />
+    <ClCompile Include="CommandLog.cpp" />
     <ClCompile Include="Session.cpp" />
     <ClInclude Include="Camera.h" />
     <ClCompile Include="Camera.cpp" />
