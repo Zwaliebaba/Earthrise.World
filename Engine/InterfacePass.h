@@ -16,14 +16,16 @@
 namespace Engine
 {
 
-/// A screen-space quad of the interface pass: a solid colour, or a rectangle of the atlas whose red channel is the
-/// alpha. Its layout is load-bearing: Shader/InterfaceCommon.hlsli reads the same 64 bytes.
+/// A screen-space quad of the interface pass: a solid colour, a rectangle of the glyph atlas whose red channel is the
+/// alpha, or a rectangle of the image atlas times its colour. Its layout is load-bearing: Shader/InterfaceCommon.hlsli
+/// reads the same 64 bytes.
 struct InterfaceQuad
 {
   float xPixels, yPixels, widthPixels, heightPixels; // top-left origin, in the target's pixels
   float u0, v0, u1, v1;                              // the atlas rectangle, in texels; unused when solid
   DirectX::XMFLOAT4 color;                           // linear RGBA
-  std::uint32_t textured;                            // 1: alpha is the atlas's red channel times color.a; 0: solid
+  /// 0: solid; 1: alpha is the glyph atlas's red channel times color.a; 2: the image atlas's RGBA texel times color
+  std::uint32_t textured;
   std::array<std::uint32_t, 3> reserved;
 };
 
@@ -47,6 +49,12 @@ public:
   /// reads the old one, because the view is rewritten in place.
   void SetAtlas(ID3D12Resource* _atlas, std::uint32_t _widthTexels, std::uint32_t _heightTexels);
 
+  /// Reads _atlas, an RGBA8 texture _widthTexels by _heightTexels, in its own format, as the image atlas from now on: a
+  /// quad whose textured is 2 draws its texels, point-sampled, times its colour (ADR-019, decision 3, amended), as the
+  /// portraits do. Until one is set such a quad reads nothing and draws nothing. The caller first makes sure the GPU no
+  /// longer reads the old one, because the view is rewritten in place. Throws std::invalid_argument for no texels.
+  void SetImageAtlas(ID3D12Resource* _atlas, std::uint32_t _widthTexels, std::uint32_t _heightTexels);
+
   /// Draws _quadCount quads at _quads, a buffer the GPU can read, in order, blended over the target, no depth. The caller
   /// has set the target, viewport and scissor to the whole of a target _targetWidthPixels by _targetHeightPixels, and
   /// the atlas is readable by a pixel shader. Sets this pass's descriptor heap on _commandList. Throws
@@ -59,7 +67,7 @@ private:
   winrt::com_ptr<ID3D12RootSignature> m_rootSignature;
   winrt::com_ptr<ID3D12PipelineState> m_pipelineState;
   DescriptorHeap m_viewHeap;
-  DescriptorHeap::Handle m_atlasView{};
+  DescriptorHeap::Handle m_atlasTable{}; // the glyph atlas's view, then the image atlas's
   bool m_hasAtlas = false;
 };
 

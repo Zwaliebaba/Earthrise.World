@@ -16,18 +16,19 @@ enum RootParameter : UINT
 {
   RootConstants, // b0: the target's size, four 32-bit values
   RootQuads,     // t0: the quads, a root shader-resource view
-  RootAtlas,     // t1: a descriptor table of one shader-resource view
+  RootAtlas,     // t1 and t2: a descriptor table of the glyph and the image atlas's shader-resource views
   RootCount
 };
 
 constexpr UINT CONSTANT_VALUES = 4;
 constexpr UINT QUAD_VERTICES = 4;
+constexpr UINT ATLAS_VIEWS = 2; // the glyph atlas and the image atlas
 
 winrt::com_ptr<ID3D12RootSignature> MakeRootSignature(ID3D12Device* _device)
 {
   // Written in code, not in HLSL (ADR-011, decision 7).
   const D3D12_DESCRIPTOR_RANGE atlasRange{.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
-                                          .NumDescriptors = 1,
+                                          .NumDescriptors = ATLAS_VIEWS,
                                           .BaseShaderRegister = 1,
                                           .RegisterSpace = 0,
                                           .OffsetInDescriptorsFromTableStart = 0};
@@ -67,9 +68,19 @@ winrt::com_ptr<ID3D12RootSignature> MakeRootSignature(ID3D12Device* _device)
 InterfacePass::InterfacePass(ID3D12Device* _device, const Desc& _desc)
   : m_device(_device),
     m_rootSignature(MakeRootSignature(_device)),
-    m_viewHeap(_device, {.type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, .capacityDescriptors = 1, .shaderVisible = true})
+    m_viewHeap(_device, {.type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, .capacityDescriptors = ATLAS_VIEWS, .shaderVisible = true})
 {
-  m_atlasView = m_viewHeap.Allocate();
+  m_atlasTable = m_viewHeap.Allocate(ATLAS_VIEWS);
+  // Until it is given an image atlas, the pass reads a null view there, which reads as nothing.
+  D3D12_SHADER_RESOURCE_VIEW_DESC nullImage{};
+  nullImage.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+  nullImage.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+  nullImage.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+  nullImage.Texture2D.MostDetailedMip = 0;
+  nullImage.Texture2D.MipLevels = 1;
+  nullImage.Texture2D.PlaneSlice = 0;
+  nullImage.Texture2D.ResourceMinLODClamp = 0.0F;
+  _device->CreateShaderResourceView(nullptr, &nullImage, m_viewHeap.At(m_atlasTable.index + 1).cpu);
 
   // Blended over what is there, alpha not premultiplied. Every enum is named, because several of D3D12's have no zero
   // value (no d3dx12.h defaults, R14).
@@ -136,8 +147,17 @@ void InterfacePass::SetAtlas(ID3D12Resource* _atlas, std::uint32_t _widthTexels,
     throw std::invalid_argument("the interface pass's atlas has no texels");
   }
   // A null description views the whole texture in its own format, one mip level.
-  m_device->CreateShaderResourceView(_atlas, nullptr, m_atlasView.cpu);
+  m_device->CreateShaderResourceView(_atlas, nullptr, m_viewHeap.At(m_atlasTable.index).cpu);
   m_hasAtlas = true;
+}
+
+void InterfacePass::SetImageAtlas(ID3D12Resource* _atlas, std::uint32_t _widthTexels, std::uint32_t _heightTexels)
+{
+  if (_widthTexels == 0 || _heightTexels == 0)
+  {
+    throw std::invalid_argument("the interface pass's image atlas has no texels");
+  }
+  m_device->CreateShaderResourceView(_atlas, nullptr, m_viewHeap.At(m_atlasTable.index + 1).cpu);
 }
 
 void InterfacePass::Draw(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _quads, std::uint32_t _quadCount,
@@ -159,7 +179,7 @@ void InterfacePass::Draw(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRT
   _commandList->SetPipelineState(m_pipelineState.get());
   _commandList->SetGraphicsRoot32BitConstants(RootConstants, CONSTANT_VALUES, constants.data(), 0);
   _commandList->SetGraphicsRootShaderResourceView(RootQuads, _quads);
-  _commandList->SetGraphicsRootDescriptorTable(RootAtlas, m_atlasView.gpu);
+  _commandList->SetGraphicsRootDescriptorTable(RootAtlas, m_atlasTable.gpu);
   _commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
   _commandList->DrawInstanced(QUAD_VERTICES, _quadCount, 0, 0);
 }
