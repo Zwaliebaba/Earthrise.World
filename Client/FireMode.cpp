@@ -111,13 +111,17 @@ std::optional<AttackCursor> FireMode::Cursor(const Session& _session) const
   {
     return std::nullopt;
   }
-  const Protocol::AimReading* reading = Reading(_session);
-  if (reading == nullptr)
+  return CursorOf(Reading(_session));
+}
+
+AttackCursor CursorOf(const Protocol::AimReading* _reading)
+{
+  if (_reading == nullptr)
   {
     return AttackCursor{.label = std::string(AIM_WAITING), .srgb = DIM_SRGB};
   }
-  const std::int32_t meters = reading->distanceMeters;
-  switch (reading->verdict)
+  const std::int32_t meters = _reading->distanceMeters;
+  switch (_reading->verdict)
   {
   case Protocol::AimVerdict::InRange:
     return AttackCursor{.label = std::format(AIM_IN_RANGE, meters), .srgb = GOOD_SRGB};
@@ -126,9 +130,9 @@ std::optional<AttackCursor> FireMode::Cursor(const Session& _session) const
   case Protocol::AimVerdict::TooClose:
     return AttackCursor{.label = std::format(AIM_TOO_CLOSE, meters), .srgb = BAD_SRGB};
   case Protocol::AimVerdict::OutOfRange:
-    return AttackCursor{.label = std::format(AIM_OUT_OF_RANGE, meters), .srgb = BAD_SRGB};
+    break;
   }
-  return std::nullopt;
+  return AttackCursor{.label = std::format(AIM_OUT_OF_RANGE, meters), .srgb = BAD_SRGB};
 }
 
 std::vector<OverlayBox> FireMode::StrikeMark(const Session& _session) const

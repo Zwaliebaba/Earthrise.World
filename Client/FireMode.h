@@ -14,6 +14,10 @@
 namespace Client
 {
 
+/// The attack cursor for an aim reading (Hud.md §8): its verdict and distance, in good for IN RANGE and bad for the rest,
+/// or an ellipsis in dim while none has come, _reading null. FIRE's and ATTACK's (M4-I3) alike.
+[[nodiscard]] AttackCursor CursorOf(const Protocol::AimReading* _reading);
+
 /// FIRE, the trebuchet's targeting mode (Hud.md §7 and §8; M3-E4). With a trebuchet selected and loaded, F turns it
 /// on: the banner, and the attack cursor, read from the aim check it asks the session for the voxel under the pointer
 /// whenever that changes or the world does (ADR-020, decision 5). A right click fires at the voxel under the pointer

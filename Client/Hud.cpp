@@ -90,6 +90,15 @@ constexpr float TILE_PORTRAIT_LOGICAL_PIXELS = 40.0F;
 constexpr float TILE_GAP_LOGICAL_PIXELS = 8.0F;
 constexpr float TILE_PADDING_LOGICAL_PIXELS = 4.0F;
 constexpr float TILE_BAR_HEIGHT_LOGICAL_PIXELS = 6.0F;
+// The command card's cells (Hud.md §7; M4-I3): the hotkey's inset from the top-left corner and the label's from the
+// bottom; and the tooltip above the card, right 8 and bottom 212, 400 wide, its hotkey and label on one line and its
+// rule on the next.
+constexpr float CELL_INSET_LOGICAL_PIXELS = 4.0F;
+constexpr float TOOLTIP_RIGHT_LOGICAL_PIXELS = 8.0F;
+constexpr float TOOLTIP_BOTTOM_LOGICAL_PIXELS = 212.0F;
+constexpr float TOOLTIP_WIDTH_LOGICAL_PIXELS = 400.0F;
+constexpr float TOOLTIP_PADDING_LOGICAL_PIXELS = 8.0F;
+constexpr std::string_view TOOLTIP_SEPARATOR = " · ";
 
 // A cap stands on rows 1 to 7 of the font's cell (Hud.md §9), so text is centred on that band.
 constexpr std::int32_t CAP_TOP_ROW = 1;
@@ -607,10 +616,28 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
     {
       for (std::int32_t column = 0; column < CARD_COLUMNS; ++column)
       {
+        const std::size_t index = (static_cast<std::size_t>(row) * CARD_COLUMNS) + static_cast<std::size_t>(column);
         const PixelRect cell{deck.card.xPixels + (column * (cellWidth + cellGap)), top + (row * (cellHeight + cellGap)), cellWidth,
                              cellHeight};
-        paint.Box(cell, LINE_SRGB, BUTTON_SRGB, 1.0F);
-        deck.cells.at((static_cast<std::size_t>(row) * CARD_COLUMNS) + static_cast<std::size_t>(column)) = cell;
+        deck.cells.at(index) = cell;
+        // A slot: its hotkey top left in accent, its icon in the middle at the names' size, its label along the bottom;
+        // off text while disabled, an accent border on active-bg while its mode is on; an empty slot very dim.
+        const HudCommandSlot& slot = _model.commandCard.slots.at(index);
+        if (slot.command.empty())
+        {
+          paint.Box(cell, LINE_SRGB, WELL_SRGB, 1.0F);
+          continue;
+        }
+        const PixelRect inside =
+          paint.Box(cell, slot.active ? ACCENT_SRGB : LINE_SRGB, slot.active ? ACTIVE_BACKGROUND_SRGB : BUTTON_SRGB, 1.0F);
+        const std::int32_t inset = paint.Pixels(CELL_INSET_LOGICAL_PIXELS);
+        const std::uint32_t textSrgb = slot.enabled ? TEXT_SRGB : OFF_SRGB;
+        paint.Text(slot.hotkey, inside.xPixels + inset, inside.yPixels + inset, slot.enabled ? ACCENT_SRGB : OFF_SRGB, inside);
+        paint.NameText(slot.icon, inside.xPixels + ((inside.widthPixels - paint.NameWidth(slot.icon)) / 2),
+                       inside.yPixels + ((inside.heightPixels - paint.NameCell()) / 2) - inset, textSrgb, inside);
+        paint.Text(slot.label, inside.xPixels + ((inside.widthPixels - paint.Width(slot.label)) / 2),
+                   inside.yPixels + inside.heightPixels - inset - paint.Cell(), textSrgb, inside);
+        m_targets.push_back({.control = HudControl::CardSlot, .alert = index, .rect = cell});
       }
     }
     // The strip: each group's slot with its number in dim, then SET.
@@ -639,6 +666,33 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
     m_panels.push_back(*strip);
     m_deck = deck;
     LayPanel(_model.panel, deck.selection, paint);
+
+    // The hovered slot's tooltip above the card: its hotkey and label, then its rule.
+    if (_model.tooltip.has_value() && !_model.tooltip->empty())
+    {
+      const std::string_view text = *_model.tooltip;
+      const std::size_t first = text.find(TOOLTIP_SEPARATOR);
+      const std::size_t second = first == std::string_view::npos ? first : text.find(TOOLTIP_SEPARATOR, first + TOOLTIP_SEPARATOR.size());
+      const std::string_view head = second == std::string_view::npos ? text : text.substr(0, second);
+      const std::string_view rule = second == std::string_view::npos ? std::string_view{} : text.substr(second + TOOLTIP_SEPARATOR.size());
+      const std::int32_t tipPadding = paint.Pixels(TOOLTIP_PADDING_LOGICAL_PIXELS);
+      const std::int32_t lines = rule.empty() ? 1 : 2;
+      const std::int32_t tipHeight = (2 * border) + (2 * tipPadding) + (lines * paint.Cell()) + ((lines - 1) * gap);
+      const std::int32_t tipWidth = paint.Pixels(TOOLTIP_WIDTH_LOGICAL_PIXELS);
+      PixelRect tip{width - paint.Pixels(TOOLTIP_RIGHT_LOGICAL_PIXELS) - tipWidth,
+                    height - paint.Pixels(TOOLTIP_BOTTOM_LOGICAL_PIXELS) - tipHeight, tipWidth, tipHeight};
+      if (tip.Overlaps(*strip))
+      {
+        tip.yPixels = strip->yPixels - paint.Pixels(ABOVE_STRIP_GAP_LOGICAL_PIXELS) - tipHeight; // as the readout, at 1280 px
+      }
+      const PixelRect tipInside = paint.Box(tip, LINE_SRGB, PANEL_SRGB, PANEL_ALPHA);
+      m_panels.push_back(tip);
+      paint.Text(head, tipInside.xPixels + tipPadding, tipInside.yPixels + tipPadding, ACCENT_SRGB, tipInside);
+      if (!rule.empty())
+      {
+        paint.Text(rule, tipInside.xPixels + tipPadding, tipInside.yPixels + tipPadding + paint.Cell() + gap, SUB_SRGB, tipInside);
+      }
+    }
   }
 
   // The integrity readout: the focused section's name, then its rows, each key in dim and its value in its colour, both

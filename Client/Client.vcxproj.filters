@@ -165,6 +165,18 @@
     <ClInclude Include="Portraits.h">
       <Filter>Hud</Filter>
     </ClInclude>
+    <ClInclude Include="CommandCard.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClCompile Include="CommandCard.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClInclude Include="Orders.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClCompile Include="Orders.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
     <ClInclude Include="Selection.h">
       <Filter>Selection</Filter>
     </ClInclude>

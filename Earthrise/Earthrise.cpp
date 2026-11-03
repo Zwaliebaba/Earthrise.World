@@ -29,6 +29,8 @@
 #include "Scenario.h"
 #include "ServerData.h"
 #include "Session.h"
+#include "CommandCard.h"
+#include "Orders.h"
 #include "Selection.h"
 #include "SelectionPanel.h"
 #include "SharedHash.h"
@@ -587,6 +589,8 @@ struct Play
   Protocol::EntityId selected = Protocol::NO_ENTITY;
   bool worldChanged = false;                                     // the last frame took a changed chunk
   Client::Selection selection;                                   // layout A's (M4-I2)
+  Client::Orders orders;                                         // and its command card's (M4-I3)
+  bool rightDown = false;                                        // the right button went down on the world
   std::optional<std::pair<std::int32_t, std::int32_t>> dragFrom; // where the left button went down on the world
   Protocol::EntityId lastClickSquad = Protocol::NO_ENTITY;       // for the double-click
   double lastClickSeconds = -1.0;
@@ -753,6 +757,7 @@ int Run(const Options& _options)
       selectionAllowed ? client.presentation.EngineBoxes() : std::vector<Client::EngineBox>{};
     bool answerOpen = false;
     bool answerShut = false;
+    std::optional<std::size_t> cardClicked; // a command card's cell (M4-I3)
     if (pointer.WasPressed(Engine::PointerInput::Button::Left))
     {
       const std::optional<Client::HudTarget> hit = hud.HitTest(pointer.XPixels(), pointer.YPixels());
@@ -794,6 +799,10 @@ int Run(const Options& _options)
           break;
         case Client::HudControl::Cancel:
           client.fire.Cancel();
+          client.orders.Cancel();
+          break;
+        case Client::HudControl::CardSlot:
+          cardClicked = hit->alert;
           break;
         case Client::HudControl::Jump:
           if (hit->alert < hudModel.alerts.size() && hudModel.alerts.at(hit->alert).location.has_value())
@@ -920,25 +929,76 @@ int Run(const Options& _options)
       }
     }
     client.views.Hover(hovered);
+    // Layout A's command card (Hud.md §7 and §8; M4-I3): its slots by their hotkeys or a click, their modes, and the
+    // right click's orders. FIRE stays FireMode's, entered from the card.
+    Client::HudCommandCard card;
+    bool cardFire = false;
+    bool ordersUsedEscape = false;
+    if (deck)
+    {
+      card = Client::BuildCard(client.selection, shown, client.fire.Active() ? Client::CardCommand::Fire : client.orders.Mode());
+      std::optional<char> hotkey;
+      for (const Client::HudCommandSlot& slot : card.slots)
+      {
+        if (!hotkey.has_value() && !slot.hotkey.empty() && keyboard.WasPressed(slot.hotkey.front()))
+        {
+          hotkey = slot.hotkey.front();
+        }
+      }
+      std::optional<Protocol::EntityId> pointedSquad;
+      if (!pointerOnHud && drawnViewProjection.has_value())
+      {
+        pointedSquad = Client::Selector::SquadAt(Client::WorldPicker::RayThrough(*drawnViewProjection, pointer.XPixels(), pointer.YPixels(),
+                                                                                 swapChain.WidthPixels(), swapChain.HeightPixels()),
+                                                 shown);
+      }
+      const bool rightPressed = pointer.WasPressed(Engine::PointerInput::Button::Right) && !pointerOnHud;
+      const bool rightReleased = client.rightDown && !pointer.IsDown(Engine::PointerInput::Button::Right);
+      client.rightDown = rightPressed || (client.rightDown && pointer.IsDown(Engine::PointerInput::Button::Right));
+      DirectX::XMFLOAT3 forward{};
+      DirectX::XMStoreFloat3(&forward, camera.Forward());
+      const Client::Orders::Result result = client.orders.Update({.hotkey = hotkey,
+                                                                  .slotClicked = cardClicked,
+                                                                  .escapePressed = keyboard.WasPressed(VK_ESCAPE),
+                                                                  .rightPressed = rightPressed && !client.fire.Active(),
+                                                                  .rightReleased = rightReleased && !client.fire.Active(),
+                                                                  .shiftHeld = keyboard.IsDown(VK_SHIFT),
+                                                                  .pointedVoxels = underPointer,
+                                                                  .pointedSquad = pointedSquad,
+                                                                  .pointedEngine = hoveredEngine,
+                                                                  .pointedStructure = hovered,
+                                                                  .cameraForward = forward},
+                                                                 client.selection, shown, card, client.session);
+      cardFire = result.fire;
+      ordersUsedEscape = result.usedEscape;
+      if (cardFire)
+      {
+        client.orders.Cancel();
+      }
+      if (client.orders.Mode() != Client::CardCommand::None && client.fire.Active())
+      {
+        client.fire.Cancel(); // one mode at a time
+      }
+    }
     const std::optional<Protocol::VoxelPosition> pointed = selectedView != nullptr ? underPointer : std::nullopt;
     const bool usedEscape =
-      client.fire.Update({.fPressed = fireAllowed && keyboard.WasPressed('F'),
+      client.fire.Update({.fPressed = fireAllowed && (deck ? cardFire : keyboard.WasPressed('F')),
                           .escapePressed = keyboard.WasPressed(VK_ESCAPE),
                           .rightClicked = fireAllowed && pointer.WasPressed(Engine::PointerInput::Button::Right) && !pointerOnHud,
                           .shiftHeld = keyboard.IsDown(VK_SHIFT),
                           .pointedVoxels = pointed,
                           .worldChanged = client.worldChanged},
                          selectedView, client.session);
-    if (keyboard.WasPressed(VK_ESCAPE) && !usedEscape)
+    if (keyboard.WasPressed(VK_ESCAPE) && !usedEscape && !ordersUsedEscape)
     {
       client.selection = {};
       client.selected = Protocol::NO_ENTITY;
       client.views.Select(Protocol::NO_ENTITY);
       client.fire.Update({}, nullptr, client.session);
     }
-    window.ShowPointer(client.fire.Active()                   ? Engine::PointerShape::Crosshair
-                       : hoveredEngine != Protocol::NO_ENTITY ? Engine::PointerShape::Hand
-                                                              : Engine::PointerShape::Arrow);
+    window.ShowPointer(client.fire.Active() || client.orders.Mode() != Client::CardCommand::None ? Engine::PointerShape::Crosshair
+                       : hoveredEngine != Protocol::NO_ENTITY                                    ? Engine::PointerShape::Hand
+                                                                                                 : Engine::PointerShape::Arrow);
     if (keyboard.WasPressed(VK_F1))
     {
       integrityView = !integrityView;
@@ -1022,7 +1082,16 @@ int Run(const Options& _options)
                                        .detailOff = !ready};
     }
     // The banner: FIRE's while it is on, else the run's.
-    const Client::HudMode mode = client.fire.Active() ? client.fire.Mode() : run->Mode().value_or(client.fire.Mode());
+    const Client::HudMode mode = client.fire.Active()                                ? client.fire.Mode()
+                                 : client.orders.Mode() != Client::CardCommand::None ? client.orders.Banner()
+                                                                                     : run->Mode().value_or(client.fire.Mode());
+    // The tooltip of the card's slot under the pointer, as last laid out (Hud.md §7).
+    std::optional<std::string> tooltip;
+    if (const std::optional<Client::HudTarget> over = hud.HitTest(pointer.XPixels(), pointer.YPixels());
+        deck && over.has_value() && over->control == Client::HudControl::CardSlot && over->alert < card.slots.size())
+    {
+      tooltip = Client::Tooltip(card.slots.at(over->alert));
+    }
     hudModel = {.resources = run->Resources(client.session.State().tick, client.tally.Fired(PLAYER)),
                 .objective = objective,
                 .mode = mode,
@@ -1033,7 +1102,9 @@ int Run(const Options& _options)
                 .readout = client.views.Readout(client.session, seconds, integrityView),
                 .selection = deck ? std::optional<Client::HudSelection>{} : selection, // layout A's panel names it in place of M3's chip
                 .deck = deck,
-                .panel = deck ? Client::BuildPanel(client.selection, client.session.State()) : Client::HudPanel{}};
+                .panel = deck ? Client::BuildPanel(client.selection, client.session.State()) : Client::HudPanel{},
+                .commandCard = card,
+                .tooltip = tooltip};
     interfaceQuads.clear();
     if (run->ShowsFigures())
     {
@@ -1077,7 +1148,8 @@ int Run(const Options& _options)
                                   .textured = false});
       }
     }
-    const std::optional<Client::AttackCursor> cursor = client.fire.Cursor(client.session);
+    const std::optional<Client::AttackCursor> cursor =
+      client.fire.Active() ? client.fire.Cursor(client.session) : client.orders.Cursor(client.session);
     if (cursor.has_value() && !pointerOnHud)
     {
       hud.LayCursor(*cursor, pointer.XPixels(), pointer.YPixels(), uiScale, interfaceQuads);

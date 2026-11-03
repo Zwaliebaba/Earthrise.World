@@ -183,6 +183,33 @@ inline constexpr std::string_view OPEN_YES = "yes";
 inline constexpr std::string_view OPEN_NO = "no";
 inline constexpr std::string_view ORDER_MOVING = "Moving";
 
+// The command card (Hud.md §7; M4-I3): each command's label, its one-line rule for the tooltip and the banner, and how
+// they are joined.
+inline constexpr std::string_view MOVE_LABEL = "MOVE";
+inline constexpr std::string_view STOP_LABEL = "STOP";
+inline constexpr std::string_view HOLD_LABEL = "HOLD";
+inline constexpr std::string_view ATTACK_LABEL = "ATTACK";
+inline constexpr std::string_view STORM_LABEL = "STORM";
+inline constexpr std::string_view SPLIT_LABEL = "SPLIT";
+inline constexpr std::string_view MERGE_LABEL = "MERGE";
+inline constexpr std::string_view TRENCH_LABEL = "TRENCH";
+inline constexpr std::string_view FIRE_LABEL = "FIRE";
+inline constexpr std::string_view PACK_LABEL = "PACK";
+inline constexpr std::string_view DEPLOY_LABEL = "DEPLOY";
+inline constexpr std::string_view MOVE_RULE = "RIGHT-CLICK WHERE TO GO";
+inline constexpr std::string_view STOP_RULE = "STAND AND FIGHT WHAT COMES";
+inline constexpr std::string_view HOLD_RULE = "STRIKE FROM HERE, NEVER LEAVE";
+inline constexpr std::string_view ATTACK_RULE = "RIGHT-CLICK AN ENEMY";
+inline constexpr std::string_view STORM_RULE = "RIGHT-CLICK; FIGHT ON THE WAY";
+inline constexpr std::string_view SPLIT_RULE = "ONE FIGURE LEAVES AS A SQUAD";
+inline constexpr std::string_view MERGE_RULE = "JOIN SQUADS OF ONE TYPE";
+inline constexpr std::string_view TRENCH_RULE = "RIGHT-DRAG THE BOX TO DIG";
+inline constexpr std::string_view FIRE_RULE = "RIGHT-CLICK A TARGET";
+inline constexpr std::string_view PACK_RULE = "FOLD UP TO MOVE";
+inline constexpr std::string_view DEPLOY_RULE = "SET UP TO FIRE";
+inline constexpr std::string_view MODE_BANNER = "{} · {}";       // the label and the rule
+inline constexpr std::string_view CARD_TOOLTIP = "{} · {} · {}"; // the hotkey, the label and the rule
+
 /// Every string above, for the glyph coverage test.
 inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      TIME_KEY,
@@ -326,6 +353,30 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      TO_WIN_VALUE,
                                                                      OPEN_YES,
                                                                      OPEN_NO,
-                                                                     ORDER_MOVING});
+                                                                     ORDER_MOVING,
+                                                                     MOVE_LABEL,
+                                                                     STOP_LABEL,
+                                                                     HOLD_LABEL,
+                                                                     ATTACK_LABEL,
+                                                                     STORM_LABEL,
+                                                                     SPLIT_LABEL,
+                                                                     MERGE_LABEL,
+                                                                     TRENCH_LABEL,
+                                                                     FIRE_LABEL,
+                                                                     PACK_LABEL,
+                                                                     DEPLOY_LABEL,
+                                                                     MOVE_RULE,
+                                                                     STOP_RULE,
+                                                                     HOLD_RULE,
+                                                                     ATTACK_RULE,
+                                                                     STORM_RULE,
+                                                                     SPLIT_RULE,
+                                                                     MERGE_RULE,
+                                                                     TRENCH_RULE,
+                                                                     FIRE_RULE,
+                                                                     PACK_RULE,
+                                                                     DEPLOY_RULE,
+                                                                     MODE_BANNER,
+                                                                     CARD_TOOLTIP});
 
 } // namespace Client

@@ -3,6 +3,7 @@
 #include "ChunkCoordinate.h"
 #include "EntityId.h"
 
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -38,7 +39,8 @@ enum class HudControl : std::uint8_t
   Cancel,     // the mode banner's CANCEL · ESC
   Jump,       // an alert's JUMP
   AnswerOpen, // the lab's question's OPEN · O (M3-G1)
-  AnswerShut  // and its SHUT · S
+  AnswerShut, // and its SHUT · S
+  CardSlot    // a command card's cell, by its index (M4-I3)
 };
 
 /// A button that follows the mode banner's text.
@@ -119,6 +121,27 @@ struct HudPanelTile
   bool active;
 };
 
+/// One cell of the command card (Hud.md §7; M4-I3): its hotkey top left in accent, its icon glyph in the middle, its
+/// label along the bottom; off text when disabled, an accent border on active-bg while its mode is on. An empty slot
+/// has no command.
+struct HudCommandSlot
+{
+  std::string command; // empty for an empty slot
+  std::string hotkey;
+  std::string label;
+  std::string icon; // UTF-8
+  bool enabled = false;
+  bool active = false;
+};
+
+/// The command card for the selection's active kind (MvpPlan-M4.md, *Contracts*).
+struct HudCommandCard
+{
+  std::string kind;
+  std::uint8_t page = 0;
+  std::array<HudCommandSlot, 12> slots;
+};
+
 /// The selection panel in the deck (Hud.md §5; M4-I2), built from the selection and the update each frame.
 struct HudPanel
 {
@@ -154,8 +177,10 @@ struct HudModel
   bool passabilityView = false;                            // F2
   std::optional<HudReadout> readout = std::nullopt;        // while F1 is on and the focused section has a reading
   std::optional<HudSelection> selection = std::nullopt;    // while an engine is selected
-  bool deck = false;   // layout A's deck and the control groups' strip (Hud.md §3; M4-I1), which the M3 runs leave out
-  HudPanel panel = {}; // drawn in the deck's selection panel
+  bool deck = false;                       // layout A's deck and the control groups' strip (Hud.md §3; M4-I1), which the M3 runs leave out
+  HudPanel panel = {};                     // drawn in the deck's selection panel
+  HudCommandCard commandCard = {};         // drawn in the deck's card (M4-I3)
+  std::optional<std::string> tooltip = {}; // over the card, at right 8 and bottom 212: the hovered slot's (Hud.md §7)
 };
 
 /// The top bar's resources in the breach lab (M3-E2): TIME m:ss of game time, at _tick, and SHOTS n.

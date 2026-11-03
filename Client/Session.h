@@ -51,7 +51,8 @@ public:
   /// last (ADR-009, decision 3).
   void Ask(const Protocol::Query& _query);
 
-  /// The newest answer about each, or nullptr when none has come.
+  /// The newest answer about each, or nullptr when none has come. Aim answers both an engine's AimCheck and a ranged
+  /// squad's SquadAim, by the engine's or the squad's id.
   [[nodiscard]] const Protocol::AimReading* Aim(Protocol::EntityId _engine, Protocol::VoxelPosition _target) const noexcept;
   [[nodiscard]] const Protocol::IntegrityReading* Integrity(Protocol::EntityId _structure) const noexcept;
   [[nodiscard]] const Protocol::TileReachReading* Reach(std::int32_t _tileX, std::int32_t _tileZ) const noexcept;
