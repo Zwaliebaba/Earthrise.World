@@ -39,6 +39,10 @@ public:
   /// The model a unit of _kind is drawn as: U1 to U5, S2 for the sapper, and the engines' bodies' engines' S1 and S3p.
   [[nodiscard]] static std::string_view UnitModel(Protocol::UnitKind _kind) noexcept;
 
+  /// The faction entry _owner's models and arrows are drawn in: their side's in _state, or, in a world without players,
+  /// the attacker's for the player whose update it is, as M3's runs have it (Look.h).
+  [[nodiscard]] static std::uint8_t SideColor(const Protocol::StateUpdate& _state, std::uint8_t _owner);
+
 private:
   /// The direction _id last stepped in, as the quarter turns that take +z there, updated from _previous to _last; or
   /// _otherwise when it has not stepped since it was first seen.

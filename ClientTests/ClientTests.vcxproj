@@ -55,6 +55,7 @@
     <ClCompile Include="GlyphAtlasTests.cpp" />
     <ClCompile Include="InterpolationTests.cpp" />
     <ClCompile Include="WorldModelsTests.cpp" />
+    <ClCompile Include="ArrowDrawTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

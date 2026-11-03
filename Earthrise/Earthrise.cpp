@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include "ArrowDraw.h"
 #include "BreachLab.h"
 #include "BreachRun.h"
 #include "ByteWriter.h"
@@ -250,8 +251,8 @@ struct FlushOnExit
 
 /// What the client draws from its session (ADR-020, decision 2): every structure is in the world's voxels, so the
 /// models are the units, the engines in their poses, the stones and the open gates, between their last two updates
-/// (Client::WorldModels, M4-H1); and each collapse's debris, scattered on the first tick of its fall and kept at rest
-/// for good.
+/// (Client::WorldModels, M4-H1); the arrows, as line models (Client::PlaceArrows, M4-H2); and each collapse's debris,
+/// scattered on the first tick of its fall and kept at rest for good.
 class Presentation
 {
 public:
@@ -269,9 +270,10 @@ public:
 
   void Place(const Client::Session& _session, const Client::FireTally& _tally, double _tickFraction,
              std::vector<Client::ModelPlacement>& _placements, std::vector<Protocol::VoxelPosition>& _hidden,
-             std::vector<Engine::OrientedVoxel>& _debris, float _seconds)
+             std::vector<Client::ArrowDrawn>& _arrows, std::vector<Engine::OrientedVoxel>& _debris, float _seconds)
   {
     m_models.Place(_session.PreviousState(), _session.State(), _tally, _tickFraction, _placements, _hidden);
+    Client::PlaceArrows(_session.PreviousState(), _session.State(), _tickFraction, _arrows);
     _debris.clear();
     for (const auto& [id, debris] : m_debris)
     {
@@ -630,6 +632,7 @@ int Run(const Options& _options)
   Engine::FrameTimer timer;
   std::vector<Client::ModelPlacement> placements;
   std::vector<Protocol::VoxelPosition> hiddenVoxels; // an open gate's, which its open model is drawn over
+  std::vector<Client::ArrowDrawn> arrows;
   std::vector<Engine::OrientedVoxel> debris;
   std::vector<Client::ScreenQuad> interfaceQuads;
   Client::Hud hud;
@@ -860,7 +863,7 @@ int Run(const Options& _options)
                 .passabilityOn = passabilityShown,
                 .engineSelected = client.selected != Protocol::NO_ENTITY},
                client.session);
-    client.presentation.Place(client.session, client.tally, clock.TickFraction(), placements, hiddenVoxels, debris,
+    client.presentation.Place(client.session, client.tally, clock.TickFraction(), placements, hiddenVoxels, arrows, debris,
                               static_cast<float>(seconds));
 
     const std::uint64_t completed = device.DirectQueue().CompletedValue();
@@ -952,6 +955,7 @@ int Run(const Options& _options)
                                        .placements = placements,
                                        .hiddenVoxels = hiddenVoxels,
                                        .debris = debris,
+                                       .arrows = arrows,
                                        .overlays = overlays,
                                        .viewProjection = viewProjection,
                                        .forward = {},
@@ -973,10 +977,12 @@ int Run(const Options& _options)
     ++titleFrames;
     if (titleSeconds >= TITLE_REFRESH_SECONDS)
     {
-      const std::wstring title = std::format(
-        L"{} | {} | {:.2f} ms a frame, voxel pass {:.2f} ms on the GPU | tick {} at {}x | {} voxels | view {:.0f} m, azimuth {:.0f}", TITLE,
-        device.AdapterName(), 1000.0 * titleSeconds / titleFrames, renderer.VoxelPassMilliseconds(), client.session.State().tick,
-        run->Speed(), renderer.RecordsDrawn(), camera.ViewHeightMeters(), DirectX::XMConvertToDegrees(camera.AzimuthRadians()));
+      const std::wstring title =
+        std::format(L"{} | {} | {:.2f} ms a frame, voxel pass {:.2f} ms and line pass {:.2f} ms on the GPU | tick {} at {}x | {} voxels | "
+                    L"view {:.0f} m, azimuth {:.0f}",
+                    TITLE, device.AdapterName(), 1000.0 * titleSeconds / titleFrames, renderer.VoxelPassMilliseconds(),
+                    renderer.LinePassMilliseconds(), client.session.State().tick, run->Speed(), renderer.RecordsDrawn(),
+                    camera.ViewHeightMeters(), DirectX::XMConvertToDegrees(camera.AzimuthRadians()));
       SetWindowTextW(window.Handle(), title.c_str());
       titleSeconds = 0.0;
       titleFrames = 0;

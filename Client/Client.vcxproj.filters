@@ -96,6 +96,12 @@
     <ClCompile Include="WorldRenderer.cpp">
       <Filter>Rendering</Filter>
     </ClCompile>
+    <ClInclude Include="ArrowDraw.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="ArrowDraw.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
     <ClInclude Include="ScreenQuad.h">
       <Filter>Text</Filter>
     </ClInclude>

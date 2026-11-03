@@ -99,18 +99,6 @@ ModelPlacement PoseOf(const ModelPlacement& _released, std::string_view _poseId,
           .sideColorIndex = _released.sideColorIndex};
 }
 
-/// The faction entry _owner's models are drawn in: their side's, or, in a world without players, the attacker's for the
-/// player whose update it is, as M3's runs have it.
-std::uint8_t SideColor(const Protocol::StateUpdate& _state, std::uint8_t _owner)
-{
-  const auto player = std::ranges::find(_state.players, _owner, &Protocol::PlayerView::player);
-  if (player != _state.players.end())
-  {
-    return player->side == Protocol::Side::Attacker ? ATTACKER_COLOR_INDEX : DEFENDER_COLOR_INDEX;
-  }
-  return _owner == _state.player ? ATTACKER_COLOR_INDEX : DEFENDER_COLOR_INDEX;
-}
-
 /// The model's turn that faces a front of _front towards _heading, both as the quarter turns that take +z there.
 std::uint32_t TurnsFacing(std::uint32_t _heading, std::uint32_t _front) noexcept
 {
@@ -152,6 +140,16 @@ ModelPlacement OpenGatePlacement(const Protocol::StructureView& _structure, cons
 }
 
 } // namespace
+
+std::uint8_t WorldModels::SideColor(const Protocol::StateUpdate& _state, std::uint8_t _owner)
+{
+  const auto player = std::ranges::find(_state.players, _owner, &Protocol::PlayerView::player);
+  if (player != _state.players.end())
+  {
+    return player->side == Protocol::Side::Attacker ? ATTACKER_COLOR_INDEX : DEFENDER_COLOR_INDEX;
+  }
+  return _owner == _state.player ? ATTACKER_COLOR_INDEX : DEFENDER_COLOR_INDEX;
+}
 
 std::string_view WorldModels::UnitModel(Protocol::UnitKind _kind) noexcept
 {

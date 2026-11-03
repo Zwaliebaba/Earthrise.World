@@ -48,6 +48,8 @@
     <ClCompile Include="Interpolation.cpp" />
     <ClInclude Include="WorldModels.h" />
     <ClCompile Include="WorldModels.cpp" />
+    <ClInclude Include="ArrowDraw.h" />
+    <ClCompile Include="ArrowDraw.cpp" />
     <ClInclude Include="Look.h" />
     <ClInclude Include="TickClock.h" />
     <ClCompile Include="TickClock.cpp" />

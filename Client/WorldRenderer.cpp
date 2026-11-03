@@ -2,6 +2,7 @@
 
 #include "WorldRenderer.h"
 
+#include "Catalog.h"
 #include "GlyphAtlas.h"
 #include "Look.h"
 #include "Palette.h"
@@ -215,6 +216,7 @@ WorldRenderer::WorldRenderer(ID3D12Device* _device, ID3D12CommandQueue* _queue, 
   : m_sceneColor(_device, {.format = SCENE_FORMAT, .clearColor = CLEAR_COLOR}, _widthPixels, _heightPixels),
     m_depth(_device, _widthPixels, _heightPixels),
     m_pass(_device, {.colorFormat = SCENE_FORMAT, .depthFormat = Engine::DepthTarget::FORMAT}),
+    m_lines(_device, {.colorFormat = SCENE_FORMAT, .depthFormat = Engine::DepthTarget::FORMAT}),
     m_staticShadow(_device, STATIC_SHADOW_TEXELS),
     m_dynamicShadow(_device, DYNAMIC_SHADOW_TEXELS),
     m_upscale(_device, {.targetFormat = _desc.targetFormat}),
@@ -226,6 +228,37 @@ WorldRenderer::WorldRenderer(ID3D12Device* _device, ID3D12CommandQueue* _queue, 
 {
   m_pass.SetShadowMaps(m_staticShadow.Texture(), m_dynamicShadow.Texture());
   m_upscale.SetSource(m_sceneColor.Texture());
+  // Content's line models (ADR-018, decision 2), in linear colour, the faction segments left to each instance.
+  bool arrowFound = false;
+  for (const Content::LineModelView& model : Content::LineModels())
+  {
+    if (model.id == "X2")
+    {
+      m_arrowModel = static_cast<std::uint32_t>(m_lineModels.size());
+      arrowFound = true;
+    }
+    m_lineModels.push_back({.firstSegment = static_cast<std::uint32_t>(m_lineSegments.size()),
+                            .segmentCount = static_cast<std::uint32_t>(model.segments.size()),
+                            .drawnLengthMeters = static_cast<float>(model.drawnLengthMillimeters) / 1000.0F,
+                            .dotBelowPixels = static_cast<float>(model.dotBelowPixels),
+                            .dotWidthPixels = static_cast<float>(model.dotWidthPixels),
+                            .reserved = {}});
+    for (const Content::LineSegmentView& segment : model.segments)
+    {
+      const DirectX::XMFLOAT3 color = LinearOf(segment.colorSrgb);
+      m_lineSegments.push_back({.fromMeters = static_cast<float>(segment.fromMillimeters) / 1000.0F,
+                                .toMeters = static_cast<float>(segment.toMillimeters) / 1000.0F,
+                                .color = {color.x, color.y, color.z, 1.0F},
+                                .widthPixels = static_cast<float>(segment.widthPixels),
+                                .factionColor = segment.factionColor ? 1U : 0U,
+                                .tapers = segment.tapers ? 1U : 0U,
+                                .reserved = 0.0F});
+    }
+  }
+  if (!arrowFound)
+  {
+    throw std::runtime_error("Content has no line model X2, the arrow");
+  }
   m_interface.SetAtlas(m_fontAtlas.Texture(), GlyphAtlas::WIDTH_TEXELS, GlyphAtlas::HEIGHT_TEXELS);
   // The sun's view over the whole world, its height included, for both shadow maps.
   DirectX::XMStoreFloat4x4(&m_sunViewProjection,
@@ -256,7 +289,9 @@ void WorldRenderer::Draw(const Frame& _frame)
   // FrameRing::Begin waited for this slot's last frame, so its timestamps are back.
   if (m_timed.at(slot))
   {
-    m_voxelPassMilliseconds = m_gpuTimer.ReadMilliseconds(slot)[VOXEL_PASS_SPAN];
+    const std::vector<double> spans = m_gpuTimer.ReadMilliseconds(slot);
+    m_voxelPassMilliseconds = spans[VOXEL_PASS_SPAN];
+    m_linePassMilliseconds = spans[LINE_PASS_SPAN];
   }
   if (m_worldView.Hide(commandList, ring, _frame.hiddenVoxels))
   {
@@ -319,6 +354,27 @@ void WorldRenderer::Draw(const Frame& _frame)
     m_pass.DrawOriented(commandList, debrisAddress, debrisCount);
   }
   m_gpuTimer.End(commandList, slot, VOXEL_PASS_SPAN);
+  // The arrows, after the voxel pass, into its target and against its depth (ADR-018, decision 3), each in its
+  // shooter's faction colour.
+  m_gpuTimer.Begin(commandList, slot, LINE_PASS_SPAN);
+  if (!_frame.arrows.empty())
+  {
+    std::vector<Engine::LineInstance> instances;
+    instances.reserve(_frame.arrows.size());
+    for (const ArrowDrawn& arrow : _frame.arrows)
+    {
+      instances.push_back({.positionMeters = arrow.middleMeters,
+                           .lineModel = m_arrowModel,
+                           .direction = arrow.direction,
+                           .reserved = 0.0F,
+                           .factionColor = m_palette.at(arrow.sideColorIndex)});
+    }
+    m_lines.Begin(commandList, frameConstants, UploadArray(ring, std::span<const Engine::LineModelRecord>(m_lineModels)),
+                  UploadArray(ring, std::span<const Engine::LineSegmentRecord>(m_lineSegments)));
+    m_lines.Draw(commandList, UploadArray(ring, std::span<const Engine::LineInstance>(instances)),
+                 static_cast<std::uint32_t>(instances.size()));
+  }
+  m_gpuTimer.End(commandList, slot, LINE_PASS_SPAN);
   DrawOverlays(commandList, ring, frameConstants, paletteConstants, _frame.overlays);
 
   // Then scaled to the back buffer, which the triangle covers whole, so it needs no clear.
@@ -403,6 +459,11 @@ void WorldRenderer::DrawOverlays(ID3D12GraphicsCommandList* _commandList, Engine
 double WorldRenderer::VoxelPassMilliseconds() const noexcept
 {
   return m_voxelPassMilliseconds;
+}
+
+double WorldRenderer::LinePassMilliseconds() const noexcept
+{
+  return m_linePassMilliseconds;
 }
 
 std::uint64_t WorldRenderer::RecordsDrawn() const noexcept

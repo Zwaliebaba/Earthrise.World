@@ -8,6 +8,7 @@
 #include <d3d12.h>
 #include <winrt/base.h>
 
+#include "ArrowDraw.h"
 #include "ChunkSnapshot.h"
 #include "ColorTarget.h"
 #include "DepthTarget.h"
@@ -15,6 +16,7 @@
 #include "FrameRing.h"
 #include "GpuTimer.h"
 #include "InterfacePass.h"
+#include "LinePass.h"
 #include "ModelPlacement.h"
 #include "OrientedVoxel.h"
 #include "OverlayBox.h"
@@ -34,8 +36,9 @@ namespace Client
 {
 
 /// One frame of the world as the renderer spike draws it (M3-C3): the sun's two shadow maps, the voxel pass with the
-/// world's chunks, the models and the debris, timed on the GPU; the world overlays over them (ADR-021); all of it scaled
-/// to the back buffer; then the interface over it at the back buffer's size (M3-E1).
+/// world's chunks, the models and the debris, and the line pass with the arrows (M4-H2), each timed on the GPU; the
+/// world overlays over them (ADR-021); all of it scaled to the back buffer; then the interface over it at the back
+/// buffer's size (M3-E1).
 class WorldRenderer
 {
 public:
@@ -59,6 +62,7 @@ public:
     std::span<const ModelPlacement> placements;
     std::span<const Protocol::VoxelPosition> hiddenVoxels; // left out of the world's batches, such as an open gate's
     std::span<const Engine::OrientedVoxel> debris;
+    std::span<const ArrowDrawn> arrows;     // the line pass's, after the voxel pass (ADR-018, decision 3)
     std::span<const OverlayLayer> overlays; // in order, after the scene and before the upscale
     DirectX::XMFLOAT4X4 viewProjection;
     DirectX::XMFLOAT3 forward;  // the camera's, along its rays
@@ -86,6 +90,8 @@ public:
 
   /// The voxel pass's time on the GPU, a few frames late.
   [[nodiscard]] double VoxelPassMilliseconds() const noexcept;
+  /// The line pass's, likewise: what a volley costs.
+  [[nodiscard]] double LinePassMilliseconds() const noexcept;
   [[nodiscard]] std::uint64_t RecordsDrawn() const noexcept;
 
   void Retire(std::uint64_t _fenceValue);
@@ -99,11 +105,17 @@ private:
   static constexpr std::uint32_t VOXEL_PASS_SPAN = 0;
   static constexpr std::uint32_t STATIC_SHADOW_SPAN = 1;
   static constexpr std::uint32_t DYNAMIC_SHADOW_SPAN = 2;
-  static constexpr std::uint32_t SPAN_COUNT = 3;
+  static constexpr std::uint32_t LINE_PASS_SPAN = 3;
+  static constexpr std::uint32_t SPAN_COUNT = 4;
 
   Engine::ColorTarget m_sceneColor;
   Engine::DepthTarget m_depth;
   Engine::VoxelPass m_pass;
+  Engine::LinePass m_lines;
+  /// Content's line models and their segments as the line pass reads them, and the arrow's model among them.
+  std::vector<Engine::LineModelRecord> m_lineModels;
+  std::vector<Engine::LineSegmentRecord> m_lineSegments;
+  std::uint32_t m_arrowModel = 0;
   Engine::ShadowMap m_staticShadow;
   Engine::ShadowMap m_dynamicShadow;
   Engine::UpscalePass m_upscale;
@@ -115,6 +127,7 @@ private:
   DirectX::XMFLOAT4X4 m_sunViewProjection{};
   std::array<bool, Engine::FrameRing::FRAMES_IN_FLIGHT> m_timed{};
   double m_voxelPassMilliseconds = 0.0;
+  double m_linePassMilliseconds = 0.0;
   bool m_worldChanged = true;
 };
 
