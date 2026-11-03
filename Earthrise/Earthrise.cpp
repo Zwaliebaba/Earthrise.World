@@ -608,7 +608,7 @@ int Run(const Options& _options)
       renderer.ResetWorld();
       play = std::make_unique<Play>();
       play->views.WatchBreach(run->Goal());
-      camera = DefaultCamera(run->CameraTarget());
+      camera = DefaultCamera(run->CameraTarget(), run->CameraQuarterTurns());
       hudModel = {};
       drawnViewProjection.reset();
     }
