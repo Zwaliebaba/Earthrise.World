@@ -29,6 +29,14 @@
 #include "Scenario.h"
 #include "ServerData.h"
 #include "Session.h"
+#include "AlertWatch.h"
+#include "CommandCard.h"
+#include "CommandLog.h"
+#include "ControlGroups.h"
+#include "Minimap.h"
+#include "Orders.h"
+#include "Selection.h"
+#include "SelectionPanel.h"
 #include "SharedHash.h"
 #include "SiegeAttacker.h"
 #include "Strings.h"
@@ -78,8 +86,14 @@ constexpr std::uint8_t PLAYER = Simulation::BreachRun::PLAYER; // the Siege cast
 constexpr std::string_view SIEGE_SCENARIO = "Siege";
 constexpr std::string_view SIEGE_MIRROR_SCENARIO = "SiegeMirror";
 constexpr float CELL_CENTER_METERS = 0.5F;
-// The frame's figures, in the bottom-left corner (M3-E1), in logical pixels.
+// The frame's figures, in the bottom-left corner (M3-E1), in logical pixels; with the deck, above the control groups'
+// strip, which stands 212 above the bottom and is 44 tall (Hud.md §3).
 constexpr float FIGURES_MARGIN_LOGICAL_PIXELS = 8.0F;
+constexpr float FIGURES_ABOVE_DECK_LOGICAL_PIXELS = 212.0F + 44.0F + 8.0F;
+// A left press and release this far apart, in pixels along x and y together, is a drag, not a click; two clicks on one
+// squad this close together are a double-click (Hud.md §8).
+constexpr std::int32_t DRAG_PIXELS = 6;
+constexpr double DOUBLE_CLICK_SECONDS = 0.4;
 
 struct Options
 {
@@ -412,6 +426,11 @@ public:
     return true;
   }
 
+  [[nodiscard]] bool ShowsDeck() const noexcept override
+  {
+    return false;
+  }
+
   [[nodiscard]] std::vector<Client::OverlayBox> Marks(const Client::Session& /* _session */) const override
   {
     return {};
@@ -476,9 +495,10 @@ public:
     return m_keepMiddle;
   }
 
-  bool Tick(Client::Session& _session, double /* _seconds */) override
+  bool Tick(Client::Session& _session, double _seconds) override
   {
-    for (const std::vector<std::byte>& command : _session.TakeCommands())
+    // Each of the player's commands, recorded with its source and its time for the trial's log (M4-I7).
+    for (const std::vector<std::byte>& command : m_commands.Take(_session, m_world.TickCount(), _seconds))
     {
       m_world.Submit(PLAYER, command);
     }
@@ -543,6 +563,11 @@ public:
     return true;
   }
 
+  [[nodiscard]] bool ShowsDeck() const noexcept override
+  {
+    return true;
+  }
+
   [[nodiscard]] std::vector<Client::OverlayBox> Marks(const Client::Session& /* _session */) const override
   {
     return {};
@@ -553,6 +578,7 @@ private:
   double m_speed;
   Protocol::VoxelPosition m_keepMiddle{};
   Protocol::VoxelPosition m_goal{};
+  Client::CommandLog m_commands; // J2 writes them
 };
 
 /// The client's side of one world: what it was told, and what it draws and asks from it. The lab replaces it with
@@ -566,8 +592,21 @@ struct Play
   Client::Overlays views;
   Client::FireMode fire;
   Client::HudAlerts alerts;
+  Client::AlertWatch watch; // M4's alerts, from each update (M4-I6)
   Protocol::EntityId selected = Protocol::NO_ENTITY;
-  bool worldChanged = false;                                         // the last frame took a changed chunk
+  bool worldChanged = false;                                     // the last frame took a changed chunk
+  Client::Selection selection;                                   // layout A's (M4-I2)
+  Client::Orders orders;                                         // and its command card's (M4-I3)
+  Client::ControlGroups groups;                                  // and its control groups (M4-I4)
+  Client::Minimap minimap;                                       // and its minimap (M4-I5)
+  bool minimapSized = false;                                     // reset to the map's size
+  std::uint32_t minimapSide = 0;                                 // the side its base was last built at, 0 for none
+  bool minimapDrag = false;                                      // a press on it is held
+  bool settingGroup = false;                                     // the strip's SET is on
+  bool rightDown = false;                                        // the right button went down on the world
+  std::optional<std::pair<std::int32_t, std::int32_t>> dragFrom; // where the left button went down on the world
+  Protocol::EntityId lastClickSquad = Protocol::NO_ENTITY;       // for the double-click
+  double lastClickSeconds = -1.0;
   std::vector<std::uint8_t> fogMask;                                 // the fog's column mask (ADR-025, decision 8)
   std::uint32_t fogTick = std::numeric_limits<std::uint32_t>::max(); // the tick it was made from
 };
@@ -708,6 +747,10 @@ int Run(const Options& _options)
       const std::vector<std::vector<std::byte>> answers = world.TakeAnswers();
       client.session.Receive(world.State(PLAYER), published, answers);
       client.tally.Observe(client.session.State());
+      if (run->ShowsDeck())
+      {
+        client.watch.Observe(client.session, seconds, client.alerts); // layout A's alerts; the lab keeps M3's alone
+      }
       client.presentation.Update(client.session, static_cast<float>(seconds));
     }
     // Answers given between ticks while the clock is paused, as the lab's question has them (M3-G1).
@@ -726,14 +769,25 @@ int Run(const Options& _options)
     // selects the engine whose model's box it lands on, or nothing, where the scenario lets the player select, and Esc
     // deselects (M3-E3; M3-H3); one on a section gives it the integrity readout until the next click or Esc (M3-H1).
     const bool selectionAllowed = run->SelectionAllowed();
+    const bool deck = run->ShowsDeck(); // layout A, and its selection by squads (M4-I1, I2)
+    client.views.SelectedFirst(deck);   // and the readout of the structure selected first (M4-I6)
     const std::vector<Client::EngineBox> engineBoxes =
       selectionAllowed ? client.presentation.EngineBoxes() : std::vector<Client::EngineBox>{};
     bool answerOpen = false;
     bool answerShut = false;
+    std::optional<std::size_t> cardClicked;  // a command card's cell (M4-I3)
+    std::optional<std::size_t> groupClicked; // a control group's slot on the strip (M4-I4)
     if (pointer.WasPressed(Engine::PointerInput::Button::Left))
     {
       const std::optional<Client::HudTarget> hit = hud.HitTest(pointer.XPixels(), pointer.YPixels());
-      if (!hit.has_value() && !hud.Covers(pointer.XPixels(), pointer.YPixels()) && drawnViewProjection.has_value() && !client.fire.Active())
+      if (deck && !hit.has_value() && !hud.Covers(pointer.XPixels(), pointer.YPixels()) && drawnViewProjection.has_value() &&
+          !client.fire.Active())
+      {
+        // Layout A selects on the release: a click, or a drag's box (M4-I2).
+        client.dragFrom = std::pair{pointer.XPixels(), pointer.YPixels()};
+      }
+      else if (!hit.has_value() && !hud.Covers(pointer.XPixels(), pointer.YPixels()) && drawnViewProjection.has_value() &&
+               !client.fire.Active())
       {
         const Engine::PickRay ray = Client::WorldPicker::RayThrough(*drawnViewProjection, pointer.XPixels(), pointer.YPixels(),
                                                                     swapChain.WidthPixels(), swapChain.HeightPixels());
@@ -764,6 +818,19 @@ int Run(const Options& _options)
           break;
         case Client::HudControl::Cancel:
           client.fire.Cancel();
+          client.orders.Cancel();
+          break;
+        case Client::HudControl::CardSlot:
+          cardClicked = hit->alert;
+          break;
+        case Client::HudControl::GroupSlot:
+          groupClicked = hit->alert;
+          break;
+        case Client::HudControl::SetGroup:
+          client.settingGroup = !client.settingGroup;
+          break;
+        case Client::HudControl::Minimap:
+          client.minimapDrag = true; // the camera follows the pointer over it while the button is down (M4-I5)
           break;
         case Client::HudControl::Jump:
           if (hit->alert < hudModel.alerts.size() && hudModel.alerts.at(hit->alert).location.has_value())
@@ -777,6 +844,122 @@ int Run(const Options& _options)
         case Client::HudControl::AnswerShut:
           answerShut = true;
           break;
+        }
+      }
+    }
+    // Layout A's selection (Hud.md §5 and §8; M4-I2), on the left button's release: a drag selects the player's squads
+    // whose figures' feet lie in its box; a click selects the engine whose model's box it lands on, or the squad whose
+    // footprint it lands in, or the structure whose voxel, and a second click on the same squad soon after selects
+    // every squad of its type on screen. Shift or Ctrl adds or removes. The engine FIRE aims is the active trebuchet's.
+    const Protocol::StateUpdate& shown = client.session.State();
+    if (deck && client.dragFrom.has_value() && !pointer.IsDown(Engine::PointerInput::Button::Left) && drawnViewProjection.has_value())
+    {
+      const auto [fromX, fromY] = *client.dragFrom;
+      client.dragFrom.reset();
+      const bool toggle = keyboard.IsDown(VK_SHIFT) || keyboard.IsDown(VK_CONTROL);
+      if (std::abs(pointer.XPixels() - fromX) + std::abs(pointer.YPixels() - fromY) > DRAG_PIXELS)
+      {
+        const std::vector<Protocol::EntityId> boxed =
+          Client::Selector::SquadsInBox(shown, PLAYER, *drawnViewProjection, swapChain.WidthPixels(), swapChain.HeightPixels(), fromX,
+                                        fromY, pointer.XPixels(), pointer.YPixels());
+        Client::Selector::Select(client.selection, shown, boxed, toggle);
+      }
+      else
+      {
+        const Engine::PickRay ray =
+          Client::WorldPicker::RayThrough(*drawnViewProjection, fromX, fromY, swapChain.WidthPixels(), swapChain.HeightPixels());
+        const Client::WorldPick pick = client.picker.Pick(ray, engineBoxes);
+        std::optional<Protocol::EntityId> squad;
+        if (pick.engine != Protocol::NO_ENTITY)
+        {
+          const auto engine = std::ranges::find(shown.engines, pick.engine, &Protocol::EngineView::id);
+          if (engine != shown.engines.end())
+          {
+            squad = engine->squad;
+          }
+        }
+        else
+        {
+          squad = Client::Selector::SquadAt(ray, shown);
+        }
+        Protocol::EntityId structure = Protocol::NO_ENTITY;
+        if (!squad.has_value() && pick.voxel.has_value())
+        {
+          structure = Client::Overlays::SectionAt(shown, {pick.voxel->cell[0], pick.voxel->cell[1], pick.voxel->cell[2]});
+        }
+        const bool twice = squad.has_value() && *squad == client.lastClickSquad && seconds - client.lastClickSeconds < DOUBLE_CLICK_SECONDS;
+        if (twice)
+        {
+          Client::Selector::SelectKind(client.selection, shown, *squad, *drawnViewProjection, swapChain.WidthPixels(),
+                                       swapChain.HeightPixels());
+        }
+        else
+        {
+          Client::Selector::Click(client.selection, shown, squad, structure, toggle);
+        }
+        client.lastClickSquad = squad.value_or(Protocol::NO_ENTITY);
+        client.lastClickSeconds = seconds;
+        client.views.Select(client.selection.structure);
+      }
+    }
+    if (deck)
+    {
+      if (keyboard.WasPressed(VK_TAB))
+      {
+        Client::Selector::CycleKind(client.selection, shown);
+      }
+      // The control groups (Hud.md §3, §7 and §8; M4-I4): Ctrl + 1–9 assigns, 1–9 selects and twice centres the camera
+      // on the group in the uncovered area; on the strip, Ctrl-click or SET then a click assigns, and a click selects.
+      client.groups.Prune(shown);
+      const bool ctrl = keyboard.IsDown(VK_CONTROL);
+      const auto recall = [&](std::size_t _group)
+      {
+        if (client.groups.Recall(_group, client.selection, shown, seconds))
+        {
+          if (const std::optional<DirectX::XMFLOAT3> center = client.groups.Center(_group, shown); center.has_value())
+          {
+            camera.LookAt(*center);
+          }
+        }
+      };
+      for (std::size_t group = 0; group < Client::ControlGroups::GROUPS; ++group)
+      {
+        if (keyboard.WasPressed(static_cast<std::uint8_t>('1' + group)))
+        {
+          if (ctrl)
+          {
+            client.groups.Assign(group, client.selection);
+          }
+          else
+          {
+            recall(group);
+          }
+        }
+      }
+      if (groupClicked.has_value())
+      {
+        if (ctrl || client.settingGroup)
+        {
+          client.groups.Assign(*groupClicked, client.selection);
+        }
+        else
+        {
+          recall(*groupClicked);
+        }
+        client.settingGroup = false;
+      }
+      Client::Selector::Prune(client.selection, shown);
+      client.selected = Protocol::NO_ENTITY;
+      if (client.selection.activeKind == Protocol::UnitKind::Trebuchet)
+      {
+        for (const Protocol::EntityId squad : client.selection.squads)
+        {
+          const auto engine = std::ranges::find(shown.engines, squad, &Protocol::EngineView::squad);
+          if (engine != shown.engines.end() && engine->kind == Protocol::EngineKind::Trebuchet)
+          {
+            client.selected = engine->id;
+            break;
+          }
         }
       }
     }
@@ -814,24 +997,89 @@ int Run(const Options& _options)
       }
     }
     client.views.Hover(hovered);
+    // Layout A's command card (Hud.md §7 and §8; M4-I3): its slots by their hotkeys or a click, their modes, and the
+    // right click's orders. FIRE stays FireMode's, entered from the card.
+    Client::HudCommandCard card;
+    bool cardFire = false;
+    bool ordersUsedEscape = false;
+    if (deck)
+    {
+      card = Client::BuildCard(client.selection, shown, client.fire.Active() ? Client::CardCommand::Fire : client.orders.Mode());
+      std::optional<char> hotkey;
+      for (const Client::HudCommandSlot& slot : card.slots)
+      {
+        if (!hotkey.has_value() && !slot.hotkey.empty() && keyboard.WasPressed(static_cast<std::uint8_t>(slot.hotkey.front())))
+        {
+          hotkey = slot.hotkey.front();
+        }
+      }
+      std::optional<Protocol::EntityId> pointedSquad;
+      if (!pointerOnHud && drawnViewProjection.has_value())
+      {
+        pointedSquad = Client::Selector::SquadAt(Client::WorldPicker::RayThrough(*drawnViewProjection, pointer.XPixels(), pointer.YPixels(),
+                                                                                 swapChain.WidthPixels(), swapChain.HeightPixels()),
+                                                 shown);
+      }
+      // A right click on the minimap orders the selection to its point, as one on the ground there (Hud.md §6).
+      std::optional<Protocol::VoxelPosition> minimapPoint;
+      if (const std::optional<Client::HudTarget> over = hud.HitTest(pointer.XPixels(), pointer.YPixels());
+          over.has_value() && over->control == Client::HudControl::Minimap)
+      {
+        const DirectX::XMFLOAT2 point = Client::Minimap::ToMap(static_cast<float>(pointer.XPixels() - over->rect.xPixels),
+                                                               static_cast<float>(pointer.YPixels() - over->rect.yPixels), shown.widthCells,
+                                                               shown.depthCells, static_cast<std::uint32_t>(over->rect.widthPixels));
+        minimapPoint = Protocol::VoxelPosition{.xVoxels = static_cast<std::int32_t>(point.x),
+                                               .yVoxels = client.minimap.GroundAt(point.x, point.y),
+                                               .zVoxels = static_cast<std::int32_t>(point.y)};
+      }
+      const bool rightOnMinimap = minimapPoint.has_value() && pointer.WasPressed(Engine::PointerInput::Button::Right);
+      const bool rightPressed = (pointer.WasPressed(Engine::PointerInput::Button::Right) && !pointerOnHud) || rightOnMinimap;
+      const bool rightReleased = client.rightDown && !pointer.IsDown(Engine::PointerInput::Button::Right);
+      client.rightDown = rightPressed || (client.rightDown && pointer.IsDown(Engine::PointerInput::Button::Right));
+      DirectX::XMFLOAT3 forward{};
+      DirectX::XMStoreFloat3(&forward, camera.Forward());
+      const Client::Orders::Result result = client.orders.Update({.hotkey = hotkey,
+                                                                  .slotClicked = cardClicked,
+                                                                  .escapePressed = keyboard.WasPressed(VK_ESCAPE),
+                                                                  .rightPressed = rightPressed && !client.fire.Active(),
+                                                                  .rightReleased = rightReleased && !client.fire.Active(),
+                                                                  .shiftHeld = keyboard.IsDown(VK_SHIFT),
+                                                                  .pointedVoxels = rightOnMinimap ? minimapPoint : underPointer,
+                                                                  .pointedSquad = rightOnMinimap ? std::nullopt : pointedSquad,
+                                                                  .pointedEngine = rightOnMinimap ? Protocol::NO_ENTITY : hoveredEngine,
+                                                                  .pointedStructure = rightOnMinimap ? Protocol::NO_ENTITY : hovered,
+                                                                  .cameraForward = forward},
+                                                                 client.selection, shown, card, client.session);
+      cardFire = result.fire;
+      ordersUsedEscape = result.usedEscape;
+      if (cardFire)
+      {
+        client.orders.Cancel();
+      }
+      if (client.orders.Mode() != Client::CardCommand::None && client.fire.Active())
+      {
+        client.fire.Cancel(); // one mode at a time
+      }
+    }
     const std::optional<Protocol::VoxelPosition> pointed = selectedView != nullptr ? underPointer : std::nullopt;
     const bool usedEscape =
-      client.fire.Update({.fPressed = fireAllowed && keyboard.WasPressed('F'),
+      client.fire.Update({.fPressed = fireAllowed && (deck ? cardFire : keyboard.WasPressed('F')),
                           .escapePressed = keyboard.WasPressed(VK_ESCAPE),
                           .rightClicked = fireAllowed && pointer.WasPressed(Engine::PointerInput::Button::Right) && !pointerOnHud,
                           .shiftHeld = keyboard.IsDown(VK_SHIFT),
                           .pointedVoxels = pointed,
                           .worldChanged = client.worldChanged},
                          selectedView, client.session);
-    if (keyboard.WasPressed(VK_ESCAPE) && !usedEscape)
+    if (keyboard.WasPressed(VK_ESCAPE) && !usedEscape && !ordersUsedEscape)
     {
+      client.selection = {};
       client.selected = Protocol::NO_ENTITY;
       client.views.Select(Protocol::NO_ENTITY);
       client.fire.Update({}, nullptr, client.session);
     }
-    window.ShowPointer(client.fire.Active()                   ? Engine::PointerShape::Crosshair
-                       : hoveredEngine != Protocol::NO_ENTITY ? Engine::PointerShape::Hand
-                                                              : Engine::PointerShape::Arrow);
+    window.ShowPointer(client.fire.Active() || client.orders.Mode() != Client::CardCommand::None ? Engine::PointerShape::Crosshair
+                       : hoveredEngine != Protocol::NO_ENTITY                                    ? Engine::PointerShape::Hand
+                                                                                                 : Engine::PointerShape::Arrow);
     if (keyboard.WasPressed(VK_F1))
     {
       integrityView = !integrityView;
@@ -843,10 +1091,9 @@ int Run(const Options& _options)
     const bool passabilityShown = passabilityView || run->PassabilityForced();
     if (keyboard.WasPressed(VK_SPACE) && !run->TakesSpace())
     {
-      const auto newest = std::ranges::find_if(hudModel.alerts, [](const Client::HudAlert& _alert) { return _alert.location.has_value(); });
-      if (newest != hudModel.alerts.end())
+      if (const std::optional<Protocol::VoxelPosition> newest = Client::AlertWatch::NewestPlace(hudModel.alerts); newest.has_value())
       {
-        camera.LookAt(FloorMiddle(*newest->location));
+        camera.LookAt(FloorMiddle(*newest));
       }
     }
 
@@ -875,11 +1122,14 @@ int Run(const Options& _options)
     const std::uint32_t slot = frames.Slot();
     ID3D12GraphicsCommandList* commandList = frames.Begin();
     const float aspect = static_cast<float>(swapChain.WidthPixels()) / static_cast<float>(swapChain.HeightPixels());
-    // The UI scale: --ui-scale, or the display's band (Hud.md §2).
-    const float uiScale = _options.uiScale.value_or(Client::UiScaleForDpi(window.Dpi()));
+    // The UI scale: --ui-scale, or the display's band (Hud.md §2), capped where the deck needs the room (M4-I1). The
+    // camera frames the area between the top bar and the deck.
+    const float bandScale = _options.uiScale.value_or(Client::UiScaleForDpi(window.Dpi()));
+    const float uiScale = deck ? Client::CappedUiScale(bandScale, swapChain.WidthPixels()) : bandScale;
     const float topBarPixels = Client::TOP_BAR_LOGICAL_PIXELS * uiScale;
+    const float deckPixels = deck ? Client::Hud::DECK_LOGICAL_PIXELS * uiScale : 0.0F;
     DirectX::XMFLOAT4X4 viewProjection{};
-    DirectX::XMStoreFloat4x4(&viewProjection, camera.ViewProjection(aspect, swapChain.HeightPixels(), topBarPixels));
+    DirectX::XMStoreFloat4x4(&viewProjection, camera.ViewProjection(aspect, swapChain.HeightPixels(), topBarPixels, deckPixels));
     // The fog's mask, made again from each tick's visibility (M4-H3); the renderer uploads it when it changed.
     if (client.fogTick != client.session.State().tick)
     {
@@ -889,6 +1139,39 @@ int Run(const Options& _options)
     // The chunks the frame takes: the world view's, the picker's, and the integrity view's asks (M3-F2).
     const std::vector<Protocol::ChunkSnapshot> snapshots = client.session.TakeSnapshots();
     client.picker.TakeSnapshots(snapshots);
+    // The minimap (Hud.md §6; M4-I5): its columns from the chunks that changed, its base built again at its drawn size
+    // when they changed it, and the camera moved to the point under the pointer while a press on it is held.
+    std::vector<std::uint32_t> minimapBase;
+    const std::uint32_t minimapSide = Client::Hud::MinimapSidePixels(uiScale);
+    if (deck)
+    {
+      const Protocol::StateUpdate& state = client.session.State();
+      if (!client.minimapSized && state.widthCells > 0)
+      {
+        client.minimap.Reset(state.widthCells, state.depthCells, desc.heightChunks);
+        client.minimapSized = true;
+        client.minimapSide = 0;
+      }
+      client.minimap.Take(snapshots, client.session);
+      if (client.minimap.BaseDirty() || client.minimapSide != minimapSide)
+      {
+        minimapBase = client.minimap.BuildBase(minimapSide);
+        client.minimapSide = minimapSide;
+      }
+      client.minimapDrag = client.minimapDrag && pointer.IsDown(Engine::PointerInput::Button::Left);
+      if (client.minimapDrag)
+      {
+        if (const auto well = std::ranges::find(hud.Targets(), Client::HudControl::Minimap, &Client::HudTarget::control);
+            well != hud.Targets().end())
+        {
+          const DirectX::XMFLOAT2 point =
+            Client::Minimap::ToMap(static_cast<float>(std::clamp(pointer.XPixels() - well->rect.xPixels, 0, well->rect.widthPixels)),
+                                   static_cast<float>(std::clamp(pointer.YPixels() - well->rect.yPixels, 0, well->rect.heightPixels)),
+                                   state.widthCells, state.depthCells, static_cast<std::uint32_t>(well->rect.widthPixels));
+          camera.LookAt({point.x, static_cast<float>(client.minimap.GroundAt(point.x, point.y)), point.y});
+        }
+      }
+    }
     client.worldChanged = !snapshots.empty();
     client.views.Ask(client.session, snapshots, integrityView);
     // The passability view's tiles, those the view shows on the lab's ground (M3-F3).
@@ -912,32 +1195,129 @@ int Run(const Options& _options)
                                        .detailOff = !ready};
     }
     // The banner: FIRE's while it is on, else the run's.
-    const Client::HudMode mode = client.fire.Active() ? client.fire.Mode() : run->Mode().value_or(client.fire.Mode());
-    hudModel = {.resources = run->Resources(client.session.State().tick, client.tally.Fired(PLAYER)),
-                .objective = objective,
-                .mode = mode,
-                .alerts = client.alerts.Shown(),
-                .selectedEngine = client.selected,
-                .integrityView = integrityView,
-                .passabilityView = passabilityShown,
-                .readout = client.views.Readout(client.session, seconds, integrityView),
-                .selection = selection};
+    const Client::HudMode mode = client.fire.Active()                                ? client.fire.Mode()
+                                 : client.orders.Mode() != Client::CardCommand::None ? client.orders.Banner()
+                                                                                     : run->Mode().value_or(client.fire.Mode());
+    // What each control group's slot reads (M4-I4).
+    std::array<std::string, Client::ControlGroups::GROUPS> groupLabels{};
+    for (std::size_t group = 0; group < groupLabels.size(); ++group)
+    {
+      groupLabels.at(group) = client.groups.Label(group, client.session.State());
+    }
+    // The minimap's overlay: the dots, the camera's view quad on the ground, and the alerts' pings (M4-I5).
+    Client::HudMinimap minimapModel;
+    if (deck && drawnViewProjection.has_value())
+    {
+      const Protocol::StateUpdate& state = client.session.State();
+      minimapModel.hasBase = client.minimapSide != 0;
+      minimapModel.baseDirty = !minimapBase.empty();
+      minimapModel.dots = Client::Minimap::Dots(state, client.selection, minimapSide);
+      const auto widthPixels = static_cast<std::int32_t>(swapChain.WidthPixels());
+      const auto heightPixels = static_cast<std::int32_t>(swapChain.HeightPixels());
+      const std::array<Engine::PickRay, 4> corners = {
+        Client::WorldPicker::RayThrough(*drawnViewProjection, 0, 0, swapChain.WidthPixels(), swapChain.HeightPixels()),
+        Client::WorldPicker::RayThrough(*drawnViewProjection, widthPixels, 0, swapChain.WidthPixels(), swapChain.HeightPixels()),
+        Client::WorldPicker::RayThrough(*drawnViewProjection, widthPixels, heightPixels, swapChain.WidthPixels(), swapChain.HeightPixels()),
+        Client::WorldPicker::RayThrough(*drawnViewProjection, 0, heightPixels, swapChain.WidthPixels(), swapChain.HeightPixels())};
+      // The ground the corners are projected to: the top of the land under the screen's middle, found in two steps from
+      // the lab's ground, so a castle on higher ground has its own.
+      const Engine::PickRay middle = Client::WorldPicker::RayThrough(*drawnViewProjection, widthPixels / 2, heightPixels / 2,
+                                                                     swapChain.WidthPixels(), swapChain.HeightPixels());
+      auto groundMeters = static_cast<float>(Simulation::BreachRun::GROUND_VOXELS);
+      for (std::int32_t step = 0; step < 2 && middle.direction.y != 0.0F; ++step)
+      {
+        const float along = (groundMeters - middle.originMeters.y) / middle.direction.y;
+        const std::int32_t top = client.minimap.GroundAt(middle.originMeters.x + (along * middle.direction.x),
+                                                         middle.originMeters.z + (along * middle.direction.z));
+        groundMeters = top > 0 ? static_cast<float>(top + 1) : groundMeters;
+      }
+      minimapModel.viewQuad = Client::Minimap::ViewQuad(corners, groundMeters, state.widthCells, state.depthCells, minimapSide);
+      for (const Client::HudAlert& alert : client.alerts.Shown())
+      {
+        if (alert.location.has_value())
+        {
+          minimapModel.pings.push_back({.positionPixels = Client::Minimap::ToMinimap(static_cast<float>(alert.location->xVoxels) + 0.5F,
+                                                                                     static_cast<float>(alert.location->zVoxels) + 0.5F,
+                                                                                     state.widthCells, state.depthCells, minimapSide),
+                                        .urgent = alert.urgent,
+                                        .expiresSeconds = alert.expiresSeconds});
+        }
+      }
+    }
+    // The tooltip of the card's slot under the pointer, as last laid out (Hud.md §7).
+    std::optional<std::string> tooltip;
+    if (const std::optional<Client::HudTarget> over = hud.HitTest(pointer.XPixels(), pointer.YPixels());
+        deck && over.has_value() && over->control == Client::HudControl::CardSlot && over->alert < card.slots.size())
+    {
+      tooltip = Client::Tooltip(card.slots.at(over->alert));
+    }
+    hudModel = {
+      .resources = run->Resources(client.session.State().tick, client.tally.Fired(PLAYER)),
+      .objective = objective,
+      .mode = mode,
+      .alerts = client.alerts.Shown(),
+      .selectedEngine = client.selected,
+      .integrityView = integrityView,
+      .passabilityView = passabilityShown,
+      .readout = client.views.Readout(client.session, seconds, integrityView),
+      .selection = deck ? std::optional<Client::HudSelection>{} : selection, // layout A's panel names it in place of M3's chip
+      .deck = deck,
+      .panel = deck ? Client::BuildPanel(client.selection, client.session.State(), client.session.Integrity(client.selection.structure))
+                    : Client::HudPanel{},
+      .commandCard = card,
+      .tooltip = tooltip,
+      .groupLabels = groupLabels,
+      .settingGroup = client.settingGroup,
+      .minimap = minimapModel,
+      // The structures' lines in the world, in layout A alone: the lab keeps M3-H1's one readout (M4-I6).
+      .worldLabels = deck ? Client::Overlays::WorldLabels(client.session, viewProjection, swapChain.WidthPixels(), swapChain.HeightPixels(),
+                                                          camera.ViewHeightMeters(), client.selection.structure, integrityView)
+                          : std::vector<Client::HudWorldLabel>{}};
     interfaceQuads.clear();
     if (run->ShowsFigures())
     {
       const std::uint32_t figuresScale = Client::TextLayout::PixelsPerFontPixel(Client::TextSize::Label, uiScale);
       const std::int32_t margin = Client::ScaledPixels(FIGURES_MARGIN_LOGICAL_PIXELS, uiScale);
-      // In the bottom-right corner, since the readout is docked in the bottom-left (M3-H1).
+      // In the bottom-right corner, since the readout is docked in the bottom-left (M3-H1), or with the deck at the left
+      // above the control groups' strip, clear of the readout above the deck.
       const std::string figures = std::format(Client::FIGURES, renderer.VoxelPassMilliseconds(), client.session.State().tick, run->Speed());
-      Client::TextLayout::Lay(figures,
-                              static_cast<std::int32_t>(swapChain.WidthPixels()) - margin -
-                                static_cast<std::int32_t>(Client::TextLayout::Measure(figures, figuresScale)),
-                              static_cast<std::int32_t>(swapChain.HeightPixels()) - margin -
-                                static_cast<std::int32_t>(Client::TextLayout::CellPixels(figuresScale)),
-                              figuresScale, figuresColor, interfaceQuads);
+      const auto cell = static_cast<std::int32_t>(Client::TextLayout::CellPixels(figuresScale));
+      const auto widthPixels = static_cast<std::int32_t>(swapChain.WidthPixels());
+      const auto heightPixels = static_cast<std::int32_t>(swapChain.HeightPixels());
+      const std::int32_t figuresX =
+        deck ? margin : widthPixels - margin - static_cast<std::int32_t>(Client::TextLayout::Measure(figures, figuresScale));
+      const std::int32_t figuresY =
+        deck ? heightPixels - Client::ScaledPixels(FIGURES_ABOVE_DECK_LOGICAL_PIXELS, uiScale) - cell : heightPixels - margin - cell;
+      Client::TextLayout::Lay(figures, figuresX, figuresY, figuresScale, figuresColor, interfaceQuads);
     }
     hud.Build(hudModel, swapChain.WidthPixels(), swapChain.HeightPixels(), uiScale, interfaceQuads);
-    const std::optional<Client::AttackCursor> cursor = client.fire.Cursor(client.session);
+    // The drag's box, outlined in accent while it is wider than a click (M4-I2).
+    if (client.dragFrom.has_value() &&
+        std::abs(pointer.XPixels() - client.dragFrom->first) + std::abs(pointer.YPixels() - client.dragFrom->second) > DRAG_PIXELS)
+    {
+      const auto left = static_cast<float>(std::min(pointer.XPixels(), client.dragFrom->first));
+      const auto top = static_cast<float>(std::min(pointer.YPixels(), client.dragFrom->second));
+      const auto boxWidth = static_cast<float>(std::abs(pointer.XPixels() - client.dragFrom->first));
+      const auto boxHeight = static_cast<float>(std::abs(pointer.YPixels() - client.dragFrom->second));
+      const auto line = static_cast<float>(Client::ScaledPixels(2.0F, uiScale));
+      const std::array<float, 4> accent = Client::LinearColor(Client::ACCENT_SRGB);
+      for (const auto& [x, y, w, h] : {std::array{left, top, boxWidth, line}, std::array{left, top + boxHeight - line, boxWidth, line},
+                                       std::array{left, top, line, boxHeight}, std::array{left + boxWidth - line, top, line, boxHeight}})
+      {
+        interfaceQuads.push_back({.xPixels = x,
+                                  .yPixels = y,
+                                  .widthPixels = w,
+                                  .heightPixels = h,
+                                  .u0 = 0.0F,
+                                  .v0 = 0.0F,
+                                  .u1 = 0.0F,
+                                  .v1 = 0.0F,
+                                  .color = accent,
+                                  .textured = false});
+      }
+    }
+    const std::optional<Client::AttackCursor> cursor =
+      client.fire.Active() ? client.fire.Cursor(client.session) : client.orders.Cursor(client.session);
     if (cursor.has_value() && !pointerOnHud)
     {
       hud.LayCursor(*cursor, pointer.XPixels(), pointer.YPixels(), uiScale, interfaceQuads);
@@ -969,6 +1349,8 @@ int Run(const Options& _options)
                                        .fogMask = client.fogMask,
                                        .fogWidthCells = client.session.State().widthCells,
                                        .fogDepthCells = client.session.State().depthCells,
+                                       .minimapBase = minimapBase,
+                                       .minimapSidePixels = minimapSide,
                                        .viewProjection = viewProjection,
                                        .forward = {},
                                        .viewHeightMeters = camera.ViewHeightMeters(),

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <string_view>
 
 namespace Client
@@ -36,6 +37,9 @@ inline constexpr std::string_view RELOADING_DETAIL = "RELOADING";
 inline constexpr std::string_view CANCEL_ESC = "CANCEL · ESC";
 inline constexpr std::string_view JUMP = "JUMP";
 inline constexpr std::string_view FIRE_BANNER = "FIRE · RIGHT-CLICK A TARGET";
+
+// The control groups' strip above the deck (Hud.md §3; M4-I1): groups 1 to 5 by their numbers, then SET.
+inline constexpr std::string_view SET_GROUP = "SET";
 
 // The attack cursor's four readings (Hud.md §8; M3-E4), and what it shows while the first is on its way.
 inline constexpr std::string_view AIM_IN_RANGE = "IN RANGE · {} m";
@@ -77,6 +81,24 @@ inline constexpr std::string_view FALLS = "FALLS";
 /// The passability view's alert (Hud.md §10; M3-F3): the lab's target is W2.
 inline constexpr std::string_view BREACH_OPEN_ALERT = "BREACH OPEN AT W2";
 
+// M4's alerts (Hud.md §10; M4-I6), each named for its place: the structure nearest sappers first seen, the section a
+// route first opens through, and the structure the player's shot lands on, with its lock in whole seconds; and the
+// refusals'. SAPPERS SEEN is for sappers with no structure in the update to name.
+inline constexpr std::string_view SAPPERS_AT_ALERT = "SAPPERS AT {}";
+inline constexpr std::string_view SAPPERS_SEEN_ALERT = "SAPPERS SEEN";
+inline constexpr std::string_view BREACH_OPEN_AT_ALERT = "BREACH OPEN AT {}";
+inline constexpr std::string_view HIT_LOCKED_ALERT = "HIT {} · REPAIR LOCKED {} S";
+inline constexpr std::string_view NOT_ENOUGH_STONE_ALERT = "NOT ENOUGH STONE";
+inline constexpr std::string_view NOT_ENOUGH_TIMBER_ALERT = "NOT ENOUGH TIMBER";
+
+// A wall section's weak reading against its fall (MvpPlan.md, M4, input 22): the panel's WEAK row, and the labels'.
+inline constexpr std::string_view WEAK_HOLE = "HOLE {}/{} M";
+inline constexpr std::string_view WEAK_GAP = "GAP {}/{} M";
+// A structure's line in the world (input 23, as the owner amended it for M4-I6): its name, then its readings, each
+// after the separator, and OPEN yes once a route runs through it.
+inline constexpr std::string_view LABEL_SEPARATOR = " · ";
+inline constexpr std::string_view LABEL_OPEN = "OPEN yes";
+
 // The breach lab (M3-G1; GameDesign.md, M3's values, item 2): its banners, its answers and its objective.
 inline constexpr std::string_view FREE_FIRE_BANNER = "FREE FIRE · {}:{:02} LEFT";
 // Free fire's banner's hint, until the trebuchet is first selected (M3-H3).
@@ -107,6 +129,149 @@ inline constexpr std::string_view PRACTICE_OBJECTIVE = "PRACTICE";
 inline constexpr std::string_view ITEM_OBJECTIVE = "ITEM {} OF {}";
 inline constexpr std::string_view FINISHED_OBJECTIVE = "DONE";
 
+// The selection panel (Hud.md §5; M4-I2): nothing, one thing, or several by type.
+inline constexpr std::string_view NOTHING_SELECTED = "NOTHING SELECTED";
+inline constexpr std::string_view HINT_CLICK = "CLICK A SQUAD";
+inline constexpr std::string_view HINT_DRAG = "DRAG TO BOX-SELECT";
+inline constexpr std::string_view HINT_GROUPS = "1–9 GROUPS";
+inline constexpr std::string_view YOURS = "YOURS";
+inline constexpr std::string_view ENEMY = "ENEMY";
+inline constexpr std::string_view OUT_OF = "{} / {}";  // figures, hit points and a garrison
+inline constexpr std::string_view UNKNOWN_COUNT = "?"; // an enemy's garrison, which only its owner's update counts
+inline constexpr std::string_view SEVERAL_SQUADS = "{} SQUADS · TAB CYCLES TYPE";
+inline constexpr std::string_view SPEARMEN_NAME = "SPEARMEN";
+inline constexpr std::string_view ARCHERS_NAME = "ARCHERS";
+inline constexpr std::string_view OUTRIDERS_NAME = "OUTRIDERS";
+inline constexpr std::string_view MEN_AT_ARMS_NAME = "MEN-AT-ARMS";
+inline constexpr std::string_view SAPPERS_NAME = "SAPPERS";
+inline constexpr std::string_view LABORER_NAME = "LABORER";
+inline constexpr std::string_view RAM_NAME = "RAM";
+inline constexpr std::string_view TREB_LABEL = "TREB";
+inline constexpr std::string_view RAM_LABEL = "RAM";
+inline constexpr std::string_view ARMS_LABEL = "ARMS";
+inline constexpr std::string_view SPEAR_LABEL = "SPEAR";
+inline constexpr std::string_view ARCHER_LABEL = "ARCHER";
+inline constexpr std::string_view RIDER_LABEL = "RIDER";
+inline constexpr std::string_view SAPPER_LABEL = "SAPPER";
+inline constexpr std::string_view LABOR_LABEL = "LABOR";
+// Its stat rows, KEY and value (Hud.md §5's table; GameDesign.md, M4's values, items 5, 6 and 10).
+inline constexpr std::string_view ROLE_KEY = "ROLE";
+inline constexpr std::string_view ARMOR_KEY = "ARMOR";
+inline constexpr std::string_view STRONG_KEY = "STRONG";
+inline constexpr std::string_view WEAK_KEY = "WEAK";
+inline constexpr std::string_view HEIGHT_KEY = "HEIGHT";
+inline constexpr std::string_view DIGS_KEY = "DIGS";
+inline constexpr std::string_view TARGET_KEY = "TARGET";
+inline constexpr std::string_view STATE_KEY = "STATE";
+inline constexpr std::string_view RANGE_KEY = "RANGE";
+inline constexpr std::string_view SHOT_KEY = "SHOT";
+inline constexpr std::string_view GARRISON_KEY = "GARRISON";
+inline constexpr std::string_view PLATFORM_KEY = "PLATFORM";
+inline constexpr std::string_view GATE_KEY = "GATE";
+inline constexpr std::string_view TOWER_KEY = "TOWER";
+inline constexpr std::string_view REPAIR_KEY = "REPAIR";
+inline constexpr std::string_view TO_WIN_KEY = "TO WIN";
+inline constexpr std::string_view NAME_KEY = "NAME";
+inline constexpr std::string_view OPEN_KEY = "OPEN";
+inline constexpr std::string_view ORDER_KEY = "ORDER";
+inline constexpr std::string_view LABORER_ROLE = "Build, dig";
+inline constexpr std::string_view NO_ARMOR = "None";
+inline constexpr std::string_view SPEARMEN_STRONG = "Horse";
+inline constexpr std::string_view SPEARMEN_WEAK = "Archers, arms";
+inline constexpr std::string_view ARCHERS_HEIGHT = "+1 band, +15%";
+inline constexpr std::string_view ARCHERS_WEAK = "Horse, arms";
+inline constexpr std::string_view OUTRIDERS_STRONG = "Bows, engines";
+inline constexpr std::string_view OUTRIDERS_WEAK = "Spear, arms";
+inline constexpr std::string_view MEN_AT_ARMS_STRONG = "Spear, bows";
+inline constexpr std::string_view MEN_AT_ARMS_ROLE = "Storm breach";
+inline constexpr std::string_view SAPPERS_DIGS = "2× trench";
+inline constexpr std::string_view SAPPERS_ARMOR = "Pierce";
+inline constexpr std::string_view RAM_TARGET = "Gates, timber";
+inline constexpr std::string_view RAM_ARMOR = "Arrows";
+inline constexpr std::string_view STATE_DEPLOYED = "Deployed";
+inline constexpr std::string_view STATE_PACKING = "Packing…";
+inline constexpr std::string_view STATE_PACKED = "Packed";
+inline constexpr std::string_view STATE_DEPLOYING = "Deploying…";
+inline constexpr std::string_view TREBUCHET_RANGE = "12–50 m"; // GameDesign.md, M2's values, item 12
+inline constexpr std::string_view TREBUCHET_SHOT = "1.5 m³";   // GameDesign.md, M4's values, item 5
+inline constexpr std::string_view PERCENT_VALUE = "{}%";
+inline constexpr std::string_view REPAIR_READY = "Ready";
+inline constexpr std::string_view REPAIR_LOCKED = "Locked · {} s";
+inline constexpr std::string_view TO_WIN_VALUE = "Hold foot {}:{:02}";
+inline constexpr std::string_view OPEN_YES = "yes";
+inline constexpr std::string_view OPEN_NO = "no";
+inline constexpr std::string_view ORDER_MOVING = "Moving";
+
+// The command card (Hud.md §7; M4-I3): each command's label, its one-line rule for the tooltip and the banner, and how
+// they are joined.
+inline constexpr std::string_view MOVE_LABEL = "MOVE";
+inline constexpr std::string_view STOP_LABEL = "STOP";
+inline constexpr std::string_view HOLD_LABEL = "HOLD";
+inline constexpr std::string_view ATTACK_LABEL = "ATTACK";
+inline constexpr std::string_view STORM_LABEL = "STORM";
+inline constexpr std::string_view SPLIT_LABEL = "SPLIT";
+inline constexpr std::string_view MERGE_LABEL = "MERGE";
+inline constexpr std::string_view TRENCH_LABEL = "TRENCH";
+inline constexpr std::string_view FIRE_LABEL = "FIRE";
+inline constexpr std::string_view PACK_LABEL = "PACK";
+inline constexpr std::string_view DEPLOY_LABEL = "DEPLOY";
+inline constexpr std::string_view MOVE_RULE = "RIGHT-CLICK WHERE TO GO";
+inline constexpr std::string_view STOP_RULE = "STAND AND FIGHT WHAT COMES";
+inline constexpr std::string_view HOLD_RULE = "STRIKE FROM HERE, NEVER LEAVE";
+inline constexpr std::string_view ATTACK_RULE = "RIGHT-CLICK AN ENEMY";
+inline constexpr std::string_view STORM_RULE = "RIGHT-CLICK; FIGHT ON THE WAY";
+inline constexpr std::string_view SPLIT_RULE = "ONE FIGURE LEAVES AS A SQUAD";
+inline constexpr std::string_view MERGE_RULE = "JOIN SQUADS OF ONE TYPE";
+inline constexpr std::string_view TRENCH_RULE = "RIGHT-DRAG THE BOX TO DIG";
+inline constexpr std::string_view FIRE_RULE = "RIGHT-CLICK A TARGET";
+inline constexpr std::string_view PACK_RULE = "FOLD UP TO MOVE";
+inline constexpr std::string_view DEPLOY_RULE = "SET UP TO FIRE";
+inline constexpr std::string_view MODE_BANNER = "{} · {}";       // the label and the rule
+inline constexpr std::string_view CARD_TOOLTIP = "{} · {} · {}"; // the hotkey, the label and the rule
+
+// Every reading the HUD can show, and how it is reached without hover (ADR-007, decision 4; Hud.md §8; M4-I7). The
+// table is not drawn. Hover may speed a reading up, but it is never the only way to it, except where Hud.md §8 says:
+// the tooltip's rule for a command that acts at once, and the attack cursor's reading, which follows the pointer while a
+// mode is on, and reads where the pointer rests without moving it. Those two get press-and-hold with the touch scheme.
+enum class HudReading : std::uint8_t
+{
+  TopBar,
+  ModeBanner,
+  Alerts,
+  Readout,
+  StructureLines,
+  Panel,
+  CommandCard,
+  Tooltip,
+  AttackCursor,
+  ControlGroups,
+  Minimap
+};
+
+struct HoverWay
+{
+  HudReading reading;
+  std::string_view onHover;      // what hover shows of it, or empty where hover shows nothing
+  std::string_view withoutHover; // the key or the click that reaches it
+};
+
+inline constexpr std::array<HoverWay, 11> HOVER_TABLE = {{
+  {HudReading::TopBar, "", "always drawn: the resources, the objective and the camera's buttons"},
+  {HudReading::ModeBanner, "", "a targeted command's key or cell: its label and its rule"},
+  {HudReading::Alerts, "", "always drawn; JUMP, or Space for the newest, looks at its place"},
+  {HudReading::Readout, "the section under the pointer",
+   "a click selects a structure, and in layout A the readout shows the selected first"},
+  {HudReading::StructureLines, "", "F1 draws every structure's line in the world"},
+  {HudReading::Panel, "", "a click, a drawn box, Tab, or a control group's key"},
+  {HudReading::CommandCard, "", "always drawn: each cell's hotkey, label and state"},
+  {HudReading::Tooltip, "a cell's hotkey, label and rule",
+   "the cell draws its hotkey and label; a targeted command's rule is the banner's; an at-once command's rule waits for "
+   "the touch scheme's press-and-hold (Hud.md §8)"},
+  {HudReading::AttackCursor, "follows the pointer", "the attack's key or cell turns it on, and it reads where the pointer rests"},
+  {HudReading::ControlGroups, "", "1 to 9, and the strip's slots 1 to 5"},
+  {HudReading::Minimap, "", "always drawn in the deck; a press moves the camera, and a right click orders"},
+}};
+
 /// Every string above, for the glyph coverage test.
 inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      TIME_KEY,
@@ -126,6 +291,7 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      CANCEL_ESC,
                                                                      JUMP,
                                                                      FIRE_BANNER,
+                                                                     SET_GROUP,
                                                                      AIM_IN_RANGE,
                                                                      AIM_BLOCKED,
                                                                      AIM_TOO_CLOSE,
@@ -179,6 +345,110 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      FINISHED_BANNER,
                                                                      PRACTICE_OBJECTIVE,
                                                                      ITEM_OBJECTIVE,
-                                                                     FINISHED_OBJECTIVE});
+                                                                     FINISHED_OBJECTIVE,
+                                                                     NOTHING_SELECTED,
+                                                                     HINT_CLICK,
+                                                                     HINT_DRAG,
+                                                                     HINT_GROUPS,
+                                                                     YOURS,
+                                                                     ENEMY,
+                                                                     OUT_OF,
+                                                                     UNKNOWN_COUNT,
+                                                                     SEVERAL_SQUADS,
+                                                                     SPEARMEN_NAME,
+                                                                     ARCHERS_NAME,
+                                                                     OUTRIDERS_NAME,
+                                                                     MEN_AT_ARMS_NAME,
+                                                                     SAPPERS_NAME,
+                                                                     LABORER_NAME,
+                                                                     RAM_NAME,
+                                                                     TREB_LABEL,
+                                                                     RAM_LABEL,
+                                                                     ARMS_LABEL,
+                                                                     SPEAR_LABEL,
+                                                                     ARCHER_LABEL,
+                                                                     RIDER_LABEL,
+                                                                     SAPPER_LABEL,
+                                                                     LABOR_LABEL,
+                                                                     ROLE_KEY,
+                                                                     ARMOR_KEY,
+                                                                     STRONG_KEY,
+                                                                     WEAK_KEY,
+                                                                     HEIGHT_KEY,
+                                                                     DIGS_KEY,
+                                                                     TARGET_KEY,
+                                                                     STATE_KEY,
+                                                                     RANGE_KEY,
+                                                                     SHOT_KEY,
+                                                                     GARRISON_KEY,
+                                                                     PLATFORM_KEY,
+                                                                     GATE_KEY,
+                                                                     TOWER_KEY,
+                                                                     REPAIR_KEY,
+                                                                     TO_WIN_KEY,
+                                                                     NAME_KEY,
+                                                                     OPEN_KEY,
+                                                                     ORDER_KEY,
+                                                                     LABORER_ROLE,
+                                                                     NO_ARMOR,
+                                                                     SPEARMEN_STRONG,
+                                                                     SPEARMEN_WEAK,
+                                                                     ARCHERS_HEIGHT,
+                                                                     ARCHERS_WEAK,
+                                                                     OUTRIDERS_STRONG,
+                                                                     OUTRIDERS_WEAK,
+                                                                     MEN_AT_ARMS_STRONG,
+                                                                     MEN_AT_ARMS_ROLE,
+                                                                     SAPPERS_DIGS,
+                                                                     SAPPERS_ARMOR,
+                                                                     RAM_TARGET,
+                                                                     RAM_ARMOR,
+                                                                     STATE_DEPLOYED,
+                                                                     STATE_PACKING,
+                                                                     STATE_PACKED,
+                                                                     STATE_DEPLOYING,
+                                                                     TREBUCHET_RANGE,
+                                                                     TREBUCHET_SHOT,
+                                                                     PERCENT_VALUE,
+                                                                     REPAIR_READY,
+                                                                     REPAIR_LOCKED,
+                                                                     TO_WIN_VALUE,
+                                                                     OPEN_YES,
+                                                                     OPEN_NO,
+                                                                     ORDER_MOVING,
+                                                                     MOVE_LABEL,
+                                                                     STOP_LABEL,
+                                                                     HOLD_LABEL,
+                                                                     ATTACK_LABEL,
+                                                                     STORM_LABEL,
+                                                                     SPLIT_LABEL,
+                                                                     MERGE_LABEL,
+                                                                     TRENCH_LABEL,
+                                                                     FIRE_LABEL,
+                                                                     PACK_LABEL,
+                                                                     DEPLOY_LABEL,
+                                                                     MOVE_RULE,
+                                                                     STOP_RULE,
+                                                                     HOLD_RULE,
+                                                                     ATTACK_RULE,
+                                                                     STORM_RULE,
+                                                                     SPLIT_RULE,
+                                                                     MERGE_RULE,
+                                                                     TRENCH_RULE,
+                                                                     FIRE_RULE,
+                                                                     PACK_RULE,
+                                                                     DEPLOY_RULE,
+                                                                     MODE_BANNER,
+                                                                     CARD_TOOLTIP,
+                                                                     SAPPERS_AT_ALERT,
+                                                                     SAPPERS_SEEN_ALERT,
+                                                                     BREACH_OPEN_AT_ALERT,
+                                                                     HIT_LOCKED_ALERT,
+                                                                     NOT_ENOUGH_STONE_ALERT,
+                                                                     NOT_ENOUGH_TIMBER_ALERT,
+                                                                     WEAK_HOLE,
+                                                                     WEAK_GAP,
+                                                                     LABEL_SEPARATOR,
+                                                                     LABEL_OPEN});
 
 } // namespace Client

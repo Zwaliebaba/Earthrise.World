@@ -6,6 +6,10 @@ Amended by order M4-G2 (2026-11-03), which adds the silhouettes, as decision 6 f
 - **A silhouette is this pipeline with the depth test reversed** (decision 6): `VoxelPass::BeginSilhouette` draws a model's records flat in their palette colour at the caller's alpha, where the depth test fails, LESS under reversed Z, blended and writing no depth. The client draws it after the world and before the models: tested against the world's depth alone, a model shows its silhouette only where the world stands in front of it. Drawn after the models, a model's far voxels would fail against its near ones and tint it where it is seen. The models drawn after it cover it wherever they are seen. Input 23 sets the silhouettes' colours and alpha: the player's units and visible enemies, in their faction colours, at 0.5. *M4-H3* (2026-11-03) draws them: each unit's and each engine's model, its records flat in its owner's faction entry, from the update, which holds only the player's own and the enemies they see. Stones and open gates have none.
 - **The fog's shade is not this pipeline:** it multiplies the world's own records where their column is not seen (ADR-025, decision 8, and `VoxelPass::SetColumnShade`).
 
+Amended by order M4-I6 (2026-11-03), the owner's choice of the views across the Siege castle's thirty structures (MvpPlan.md, M4, input 23, as amended):
+- **Each structure on screen has one line in the world**, through the interface pass, anchored a metre above its box's middle: its name, then FALLS while a collapse of it runs, OPEN yes once a route runs through it, or else its weak reading against its fall (input 22), and then `Locked · n s` while its repair is locked. Above 150 m of view height it is the name alone, but for the selected structure. Lines are laid nearest the screen's middle first, the selected one first of all and always whole. One that would cover a line already laid is laid as its name alone, and left out where that would too. All lie between the top bar and the deck. Input 23's eight full labels are not drawn: at 1280 × 720 they would bring back the crowding that M3-H1 removed.
+- **The full reading stays in M3-H1's docked readout.** In layout A it shows the selected structure, else the one under the pointer, and nothing by default, so the selected one always reads in full. While the structure's repair is locked, the readout gains `REPAIR Locked · n s`, which counts down and does not flash. The breach lab keeps M3-H1's focus and its one readout, with no lines in the world.
+
 ## Context
 
 - **What the views show** (GameDescription.md, *Readability*; GameDesign.md, *Hypotheses*):
@@ -49,5 +53,5 @@ Amended by order M4-G2 (2026-11-03), which adds the silhouettes, as decision 6 f
 
 - The silhouettes and the fog's last-seen land (M4).
 - Colour-blind palettes, which the owner deferred (Hud.md §2); every state here is also carried by its label.
-- Hud.md §5's single OPEN reading, which needs a formula before M4's selection panel shows one.
-- Whether the labels in the world crowd a castle of thirty sections in M4; M3 has ten.
+- ~~Hud.md §5's single OPEN reading, which needs a formula before M4's selection panel shows one.~~ Settled by input 22: no percentage. The row reads OPEN yes, or the weak reading against its fall (M4-I6).
+- Whether the labels in the world crowd a castle of thirty sections in M4; M3 has ten. M4-I6 draws one line each, as amended above, and the owner's run of the trial judges whether they read or crowd.

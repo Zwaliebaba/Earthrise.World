@@ -69,11 +69,11 @@ void Camera::LookAt(const DirectX::XMFLOAT3& _targetMeters) noexcept
   m_camera.SetTargetMeters(_targetMeters);
 }
 
-DirectX::XMMATRIX Camera::ViewProjection(float _aspect, std::uint32_t _heightPixels, float _topBarPixels) const noexcept
+DirectX::XMMATRIX Camera::ViewProjection(float _aspect, std::uint32_t _heightPixels, float _topBarPixels, float _deckPixels) const noexcept
 {
-  // The look-at point moves down by half the top bar, so it sits at the middle of the uncovered area: in clip space
-  // that is -_topBarPixels / _heightPixels, the full height being 2.
-  const float shift = _heightPixels == 0 ? 0.0F : -_topBarPixels / static_cast<float>(_heightPixels);
+  // The look-at point moves down by half the top bar and up by half the deck, so it sits at the middle of the uncovered
+  // area: in clip space that is (_deckPixels - _topBarPixels) / _heightPixels, the full height being 2.
+  const float shift = _heightPixels == 0 ? 0.0F : (_deckPixels - _topBarPixels) / static_cast<float>(_heightPixels);
   return DirectX::XMMatrixMultiply(m_camera.ViewProjection(_aspect), DirectX::XMMatrixTranslation(0.0F, shift, 0.0F));
 }
 

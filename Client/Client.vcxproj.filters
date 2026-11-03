@@ -31,6 +31,12 @@
     <Filter Include="Views">
       <UniqueIdentifier>{C8D20524-785A-50C8-A4E2-CA5AA774CEF8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Selection">
+      <UniqueIdentifier>{671756FE-7576-51DA-BB32-7CE6E4DD9E78}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Minimap">
+      <UniqueIdentifier>{5BF22C2F-FFEB-52CA-AAB8-57DDD225ECB2}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Lab">
       <UniqueIdentifier>{B850AB04-44FA-50ED-9854-EF658A3CBE04}</UniqueIdentifier>
     </Filter>
@@ -81,6 +87,12 @@
     <ClInclude Include="Session.h">
       <Filter>Session</Filter>
     </ClInclude>
+    <ClInclude Include="CommandLog.h">
+      <Filter>Session</Filter>
+    </ClInclude>
+    <ClCompile Include="CommandLog.cpp">
+      <Filter>Session</Filter>
+    </ClCompile>
     <ClCompile Include="Session.cpp">
       <Filter>Session</Filter>
     </ClCompile>
@@ -141,6 +153,12 @@
     <ClCompile Include="HudModel.cpp">
       <Filter>Hud</Filter>
     </ClCompile>
+    <ClInclude Include="AlertWatch.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClCompile Include="AlertWatch.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
     <ClInclude Include="HudAlerts.h">
       <Filter>Hud</Filter>
     </ClInclude>
@@ -152,6 +170,45 @@
     </ClInclude>
     <ClCompile Include="Hud.cpp">
       <Filter>Hud</Filter>
+    </ClCompile>
+    <ClInclude Include="SelectionPanel.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClCompile Include="SelectionPanel.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClInclude Include="Portraits.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClInclude Include="CommandCard.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClCompile Include="CommandCard.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClInclude Include="Orders.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClCompile Include="Orders.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
+    <ClInclude Include="Selection.h">
+      <Filter>Selection</Filter>
+    </ClInclude>
+    <ClCompile Include="Selection.cpp">
+      <Filter>Selection</Filter>
+    </ClCompile>
+    <ClInclude Include="ControlGroups.h">
+      <Filter>Selection</Filter>
+    </ClInclude>
+    <ClCompile Include="ControlGroups.cpp">
+      <Filter>Selection</Filter>
+    </ClCompile>
+    <ClInclude Include="Minimap.h">
+      <Filter>Minimap</Filter>
+    </ClInclude>
+    <ClCompile Include="Minimap.cpp">
+      <Filter>Minimap</Filter>
     </ClCompile>
     <ClInclude Include="FireTally.h">
       <Filter>Session</Filter>

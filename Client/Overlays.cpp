@@ -3,6 +3,7 @@
 #include "Overlays.h"
 
 #include "Look.h"
+#include "Selection.h"
 #include "Strings.h"
 #include "TickClock.h"
 
@@ -325,9 +326,18 @@ void Overlays::Select(Protocol::EntityId _section) noexcept
   m_selected = _section;
 }
 
+void Overlays::SelectedFirst(bool _selectedFirst) noexcept
+{
+  m_selectedFirst = _selectedFirst;
+}
+
 Protocol::EntityId Overlays::Focused(const Session& _session) const
 {
   const Protocol::StateUpdate& state = _session.State();
+  if (m_selectedFirst)
+  {
+    return Holds(state, m_selected) ? m_selected : (Holds(state, m_hovered) ? m_hovered : Protocol::NO_ENTITY);
+  }
   if (Holds(state, m_hovered))
   {
     return m_hovered;
@@ -366,7 +376,108 @@ std::optional<HudReadout> Overlays::Readout(const Session& _session, double _now
                                     : index == GAP_ROW ? Fill(reading->gapRunVoxels, reading->gapFallRunVoxels)
                                                        : std::nullopt});
   }
+  // The lock, live from the update rather than the reading, which is asked only when the voxels change.
+  if (structure->repairLockTicks > 0)
+  {
+    readout.rows.push_back({.key = std::string(REPAIR_KEY),
+                            .value = RepairValue(structure->repairLockTicks),
+                            .srgb = TEXT_SRGB,
+                            .flashing = false,
+                            .fill = std::nullopt});
+  }
   return readout;
+}
+
+std::optional<std::string> Overlays::WeakValue(const Protocol::IntegrityReading& _reading)
+{
+  const bool hole = _reading.holeWidthVoxels > 0 && _reading.holeFallWidthVoxels > 0;
+  const bool gap = _reading.gapRunVoxels > 0 && _reading.gapFallRunVoxels > 0;
+  // Nearer its fall: the larger share of its fall width, compared without dividing.
+  const bool holeNearer = hole && (!gap || static_cast<std::uint32_t>(_reading.holeWidthVoxels) * _reading.gapFallRunVoxels >=
+                                             static_cast<std::uint32_t>(_reading.gapRunVoxels) * _reading.holeFallWidthVoxels);
+  if (holeNearer)
+  {
+    return std::format(WEAK_HOLE, _reading.holeWidthVoxels, _reading.holeFallWidthVoxels);
+  }
+  if (gap)
+  {
+    return std::format(WEAK_GAP, _reading.gapRunVoxels, _reading.gapFallRunVoxels);
+  }
+  return std::nullopt;
+}
+
+std::string Overlays::RepairValue(std::uint32_t _lockTicks)
+{
+  return _lockTicks == 0 ? std::string(REPAIR_READY)
+                         : std::format(REPAIR_LOCKED, (_lockTicks + TickClock::TICKS_PER_SECOND - 1) / TickClock::TICKS_PER_SECOND);
+}
+
+std::vector<HudWorldLabel> Overlays::WorldLabels(const Session& _session, const DirectX::XMFLOAT4X4& _viewProjection,
+                                                 std::uint32_t _widthPixels, std::uint32_t _heightPixels, float _viewHeightMeters,
+                                                 Protocol::EntityId _selected, bool _integrityView)
+{
+  std::vector<HudWorldLabel> labels;
+  if (!_integrityView)
+  {
+    return labels;
+  }
+  const Protocol::StateUpdate& state = _session.State();
+  const bool namesAlone = _viewHeightMeters > NAMES_ALONE_METERS;
+  for (const Protocol::StructureView& structure : state.structures)
+  {
+    const DirectX::XMFLOAT3 anchor{
+      static_cast<float>(structure.originVoxels.xVoxels) + (0.5F * static_cast<float>(structure.extentVoxels.xVoxels)),
+      static_cast<float>(structure.originVoxels.yVoxels + structure.extentVoxels.yVoxels) + 1.0F,
+      static_cast<float>(structure.originVoxels.zVoxels) + (0.5F * static_cast<float>(structure.extentVoxels.zVoxels))};
+    const std::optional<DirectX::XMFLOAT2> at = Selector::Project(_viewProjection, anchor, _widthPixels, _heightPixels);
+    if (!at.has_value())
+    {
+      continue;
+    }
+    const std::string name = structure.name.empty() ? structure.templateId : structure.name;
+    const bool falls = std::ranges::any_of(state.collapses, [&structure](const Protocol::CollapseView& _collapse)
+                                           { return _collapse.structure == structure.id; });
+    const bool selected = structure.id == _selected;
+    std::string line = name;
+    if (!namesAlone || selected)
+    {
+      const auto add = [&line](std::string_view _part)
+      {
+        line += LABEL_SEPARATOR;
+        line += _part;
+      };
+      const Protocol::IntegrityReading* reading = _session.Integrity(structure.id);
+      if (falls)
+      {
+        add(FALLS);
+      }
+      else if (structure.opened)
+      {
+        add(LABEL_OPEN);
+      }
+      else if (const std::optional<std::string> weak = reading != nullptr ? WeakValue(*reading) : std::nullopt; weak.has_value())
+      {
+        add(std::format("{} {}", WEAK_KEY, *weak));
+      }
+      if (structure.repairLockTicks > 0)
+      {
+        add(RepairValue(structure.repairLockTicks));
+      }
+    }
+    labels.push_back(
+      {.line = std::move(line), .name = name, .anchorPixels = *at, .srgb = falls ? BAD_SRGB : TEXT_SRGB, .selected = selected});
+  }
+  // The selected first, then nearest the screen's middle, then in id order, which the update's order already is.
+  const DirectX::XMFLOAT2 middle{0.5F * static_cast<float>(_widthPixels), 0.5F * static_cast<float>(_heightPixels)};
+  const auto away = [&middle](const HudWorldLabel& _label)
+  {
+    const float x = _label.anchorPixels.x - middle.x;
+    const float y = _label.anchorPixels.y - middle.y;
+    return (x * x) + (y * y);
+  };
+  std::ranges::stable_sort(labels, [&away](const HudWorldLabel& _a, const HudWorldLabel& _b)
+                           { return _a.selected != _b.selected ? _a.selected : away(_a) < away(_b); });
+  return labels;
 }
 
 Protocol::EntityId Overlays::SectionAt(const Protocol::StateUpdate& _state, const Protocol::VoxelPosition& _voxels)

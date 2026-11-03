@@ -72,6 +72,9 @@ public:
   /// Whether the frame's figures are drawn in the bottom-left corner as well as in the title bar: never to a
   /// participant (M3-H4).
   [[nodiscard]] virtual bool ShowsFigures() const noexcept = 0;
+  /// Whether the HUD has layout A's deck and the control groups' strip, with the UI scale capped to fit it and the
+  /// camera framing the area above it (M4-I1): the Siege castle's runs; M3's lab and breach run keep M3's HUD.
+  [[nodiscard]] virtual bool ShowsDeck() const noexcept = 0;
   /// Boxes the run marks the world with: the lab's mark.
   [[nodiscard]] virtual std::vector<Client::OverlayBox> Marks(const Client::Session& _session) const = 0;
 };

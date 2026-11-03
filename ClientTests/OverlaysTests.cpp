@@ -259,6 +259,45 @@ Client::PixelRect OnScreen(const Protocol::StructureView& _structure, const Dire
           static_cast<std::int32_t>(std::ceil(right - std::floor(left))), static_cast<std::int32_t>(std::ceil(bottom - std::floor(top)))};
 }
 
+/// Thirty sections W1 to W30, each 4 x 10 x 4 from y 9, in a grid of 6 by 5 cells 20 m by 14 m apart from (10, 40);
+/// W15, the selected tests' 115, is locked 10 s.
+Protocol::StateUpdate ThirtySections()
+{
+  Protocol::StateUpdate state{};
+  state.tick = 10;
+  state.player = PLAYER;
+  for (std::int32_t row = 0; row < 5; ++row)
+  {
+    for (std::int32_t column = 0; column < 6; ++column)
+    {
+      const std::int32_t number = (row * 6) + column + 1;
+      Protocol::StructureView structure{.id = static_cast<Protocol::EntityId>(100 + number),
+                                        .owner = 2,
+                                        .templateId = "T3",
+                                        .originVoxels = {10 + (20 * column), 9, 40 + (14 * row)},
+                                        .quarterTurns = 0,
+                                        .extentVoxels = {4, 10, 4},
+                                        .name = std::format("W{}", number)};
+      structure.repairLockTicks = number == 15 ? 200 : 0;
+      state.structures.push_back(structure);
+    }
+  }
+  return state;
+}
+
+/// Seen from straight above, 128 m square onto the whole target: pixel x is x / 128 of the width, and pixel y is
+/// (1 - z / 128) of the height.
+DirectX::XMFLOAT4X4 Overhead()
+{
+  DirectX::XMFLOAT4X4 matrix{};
+  matrix.m[0][0] = 2.0F / 128.0F;
+  matrix.m[2][1] = 2.0F / 128.0F;
+  matrix.m[3][0] = -1.0F;
+  matrix.m[3][1] = -1.0F;
+  matrix.m[3][3] = 1.0F;
+  return matrix;
+}
+
 } // namespace
 
 TEST_CLASS(OverlaysTests)
@@ -745,6 +784,105 @@ public:
     const Protocol::StateUpdate state = Collapsing(40, Protocol::NO_ENTITY);
     Assert::AreEqual(std::string("A WALL WILL FALL IN 2 S"), Client::Overlays::WillFallText(state, state.collapses.front()));
     Assert::AreEqual(std::string("A WALL HAS FALLEN"), Client::Overlays::HasFallenText(state, state.collapses.front()));
+  }
+
+  TEST_METHOD(LaysThirtyStructuresLinesOnTheScreenWholeOrAsNamesAndNoneOverAnother)
+  {
+    // Input 23, as the owner amended it for M4-I6: a line for each structure, laid nearest the screen's middle first, as
+    // its name alone where it would cover another; the selected always whole; all between the top bar and the deck.
+    const Protocol::StateUpdate state = ThirtySections();
+    Client::Session session;
+    Tell(session, state);
+    Client::Overlays overlays;
+    overlays.Ask(session, {}, true);
+    std::vector<Protocol::IntegrityReading> readings;
+    for (const Protocol::StructureView& structure : state.structures)
+    {
+      Protocol::IntegrityReading reading = Sound(structure.id);
+      reading.holeWidthVoxels = 3;
+      readings.push_back(reading);
+    }
+    AnswerIntegrity(session, state, readings);
+    constexpr Protocol::EntityId SELECTED = 115; // in the grid's middle
+    for (const float scale : {1.0F, 1.5F})
+    {
+      for (const auto& [width, height] : {std::pair{1280U, 720U}, std::pair{1920U, 1080U}})
+      {
+        Client::HudModel model{};
+        model.deck = true;
+        model.worldLabels = Client::Overlays::WorldLabels(session, Overhead(), width, height, 60.0F, SELECTED, true);
+        Assert::AreEqual(std::size_t{30}, model.worldLabels.size());
+        Assert::IsTrue(model.worldLabels.front().selected);
+        Client::Hud hud;
+        std::vector<Client::ScreenQuad> quads;
+        hud.Build(model, width, height, scale, quads);
+        const std::span<const Client::HudLaidLabel> laid = hud.Labels();
+        Assert::IsTrue(laid.size() >= 8);
+        const Client::HudDeck deck = hud.Deck().value_or(Client::HudDeck{});
+        const auto top = static_cast<std::int32_t>(std::lround(Client::TOP_BAR_LOGICAL_PIXELS * scale));
+        const Client::PixelRect band{0, top, static_cast<std::int32_t>(width), deck.deck.yPixels - top};
+        std::size_t whole = 0;
+        for (std::size_t index = 0; index < laid.size(); ++index)
+        {
+          Assert::IsTrue(laid[index].rect.Inside(band));
+          for (std::size_t other = index + 1; other < laid.size(); ++other)
+          {
+            Assert::IsFalse(laid[index].rect.Overlaps(laid[other].rect));
+          }
+          const auto label = std::ranges::find_if(model.worldLabels, [&laid, index](const Client::HudWorldLabel& _label)
+                                                  { return _label.line == laid[index].text || _label.name == laid[index].text; });
+          Assert::IsTrue(label != model.worldLabels.end());
+          whole += label->line == laid[index].text ? 1 : 0;
+        }
+        Assert::IsTrue(whole >= 1);
+        Assert::AreEqual(std::string("W15 · WEAK HOLE 3/5 M · Locked · 10 s"), laid.front().text);
+      }
+    }
+  }
+
+  TEST_METHOD(NamesStructuresAloneAboveOneHundredFiftyMetresButTheSelected)
+  {
+    const Protocol::StateUpdate state = ThirtySections();
+    Client::Session session;
+    Tell(session, state);
+    const std::vector<Client::HudWorldLabel> labels = Client::Overlays::WorldLabels(session, Overhead(), 1280, 720, 160.0F, 115, true);
+    for (const Client::HudWorldLabel& label : labels)
+    {
+      Assert::AreEqual(label.selected, label.line != label.name);
+    }
+    // Off with the view.
+    Assert::IsTrue(Client::Overlays::WorldLabels(session, Overhead(), 1280, 720, 60.0F, 115, false).empty());
+  }
+
+  TEST_METHOD(ReadsTheLockOnTheReadoutWithoutFlashingAndFocusesTheSelectedFirstInLayoutA)
+  {
+    const Protocol::StateUpdate state = ThirtySections();
+    Client::Session session;
+    Tell(session, state);
+    Client::Overlays overlays;
+    overlays.SelectedFirst(true);
+    overlays.Ask(session, {}, true);
+    AnswerIntegrity(session, state, {Sound(115), Sound(101)});
+    // Nothing by default in layout A, where W2's lab is not.
+    Assert::AreEqual(Protocol::NO_ENTITY, overlays.Focused(session));
+    overlays.Hover(101);
+    overlays.Select(115);
+    Assert::AreEqual(Protocol::EntityId{115}, overlays.Focused(session));
+    const Client::HudReadout readout = overlays.Readout(session, 1.0, true).value_or(Client::HudReadout{});
+    Assert::AreEqual(std::string("REPAIR"), readout.rows.back().key);
+    Assert::AreEqual(std::string("Locked · 10 s"), readout.rows.back().value);
+    Assert::IsFalse(readout.rows.back().flashing);
+    Assert::AreEqual(std::string("Ready"), Client::Overlays::RepairValue(0));
+    Assert::AreEqual(std::string("Locked · 1 s"), Client::Overlays::RepairValue(1));
+    // The weak reading, nearer its fall; none while neither falls within the section.
+    Protocol::IntegrityReading reading = Sound(115);
+    reading.holeWidthVoxels = 2;
+    reading.gapRunVoxels = 3;
+    Assert::AreEqual(std::string("GAP 3/5 M"), Client::Overlays::WeakValue(reading).value_or(""));
+    reading.gapFallRunVoxels = 0;
+    Assert::AreEqual(std::string("HOLE 2/5 M"), Client::Overlays::WeakValue(reading).value_or(""));
+    reading.holeFallWidthVoxels = 0;
+    Assert::IsFalse(Client::Overlays::WeakValue(reading).has_value());
   }
 };
 

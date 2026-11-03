@@ -36,6 +36,16 @@ void Session::Receive(const Protocol::StateUpdate& _state, std::span<const Proto
                                 *reading);
       }
     }
+    else if (const auto* squadAim = std::get_if<Protocol::SquadAim>(&query))
+    {
+      // A ranged squad's attack cursor (M4-C4, M4-I3), kept beside the engines' by the squad's id.
+      if (const auto* reading = std::get_if<Protocol::AimReading>(&answer.reading))
+      {
+        m_aims.insert_or_assign(
+          AimKey{squadAim->squad, squadAim->targetVoxels.xVoxels, squadAim->targetVoxels.yVoxels, squadAim->targetVoxels.zVoxels},
+          *reading);
+      }
+    }
     else if (const auto* integrity = std::get_if<Protocol::SectionIntegrity>(&query))
     {
       if (const auto* reading = std::get_if<Protocol::IntegrityReading>(&answer.reading))

@@ -5,6 +5,7 @@
 #include "Font.h"
 #include "HudAlerts.h"
 #include "Look.h"
+#include "Portraits.h"
 #include "Strings.h"
 #include "TextLayout.h"
 #include "UiScale.h"
@@ -37,6 +38,8 @@ constexpr float ALERT_PADDING_Y_LOGICAL_PIXELS = 8.0F;
 constexpr float ALERT_GAP_LOGICAL_PIXELS = 10.0F;
 constexpr float ALERT_LINE_GAP_LOGICAL_PIXELS = 4.0F;
 constexpr float ALERT_MAX_WIDTH_LOGICAL_PIXELS = 440.0F;
+// A structure's line in the world: its box's padding around the text (M4-I6).
+constexpr float LABEL_PADDING_LOGICAL_PIXELS = 3.0F;
 constexpr float JUMP_PADDING_LOGICAL_PIXELS = 10.0F;
 constexpr float RING_LOGICAL_PIXELS = 24.0F;
 constexpr float CURSOR_LABEL_OFFSET_LOGICAL_PIXELS = 18.0F; // from the pointer to the label's panel
@@ -54,6 +57,50 @@ constexpr float READOUT_BAR_GAP_LOGICAL_PIXELS = 3.0F;
 constexpr float READOUT_BAR_HEIGHT_LOGICAL_PIXELS = 4.0F;
 // The UI scales the readout steps down through where it would be too tall (Hud.md §2's bands).
 constexpr std::array<float, 3> READOUT_SCALES = {2.0F, 1.5F, 1.0F};
+// Layout A (Hud.md §3; M4-I1): the deck's padding and the gap between its columns, the minimap's well, the selection at
+// its narrowest, the card's 4 x 3 cells, 100 to 112 wide and 60 high with gaps of 4, and the strip of groups 1 to 5 and
+// SET above it, at left 212 and bottom 212. With the deck, the readout stands at right 416 and bottom 212, as M6's
+// placement and dig readouts will, and above the strip where the two would meet, as they do at 1280 px.
+constexpr float DECK_PADDING_LOGICAL_PIXELS = 8.0F;
+constexpr float DECK_GAP_LOGICAL_PIXELS = 8.0F;
+constexpr float MINIMAP_LOGICAL_PIXELS = 188.0F;
+constexpr float SELECTION_MIN_LOGICAL_PIXELS = 340.0F;
+constexpr std::int32_t CARD_COLUMNS = 4;
+constexpr std::int32_t CARD_ROWS = 3;
+constexpr float CELL_MIN_WIDTH_LOGICAL_PIXELS = 100.0F;
+constexpr float CELL_MAX_WIDTH_LOGICAL_PIXELS = 112.0F;
+constexpr float CELL_HEIGHT_LOGICAL_PIXELS = 60.0F;
+constexpr float CELL_GAP_LOGICAL_PIXELS = 4.0F;
+constexpr float STRIP_LEFT_LOGICAL_PIXELS = 212.0F;
+constexpr float STRIP_BOTTOM_LOGICAL_PIXELS = 212.0F;
+constexpr float GROUP_WIDTH_LOGICAL_PIXELS = 120.0F;
+constexpr float GROUP_HEIGHT_LOGICAL_PIXELS = 44.0F;
+constexpr float SET_WIDTH_LOGICAL_PIXELS = 64.0F;
+constexpr float DECK_READOUT_RIGHT_LOGICAL_PIXELS = 416.0F;
+constexpr float DECK_READOUT_BOTTOM_LOGICAL_PIXELS = 212.0F;
+constexpr float ABOVE_STRIP_GAP_LOGICAL_PIXELS = 8.0F;
+// The selection panel (Hud.md §5; M4-I2): its padding; one thing's 96 px portrait, the hit-point bar 120 x 10 and the
+// gaps between lines; several things' tiles, 80 x 84, with a 40 px portrait.
+constexpr float PANEL_PADDING_LOGICAL_PIXELS = 8.0F;
+constexpr float PORTRAIT_LOGICAL_PIXELS = 96.0F;
+constexpr float HIT_BAR_WIDTH_LOGICAL_PIXELS = 120.0F;
+constexpr float HIT_BAR_HEIGHT_LOGICAL_PIXELS = 10.0F;
+constexpr float PANEL_LINE_GAP_LOGICAL_PIXELS = 4.0F;
+constexpr float TILE_WIDTH_LOGICAL_PIXELS = 80.0F;
+constexpr float TILE_HEIGHT_LOGICAL_PIXELS = 84.0F;
+constexpr float TILE_PORTRAIT_LOGICAL_PIXELS = 40.0F;
+constexpr float TILE_GAP_LOGICAL_PIXELS = 8.0F;
+constexpr float TILE_PADDING_LOGICAL_PIXELS = 4.0F;
+constexpr float TILE_BAR_HEIGHT_LOGICAL_PIXELS = 6.0F;
+// The command card's cells (Hud.md §7; M4-I3): the hotkey's inset from the top-left corner and the label's from the
+// bottom; and the tooltip above the card, right 8 and bottom 212, 400 wide, its hotkey and label on one line and its
+// rule on the next.
+constexpr float CELL_INSET_LOGICAL_PIXELS = 4.0F;
+constexpr float TOOLTIP_RIGHT_LOGICAL_PIXELS = 8.0F;
+constexpr float TOOLTIP_BOTTOM_LOGICAL_PIXELS = 212.0F;
+constexpr float TOOLTIP_WIDTH_LOGICAL_PIXELS = 400.0F;
+constexpr float TOOLTIP_PADDING_LOGICAL_PIXELS = 8.0F;
+constexpr std::string_view TOOLTIP_SEPARATOR = " · ";
 
 // A cap stands on rows 1 to 7 of the font's cell (Hud.md §9), so text is centred on that band.
 constexpr std::int32_t CAP_TOP_ROW = 1;
@@ -153,6 +200,65 @@ public:
     m_texts.push_back({.cell = {_xPixels, _yPixels, NameWidth(_text), NameCell()}, .element = _element});
   }
 
+  /// The image atlas's _cell, a portrait (Portraits.h), drawn over _rect.
+  void Image(const PixelRect& _rect, std::uint32_t _cell)
+  {
+    const auto left = static_cast<float>(_cell * PORTRAIT_TEXELS);
+    m_quads.push_back({.xPixels = static_cast<float>(_rect.xPixels),
+                       .yPixels = static_cast<float>(_rect.yPixels),
+                       .widthPixels = static_cast<float>(_rect.widthPixels),
+                       .heightPixels = static_cast<float>(_rect.heightPixels),
+                       .u0 = left,
+                       .v0 = 0.0F,
+                       .u1 = left + static_cast<float>(PORTRAIT_TEXELS),
+                       .v1 = static_cast<float>(PORTRAIT_TEXELS),
+                       .color = LinearColor(IMAGE_TINT_SRGB),
+                       .textured = false,
+                       .image = true});
+  }
+
+  /// The image atlas's rectangle (_u0, _v0) to (_u1, _v1), in texels, drawn over _rect.
+  void ImageRect(const PixelRect& _rect, float _u0, float _v0, float _u1, float _v1)
+  {
+    m_quads.push_back({.xPixels = static_cast<float>(_rect.xPixels),
+                       .yPixels = static_cast<float>(_rect.yPixels),
+                       .widthPixels = static_cast<float>(_rect.widthPixels),
+                       .heightPixels = static_cast<float>(_rect.heightPixels),
+                       .u0 = _u0,
+                       .v0 = _v0,
+                       .u1 = _u1,
+                       .v1 = _v1,
+                       .color = LinearColor(IMAGE_TINT_SRGB),
+                       .textured = false,
+                       .image = true});
+  }
+
+  /// A bar _rect wide of the track, with _fraction of it filled in _srgb.
+  void Bar(const PixelRect& _rect, float _fraction, std::uint32_t _srgb)
+  {
+    Fill(_rect, LINE_SRGB);
+    const auto filled = static_cast<std::int32_t>(std::lround(std::clamp(_fraction, 0.0F, 1.0F) * static_cast<float>(_rect.widthPixels)));
+    if (filled > 0)
+    {
+      Fill({_rect.xPixels, _rect.yPixels, filled, _rect.heightPixels}, _srgb);
+    }
+  }
+
+  /// A portrait in _rect: the figure's render, or the structure's icon centred at the names' size.
+  void Portrait(const PixelRect& _rect, const HudPortrait& _portrait)
+  {
+    const PixelRect inside = Box(_rect, LINE_SRGB, BUTTON_SRGB, 1.0F);
+    if (_portrait.cell.has_value())
+    {
+      Image(inside, *_portrait.cell);
+    }
+    else if (!_portrait.icon.empty())
+    {
+      NameText(_portrait.icon, inside.xPixels + ((inside.widthPixels - NameWidth(_portrait.icon)) / 2),
+               inside.yPixels + ((inside.heightPixels - NameCell()) / 2), TEXT_SRGB, inside);
+    }
+  }
+
   /// A button: a bordered box with _text centred in it.
   void Button(const PixelRect& _rect, std::string_view _text)
   {
@@ -197,6 +303,180 @@ ReadoutSize MeasureReadout(const HudReadout& _readout, const Painter& _paint)
   return {.widthPixels = width, .heightPixels = height, .contentWidthPixels = width - (2 * border) - (2 * padding)};
 }
 
+/// The selection panel in _well (Hud.md §5; M4-I2): NOTHING SELECTED and its hints; one thing's portrait beside its
+/// name and owner tag, its figures and hit points, and its rows; or the several things' title and their tiles, row
+/// after row, as many as the well holds.
+void LayPanel(const HudPanel& _panel, const PixelRect& _well, Painter& _paint)
+{
+  const std::int32_t border = _paint.Pixels(BORDER_LOGICAL_PIXELS);
+  const std::int32_t padding = _paint.Pixels(PANEL_PADDING_LOGICAL_PIXELS);
+  const std::int32_t gap = _paint.Pixels(PANEL_LINE_GAP_LOGICAL_PIXELS);
+  const PixelRect inside{_well.xPixels + border, _well.yPixels + border, _well.widthPixels - (2 * border),
+                         _well.heightPixels - (2 * border)};
+  const std::int32_t left = inside.xPixels + padding;
+  const std::int32_t right = inside.xPixels + inside.widthPixels;
+  const std::int32_t bottom = inside.yPixels + inside.heightPixels;
+  std::int32_t y = inside.yPixels + padding;
+  if (_panel.shows == HudPanel::Shows::Nothing)
+  {
+    _paint.Text(NOTHING_SELECTED, left, y, TEXT_SRGB, inside);
+    for (const std::string_view hint : {HINT_CLICK, HINT_DRAG, HINT_GROUPS})
+    {
+      y += _paint.Cell() + gap;
+      _paint.Text(hint, left, y, DIM_SRGB, inside);
+    }
+    return;
+  }
+  if (_panel.shows == HudPanel::Shows::One)
+  {
+    const std::int32_t side = _paint.Pixels(PORTRAIT_LOGICAL_PIXELS);
+    _paint.Portrait({left, y, side, side}, _panel.portrait);
+    // The column beside the portrait reaches the well's inner edge less half its padding, so that a 220 px row fits
+    // the narrowest selection's 340 (Hud.md §5).
+    const std::int32_t columnLeft = left + side + padding;
+    const PixelRect column{columnLeft, y, right - (padding / 2) - columnLeft, bottom - y};
+    std::int32_t line = column.yPixels;
+    _paint.NameText(_panel.name, column.xPixels, line, TEXT_SRGB, column);
+    const std::string_view tag = _panel.enemy ? ENEMY : YOURS;
+    const std::uint32_t tagSrgb = _panel.enemy ? BAD_SRGB : ACCENT_SRGB;
+    const std::int32_t tagLeft = column.xPixels + _paint.NameWidth(_panel.name) + _paint.Pixels(KEY_GAP_LOGICAL_PIXELS);
+    if (tagLeft + _paint.Width(tag) <= column.xPixels + column.widthPixels)
+    {
+      // On the name's line, standing on its foot.
+      _paint.Text(tag, tagLeft, line + _paint.NameCell() - _paint.Cell(), tagSrgb, column);
+      line += _paint.NameCell() + gap;
+    }
+    else
+    {
+      line += _paint.NameCell() + gap;
+      _paint.Text(tag, column.xPixels, line, tagSrgb, column);
+      line += _paint.Cell() + gap;
+    }
+    if (!_panel.figures.empty() || _panel.hit.has_value())
+    {
+      std::int32_t x = column.xPixels;
+      if (!_panel.figures.empty())
+      {
+        _paint.Text(_panel.figures, x, line, TEXT_SRGB, column);
+        x += _paint.Width(_panel.figures) + _paint.Pixels(KEY_GAP_LOGICAL_PIXELS);
+      }
+      if (_panel.hit.has_value())
+      {
+        const std::int32_t barHeight = _paint.Pixels(HIT_BAR_HEIGHT_LOGICAL_PIXELS);
+        const std::int32_t barWidth = std::min(_paint.Pixels(HIT_BAR_WIDTH_LOGICAL_PIXELS), column.xPixels + column.widthPixels - x);
+        _paint.Bar({x, line + ((_paint.Cell() - barHeight) / 2), barWidth, barHeight}, *_panel.hit, GOOD_SRGB);
+        x += barWidth + _paint.Pixels(KEY_GAP_LOGICAL_PIXELS);
+        if (!_panel.hitText.empty() && x + _paint.Width(_panel.hitText) <= column.xPixels + column.widthPixels)
+        {
+          _paint.Text(_panel.hitText, x, line, SUB_SRGB, column);
+        }
+      }
+      line += _paint.Cell() + gap;
+    }
+    for (std::size_t index = 0; index < std::min<std::size_t>(_panel.rows.size(), 3); ++index)
+    {
+      if (line + _paint.Cell() > bottom)
+      {
+        break;
+      }
+      const HudStatRow& row = _panel.rows.at(index);
+      _paint.Text(row.key, column.xPixels, line, DIM_SRGB, column);
+      _paint.Text(row.value, column.xPixels + _paint.Advance(row.key + " "), line, row.srgb, column);
+      line += _paint.Cell() + gap;
+    }
+    return;
+  }
+  _paint.Text(_panel.title, left, y, TEXT_SRGB, inside);
+  y += _paint.Cell() + gap;
+  const std::int32_t tileWidth = _paint.Pixels(TILE_WIDTH_LOGICAL_PIXELS);
+  const std::int32_t tileHeight = _paint.Pixels(TILE_HEIGHT_LOGICAL_PIXELS);
+  const std::int32_t tileGap = _paint.Pixels(TILE_GAP_LOGICAL_PIXELS);
+  const std::int32_t tilePadding = _paint.Pixels(TILE_PADDING_LOGICAL_PIXELS);
+  const std::int32_t portrait = _paint.Pixels(TILE_PORTRAIT_LOGICAL_PIXELS);
+  std::int32_t x = left;
+  for (const HudPanelTile& tile : _panel.tiles)
+  {
+    if (x + tileWidth > right - padding)
+    {
+      x = left;
+      y += tileHeight + tileGap;
+    }
+    if (y + tileHeight > bottom)
+    {
+      break; // the panel scrolls when its content overflows (Hud.md §3), which M4 leaves to its owner's look
+    }
+    const PixelRect rect{x, y, tileWidth, tileHeight};
+    const PixelRect tileInside = _paint.Box(rect, tile.active ? ACCENT_SRGB : LINE_SRGB, PANEL_SRGB, PANEL_ALPHA);
+    const PixelRect picture{tileInside.xPixels + tilePadding, tileInside.yPixels + tilePadding, portrait, portrait};
+    _paint.Portrait(picture, tile.portrait);
+    const std::int32_t countLeft = picture.xPixels + portrait + tilePadding;
+    _paint.Text(tile.count, countLeft, picture.yPixels, ACCENT_SRGB, tileInside);
+    _paint.Text(tile.figures, countLeft, picture.yPixels + _paint.Cell(), SUB_SRGB, tileInside);
+    const std::int32_t barTop = picture.yPixels + portrait + tilePadding;
+    if (tile.hit.has_value())
+    {
+      _paint.Bar({picture.xPixels, barTop, tileInside.widthPixels - (2 * tilePadding), _paint.Pixels(TILE_BAR_HEIGHT_LOGICAL_PIXELS)},
+                 *tile.hit, GOOD_SRGB);
+    }
+    _paint.Text(tile.label, tileInside.xPixels + ((tileInside.widthPixels - _paint.Width(tile.label)) / 2),
+                tileInside.yPixels + tileInside.heightPixels - tilePadding - _paint.Cell(), tile.active ? ACCENT_SRGB : TEXT_SRGB,
+                tileInside);
+    x += tileWidth + tileGap;
+  }
+}
+
+/// The minimap in its well's _inside (Hud.md §6; M4-I5): the base, which the image atlas holds below the portraits;
+/// the structures' 7 px dots and the squads' 3 px ones, in their team's colour or #ffe2a8 when selected; the camera's view
+/// quad as a 2 px outline in the text colour; and the pings, 8 px squares in accent or bad. Nothing leaves the well.
+void LayMinimap(const HudMinimap& _minimap, const PixelRect& _inside, Painter& _paint)
+{
+  const auto side = static_cast<float>(_inside.widthPixels);
+  if (_minimap.hasBase)
+  {
+    _paint.ImageRect(_inside, 0.0F, static_cast<float>(MINIMAP_ATLAS_TOP_TEXELS), side,
+                     static_cast<float>(MINIMAP_ATLAS_TOP_TEXELS) + side);
+  }
+  // A square of _sizePixels centred on _at, in the well's pixels, cut to the well.
+  const auto square = [&_inside, &_paint](DirectX::XMFLOAT2 _at, std::int32_t _sizePixels, std::uint32_t _srgb)
+  {
+    const std::int32_t left =
+      std::max(_inside.xPixels, _inside.xPixels + static_cast<std::int32_t>(std::lround(_at.x)) - (_sizePixels / 2));
+    const std::int32_t top = std::max(_inside.yPixels, _inside.yPixels + static_cast<std::int32_t>(std::lround(_at.y)) - (_sizePixels / 2));
+    const std::int32_t right = std::min(_inside.xPixels + _inside.widthPixels, left + _sizePixels);
+    const std::int32_t bottom = std::min(_inside.yPixels + _inside.heightPixels, top + _sizePixels);
+    if (right > left && bottom > top)
+    {
+      _paint.Fill({left, top, right - left, bottom - top}, _srgb);
+    }
+  };
+  for (const HudDot& dot : _minimap.dots)
+  {
+    const std::uint32_t srgb = dot.selected ? SELECTED_DOT_SRGB : (dot.team == 0 ? TEAM_RED_SRGB : TEAM_BLUE_SRGB);
+    square(dot.positionPixels, dot.structure ? 7 : 3, srgb);
+  }
+  // The view quad's four edges, a 2 px square each pixel along them.
+  for (std::size_t corner = 0; corner < _minimap.viewQuad.size(); ++corner)
+  {
+    const DirectX::XMFLOAT2 from = _minimap.viewQuad.at(corner);
+    const DirectX::XMFLOAT2 to = _minimap.viewQuad.at((corner + 1) % _minimap.viewQuad.size());
+    const float length = std::max(std::abs(to.x - from.x), std::abs(to.y - from.y));
+    const auto steps = static_cast<std::int32_t>(std::min(length, 4.0F * side));
+    for (std::int32_t step = 0; step <= steps; ++step)
+    {
+      const float along = steps == 0 ? 0.0F : static_cast<float>(step) / static_cast<float>(steps);
+      const DirectX::XMFLOAT2 at{from.x + ((to.x - from.x) * along), from.y + ((to.y - from.y) * along)};
+      if (at.x >= 0.0F && at.y >= 0.0F && at.x <= side && at.y <= side)
+      {
+        square(at, 2, TEXT_SRGB);
+      }
+    }
+  }
+  for (const HudPing& ping : _minimap.pings)
+  {
+    square(ping.positionPixels, 8, ping.urgent ? BAD_SRGB : ACCENT_SRGB);
+  }
+}
+
 } // namespace
 
 bool PixelRect::Contains(std::int32_t _xPixels, std::int32_t _yPixels) const noexcept
@@ -222,7 +502,9 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
   m_panels.clear();
   m_targets.clear();
   m_texts.clear();
+  m_labels.clear();
   m_readout.reset();
+  m_deck.reset();
   Painter paint(_uiScale, _quads, m_texts);
   const auto width = static_cast<std::int32_t>(_widthPixels);
   const auto height = static_cast<std::int32_t>(_heightPixels);
@@ -235,6 +517,45 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
   paint.Fill({0, barHeight - border, width, border}, LINE_SRGB);
   m_panels.push_back({0, 0, width, barHeight});
   const std::int32_t barTextTop = paint.CenteredCellTop(0, bar.heightPixels);
+
+  // The structures' lines in the world (M4-I6), under every panel: each centred above its anchor and kept between the
+  // top bar and the deck, in the model's order; one that would cover a line already laid is laid as its name alone, and
+  // left out where that would too. The selected one is always laid whole. A line whose anchor is off that band is not.
+  {
+    const std::int32_t bandBottom = _model.deck ? height - paint.Pixels(DECK_LOGICAL_PIXELS) : height;
+    const std::int32_t labelPadding = paint.Pixels(LABEL_PADDING_LOGICAL_PIXELS);
+    for (const HudWorldLabel& label : _model.worldLabels)
+    {
+      const float anchorX = label.anchorPixels.x;
+      const float anchorY = label.anchorPixels.y;
+      if (anchorX < 0.0F || anchorX > static_cast<float>(width) || anchorY < static_cast<float>(barHeight) ||
+          anchorY > static_cast<float>(bandBottom))
+      {
+        continue;
+      }
+      for (const std::string_view text : std::array<std::string_view, 2>{label.line, label.name})
+      {
+        const std::int32_t boxWidth = paint.Width(text) + (2 * labelPadding);
+        const std::int32_t boxHeight = paint.Cell() + (2 * labelPadding);
+        if (boxWidth > width || boxHeight > bandBottom - barHeight)
+        {
+          continue;
+        }
+        const PixelRect box{std::clamp(static_cast<std::int32_t>(std::lround(anchorX)) - (boxWidth / 2), 0, width - boxWidth),
+                            std::clamp(static_cast<std::int32_t>(std::lround(anchorY)) - boxHeight, barHeight, bandBottom - boxHeight),
+                            boxWidth, boxHeight};
+        const bool covers = std::ranges::any_of(m_labels, [&box](const HudLaidLabel& _laid) { return _laid.rect.Overlaps(box); });
+        if (covers && !label.selected)
+        {
+          continue;
+        }
+        paint.Fill(box, PANEL_SRGB, PANEL_ALPHA);
+        paint.Text(text, box.xPixels + labelPadding, box.yPixels + labelPadding, label.srgb, box);
+        m_labels.push_back({.text = std::string(text), .rect = box});
+        break;
+      }
+    }
+  }
 
   // The camera buttons, from the right.
   constexpr std::array<std::pair<HudControl, std::string_view>, 4> BUTTONS = {{{HudControl::TurnLeft, TURN_LEFT},
@@ -372,9 +693,143 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
     }
   }
 
-  // The integrity readout, docked in the bottom-left corner: the focused section's name, then its rows, each key in dim
-  // and its value in its colour, both in accent while the row flashes, and HOLE's and GAP's bars under them. It lays out
-  // at the UI scale, or at the largest band below it at which it is no taller than READOUT_HEIGHT_FRACTION of the screen.
+  // Layout A's deck along the bottom, full width, its border along its top: the minimap's well on the left, the command
+  // card's grid on the right, its cells as wide as the room lets them between 100 and 112, and the selection's panel
+  // taking the rest; and the strip of the control groups above it, 1 to 5 and SET.
+  std::optional<PixelRect> strip;
+  if (_model.deck)
+  {
+    const std::int32_t deckHeight = paint.Pixels(DECK_LOGICAL_PIXELS);
+    const std::int32_t padding = paint.Pixels(DECK_PADDING_LOGICAL_PIXELS);
+    const std::int32_t gap = paint.Pixels(DECK_GAP_LOGICAL_PIXELS);
+    const std::int32_t cellGap = paint.Pixels(CELL_GAP_LOGICAL_PIXELS);
+    HudDeck deck{};
+    deck.deck = {0, height - deckHeight, width, deckHeight};
+    paint.Fill({0, deck.deck.yPixels + border, width, deckHeight - border}, PANEL_SRGB, PANEL_ALPHA);
+    paint.Fill({0, deck.deck.yPixels, width, border}, LINE_SRGB);
+    m_panels.push_back(deck.deck);
+    const std::int32_t top = deck.deck.yPixels + padding;
+    const std::int32_t inner = deckHeight - (2 * padding);
+    const std::int32_t minimap = paint.Pixels(MINIMAP_LOGICAL_PIXELS);
+    deck.minimap = {padding, top, minimap, inner};
+    const std::int32_t cardRoom = width - (2 * padding) - minimap - paint.Pixels(SELECTION_MIN_LOGICAL_PIXELS) - (2 * gap);
+    const std::int32_t cellWidth = std::clamp((cardRoom - ((CARD_COLUMNS - 1) * cellGap)) / CARD_COLUMNS,
+                                              paint.Pixels(CELL_MIN_WIDTH_LOGICAL_PIXELS), paint.Pixels(CELL_MAX_WIDTH_LOGICAL_PIXELS));
+    const std::int32_t cellHeight = paint.Pixels(CELL_HEIGHT_LOGICAL_PIXELS);
+    const std::int32_t cardWidth = (CARD_COLUMNS * cellWidth) + ((CARD_COLUMNS - 1) * cellGap);
+    deck.card = {width - padding - cardWidth, top, cardWidth, (CARD_ROWS * cellHeight) + ((CARD_ROWS - 1) * cellGap)};
+    const std::int32_t selectionLeft = deck.minimap.xPixels + minimap + gap;
+    deck.selection = {selectionLeft, top, deck.card.xPixels - gap - selectionLeft, inner};
+    const PixelRect minimapInside = paint.Box(deck.minimap, LINE_SRGB, WELL_SRGB, 1.0F);
+    LayMinimap(_model.minimap, minimapInside, paint);
+    m_targets.push_back({.control = HudControl::Minimap, .alert = 0, .rect = minimapInside});
+    paint.Box(deck.selection, LINE_SRGB, WELL_SRGB, 1.0F);
+    for (std::int32_t row = 0; row < CARD_ROWS; ++row)
+    {
+      for (std::int32_t column = 0; column < CARD_COLUMNS; ++column)
+      {
+        const std::size_t index = (static_cast<std::size_t>(row) * CARD_COLUMNS) + static_cast<std::size_t>(column);
+        const PixelRect cell{deck.card.xPixels + (column * (cellWidth + cellGap)), top + (row * (cellHeight + cellGap)), cellWidth,
+                             cellHeight};
+        deck.cells.at(index) = cell;
+        // A slot: its hotkey top left in accent, its icon in the middle at the names' size, its label along the bottom;
+        // off text while disabled, an accent border on active-bg while its mode is on; an empty slot very dim.
+        const HudCommandSlot& slot = _model.commandCard.slots.at(index);
+        if (slot.command.empty())
+        {
+          paint.Box(cell, LINE_SRGB, WELL_SRGB, 1.0F);
+          continue;
+        }
+        const PixelRect inside =
+          paint.Box(cell, slot.active ? ACCENT_SRGB : LINE_SRGB, slot.active ? ACTIVE_BACKGROUND_SRGB : BUTTON_SRGB, 1.0F);
+        const std::int32_t cellInset = paint.Pixels(CELL_INSET_LOGICAL_PIXELS);
+        const std::uint32_t textSrgb = slot.enabled ? TEXT_SRGB : OFF_SRGB;
+        paint.Text(slot.hotkey, inside.xPixels + cellInset, inside.yPixels + cellInset, slot.enabled ? ACCENT_SRGB : OFF_SRGB, inside);
+        paint.NameText(slot.icon, inside.xPixels + ((inside.widthPixels - paint.NameWidth(slot.icon)) / 2),
+                       inside.yPixels + ((inside.heightPixels - paint.NameCell()) / 2) - cellInset, textSrgb, inside);
+        paint.Text(slot.label, inside.xPixels + ((inside.widthPixels - paint.Width(slot.label)) / 2),
+                   inside.yPixels + inside.heightPixels - cellInset - paint.Cell(), textSrgb, inside);
+        m_targets.push_back({.control = HudControl::CardSlot, .alert = index, .rect = cell});
+      }
+    }
+    // The strip: each group's slot with its number in dim and what it holds, its first kind's label and its figures, or
+    // the figures alone where both do not fit; then SET, in accent while it is on. Each is a hit target.
+    const std::int32_t slotHeight = paint.Pixels(GROUP_HEIGHT_LOGICAL_PIXELS);
+    const std::int32_t slotTop = height - paint.Pixels(STRIP_BOTTOM_LOGICAL_PIXELS) - slotHeight;
+    std::int32_t slotLeft = paint.Pixels(STRIP_LEFT_LOGICAL_PIXELS);
+    for (std::size_t slot = 0; slot < HudDeck::GROUP_SLOTS; ++slot)
+    {
+      const bool set = slot + 1 == HudDeck::GROUP_SLOTS;
+      const PixelRect rect{slotLeft, slotTop, paint.Pixels(set ? SET_WIDTH_LOGICAL_PIXELS : GROUP_WIDTH_LOGICAL_PIXELS), slotHeight};
+      if (set)
+      {
+        const PixelRect inside =
+          paint.Box(rect, _model.settingGroup ? ACCENT_SRGB : LINE_SRGB, _model.settingGroup ? ACTIVE_BACKGROUND_SRGB : BUTTON_SRGB, 1.0F);
+        paint.Text(SET_GROUP, rect.xPixels + ((rect.widthPixels - paint.Width(SET_GROUP)) / 2),
+                   paint.CenteredCellTop(rect.yPixels, rect.heightPixels), _model.settingGroup ? ACCENT_SRGB : TEXT_SRGB, inside);
+        m_targets.push_back({.control = HudControl::SetGroup, .alert = 0, .rect = rect});
+      }
+      else
+      {
+        const PixelRect inside = paint.Box(rect, LINE_SRGB, PANEL_SRGB, PANEL_ALPHA);
+        const std::string number = std::to_string(slot + 1);
+        const std::int32_t textTop = paint.CenteredCellTop(rect.yPixels, rect.heightPixels);
+        const std::int32_t numberLeft = inside.xPixels + paint.Pixels(KEY_GAP_LOGICAL_PIXELS);
+        paint.Text(number, numberLeft, textTop, DIM_SRGB, inside);
+        const std::string& label = _model.groupLabels.at(slot);
+        if (!label.empty())
+        {
+          const std::int32_t labelLeft = numberLeft + paint.Width(number) + paint.Pixels(KEY_GAP_LOGICAL_PIXELS);
+          const std::int32_t labelRoom = inside.xPixels + inside.widthPixels - labelLeft;
+          const std::string_view figures = std::string_view(label).substr(label.rfind(' ') == std::string::npos ? 0 : label.rfind(' ') + 1);
+          const std::string_view shown = paint.Width(label) <= labelRoom ? std::string_view(label) : figures;
+          if (paint.Width(shown) <= labelRoom)
+          {
+            paint.Text(shown, labelLeft, textTop, TEXT_SRGB, inside);
+          }
+        }
+        m_targets.push_back({.control = HudControl::GroupSlot, .alert = slot, .rect = rect});
+      }
+      deck.groups.at(slot) = rect;
+      slotLeft += rect.widthPixels;
+    }
+    strip = PixelRect{deck.groups.front().xPixels, slotTop, slotLeft - deck.groups.front().xPixels, slotHeight};
+    m_panels.push_back(*strip);
+    m_deck = deck;
+    LayPanel(_model.panel, deck.selection, paint);
+
+    // The hovered slot's tooltip above the card: its hotkey and label, then its rule.
+    if (_model.tooltip.has_value() && !_model.tooltip->empty())
+    {
+      const std::string_view text = *_model.tooltip;
+      const std::size_t first = text.find(TOOLTIP_SEPARATOR);
+      const std::size_t second = first == std::string_view::npos ? first : text.find(TOOLTIP_SEPARATOR, first + TOOLTIP_SEPARATOR.size());
+      const std::string_view head = second == std::string_view::npos ? text : text.substr(0, second);
+      const std::string_view rule = second == std::string_view::npos ? std::string_view{} : text.substr(second + TOOLTIP_SEPARATOR.size());
+      const std::int32_t tipPadding = paint.Pixels(TOOLTIP_PADDING_LOGICAL_PIXELS);
+      const std::int32_t lines = rule.empty() ? 1 : 2;
+      const std::int32_t tipHeight = (2 * border) + (2 * tipPadding) + (lines * paint.Cell()) + ((lines - 1) * gap);
+      const std::int32_t tipWidth = paint.Pixels(TOOLTIP_WIDTH_LOGICAL_PIXELS);
+      PixelRect tip{width - paint.Pixels(TOOLTIP_RIGHT_LOGICAL_PIXELS) - tipWidth,
+                    height - paint.Pixels(TOOLTIP_BOTTOM_LOGICAL_PIXELS) - tipHeight, tipWidth, tipHeight};
+      if (tip.Overlaps(*strip))
+      {
+        tip.yPixels = strip->yPixels - paint.Pixels(ABOVE_STRIP_GAP_LOGICAL_PIXELS) - tipHeight; // as the readout, at 1280 px
+      }
+      const PixelRect tipInside = paint.Box(tip, LINE_SRGB, PANEL_SRGB, PANEL_ALPHA);
+      m_panels.push_back(tip);
+      paint.Text(head, tipInside.xPixels + tipPadding, tipInside.yPixels + tipPadding, ACCENT_SRGB, tipInside);
+      if (!rule.empty())
+      {
+        paint.Text(rule, tipInside.xPixels + tipPadding, tipInside.yPixels + tipPadding + paint.Cell() + gap, SUB_SRGB, tipInside);
+      }
+    }
+  }
+
+  // The integrity readout: the focused section's name, then its rows, each key in dim and its value in its colour, both
+  // in accent while the row flashes, and HOLE's and GAP's bars under them. It stands above the deck, or without one in
+  // the bottom-left corner, and lays out at the UI scale, or at the largest band below it at which it is no taller than
+  // READOUT_HEIGHT_FRACTION of the screen.
   if (_model.readout.has_value())
   {
     const HudReadout& readout = *_model.readout;
@@ -395,8 +850,17 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
     Painter readoutPaint(readoutScale, _quads, m_texts);
     const ReadoutSize size = MeasureReadout(readout, readoutPaint);
     const std::int32_t margin = paint.Pixels(READOUT_LEFT_LOGICAL_PIXELS);
-    const PixelRect box{margin, height - paint.Pixels(READOUT_BOTTOM_LOGICAL_PIXELS) - size.heightPixels,
-                        std::min(size.widthPixels, width - (2 * margin)), size.heightPixels};
+    const std::int32_t boxWidth = std::min(size.widthPixels, width - (2 * margin));
+    PixelRect box{margin, height - paint.Pixels(READOUT_BOTTOM_LOGICAL_PIXELS) - size.heightPixels, boxWidth, size.heightPixels};
+    if (_model.deck)
+    {
+      box.xPixels = std::max(margin, width - paint.Pixels(DECK_READOUT_RIGHT_LOGICAL_PIXELS) - boxWidth);
+      box.yPixels = height - paint.Pixels(DECK_READOUT_BOTTOM_LOGICAL_PIXELS) - size.heightPixels;
+      if (strip.has_value() && box.Overlaps(*strip))
+      {
+        box.yPixels = strip->yPixels - paint.Pixels(ABOVE_STRIP_GAP_LOGICAL_PIXELS) - size.heightPixels;
+      }
+    }
     const PixelRect inside = readoutPaint.Box(box, LINE_SRGB, PANEL_SRGB, PANEL_ALPHA);
     m_panels.push_back(box);
     m_readout = box;
@@ -454,7 +918,9 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
     const std::int32_t alertWidth =
       std::min((2 * border) + (2 * paddingX) + textWidth + jumpRoom, paint.Pixels(ALERT_MAX_WIDTH_LOGICAL_PIXELS));
     const PixelRect box{paint.Pixels(ALERTS_LEFT_LOGICAL_PIXELS), y, alertWidth, (2 * border) + (2 * paddingY) + content};
-    if (m_readout.has_value() && box.Overlaps(*m_readout))
+    const bool meets = (m_readout.has_value() && box.Overlaps(*m_readout)) || (strip.has_value() && box.Overlaps(*strip)) ||
+                       (m_deck.has_value() && box.Overlaps(m_deck->deck));
+    if (meets)
     {
       break;
     }
@@ -523,9 +989,30 @@ std::span<const HudText> Hud::Texts() const noexcept
   return m_texts;
 }
 
+std::span<const HudLaidLabel> Hud::Labels() const noexcept
+{
+  return m_labels;
+}
+
 std::optional<PixelRect> Hud::Readout() const noexcept
 {
   return m_readout;
+}
+
+std::uint32_t Hud::MinimapSidePixels(float _uiScale) noexcept
+{
+  return static_cast<std::uint32_t>(
+    std::max(1, ScaledPixels(MINIMAP_LOGICAL_PIXELS, _uiScale) - (2 * ScaledPixels(BORDER_LOGICAL_PIXELS, _uiScale))));
+}
+
+std::optional<HudDeck> Hud::Deck() const noexcept
+{
+  return m_deck;
+}
+
+std::span<const PixelRect> Hud::Panels() const noexcept
+{
+  return m_panels;
 }
 
 } // namespace Client
