@@ -701,3 +701,9 @@ Each order is one commit, straight to main by the owner's choice of 2026-11-03, 
 - **Changes:** at the question and the result, `Lab::Frame` hands the session's queries to the world before `AnswerBetweenTicks`. Whatever a view first asks while paused is then answered too, F2's reach among them.
 - **Tests:** none: `Lab` lives in `Earthrise`, which no test project references. Checked on screen: L01's question at tick 0 shows its readout and takes F2, and all 17 hashes still match.
 - **Owner runs:** the rehearsal, `Earthrise --lab P00`: the practice item's question shows W2's readout.
+
+### M3-H6 — An alert goes under the mode banner
+- **Waits on:** nothing.
+- **Read first:** Hud.md §3; `Client/Hud.cpp`, the alerts.
+- **Changes:** an alert that would meet the mode banner starts under it, and the older ones follow. Where that takes one to the readout, it is left out as before (M3-H1).
+- **Tests:** **`HudTests`:** no two panels overlap, under the question's banner and under the asked shots', at 1280 × 720 and 1920 × 1080 at each UI scale. It fails without the change.

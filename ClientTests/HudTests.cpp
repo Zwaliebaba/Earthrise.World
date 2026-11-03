@@ -284,6 +284,37 @@ public:
     }
   }
 
+  TEST_METHOD(PutsAnAlertThatWouldMeetTheBannerUnderIt)
+  {
+    // The pre-session run: at 1280 x 720 and a UI scale of 1.5 the breach alert met the corner of the asked shots' banner.
+    // The lab's question is the widest banner, stacked in two rows at a scale of 2, and the asked shots' has no button.
+    Client::HudModel question = WidestModel();
+    question.mode.banner = "WILL W2 BE OPEN TO FOOT AFTER 4 SHOTS AT THE MARK?";
+    Client::HudModel shots = WidestModel();
+    shots.mode.banner = "4 SHOTS AT THE MARK · 10×";
+    shots.mode.buttons.clear();
+    for (const Client::HudModel& model : {question, shots})
+    {
+      for (const auto& [width, height] : {std::pair{1280U, 720U}, std::pair{1920U, 1080U}})
+      {
+        for (const float scale : {1.0F, 1.5F, 2.0F})
+        {
+          Client::Hud hud;
+          std::vector<Client::ScreenQuad> quads;
+          hud.Build(model, width, height, scale, quads);
+          const std::span<const Client::PixelRect> panels = hud.Panels();
+          for (std::size_t first = 0; first < panels.size(); ++first)
+          {
+            for (std::size_t second = first + 1; second < panels.size(); ++second)
+            {
+              Assert::IsFalse(panels[first].Overlaps(panels[second]));
+            }
+          }
+        }
+      }
+    }
+  }
+
   TEST_METHOD(DocksTheReadoutAndLeavesOutAnAlertThatWouldMeetIt)
   {
     // M3-H1: the readout in the bottom-left corner, as wide as its longest row, under the alerts. At 1280 x 720 and a UI
