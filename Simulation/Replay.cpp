@@ -61,67 +61,107 @@ std::span<const std::byte> ReplayRecorder::Bytes() const noexcept
   return m_bytes;
 }
 
-ReplayResult Replay(std::span<const std::byte> _replay, const World::Desc& _desc)
+namespace
 {
-  Core::ByteReader reader(_replay);
-  std::span<const std::byte> start;
+
+/// The start, read past the magic number and the version, which _reader is left after.
+std::span<const std::byte> ReadStart(Core::ByteReader& _reader)
+{
   try
   {
-    if (!std::ranges::equal(reader.ReadBytes(REPLAY_MAGIC.size()), REPLAY_MAGIC))
+    if (!std::ranges::equal(_reader.ReadBytes(REPLAY_MAGIC.size()), REPLAY_MAGIC))
     {
       Refuse("it does not begin with the magic number ERRP");
     }
-    const std::uint32_t version = reader.ReadU32();
+    const std::uint32_t version = _reader.ReadU32();
     if (version != REPLAY_FORMAT_VERSION)
     {
       Refuse("its format version is " + std::to_string(version) + ", and this build reads " + std::to_string(REPLAY_FORMAT_VERSION));
     }
-    start = reader.ReadBytes(reader.ReadU32());
+    return _reader.ReadBytes(_reader.ReadU32());
   }
   catch (const std::out_of_range&)
   {
     Refuse("it ends before its start does");
   }
-  World world = LoadSave(start, _desc);
+}
 
-  ReplayResult result{.matched = true, .firstDifferingTick = std::nullopt, .ticksReplayed = 0};
+} // namespace
+
+ReplayPlayer::ReplayPlayer(std::vector<std::byte> _replay, const World::Desc& _desc)
+  : m_bytes(std::move(_replay)),
+    m_reader(m_bytes),
+    m_world(LoadSave(ReadStart(m_reader), _desc))
+{
+}
+
+World& ReplayPlayer::Played() noexcept
+{
+  return m_world;
+}
+
+bool ReplayPlayer::Step()
+{
+  if (Done())
+  {
+    return false;
+  }
   try
   {
-    while (!reader.AtEnd())
+    const std::uint32_t commands = m_reader.ReadU32();
+    for (std::uint32_t number = 0; number < commands; ++number)
     {
-      const std::uint32_t commands = reader.ReadU32();
-      for (std::uint32_t number = 0; number < commands; ++number)
-      {
-        const std::uint8_t player = reader.ReadU8();
-        world.Submit(player, reader.ReadBytes(reader.ReadU32()));
-      }
-      const bool hashed = reader.ReadU8() != 0;
-      const std::uint64_t expected = hashed ? reader.ReadU64() : 0;
-      try
-      {
-        world.Tick();
-      }
-      catch (const std::invalid_argument&)
-      {
-        // A command the recorded run applied and this one cannot: the replay has gone wrong here.
-        return {.matched = false, .firstDifferingTick = world.TickCount() + 1, .ticksReplayed = result.ticksReplayed};
-      }
-      catch (const std::out_of_range&)
-      {
-        return {.matched = false, .firstDifferingTick = world.TickCount() + 1, .ticksReplayed = result.ticksReplayed};
-      }
-      ++result.ticksReplayed;
-      if (hashed && expected != StateHash(world))
-      {
-        return {.matched = false, .firstDifferingTick = world.TickCount(), .ticksReplayed = result.ticksReplayed};
-      }
+      const std::uint8_t player = m_reader.ReadU8();
+      m_world.Submit(player, m_reader.ReadBytes(m_reader.ReadU32()));
+    }
+    const bool hashed = m_reader.ReadU8() != 0;
+    const std::uint64_t expected = hashed ? m_reader.ReadU64() : 0;
+    try
+    {
+      m_world.Tick();
+    }
+    catch (const std::invalid_argument&)
+    {
+      // A command the recorded run applied and this one cannot: the replay has gone wrong here.
+      m_result = {.matched = false, .firstDifferingTick = m_world.TickCount() + 1, .ticksReplayed = m_result.ticksReplayed};
+      return false;
+    }
+    catch (const std::out_of_range&)
+    {
+      m_result = {.matched = false, .firstDifferingTick = m_world.TickCount() + 1, .ticksReplayed = m_result.ticksReplayed};
+      return false;
+    }
+    ++m_result.ticksReplayed;
+    if (hashed && expected != StateHash(m_world))
+    {
+      m_result = {.matched = false, .firstDifferingTick = m_world.TickCount(), .ticksReplayed = m_result.ticksReplayed};
+      return false;
     }
   }
   catch (const std::out_of_range&)
   {
     Refuse("its last tick is cut short");
   }
-  return result;
+  return true;
+}
+
+bool ReplayPlayer::Done() const noexcept
+{
+  return m_reader.AtEnd() || !m_result.matched;
+}
+
+ReplayResult ReplayPlayer::Result() const noexcept
+{
+  return m_result;
+}
+
+ReplayResult Replay(std::span<const std::byte> _replay, const World::Desc& _desc)
+{
+  ReplayPlayer player(std::vector<std::byte>(_replay.begin(), _replay.end()), _desc);
+  while (player.Step())
+  {
+  }
+  return player.Result();
 }
 
 } // namespace Simulation

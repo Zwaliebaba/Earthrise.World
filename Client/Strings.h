@@ -36,6 +36,9 @@ inline constexpr std::string_view KEEP_FALLEN_BANNER = "THE KEEP HAS FALLEN · {
 inline constexpr std::string_view TIME_RUN_OUT_BANNER = "TIME HAS RUN OUT · {}:{:02}";
 inline constexpr std::string_view ARMY_GONE_BANNER = "YOUR ARMY IS GONE · {}:{:02}";
 inline constexpr std::string_view PAUSED_BANNER = "PAUSED · PAUSE OR F10 TO GO ON";
+// Earthrise --replay's end (M4-J2): every state hash matched over n ticks, or the first tick that differed.
+inline constexpr std::string_view REPLAY_MATCHED_BANNER = "REPLAY MATCHED · {} TICKS";
+inline constexpr std::string_view REPLAY_DIFFERS_BANNER = "REPLAY DIFFERS AT TICK {}";
 inline constexpr std::string_view TURN_LEFT = "↺";
 inline constexpr std::string_view TURN_RIGHT = "↻";
 inline constexpr std::string_view ZOOM_OUT = "-";
@@ -303,6 +306,8 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      TIME_RUN_OUT_BANNER,
                                                                      ARMY_GONE_BANNER,
                                                                      PAUSED_BANNER,
+                                                                     REPLAY_MATCHED_BANNER,
+                                                                     REPLAY_DIFFERS_BANNER,
                                                                      TURN_LEFT,
                                                                      TURN_RIGHT,
                                                                      ZOOM_OUT,

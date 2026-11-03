@@ -67,6 +67,8 @@
     <ClCompile Include="HoverTests.cpp" />
     <ClCompile Include="CommandSourceTests.cpp" />
     <ClCompile Include="SiegeFlowTests.cpp" />
+    <ClCompile Include="SiegeLogTests.cpp" />
+    <ClCompile Include="DeckCoverageTests.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

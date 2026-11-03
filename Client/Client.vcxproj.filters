@@ -255,6 +255,18 @@
     <ClCompile Include="SiegeModel.cpp">
       <Filter>Siege</Filter>
     </ClCompile>
+    <ClInclude Include="SiegeLog.h">
+      <Filter>Siege</Filter>
+    </ClInclude>
+    <ClCompile Include="SiegeLog.cpp">
+      <Filter>Siege</Filter>
+    </ClCompile>
+    <ClInclude Include="DeckCoverage.h">
+      <Filter>Siege</Filter>
+    </ClInclude>
+    <ClCompile Include="DeckCoverage.cpp">
+      <Filter>Siege</Filter>
+    </ClCompile>
     <ClCompile Include="LabModel.cpp">
       <Filter>Lab</Filter>
     </ClCompile>

@@ -48,6 +48,8 @@
     <ClInclude Include="Lab.h" />
     <ClInclude Include="Siege.h" />
     <ClCompile Include="Siege.cpp" />
+    <ClInclude Include="ReplayRun.h" />
+    <ClCompile Include="ReplayRun.cpp" />
     <ClCompile Include="Lab.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -160,7 +160,9 @@ enum class TrialEventKind : std::uint8_t
 
 /// One event: UnitDied names its player, the unit, its squad, its kind as the amount and its cell; StoneSpent and
 /// TimberSpent the player, what it was spent on, the engine that fired or the structure repaired, the hundredths of a
-/// cubic metre as the amount, and the engine's cell or the voxel put back.
+/// cubic metre as the amount, and the engine's cell or the voxel put back. ShotFired names a stone's player, its engine,
+/// the shot and the aim point; ShotLanded the same player, engine and shot, 1 as the amount and the voxel it struck, or
+/// 0 and no voxel for a stone that left the world (M4-J2). Arrows raise neither.
 struct TrialEvent
 {
   TrialEventKind kind;

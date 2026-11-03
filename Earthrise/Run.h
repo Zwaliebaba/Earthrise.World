@@ -1,5 +1,7 @@
 #pragma once
 
+#include <DirectXMath.h>
+
 #include "ChunkCoordinate.h"
 #include "HudModel.h"
 #include "OverlayBox.h"
@@ -27,6 +29,16 @@ struct RunInput
   bool passabilityOn;
   bool engineSelected; // an engine is selected at the frame's end (M3-H3)
   bool pausePressed;   // Pause or F10 (MvpPlan.md, M4, input 25)
+};
+
+/// What a frame drew the world with, and the HUD's bands over it, after the frame's ticks (M4-J2).
+struct DrawnFrame
+{
+  DirectX::XMFLOAT4X4 viewProjection;
+  std::uint32_t widthPixels;
+  std::uint32_t heightPixels;
+  float topBarPixels;
+  float deckPixels; // 0 without the deck
 };
 
 /// What Earthrise runs (ADR-020): the M2 breach run live, the breach lab (M3-G1), or a scenario such as the Siege castle
@@ -61,6 +73,8 @@ public:
   virtual bool Tick(Client::Session& _session, double _seconds) = 0;
   /// After the frame's ticks.
   virtual void Frame(const RunInput& _input, Client::Session& _session) = 0;
+  /// With what the frame draws the world: where the trial's log reads the breaches' places on screen (M4-J2).
+  virtual void Drew(const DrawnFrame& /* _frame */) {}
 
   [[nodiscard]] virtual double Speed() const noexcept = 0;
   [[nodiscard]] virtual bool Paused() const noexcept = 0;

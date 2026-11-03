@@ -29,6 +29,7 @@
 #include "Scenario.h"
 #include "ServerData.h"
 #include "Session.h"
+#include "ReplayRun.h"
 #include "Siege.h"
 #include "AlertWatch.h"
 #include "CommandCard.h"
@@ -66,7 +67,8 @@
 // executable. `--siege <participant> [--control] [--mirror]` runs the Siege trial (M4-J1, Siege.h): the castle, or with
 // --mirror SiegeMirror, whose weak section is on the west (M4-B6), and with --control the control version (ADR-028).
 // `--siege --watch` seats the scripted attacker (Simulation::SiegeAttacker, M4-F5) for the player, for the owner's checks,
-// and needs no participant. Pause or F10 pauses the trial.
+// and needs no participant. Pause or F10 pauses the trial. Each trial writes its log and its replay to Logs\ (M4-J2), and
+// `--replay <file>` plays a replay back on screen and says whether every state hash matched.
 //
 // It starts borderless over the whole monitor (ADR-011, decision 1), and Alt+Enter switches between that and a window.
 // `--windowed` starts it in a window. `--speed 10` runs the clock at ten times. `--ui-scale 1.5` sets the UI scale over
@@ -107,6 +109,7 @@ struct Options
   bool control;                                // --control, with --siege: the control version (ADR-028)
   bool mirror;                                 // --mirror, with --siege: the mirrored castle (M4-B6)
   bool watch;                                  // --watch, with --siege: the scripted attacker plays the player (M4-H1)
+  std::optional<std::string> replay;           // --replay: a Siege trial's replay, played back (M4-J2)
 };
 
 /// Whether the command line holds _flag as a word of its own.
@@ -504,10 +507,14 @@ int Run(const Options& _options)
   const std::filesystem::path executable = ExecutablePath();
   const std::uint64_t buildId = BuildIdOf(executable);
   const Simulation::ServerData serverData = LoadServerData(executable.parent_path());
-  // The lab's site, the breach run's map and seeds (M3-B7), or the Siege castle's (M4-B4) or its mirror's (M4-B6).
-  const std::string_view siegeScenario = _options.mirror ? SIEGE_MIRROR_SCENARIO : SIEGE_SCENARIO;
+  // The lab's site, the breach run's map and seeds (M3-B7), or the Siege castle's (M4-B4) or its mirror's (M4-B6), and
+  // for a replay the one its log names.
+  const bool siege = _options.siege || _options.replay.has_value();
+  const std::string siegeScenario = _options.replay.has_value() ? Earthrise::ReplayRun::ScenarioOf(*_options.replay)
+                                    : _options.mirror           ? std::string(SIEGE_MIRROR_SCENARIO)
+                                                                : std::string(SIEGE_SCENARIO);
   const Simulation::World::Desc desc =
-    _options.siege ? Simulation::ScenarioDesc(serverData, siegeScenario, buildId) : Simulation::LabDesc(serverData, buildId);
+    siege ? Simulation::ScenarioDesc(serverData, siegeScenario, buildId) : Simulation::LabDesc(serverData, buildId);
 
   Engine::Window window({.title = TITLE, .clientWidthPixels = 1280, .clientHeightPixels = 720, .fullScreen = !_options.windowed});
   Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = false});
@@ -520,19 +527,31 @@ int Run(const Options& _options)
                                   .heightMeters = edgeMeters(desc.heightChunks),
                                   .depthMeters = edgeMeters(desc.depthChunks),
                                   .targetFormat = Engine::SwapChain::VIEW_FORMAT,
-                                  .sunMirrored = _options.siege && _options.mirror},
+                                  .sunMirrored = siege && siegeScenario == SIEGE_MIRROR_SCENARIO},
                                  swapChain.WidthPixels(), swapChain.HeightPixels());
   const FlushOnExit flushOnExit{device.DirectQueue()};
 
-  // What runs: the Siege castle with --siege (M4-B4), the breach lab with --lab (M3-G1), or the breach run live.
+  // What runs: a replay with --replay (M4-J2), the Siege trial with --siege (M4-J1), the breach lab with --lab (M3-G1), or
+  // the breach run live.
   std::unique_ptr<Earthrise::Run> run;
-  if (_options.siege)
+  if (_options.replay.has_value())
   {
-    run = std::make_unique<Earthrise::Siege>(desc, Earthrise::SiegeOptions{.participant = _options.siegeParticipant,
-                                                                           .control = _options.control,
-                                                                           .mirror = _options.mirror,
-                                                                           .watch = _options.watch,
-                                                                           .speed = _options.speed});
+    run = std::make_unique<Earthrise::ReplayRun>(desc, *_options.replay, siegeScenario, _options.speed);
+  }
+  else if (_options.siege)
+  {
+    run = std::make_unique<Earthrise::Siege>(
+      desc, Earthrise::SiegeOptions{.participant = _options.siegeParticipant,
+                                    .control = _options.control,
+                                    .mirror = _options.mirror,
+                                    .watch = _options.watch,
+                                    .speed = _options.speed,
+                                    .logFolder = executable.parent_path() / L"Logs",
+                                    .buildId = buildId,
+                                    .serverDataHash = serverData.Hash(),
+                                    .widthPixels = swapChain.WidthPixels(),
+                                    .heightPixels = swapChain.HeightPixels(),
+                                    .uiScale = _options.uiScale.value_or(Client::UiScaleForDpi(window.Dpi()))});
   }
   else if (_options.participant.has_value())
   {
@@ -1017,6 +1036,11 @@ int Run(const Options& _options)
     const float deckPixels = deck ? Client::Hud::DECK_LOGICAL_PIXELS * uiScale : 0.0F;
     DirectX::XMFLOAT4X4 viewProjection{};
     DirectX::XMStoreFloat4x4(&viewProjection, camera.ViewProjection(aspect, swapChain.HeightPixels(), topBarPixels, deckPixels));
+    run->Drew({.viewProjection = viewProjection,
+               .widthPixels = swapChain.WidthPixels(),
+               .heightPixels = swapChain.HeightPixels(),
+               .topBarPixels = topBarPixels,
+               .deckPixels = deckPixels});
     // The fog's mask, made again from each tick's visibility (M4-H3); the renderer uploads it when it changed.
     if (client.fogTick != client.session.State().tick)
     {
@@ -1301,7 +1325,8 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
                 .siegeParticipant = siegeParticipant,
                 .control = HasFlag(commandLine, L"--control"),
                 .mirror = HasFlag(commandLine, L"--mirror"),
-                .watch = HasFlag(commandLine, L"--watch")});
+                .watch = HasFlag(commandLine, L"--watch"),
+                .replay = OptionValue(commandLine, L"--replay")});
   }
   catch (const winrt::hresult_error& error)
   {

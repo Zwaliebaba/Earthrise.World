@@ -337,6 +337,9 @@ struct CommandRecord { std::uint32_t tick; double seconds; std::string command; 
 // Client/Strings.h gains HOVER_TABLE: each HudReading, what hover shows of it, and the key or click that reaches it.
 // J1: the trial's top bar and banners from the update, and its pause (Client/SiegeModel.h); HudObjective gains
 // std::optional<float> progress, and Earthrise::Run gains CameraQuarterTurns() and Banner(), each defaulted.
+// J2: the trial's log as rows (Client/SiegeLog.h), where a structure is on screen (Client/DeckCoverage.h:
+// Coverage CoverageOf(viewProjection, width, height, topBarPixels, deckPixels, minMeters, maxMeters)), Run::Drew(DrawnFrame),
+// defaulted, and Simulation::ReplayPlayer, a replay a tick at a time, which Replay() runs on.
 ```
 
 ### The trial's log (J2)
