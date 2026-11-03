@@ -3,6 +3,7 @@
 #include "SelectionPanel.h"
 
 #include "Look.h"
+#include "Overlays.h"
 #include "Portraits.h"
 #include "Strings.h"
 #include "WorldModels.h"
@@ -81,11 +82,6 @@ std::string Utf8(char32_t _codePoint)
   return text;
 }
 
-std::string Repair(std::uint32_t _lockTicks)
-{
-  return _lockTicks == 0 ? std::string(REPAIR_READY) : std::format(REPAIR_LOCKED, (_lockTicks + TICKS_PER_SECOND - 1) / TICKS_PER_SECOND);
-}
-
 std::string Garrison(const Protocol::StructureView& _structure, bool _enemy)
 {
   if (_enemy)
@@ -95,7 +91,8 @@ std::string Garrison(const Protocol::StructureView& _structure, bool _enemy)
   return std::format(OUT_OF, _structure.garrisonCount, _structure.garrisonCapacity);
 }
 
-HudPanel StructurePanel(const Protocol::StructureView& _structure, const Protocol::StateUpdate& _state)
+HudPanel StructurePanel(const Protocol::StructureView& _structure, const Protocol::StateUpdate& _state,
+                        const Protocol::IntegrityReading* _reading)
 {
   HudPanel panel;
   panel.shows = HudPanel::Shows::One;
@@ -117,13 +114,13 @@ HudPanel StructurePanel(const Protocol::StructureView& _structure, const Protoco
   {
     row(GARRISON_KEY, Garrison(_structure, panel.enemy));
     row(PLATFORM_KEY, share);
-    row(REPAIR_KEY, Repair(_structure.repairLockTicks));
+    row(REPAIR_KEY, Overlays::RepairValue(_structure.repairLockTicks));
   }
   else if (id == "T5")
   {
     row(GARRISON_KEY, Garrison(_structure, panel.enemy));
     row(GATE_KEY, share);
-    row(REPAIR_KEY, Repair(_structure.repairLockTicks));
+    row(REPAIR_KEY, Overlays::RepairValue(_structure.repairLockTicks));
   }
   else if (id == "T2")
   {
@@ -137,9 +134,17 @@ HudPanel StructurePanel(const Protocol::StructureView& _structure, const Protoco
     row(NAME_KEY, _structure.name);
     if (id == "T3")
     {
-      row(OPEN_KEY, std::string(_structure.opened ? OPEN_YES : OPEN_NO));
+      const std::optional<std::string> weak = _reading != nullptr ? Overlays::WeakValue(*_reading) : std::nullopt;
+      if (!_structure.opened && weak.has_value())
+      {
+        row(WEAK_KEY, *weak);
+      }
+      else
+      {
+        row(OPEN_KEY, std::string(_structure.opened ? OPEN_YES : OPEN_NO));
+      }
     }
-    row(REPAIR_KEY, Repair(_structure.repairLockTicks));
+    row(REPAIR_KEY, Overlays::RepairValue(_structure.repairLockTicks));
   }
   return panel;
 }
@@ -218,12 +223,14 @@ HudPanel SquadPanel(const Protocol::SquadView& _squad, const Protocol::StateUpda
 
 } // namespace
 
-HudPanel BuildPanel(const Selection& _selection, const Protocol::StateUpdate& _state)
+HudPanel BuildPanel(const Selection& _selection, const Protocol::StateUpdate& _state, const Protocol::IntegrityReading* _reading)
 {
   if (_selection.structure != Protocol::NO_ENTITY)
   {
     const auto structure = std::ranges::find(_state.structures, _selection.structure, &Protocol::StructureView::id);
-    return structure == _state.structures.end() ? HudPanel{} : StructurePanel(*structure, _state);
+    return structure == _state.structures.end()
+             ? HudPanel{}
+             : StructurePanel(*structure, _state, _reading != nullptr && _reading->structure == structure->id ? _reading : nullptr);
   }
   std::vector<const Protocol::SquadView*> squads;
   for (const Protocol::EntityId id : _selection.squads)

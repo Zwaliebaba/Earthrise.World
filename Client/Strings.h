@@ -80,6 +80,24 @@ inline constexpr std::string_view FALLS = "FALLS";
 /// The passability view's alert (Hud.md §10; M3-F3): the lab's target is W2.
 inline constexpr std::string_view BREACH_OPEN_ALERT = "BREACH OPEN AT W2";
 
+// M4's alerts (Hud.md §10; M4-I6), each named for its place: the structure nearest sappers first seen, the section a
+// route first opens through, and the structure the player's shot lands on, with its lock in whole seconds; and the
+// refusals'. SAPPERS SEEN is for sappers with no structure in the update to name.
+inline constexpr std::string_view SAPPERS_AT_ALERT = "SAPPERS AT {}";
+inline constexpr std::string_view SAPPERS_SEEN_ALERT = "SAPPERS SEEN";
+inline constexpr std::string_view BREACH_OPEN_AT_ALERT = "BREACH OPEN AT {}";
+inline constexpr std::string_view HIT_LOCKED_ALERT = "HIT {} · REPAIR LOCKED {} S";
+inline constexpr std::string_view NOT_ENOUGH_STONE_ALERT = "NOT ENOUGH STONE";
+inline constexpr std::string_view NOT_ENOUGH_TIMBER_ALERT = "NOT ENOUGH TIMBER";
+
+// A wall section's weak reading against its fall (MvpPlan.md, M4, input 22): the panel's WEAK row, and the labels'.
+inline constexpr std::string_view WEAK_HOLE = "HOLE {}/{} M";
+inline constexpr std::string_view WEAK_GAP = "GAP {}/{} M";
+// A structure's line in the world (input 23, as the owner amended it for M4-I6): its name, then its readings, each
+// after the separator, and OPEN yes once a route runs through it.
+inline constexpr std::string_view LABEL_SEPARATOR = " · ";
+inline constexpr std::string_view LABEL_OPEN = "OPEN yes";
+
 // The breach lab (M3-G1; GameDesign.md, M3's values, item 2): its banners, its answers and its objective.
 inline constexpr std::string_view FREE_FIRE_BANNER = "FREE FIRE · {}:{:02} LEFT";
 // Free fire's banner's hint, until the trebuchet is first selected (M3-H3).
@@ -377,6 +395,16 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      PACK_RULE,
                                                                      DEPLOY_RULE,
                                                                      MODE_BANNER,
-                                                                     CARD_TOOLTIP});
+                                                                     CARD_TOOLTIP,
+                                                                     SAPPERS_AT_ALERT,
+                                                                     SAPPERS_SEEN_ALERT,
+                                                                     BREACH_OPEN_AT_ALERT,
+                                                                     HIT_LOCKED_ALERT,
+                                                                     NOT_ENOUGH_STONE_ALERT,
+                                                                     NOT_ENOUGH_TIMBER_ALERT,
+                                                                     WEAK_HOLE,
+                                                                     WEAK_GAP,
+                                                                     LABEL_SEPARATOR,
+                                                                     LABEL_OPEN});
 
 } // namespace Client

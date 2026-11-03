@@ -203,6 +203,39 @@ public:
     Assert::AreEqual(std::string("Locked · 10 s"), panel.rows.at(2).value);
     Assert::IsTrue(Client::BuildPanel({}, state).shows == Client::HudPanel::Shows::Nothing);
   }
+
+  TEST_METHOD(AWallSectionReadsOpenYesOrItsWeakReadingAgainstItsFall)
+  {
+    // Input 22: no percentage; OPEN yes once opened, else the weak reading nearer its fall, within 17 characters.
+    Protocol::StateUpdate state{};
+    state.player = ME;
+    state.structures.push_back(Structure(70, "T3", FOE));
+    const Client::Selection wall{.squads = {}, .structure = 70, .activeKind = std::nullopt};
+    Protocol::IntegrityReading reading{};
+    reading.structure = 70;
+    reading.holeWidthVoxels = 3;
+    reading.holeFallWidthVoxels = 5;
+    reading.gapRunVoxels = 2;
+    reading.gapFallRunVoxels = 5;
+    Client::HudPanel panel = Client::BuildPanel(wall, state, &reading);
+    Assert::AreEqual(std::string("WEAK"), panel.rows.at(1).key);
+    Assert::AreEqual(std::string("HOLE 3/5 M"), panel.rows.at(1).value);
+    Assert::IsTrue(panel.rows.at(1).key.size() + 1 + panel.rows.at(1).value.size() <= 17);
+    Assert::AreEqual(std::string("Locked · 10 s"), panel.rows.at(2).value);
+    // The gap nearer its fall reads instead.
+    reading.gapRunVoxels = 4;
+    panel = Client::BuildPanel(wall, state, &reading);
+    Assert::AreEqual(std::string("GAP 4/5 M"), panel.rows.at(1).value);
+    // Nothing that falls within the section, or no reading yet: OPEN no; and once a route runs through it, OPEN yes.
+    reading.holeFallWidthVoxels = 0;
+    reading.gapFallRunVoxels = 0;
+    Assert::AreEqual(std::string("no"), Client::BuildPanel(wall, state, &reading).rows.at(1).value);
+    Assert::AreEqual(std::string("no"), Client::BuildPanel(wall, state).rows.at(1).value);
+    state.structures.front().opened = true;
+    panel = Client::BuildPanel(wall, state, &reading);
+    Assert::AreEqual(std::string("OPEN"), panel.rows.at(1).key);
+    Assert::AreEqual(std::string("yes"), panel.rows.at(1).value);
+  }
 };
 
 } // namespace ClientTests

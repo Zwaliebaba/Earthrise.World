@@ -29,6 +29,7 @@
 #include "Scenario.h"
 #include "ServerData.h"
 #include "Session.h"
+#include "AlertWatch.h"
 #include "CommandCard.h"
 #include "ControlGroups.h"
 #include "Minimap.h"
@@ -588,6 +589,7 @@ struct Play
   Client::Overlays views;
   Client::FireMode fire;
   Client::HudAlerts alerts;
+  Client::AlertWatch watch; // M4's alerts, from each update (M4-I6)
   Protocol::EntityId selected = Protocol::NO_ENTITY;
   bool worldChanged = false;                                     // the last frame took a changed chunk
   Client::Selection selection;                                   // layout A's (M4-I2)
@@ -742,6 +744,10 @@ int Run(const Options& _options)
       const std::vector<std::vector<std::byte>> answers = world.TakeAnswers();
       client.session.Receive(world.State(PLAYER), published, answers);
       client.tally.Observe(client.session.State());
+      if (run->ShowsDeck())
+      {
+        client.watch.Observe(client.session, seconds, client.alerts); // layout A's alerts; the lab keeps M3's alone
+      }
       client.presentation.Update(client.session, static_cast<float>(seconds));
     }
     // Answers given between ticks while the clock is paused, as the lab's question has them (M3-G1).
@@ -761,6 +767,7 @@ int Run(const Options& _options)
     // deselects (M3-E3; M3-H3); one on a section gives it the integrity readout until the next click or Esc (M3-H1).
     const bool selectionAllowed = run->SelectionAllowed();
     const bool deck = run->ShowsDeck(); // layout A, and its selection by squads (M4-I1, I2)
+    client.views.SelectedFirst(deck);   // and the readout of the structure selected first (M4-I6)
     const std::vector<Client::EngineBox> engineBoxes =
       selectionAllowed ? client.presentation.EngineBoxes() : std::vector<Client::EngineBox>{};
     bool answerOpen = false;
@@ -1081,10 +1088,9 @@ int Run(const Options& _options)
     const bool passabilityShown = passabilityView || run->PassabilityForced();
     if (keyboard.WasPressed(VK_SPACE) && !run->TakesSpace())
     {
-      const auto newest = std::ranges::find_if(hudModel.alerts, [](const Client::HudAlert& _alert) { return _alert.location.has_value(); });
-      if (newest != hudModel.alerts.end())
+      if (const std::optional<Protocol::VoxelPosition> newest = Client::AlertWatch::NewestPlace(hudModel.alerts); newest.has_value())
       {
-        camera.LookAt(FloorMiddle(*newest->location));
+        camera.LookAt(FloorMiddle(*newest));
       }
     }
 
@@ -1242,22 +1248,28 @@ int Run(const Options& _options)
     {
       tooltip = Client::Tooltip(card.slots.at(over->alert));
     }
-    hudModel = {.resources = run->Resources(client.session.State().tick, client.tally.Fired(PLAYER)),
-                .objective = objective,
-                .mode = mode,
-                .alerts = client.alerts.Shown(),
-                .selectedEngine = client.selected,
-                .integrityView = integrityView,
-                .passabilityView = passabilityShown,
-                .readout = client.views.Readout(client.session, seconds, integrityView),
-                .selection = deck ? std::optional<Client::HudSelection>{} : selection, // layout A's panel names it in place of M3's chip
-                .deck = deck,
-                .panel = deck ? Client::BuildPanel(client.selection, client.session.State()) : Client::HudPanel{},
-                .commandCard = card,
-                .tooltip = tooltip,
-                .groupLabels = groupLabels,
-                .settingGroup = client.settingGroup,
-                .minimap = minimapModel};
+    hudModel = {
+      .resources = run->Resources(client.session.State().tick, client.tally.Fired(PLAYER)),
+      .objective = objective,
+      .mode = mode,
+      .alerts = client.alerts.Shown(),
+      .selectedEngine = client.selected,
+      .integrityView = integrityView,
+      .passabilityView = passabilityShown,
+      .readout = client.views.Readout(client.session, seconds, integrityView),
+      .selection = deck ? std::optional<Client::HudSelection>{} : selection, // layout A's panel names it in place of M3's chip
+      .deck = deck,
+      .panel = deck ? Client::BuildPanel(client.selection, client.session.State(), client.session.Integrity(client.selection.structure))
+                    : Client::HudPanel{},
+      .commandCard = card,
+      .tooltip = tooltip,
+      .groupLabels = groupLabels,
+      .settingGroup = client.settingGroup,
+      .minimap = minimapModel,
+      // The structures' lines in the world, in layout A alone: the lab keeps M3-H1's one readout (M4-I6).
+      .worldLabels = deck ? Client::Overlays::WorldLabels(client.session, viewProjection, swapChain.WidthPixels(), swapChain.HeightPixels(),
+                                                          camera.ViewHeightMeters(), client.selection.structure, integrityView)
+                          : std::vector<Client::HudWorldLabel>{}};
     interfaceQuads.clear();
     if (run->ShowsFigures())
     {

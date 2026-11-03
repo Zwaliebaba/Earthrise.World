@@ -57,6 +57,13 @@ struct HudDeck
   std::array<PixelRect, GROUP_SLOTS> groups; // the strip above the deck
 };
 
+/// A structure's line in the world as the HUD laid it (M4-I6): the text, whole or its name alone, and its box.
+struct HudLaidLabel
+{
+  std::string text;
+  PixelRect rect;
+};
+
 /// A string the HUD drew: the cell it takes, and the element it has to fit in.
 struct HudText
 {
@@ -107,6 +114,8 @@ public:
 
   [[nodiscard]] std::span<const HudTarget> Targets() const noexcept;
   [[nodiscard]] std::span<const HudText> Texts() const noexcept;
+  /// The structures' lines in the world as last laid.
+  [[nodiscard]] std::span<const HudLaidLabel> Labels() const noexcept;
   /// Where the readout was laid, as last built, or nothing.
   [[nodiscard]] std::optional<PixelRect> Readout() const noexcept;
   /// Where the deck and the strip were laid, as last built, or nothing when the model had no deck.
@@ -118,6 +127,7 @@ private:
   std::vector<PixelRect> m_panels;
   std::vector<HudTarget> m_targets;
   std::vector<HudText> m_texts;
+  std::vector<HudLaidLabel> m_labels;
   std::optional<PixelRect> m_readout;
   std::optional<HudDeck> m_deck;
 };

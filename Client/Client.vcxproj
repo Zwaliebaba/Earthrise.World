@@ -87,6 +87,8 @@
     <ClCompile Include="FontAtlas.cpp" />
     <ClInclude Include="HudModel.h" />
     <ClCompile Include="HudModel.cpp" />
+    <ClInclude Include="AlertWatch.h" />
+    <ClCompile Include="AlertWatch.cpp" />
     <ClInclude Include="HudAlerts.h" />
     <ClCompile Include="HudAlerts.cpp" />
     <ClInclude Include="Hud.h" />

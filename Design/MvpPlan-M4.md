@@ -329,6 +329,9 @@ struct HudMinimap { bool baseDirty; bool hasBase; std::vector<HudDot> dots; std:
 // HudModel gains: Selection selection; std::array<std::vector<Protocol::EntityId>, 9> controlGroups; HudCommandCard commandCard;
 // HudMinimap minimap; std::optional<std::string> tooltip; HudObjective's progress (0 to 1, the storming clock); the trial's outcome.
 // selectedEngine (M3's) goes: an engine is selected through its squad.
+// I6 (input 23, as the owner amended it): the structures' lines in the world, which the HUD lays.
+struct HudWorldLabel { std::string line; std::string name; DirectX::XMFLOAT2 anchorPixels; std::uint32_t srgb; bool selected; };
+// HudModel gains: std::vector<HudWorldLabel> worldLabels.
 ```
 
 ### The trial's log (J2)

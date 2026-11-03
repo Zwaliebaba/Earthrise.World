@@ -147,6 +147,12 @@
     <ClCompile Include="HudModel.cpp">
       <Filter>Hud</Filter>
     </ClCompile>
+    <ClInclude Include="AlertWatch.h">
+      <Filter>Hud</Filter>
+    </ClInclude>
+    <ClCompile Include="AlertWatch.cpp">
+      <Filter>Hud</Filter>
+    </ClCompile>
     <ClInclude Include="HudAlerts.h">
       <Filter>Hud</Filter>
     </ClInclude>

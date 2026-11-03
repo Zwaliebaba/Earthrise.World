@@ -65,12 +65,16 @@ public:
   /// A click in the world: on _section, which the readout then keeps, or on anything else with NO_ENTITY, which lets
   /// it go back to the target. Esc lets it go too.
   void Select(Protocol::EntityId _section) noexcept;
+  /// Layout A's focus (M4-I6; input 23, as the owner amended it): the structure selected, then the one under the
+  /// pointer, and no target by default, so the selected one always reads in full. The lab keeps M3-H1's.
+  void SelectedFirst(bool _selectedFirst) noexcept;
   /// The section the readout shows (M3-H1): the one under the pointer, else the one clicked, else TARGET_NAME's, each
-  /// while the state holds it; NO_ENTITY when there is none.
+  /// while the state holds it; NO_ENTITY when there is none. In layout A, the one clicked, else the one under the pointer.
   [[nodiscard]] Protocol::EntityId Focused(const Session& _session) const;
   /// While _integrityView is on, the readout of the focused section at _nowSeconds, once it has a reading: its name, and
   /// its rows split into KEY and value, HOLE's and GAP's with a bar of their width over their fall width when one falls,
-  /// and those that changed within FLASH_SECONDS flashing.
+  /// and those that changed within FLASH_SECONDS flashing; and while its repair is locked, REPAIR Locked · n s (M4-I6),
+  /// which counts down and does not flash.
   [[nodiscard]] std::optional<HudReadout> Readout(const Session& _session, double _nowSeconds, bool _integrityView) const;
   /// The section whose box holds _voxels, or NO_ENTITY.
   [[nodiscard]] static Protocol::EntityId SectionAt(const Protocol::StateUpdate& _state, const Protocol::VoxelPosition& _voxels);
@@ -100,6 +104,25 @@ public:
   [[nodiscard]] static std::string WillFallText(const Protocol::StateUpdate& _state, const Protocol::CollapseView& _collapse);
   [[nodiscard]] static std::string HasFallenText(const Protocol::StateUpdate& _state, const Protocol::CollapseView& _collapse);
 
+  /// The view height above which a structure's line in the world is its name alone (input 23).
+  static constexpr float NAMES_ALONE_METERS = 150.0F;
+
+  /// The structures' lines in the world while _integrityView is on (input 23, as the owner amended it for M4-I6), for a
+  /// target _widthPixels by _heightPixels drawn with _viewProjection: for each structure whose anchor, a metre above its
+  /// box's middle, is in front of the camera, its name, then FALLS while a collapse of it runs, OPEN yes once a route
+  /// runs through it, or else its weak reading against its fall, and then its lock while its repair is locked; its name
+  /// alone above NAMES_ALONE_METERS of _viewHeightMeters, but for _selected. The selected first, then nearest the
+  /// screen's middle.
+  [[nodiscard]] static std::vector<HudWorldLabel> WorldLabels(const Session& _session, const DirectX::XMFLOAT4X4& _viewProjection,
+                                                              std::uint32_t _widthPixels, std::uint32_t _heightPixels,
+                                                              float _viewHeightMeters, Protocol::EntityId _selected, bool _integrityView);
+
+  /// A wall section's weak reading against its fall (input 22): HOLE w/f M or GAP r/f M, whichever is nearer its fall,
+  /// HOLE on a tie, while it has a width and a fall width within the section; nothing otherwise.
+  [[nodiscard]] static std::optional<std::string> WeakValue(const Protocol::IntegrityReading& _reading);
+  /// Hud.md §5's REPAIR value: Ready, or Locked · n s, the lock in whole seconds rounded up.
+  [[nodiscard]] static std::string RepairValue(std::uint32_t _lockTicks);
+
   /// A reading's rows, in the paper test's words: HOLE, OPENING, GAP and GROUND, and FALLS in bad while it falls.
   /// GROUND is dim, unless the section can be undermined and a gap lies under it, when it is bad (M3-H1).
   [[nodiscard]] static std::vector<IntegrityRow> IntegrityRows(const Protocol::IntegrityReading& _reading);
@@ -114,6 +137,7 @@ private:
 
   Protocol::EntityId m_hovered = Protocol::NO_ENTITY;
   Protocol::EntityId m_selected = Protocol::NO_ENTITY;
+  bool m_selectedFirst = false;
   std::map<Protocol::EntityId, SeenRows> m_seenRows;
   bool m_integrityAsked = false;                                                      // the view was on at the last Ask
   std::set<Protocol::EntityId> m_asked;                                               // structures asked about since

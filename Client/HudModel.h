@@ -174,6 +174,18 @@ struct HudMinimap
   std::vector<HudPing> pings;
 };
 
+/// A structure's line in the world while the integrity view is on (ADR-021; input 23, as the owner amended it for M4-I6),
+/// anchored above its box's middle as projected this frame: the line, and its name alone for where the line would
+/// crowd another. The HUD lays them in order, so the first are kept whole.
+struct HudWorldLabel
+{
+  std::string line;
+  std::string name;
+  DirectX::XMFLOAT2 anchorPixels;
+  std::uint32_t srgb; // bad while it falls, else the text colour
+  bool selected;      // laid first, and always whole
+};
+
 /// The selection panel in the deck (Hud.md §5; M4-I2), built from the selection and the update each frame.
 struct HudPanel
 {
@@ -216,6 +228,7 @@ struct HudModel
   std::array<std::string, 9> groupLabels = {}; // each control group's slot after its number, empty for an empty group (M4-I4)
   bool settingGroup = false;                   // SET is on: the next slot clicked takes the selection
   HudMinimap minimap = {};                     // in the deck's minimap well (M4-I5)
+  std::vector<HudWorldLabel> worldLabels = {}; // the structures' lines in the world, while F1 is on (M4-I6)
 };
 
 /// The top bar's resources in the breach lab (M3-E2): TIME m:ss of game time, at _tick, and SHOTS n.

@@ -38,6 +38,8 @@ constexpr float ALERT_PADDING_Y_LOGICAL_PIXELS = 8.0F;
 constexpr float ALERT_GAP_LOGICAL_PIXELS = 10.0F;
 constexpr float ALERT_LINE_GAP_LOGICAL_PIXELS = 4.0F;
 constexpr float ALERT_MAX_WIDTH_LOGICAL_PIXELS = 440.0F;
+// A structure's line in the world: its box's padding around the text (M4-I6).
+constexpr float LABEL_PADDING_LOGICAL_PIXELS = 3.0F;
 constexpr float JUMP_PADDING_LOGICAL_PIXELS = 10.0F;
 constexpr float RING_LOGICAL_PIXELS = 24.0F;
 constexpr float CURSOR_LABEL_OFFSET_LOGICAL_PIXELS = 18.0F; // from the pointer to the label's panel
@@ -500,6 +502,7 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
   m_panels.clear();
   m_targets.clear();
   m_texts.clear();
+  m_labels.clear();
   m_readout.reset();
   m_deck.reset();
   Painter paint(_uiScale, _quads, m_texts);
@@ -514,6 +517,45 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
   paint.Fill({0, barHeight - border, width, border}, LINE_SRGB);
   m_panels.push_back({0, 0, width, barHeight});
   const std::int32_t barTextTop = paint.CenteredCellTop(0, bar.heightPixels);
+
+  // The structures' lines in the world (M4-I6), under every panel: each centred above its anchor and kept between the
+  // top bar and the deck, in the model's order; one that would cover a line already laid is laid as its name alone, and
+  // left out where that would too. The selected one is always laid whole. A line whose anchor is off that band is not.
+  {
+    const std::int32_t bandBottom = _model.deck ? height - paint.Pixels(DECK_LOGICAL_PIXELS) : height;
+    const std::int32_t labelPadding = paint.Pixels(LABEL_PADDING_LOGICAL_PIXELS);
+    for (const HudWorldLabel& label : _model.worldLabels)
+    {
+      const float anchorX = label.anchorPixels.x;
+      const float anchorY = label.anchorPixels.y;
+      if (anchorX < 0.0F || anchorX > static_cast<float>(width) || anchorY < static_cast<float>(barHeight) ||
+          anchorY > static_cast<float>(bandBottom))
+      {
+        continue;
+      }
+      for (const std::string_view text : std::array<std::string_view, 2>{label.line, label.name})
+      {
+        const std::int32_t boxWidth = paint.Width(text) + (2 * labelPadding);
+        const std::int32_t boxHeight = paint.Cell() + (2 * labelPadding);
+        if (boxWidth > width || boxHeight > bandBottom - barHeight)
+        {
+          continue;
+        }
+        const PixelRect box{std::clamp(static_cast<std::int32_t>(std::lround(anchorX)) - (boxWidth / 2), 0, width - boxWidth),
+                            std::clamp(static_cast<std::int32_t>(std::lround(anchorY)) - boxHeight, barHeight, bandBottom - boxHeight),
+                            boxWidth, boxHeight};
+        const bool covers = std::ranges::any_of(m_labels, [&box](const HudLaidLabel& _laid) { return _laid.rect.Overlaps(box); });
+        if (covers && !label.selected)
+        {
+          continue;
+        }
+        paint.Fill(box, PANEL_SRGB, PANEL_ALPHA);
+        paint.Text(text, box.xPixels + labelPadding, box.yPixels + labelPadding, label.srgb, box);
+        m_labels.push_back({.text = std::string(text), .rect = box});
+        break;
+      }
+    }
+  }
 
   // The camera buttons, from the right.
   constexpr std::array<std::pair<HudControl, std::string_view>, 4> BUTTONS = {{{HudControl::TurnLeft, TURN_LEFT},
@@ -945,6 +987,11 @@ std::span<const HudTarget> Hud::Targets() const noexcept
 std::span<const HudText> Hud::Texts() const noexcept
 {
   return m_texts;
+}
+
+std::span<const HudLaidLabel> Hud::Labels() const noexcept
+{
+  return m_labels;
 }
 
 std::optional<PixelRect> Hud::Readout() const noexcept
