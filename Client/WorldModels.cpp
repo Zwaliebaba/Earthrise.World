@@ -194,17 +194,13 @@ std::uint32_t WorldModels::Heading(Protocol::EntityId _id, const Protocol::Fixed
     {
       const std::uint32_t xHeading = dx > 0.0F ? 1U : 3U;
       const std::uint32_t zHeading = dz > 0.0F ? 0U : 2U;
-      if (alongX > alongZ + DIAGONAL_METERS)
+      const bool mostlyX = alongX > alongZ + DIAGONAL_METERS;
+      const bool mostlyZ = alongZ > alongX + DIAGONAL_METERS;
+      // A diagonal keeps a facing along either of its axes, so that a zigzag does not flicker; else it faces along x.
+      const bool keeps = !mostlyX && !mostlyZ && (heading == xHeading || heading == zHeading);
+      if (!keeps)
       {
-        heading = xHeading;
-      }
-      else if (alongZ > alongX + DIAGONAL_METERS)
-      {
-        heading = zHeading;
-      }
-      else if (heading != xHeading && heading != zHeading)
-      {
-        heading = xHeading; // a diagonal keeps a facing along either of its axes, so that a zigzag does not flicker
+        heading = mostlyZ ? zHeading : xHeading;
       }
     }
   }
