@@ -68,8 +68,8 @@ All sizes are logical px. The deck is fixed to the bottom of the screen.
 | Mode banner | Top 56, centred | Fits its text | Shown while a targeting mode is on, with CANCEL · ESC (44 high) |
 | Alerts | Left 8, top 110 | Up to 440 wide, up to 3 | Newest first, with JUMP (44 high) when the alert has a place |
 | Control groups | Left 212, bottom 212 | 5 × (120 × 44), plus SET (64 × 44) | A strip above the deck; groups 6–9 by key alone (44 high, so the hit target holds: Decided 2026-11-01) |
-| Tooltip | Right 8, bottom 212 | 400 wide | Above the command card |
-| Readout | Right 416, bottom 212 | 340 wide | Placement and dig readouts |
+| Tooltip | Right 8, bottom 212 | 400 wide | Above the command card. Lifted to 8 above the control groups' strip where the two meet, as they do at 1280 px (as built in M4-I3; Open for the owner) |
+| Readout | Right 416, bottom 212 | 340 wide | Placement and dig readouts. Lifted to 8 above the control groups' strip where the two meet, as they do at 1280 px (as built in M4-I1; Open for the owner) |
 | **Deck** | Bottom, full width | Height 204, padding 8, gap 8 | Three columns |
 | · Minimap | Deck, left | 188 × 188 | §6 |
 | · Selection | Deck, centre | Takes the rest, at least 340 | §5; scrolls if its content overflows |
@@ -127,9 +127,9 @@ The package's touch-first layout puts the minimap and camera buttons top right, 
 - **The base layer** is the top voxel's palette colour, shaded by height. It is built at the minimap's drawn size by reducing the 1 m columns, rather than scaling a 1 m texture to a size that does not divide it. It is rebuilt only when the world changes (Decided 2026-11-01, GameDesign.md, *M4's values*).
 - **The overlay,** redrawn every few frames:
   - squads as 3 px dots and structures as 7 px dots, in team colours, selected ones in #ffe2a8;
-  - designations and blueprints as 1 px outlines;
+  - designations and blueprints as 1 px outlines, from M6, whose state update carries them; M4 has none to draw;
   - the camera's view quad, the screen corners projected to the ground, as a 2 px polygon in the text colour;
-  - alert pings, as pulsing squares in accent, or in bad when urgent.
+  - alert pings, as pulsing squares in accent, or in bad when urgent. M4-I5 draws them as steady 8 px squares; whether they pulse is the owner's (Open, 2026-11-03).
 - **Input:** press or drag moves the camera there, and right-click orders the selection to that point. The minimap keeps clicks from reaching the world.
 
 ## 7. Command card and keys
