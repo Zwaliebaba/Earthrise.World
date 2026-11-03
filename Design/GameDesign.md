@@ -409,7 +409,7 @@ The owner answered MvpPlan.md's twenty-eight M4 inputs, taking each proposal as 
 1. **ADR-018 and ADR-022 to ADR-028 have the go-ahead,** as written, with the amendments they bring to ADR-004, ADR-014, ADR-015, ADR-016, ADR-019, ADR-020 and ADR-021. Each is marked Accepted by the commit that first implements it.
 2. **M4 starts when M3 closes,** with its verdict in and any round of legibility work done. M3's account of what M4 inherits corrects M4's plan first.
    **Changed by the owner on 2026-11-02:** the headless half, phases B to F, starts before M3 closes, since M3's one round of legibility work changes the views and never the rules (*Kill criteria*); the client's half, phases G to J, still waits for M3 to close. The implementer corrects M4's contracts against M3's code in a commit of its own before phase B, and M3-G3's account of what M4 inherits corrects them again before phase G.
-3. **The implementer redraws T1–T7 natively at 1 m,** each template's outline, parts and openings kept and its volume within 2 %, and the owner judges the previews. **T5's gate stands at the inner end of its passage,** the passage 3 m wide and 4 m high clear before it (*the paper tests' values*, item 14).
+3. **The implementer redraws T1–T7 natively at 1 m,** each template's outline, parts and openings kept and its volume within 2 %, and the owner judges the previews. **T5's gate stands at the inner end of its passage,** the passage 3 m wide and 4 m high clear before it (*the paper tests' values*, item 14). T3's redraw comes after the MVP's verdict (*M5's values*, item 2).
 4. **The Siege castle is the route table's:** 62 × 62 m over its towers; 22 standard sections, five towers, the gatehouse facing south, the keep and the hall; a ditch and rampart with a causeway before the gate and a gap before E3; 1 m of soil over common rock, deep earth under E3, whose foundation reaches 4 m; the camp 100 m south. S3 is the nearest section, on rock behind the ditch; E3 is the weak one. It stands on the flattest 200 × 200 m of the generated map clear of the river, levelled. The engine-range guard is measured on its plan, and holds at the decided 50 m with 5.5 m to spare (*the paper tests' values*, item 11).
 5. **The armies.** The attacker: one trebuchet, packed in the camp, one ram, one squad of sappers, four of men-at-arms, three of spearmen, three of archers and two of outriders, 72 figures, with 120 m³ of stone. The defender: six archers in each of the seven garrisons, one squad of men-at-arms and one of outriders to sally and hold, six laborers, 200 m³ of stone and 20 m³ of timber. **A shot costs 1.5 m³ of stone** (*the paper tests' values*, item 17).
 6. **Unit statistics** are MvpPlan.md's table under M4's inputs: hit points, attack, reload, range, armor against melee, pierce and crush, speed, vision and bonuses for the laborer, the four soldiers, sappers, the ram and the trebuchet. Men-at-arms take 1 from an arrow, so they storm.
@@ -441,7 +441,7 @@ The owner answered MvpPlan.md's twenty-eight M4 inputs, taking each proposal as 
 The owner answered the questions phases B and C of the headless pull request, #50, left open, taking each recommendation.
 
 1. **T1's corners are filled.** The conversion left them open for 3 m; filling them costs 12 m³ of timber, so T1 costs 200 m³ where it cost 188, past item 3's 2 %, which the owner waives for T1.
-2. **T3's redraw waits for M3-G3,** when M3's lab session has run and M3 records what M4 inherits; the redraw and the lab's new keys then land together (*M4's values*, item 3).
+2. **T3's redraw waits for M3-G3,** when M3's lab session has run and M3 records what M4 inherits; the redraw and the lab's new keys then land together (*M4's values*, item 3). *Changed by the owner on 2026-11-03* (*M5's values*, item 2): T3 stays as converted through M5 and M7, and is redrawn after the MVP's verdict.
 3. **The counters stand as measured,** and M5's playtest tunes input 6's numbers: six spearmen kill three outriders in 6 s and lose none, where the arithmetic said about 8 s and one or two, because each outrider strikes its own nearest spearman ([ADR-023](ADR/ADR-023-units-and-combat.md), M4-C3).
 4. **A ranged figure acquires what its reach at the elevation covers,** beyond its vision, so that an archer two steps up shoots as far as its 40 m (ADR-023, M4-C4).
 5. **A ram goes where its blow takes most, then the nearest,** so that one ordered at a gatehouse goes up the passage to its gate (ADR-023, M4-C6).
@@ -486,6 +486,61 @@ The owner added M4.1, a measurement of what a voxel read costs as the world grow
 1. **The verdict's marks.** If the support search with the store padded to 4,224 chunks is within 10% of its time at 258, the question closes with no change. If it is 25% or more slower, a profile is taken and phase B, a faster chunk lookup, follows. In between, the owner decides, with the profile.
 2. **When it runs:** after M4 closes, beside M5, and off the critical path. It is brought forward if M4-J4's measured run finds a tick of play over 25 ms.
 3. **The load is measured, not fixed.** The same bench run breaks down the simulation's load on the MVP map, the 2 km season world and the Siege trial: the generator, navigation from nothing, and the trial to its first tick. No mark applies to it, and M4.1 makes no change to the load. The parts measured so far on the MVP map come to about half a second, though the generator and a scenario's load have never been timed; the remedies belong to Worlds.
+
+### 2026-11-03: M5's values
+
+The owner answered MvpPlan.md's eighteen M5 inputs, taking each proposal as written (work order M5-A1). MvpPlan.md's M5 revision is accepted when the owner merges its pull request. The marks below are fixed before any of the session's data exist, so that no rule can be chosen to suit them.
+
+1. **When M5 starts.**
+   - **Its code phases, B to D,** start when the revision is accepted.
+   - **Its pilot and its session, E and F,** wait for M3 and M4 to close. M3-G3's session validates the lab that M5 reuses, and settles whether the kill criterion's one round of legibility work is spent. M4-J5's playthroughs are the first evidence that a person can win either version.
+
+   MvpPlan-M5.md is corrected against both reports before its phase E.
+2. **T3 stays as converted through M5 and M7,** and is redrawn after the MVP's verdict. That keeps M5's lab the one M3 validated, and has both trials test the same walls. This changes *M4's phases B and C*, item 2.
+3. **Who takes part.**
+   - **Eight RTS players exactly,** S01 to S08. An RTS player has played a real-time strategy game regularly in the past two years, by their own account. Eight and not ten, because the preference mark scaled to ten, 9 of 10, passes less often than 7 of 8 whatever the true preference.
+   - **Two novices,** N01 and N02, reported apart and under no mark.
+   - **Two pilot players,** X01 and X02, whom nothing scores.
+   - **Nobody** who took M3's lab, has seen this repository or its plans, or was a pilot.
+4. **Assignment.**
+   - **Four cells,** by the id's number, (number − 1) mod 4, crossing version order with layout.
+   - **The voxel version** is on Siege for half the players and on SiegeMirror for the other half.
+   - **The second game** is always on the other layout.
+   - **`Earthrise --siege <id> --game <1|2>`** picks the version and the layout, and the games are called the first and the second, never by version.
+5. **The session runs in one sitting,** at the benchmark machine, full screen at 1920 × 1080, UI scale 1.5, with mouse and keyboard. In order: the briefing, the practice ground, the two games with a break, the preference question, M3's lab, the crater items, and the debrief. The lab comes after both games and the preference question, which keeps *M4's values*, item 24.
+6. **What the facilitator explains, and what not.**
+   - **Explained:** the controls, the objective and the rules for winning and losing, and what the views, readouts and health bars show.
+   - **Never explained, until the debrief:** the support rule, spans, craters, repair, slump, undermining, what makes a section weak, or which version is which.
+7. **A five-minute practice ground** comes before the first game: open ground with the attacker's army, no castle and no defender. A scenario may hold no trial ([ADR-026](ADR/ADR-026-scenarios-and-the-siege-trial.md), decision 1, amended by M5-C2).
+8. **Reasons are asked at the moment of choice.**
+   - **The game pauses,** in both versions, on the first of the player's stones to strike a structure, the ram's first blow on one, and the first cubic metre their sappers dig beside one. It asks WHY <name>? SAY IT ALOUD.
+   - **At each game's end** the facilitator asks where the player broke in, or tried to, and why there.
+   - **Reasons carry no mark.** They are coded after the session and committed verbatim.
+9. **H2's clustering clause.**
+   - **Siege work** on a structure is priced in the control's hit points, in both versions: 100 for each stone that strikes it, 100 for each ram's blow, or 25 on stone, and 4 for each cubic metre dug within 2 m.
+   - **A game's main points** are the structures that took a quarter or more of its work.
+   - **A game clusters** when every one of its main points is the nearest section or the gatehouse, or when it did no siege work.
+   - **The clause fails** when five or more of the eight voxel games cluster.
+10. **Preference.** Asked after both games: if you could play only one of the two again, which would it be? It passes at 7 of 8, and the report sets each preference beside that participant's outcomes.
+11. **Prediction** is M3's lab, unchanged, scored over the eight. It passes at a median of 0.65.
+12. **Craters.** Eight items come after the lab. Each shows W2 struck at its base by the ram or the trebuchet, four of each, with no engine on the site. The question is answered yes at a median of 6 of 8. The answer feeds M6's tuning and nothing in H2's verdict (*Open questions*).
+13. **The deck** is read before the session, on the pilot's games and the owner's M4-J5 games (Hud.md §3). It slims if more than a quarter of the openings and warnings that began under it or off screen went unframed for longer than 6.75 s, a collapse's warning. Below that it is the owner's call.
+14. **The pilot.** The owner, X01 and X02 run the whole session on the build to be frozen. It checks:
+    - that the protocol, the guide and the tools run end to end;
+    - how long a session takes;
+    - the deck, under item 13;
+    - whether each version can be won by someone who did not build it.
+
+    A retune it calls for is to server data alone, and the pilot runs again after it.
+15. **The freeze.** After the pilot, one build's ids and server-data hash are recorded here and in the session's sheet, and the scorer refuses logs from any other build. Nothing changes the server data or `Earthrise`'s code until the report. Values the session suggests retuning go to M6 and M7 as proposals.
+16. **Records** go under `Design/Review/SiegePlaytest/`, with ids only. Before the briefing, each participant consents to their logs and the facilitator's notes being committed.
+17. **The verdict.** This decides H2's line under *Kill criteria*.
+    - **H2 passes** when all three clauses pass on the eight RTS players, and fails when any one fails. The novices and the crater items bear on nothing in it.
+    - **The session runs once.** The only second session is the kill criterion's one round of legibility work, if M3 left it unspent. That round changes the views, the HUD and the words on screen, never the rules, the values or the castle. It is followed by eight new people, whose result is never pooled with the first.
+    - **If M3 spent the round,** a fail fires the kill criterion.
+    - **A fail traced to balance,** the controls or the protocol buys no second session.
+    - **A participant who cannot finish** is dropped and replaced in their cell.
+18. **Four pull requests:** the plan with phase A; phases B to D in one draft; phase E; phase F.
 
 ## Pillars (Decided)
 
@@ -563,11 +618,12 @@ Each pillar is stated as a claim a playtest can refute.
 
 The control is the same stages with walls built of segments that have health bars, and resources gathered from nodes that run out. It swaps the collapse resolver ([ADR-004](ADR/ADR-004-rule-based-destruction.md), decision 3) and the gathering rule and leaves the rest of the game unchanged. Both versions keep every cosmetic, so only the rules differ, and the integrity view is on by default, as the health bars are.
 
-**The playtest (Proposed).**
+**The playtest (Proposed; the Siege round Decided on 2026-11-03, *M5's values*).**
 - **Who plays.** 8 to 10 people who play RTS games, in two rounds: the Siege trial first, for H2, and then the Hold trial, for H1. Each person plays the stage in both versions, with half of them playing the voxel version first.
 - **What is recorded.** Their reasons are recorded before anyone explains the rules.
 - **Pass marks.** Preference passes at 7 of 8 or better, scaled to the final number. Prediction questions are split evenly between sections that will open and sections that will not, and pass at a median player accuracy of 0.65 or more.
 - **Learnability.** Two or three people who do not play RTS games also play, reported separately as a check on how learnable the game is.
+- **The Siege round** (Decided, *M5's values*): eight RTS players and two novices, in four cells crossing version order with layout; preference at 7 of 8; prediction through M3's lab at a median of 0.65; and the clustering clause failing when five or more of the eight voxel games cluster at the nearest section or the gatehouse.
 
 ### Stages (Decided)
 
@@ -584,9 +640,9 @@ The control is the same stages with walls built of segments that have health bar
 
 Each stage builds a piece the shared world needs: the Siege stage's defending AI, with the Skirmish AI's economy, becomes the steward, the Hold stage's waves become the world's raiders, and the Skirmish AI becomes the AI houses.
 
-### Kill criteria (Proposed, except the renderer spike's, which is Decided)
+### Kill criteria (Proposed, except the renderer spike's and H2's, which are Decided)
 
-- If H2 still fails after one round of work on legibility, destruction becomes cosmetic over walls with health bars, and this document is rewritten before more content is made.
+- If H2 still fails after one round of work on legibility, destruction becomes cosmetic over walls with health bars, and this document is rewritten before more content is made. (Decided on 2026-11-03, *M5's values*, item 17.) The round changes the views, the HUD and the words on screen, never the rules. If M3's lab did not spend it, it is followed by a second session of eight new people. If M3's lab spent it, a fail in M5 fires this criterion.
 - If H1 fails, resources become nodes that leave visible scars on the land. Ditches, trenches and pits stay dug, and Earthstone is still dug out of the Deep, because the Deep is the objective, not the economy. Whether Worlds goes ahead without pillar 1 is decided then, before Skirmish starts.
 - Before any Worlds code, the season is tested on paper. At least 16 players play an eight-week campaign, each holding a window inside a band, with sieges settled by dice or by a Trial build. If fewer than three in four are still playing in week 6, or both sides are present in fewer than half the windows that see a siege, the season is reworked first.
 - If the demand signal stays below its threshold (*Persistence*), Worlds is not built.
@@ -610,7 +666,7 @@ Its output is ADR-006's table of measurements, for the 1 m baseline and for a 0.
 ## Open questions
 
 - The skirmish AI's capabilities, in detail.
-- **Craters at 1 m (M5):** can players tell a ram and a trebuchet apart by the size and depth of their craters? The mangonel is out of the Trials. It is tested in M5's playtest, once M4 adds the ram's craters (*M3's values*, item 11).
+- **Craters at 1 m (M5):** can players tell a ram and a trebuchet apart by the size and depth of their craters? The mangonel is out of the Trials. It is tested in M5's playtest, once M4 adds the ram's craters (*M3's values*, item 11): eight crater items after the lab, answered yes at a median of 6 of 8 (*M5's values*, item 12).
 - **The Hold control's designations (M6):** Hud.md has laborers GATHER from nodes in place of all six designations, ditch, trench and pit included, while the control swaps only "the gathering rule" and keeps ditches in the build window (*MVP*). Which designations count as gathering?
 - **The HUD's sizes:** settled for M4 (*M4's values*, item 21): the UI scale caps so the deck fits, control groups are 44 high, and SPLIT, MERGE, DEPLOY and WALL join the font. PAL.GATE and DEEP, the Hold trial's, still lack icons (M6).
 - **Asset ids M1 and M2** for the material samples ([MvpAssets.md](MvpAssets.md)) share their names with milestones M1 and M2. Renaming them means editing ids and files.
