@@ -11,6 +11,11 @@
 - **What a save keeps:** a squad's facing (its record at version 4), and a unit's reserved cell, the cell it steps from and its wait count (version 3).
 - **The breach's rate, measured** (decision 7): in the breach run, through the 5 m hole and over its rubble, the six men-at-arms stand inside between ticks 1,865 and 2,084, five gaps in 219 ticks, about 27 figures a minute (`BreachRunTests`' log). A 1 m slot's rate is decision 7's arithmetic until a test measures one.
 
+Amended by the owner on 2026-11-03 (GameDesign.md, *2026-11-03: after M4's phase F*, items 1 and 2), after M4-F5's scripted Siege trial and its army sent down one lane found two ways for squads to stop each other for good. A machine never swaps, and decision 6's search again does not see figures, so neither the swap nor the search ever freed them:
+- **A machine has right of way over its own side's figures** (decision 3). No figure of its owner steps into a cell its next step needs, and a figure of its owner standing in one steps aside, into a free neighbouring cell its class may step into, outside the machine's cells and the cells of its next three steps when it can, outside its cells and its step's otherwise, the first such in link order. A figure of a squad holding or still searching keeps its cell. On the Siege castle a trebuchet stood for good behind two men-at-arms whose squad had fought and turned idle in its lane.
+- **A figure of another squad standing idle trades cells with one whose step needs its own** (decision 3): one that wants no cell, fights nothing, and whose squad is idle, moving, storming or attacking and not searching. Wanting nothing, it never trades back. A squad whose lead arrives turns idle with its rear still standing in the lane behind it, and the squads following stood behind that rear for good. Within a squad a follower at its stop still waits for the lead, so that none passes the one ahead.
+- **Decision 6 is unchanged.** A blocked squad still searches again as a retry, and it stops on a figure that holds, which neither rule moves.
+
 ## Context
 
 - **M2 moves a squad in single file** (ADR-015, M2-F5): one A\* path from the lead's cell, a trail of the figures' own cells behind it, each figure stopping as many cells short of the trail's end as it stands behind the lead. Figures may pass through each other, and two may stand in one cell.

@@ -855,6 +855,13 @@ private:
                                                               const std::map<Protocol::EntityId, PathSearch::CellIndex>& _wanted) const;
   void StartStep(Unit& _unit, Squad& _squad, std::size_t _place, const Step& _step, Occupancy& _occupancy);
   void AdvanceStep(Unit& _unit, const Squad& _squad, std::int64_t& _budget, Occupancy& _occupancy);
+  /// The cells, by owner, that each standing machine's next step needs, which its own side's figures leave to it.
+  [[nodiscard]] std::set<std::pair<std::uint8_t, PathSearch::CellIndex>>
+  RightOfWay(const std::map<Protocol::EntityId, PathSearch::CellIndex>& _wanted) const;
+  /// Steps each standing figure of _machine's owner in the cells its step into _cell needs aside, into a free neighbouring
+  /// cell clear of the machine (ADR-022, decision 3, amended).
+  void GiveWay(const Unit& _machine, PathSearch::CellIndex _cell, const Plans& _plans, Occupancy& _occupancy,
+               std::map<Protocol::EntityId, PathSearch::CellIndex>& _wanted, const std::set<Protocol::EntityId>& _walked);
   /// Every figure's walk for the tick, in unit-id order.
   void WalkFigures();
   /// Drops the trail behind every figure on it, keeping as many cells behind the lead as the squad has figures.
