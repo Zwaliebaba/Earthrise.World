@@ -316,6 +316,126 @@ Readback Render(Engine::GpuDevice& _device, const Engine::VoxelPass::FrameConsta
   return {.colors = ReadPixels<Rgba>(colorCopy), .depths = ReadPixels<float>(depthCopy)};
 }
 
+/// What a test draws into the frame itself: the pass, the open command list, the ring, and the frame's and the palette's
+/// addresses.
+using DrawSteps = std::function<void(Engine::VoxelPass&, ID3D12GraphicsCommandList*, Engine::UploadRing&, D3D12_GPU_VIRTUAL_ADDRESS,
+                                     D3D12_GPU_VIRTUAL_ADDRESS)>;
+
+/// Clears the targets, lets _draw record its draws, and reads the frame's colour back.
+Readback RenderWith(Engine::GpuDevice& _device, const Engine::VoxelPass::FrameConstants& _frame, const DrawSteps& _draw)
+{
+  ID3D12Device* device = _device.Device();
+  winrt::com_ptr<ID3D12Resource> color =
+    MakeTexture(device, COLOR_FORMAT, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_RENDER_TARGET);
+  winrt::com_ptr<ID3D12Resource> depth =
+    MakeTexture(device, DEPTH_FORMAT, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+  Engine::DescriptorHeap colorViews(device, {.type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV, .capacityDescriptors = 1, .shaderVisible = false});
+  Engine::DescriptorHeap depthViews(device, {.type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV, .capacityDescriptors = 1, .shaderVisible = false});
+  const D3D12_CPU_DESCRIPTOR_HANDLE colorView = colorViews.Allocate().cpu;
+  const D3D12_CPU_DESCRIPTOR_HANDLE depthView = depthViews.Allocate().cpu;
+  device->CreateRenderTargetView(color.get(), nullptr, colorView);
+  device->CreateDepthStencilView(depth.get(), nullptr, depthView);
+
+  Engine::UploadRing ring(device, std::uint64_t{64} * 1024);
+  const std::optional<Engine::UploadRing::Allocation> frame =
+    ring.Allocate(sizeof(Engine::VoxelPass::FrameConstants), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+  const std::optional<Engine::UploadRing::Allocation> palette =
+    ring.Allocate(sizeof(DirectX::XMFLOAT4) * Engine::VoxelPass::PALETTE_ENTRIES, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+  if (!frame || !palette)
+  {
+    throw std::runtime_error("the upload ring refused a test scene");
+  }
+  std::memcpy(frame->bytes.data(), &_frame, sizeof(_frame));
+  std::array<DirectX::XMFLOAT4, Engine::VoxelPass::PALETTE_ENTRIES> colors{};
+  colors[ORANGE] = {1.0F, 0.5F, 0.25F, 1.0F};
+  colors[GREEN] = {0.0F, 1.0F, 0.0F, 1.0F};
+  std::memcpy(palette->bytes.data(), colors.data(), sizeof(colors));
+
+  Engine::VoxelPass pass(device, {.colorFormat = COLOR_FORMAT, .depthFormat = DEPTH_FORMAT});
+  Engine::FrameRing frames(device, _device.DirectQueue());
+  ID3D12GraphicsCommandList* commandList = frames.Begin();
+  constexpr std::array<float, 4> CLEAR = {0.0F, 0.0F, 0.0F, 1.0F};
+  commandList->OMSetRenderTargets(1, &colorView, FALSE, &depthView);
+  commandList->ClearRenderTargetView(colorView, CLEAR.data(), 0, nullptr);
+  commandList->ClearDepthStencilView(depthView, D3D12_CLEAR_FLAG_DEPTH, 0.0F, 0, 0, nullptr); // reversed Z clears to 0
+  const D3D12_VIEWPORT viewport{.TopLeftX = 0.0F,
+                                .TopLeftY = 0.0F,
+                                .Width = static_cast<float>(TARGET_PIXELS),
+                                .Height = static_cast<float>(TARGET_PIXELS),
+                                .MinDepth = 0.0F,
+                                .MaxDepth = 1.0F};
+  const D3D12_RECT scissor{.left = 0, .top = 0, .right = TARGET_PIXELS, .bottom = TARGET_PIXELS};
+  commandList->RSSetViewports(1, &viewport);
+  commandList->RSSetScissorRects(1, &scissor);
+  _draw(pass, commandList, ring, frame->gpuAddress, palette->gpuAddress);
+
+  const D3D12_RESOURCE_BARRIER toCopy =
+    Engine::TransitionBarrier(color.get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE);
+  commandList->ResourceBarrier(1, &toCopy);
+  const TextureCopy colorCopy = CopyOut(device, commandList, color.get());
+  const std::uint64_t fenceValue = frames.End();
+  ring.Retire(fenceValue);
+  _device.DirectQueue().WaitFor(fenceValue);
+  return {.colors = ReadPixels<Rgba>(colorCopy), .depths = {}};
+}
+
+/// A column mask (ADR-025, decision 8) and the buffer it was uploaded from, both kept until the frame is done.
+struct ColumnMask
+{
+  winrt::com_ptr<ID3D12Resource> texture;
+  winrt::com_ptr<ID3D12Resource> upload;
+};
+
+/// An R8_UNORM mask _texels.size() cells wide and one deep, its texels _texels, copied in by _commandList and left
+/// readable by a pixel shader.
+ColumnMask UploadColumnMask(ID3D12Device* _device, ID3D12GraphicsCommandList* _commandList, std::span<const std::uint8_t> _texels)
+{
+  ColumnMask mask;
+  const D3D12_HEAP_PROPERTIES defaultHeap{.Type = D3D12_HEAP_TYPE_DEFAULT};
+  const D3D12_RESOURCE_DESC textureDesc{.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+                                        .Width = _texels.size(),
+                                        .Height = 1,
+                                        .DepthOrArraySize = 1,
+                                        .MipLevels = 1,
+                                        .Format = DXGI_FORMAT_R8_UNORM,
+                                        .SampleDesc = {.Count = 1},
+                                        .Flags = D3D12_RESOURCE_FLAG_NONE};
+  winrt::check_hresult(_device->CreateCommittedResource(&defaultHeap, D3D12_HEAP_FLAG_NONE, &textureDesc, D3D12_RESOURCE_STATE_COPY_DEST,
+                                                        nullptr, IID_PPV_ARGS(mask.texture.put())));
+  D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};
+  UINT64 totalBytes = 0;
+  _device->GetCopyableFootprints(&textureDesc, 0, 1, 0, &footprint, nullptr, nullptr, &totalBytes);
+  const D3D12_HEAP_PROPERTIES uploadHeap{.Type = D3D12_HEAP_TYPE_UPLOAD};
+  const D3D12_RESOURCE_DESC bufferDesc{.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
+                                       .Width = totalBytes,
+                                       .Height = 1,
+                                       .DepthOrArraySize = 1,
+                                       .MipLevels = 1,
+                                       .Format = DXGI_FORMAT_UNKNOWN,
+                                       .SampleDesc = {.Count = 1},
+                                       .Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR};
+  winrt::check_hresult(_device->CreateCommittedResource(&uploadHeap, D3D12_HEAP_FLAG_NONE, &bufferDesc, D3D12_RESOURCE_STATE_GENERIC_READ,
+                                                        nullptr, IID_PPV_ARGS(mask.upload.put())));
+  void* mapped = nullptr;
+  winrt::check_hresult(mask.upload->Map(0, nullptr, &mapped));
+  std::memcpy(mapped, _texels.data(), _texels.size());
+  mask.upload->Unmap(0, nullptr);
+  // The copy locations' unions are filled by member: designators cannot name an anonymous union's.
+  D3D12_TEXTURE_COPY_LOCATION source{};
+  source.pResource = mask.upload.get();
+  source.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+  source.PlacedFootprint = footprint;
+  D3D12_TEXTURE_COPY_LOCATION destination{};
+  destination.pResource = mask.texture.get();
+  destination.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+  destination.SubresourceIndex = 0;
+  _commandList->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
+  const D3D12_RESOURCE_BARRIER toRead =
+    Engine::TransitionBarrier(mask.texture.get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+  _commandList->ResourceBarrier(1, &toRead);
+  return mask;
+}
+
 bool Near(const Rgba& _color, int _red, int _green, int _blue)
 {
   return std::abs(_color[0] - _red) <= COLOR_TOLERANCE && std::abs(_color[1] - _green) <= COLOR_TOLERANCE &&
@@ -750,6 +870,69 @@ public:
     batch.depthCells = 1;
     Assert::ExpectException<std::invalid_argument>([&pass, commandList, batch] { pass.Draw(commandList, 0, 1, batch); });
     device.DirectQueue().WaitFor(frames.End());
+  }
+
+  TEST_METHOD(DrawsAModelsSilhouetteWhereTheWorldHidesItAndNowhereItIsSeen)
+  {
+    // Seen from above, the world's voxel [0, 1] x [1, 2] x [0, 1] roofs pixels x 32 to 47. A model's voxel 0.5 m east of it
+    // and a metre lower, [0.5, 1.5] across, is drawn through the silhouette pipeline at half alpha after the world and
+    // before itself (ADR-021, decision 6, amended). Under the roof, pixels 40 to 47, its silhouette shows, green over
+    // orange; beyond it, 48 to 55, the model is seen and drawn as itself, untinted; west of 40 the roof is as it was.
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const std::array<Engine::VoxelRecord, 1> roof = {Engine::MakeVoxelRecord(0, 1, 0, ORANGE)};
+    const std::array<Engine::VoxelRecord, 1> model = {Engine::MakeVoxelRecord(0, 0, 0, GREEN)};
+    Engine::VoxelPass::Batch beside = PLAIN_BATCH;
+    beside.originMeters = {0.5F, 0.0F, 0.0F};
+    const Readback frame = RenderWith(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS),
+                                      [&](Engine::VoxelPass& _pass, ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring,
+                                          D3D12_GPU_VIRTUAL_ADDRESS _frame, D3D12_GPU_VIRTUAL_ADDRESS _palette)
+                                      {
+                                        const D3D12_GPU_VIRTUAL_ADDRESS models = Held(_ring, std::span<const Engine::VoxelRecord>(model));
+                                        _pass.Begin(_commandList, _frame, _palette);
+                                        _pass.Draw(_commandList, Held(_ring, std::span<const Engine::VoxelRecord>(roof)), 1, PLAIN_BATCH);
+                                        _pass.BeginSilhouette(_commandList, _frame, _palette, 0.5F);
+                                        _pass.Draw(_commandList, models, 1, beside);
+                                        _pass.Begin(_commandList, _frame, _palette);
+                                        _pass.Draw(_commandList, models, 1, beside);
+                                      });
+    Assert::IsTrue(Near(frame.ColorAt(36, 24), 255, 128, 64), Describe(frame.ColorAt(36, 24)).c_str());
+    Assert::IsTrue(Near(frame.ColorAt(44, 24), 128, 191, 32), Describe(frame.ColorAt(44, 24)).c_str());
+    Assert::IsTrue(Near(frame.ColorAt(52, 24), 0, 255, 0), Describe(frame.ColorAt(52, 24)).c_str());
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(ShadesAWorldVoxelInAColumnNotSeenAndNoOther)
+  {
+    // Two voxels side by side seen from above, over columns 0 and 1 of a mask that is 0, not seen, at column 0 and 255 at
+    // column 1, with a shade of a half (ADR-025, decision 8): the first's top, pixels 32 to 47, is halved, and the
+    // second's, 48 to 63, is as it was. With no mask neither is.
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const std::array<Engine::VoxelRecord, 2> records = {Engine::MakeVoxelRecord(0, 0, 0, ORANGE), Engine::MakeVoxelRecord(1, 0, 0, ORANGE)};
+    constexpr std::array<std::uint8_t, 2> TEXELS = {0, 255};
+    ColumnMask mask;
+    const Readback shaded =
+      RenderWith(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS),
+                 [&](Engine::VoxelPass& _pass, ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring,
+                     D3D12_GPU_VIRTUAL_ADDRESS _frame, D3D12_GPU_VIRTUAL_ADDRESS _palette)
+                 {
+                   mask = UploadColumnMask(device.Device(), _commandList, TEXELS);
+                   _pass.SetColumnShade(mask.texture.get(), 2, 1, 0.5F);
+                   _pass.Begin(_commandList, _frame, _palette);
+                   _pass.Draw(_commandList, Held(_ring, std::span<const Engine::VoxelRecord>(records)), 2, PLAIN_BATCH);
+                 });
+    Assert::IsTrue(Near(shaded.ColorAt(40, 24), 128, 64, 32), Describe(shaded.ColorAt(40, 24)).c_str());
+    Assert::IsTrue(Near(shaded.ColorAt(56, 24), 255, 128, 64), Describe(shaded.ColorAt(56, 24)).c_str());
+    const Readback unshaded =
+      RenderWith(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS),
+                 [&](Engine::VoxelPass& _pass, ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring,
+                     D3D12_GPU_VIRTUAL_ADDRESS _frame, D3D12_GPU_VIRTUAL_ADDRESS _palette)
+                 {
+                   _pass.Begin(_commandList, _frame, _palette);
+                   _pass.Draw(_commandList, Held(_ring, std::span<const Engine::VoxelRecord>(records)), 2, PLAIN_BATCH);
+                 });
+    Assert::IsTrue(Near(unshaded.ColorAt(40, 24), 255, 128, 64), Describe(unshaded.ColorAt(40, 24)).c_str());
+    Assert::IsTrue(Near(unshaded.ColorAt(56, 24), 255, 128, 64), Describe(unshaded.ColorAt(56, 24)).c_str());
+    AssertNoDebugErrors(device);
   }
 };
 

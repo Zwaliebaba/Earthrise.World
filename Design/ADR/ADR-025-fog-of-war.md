@@ -13,6 +13,9 @@
 
 It was proposed, 2026-11-01, with the M4 plan ([MvpPlan.md](../MvpPlan.md), M4; [MvpPlan-M4.md](../MvpPlan-M4.md)). It fills the seam [ADR-020](ADR-020-the-in-process-client.md), decision 3, leaves for M4, `World::PublishState(player)`, and decides how the client draws what it no longer sees, which [ADR-021](ADR-021-world-overlays.md), decision 6, leaves for M4. The radii are the owner's inputs (MvpPlan.md, M4, inputs 6 and 14). The owner gave it the go-ahead on 2026-11-01, as written (MvpPlan.md, M4, input 1; GameDesign.md, *M4's values*, item 1). Order M4-E1, which first implements it, marks it Accepted (AGENTS.md §6).
 
+The engine's half of decision 8 landed with order M4-G2 (2026-11-03), as an amendment:
+- **`VoxelPass::SetColumnShade` takes the mask:** an `R8_UNORM` texture of one texel a 1 m cell from the world's origin, x along its width and z down its rows, its size in cells and the shade. From then on Begin's pipeline multiplies a voxel by the shade where its column's texel is 0. A voxel's column is its box centre's, so that a hit on a side face takes its own column and not its neighbour's, and a column outside the mask is not shaded. Models drawn through that pipeline are shaded by the same rule, which changes nothing, since the update puts none in a column not seen. Debris, the overlays and the silhouettes are not shaded. The client builds the mask in order M4-H3.
+
 ## Context
 
 - **[ADR-002](ADR-002-authoritative-simulation.md), decision 4:** a client receives only what its player can see; fog is enforced by the simulation, not painted by the client. It forecloses a client that holds world state its player cannot see.
