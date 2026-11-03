@@ -707,3 +707,9 @@ Each order is one commit, straight to main by the owner's choice of 2026-11-03, 
 - **Read first:** Hud.md §3; `Client/Hud.cpp`, the alerts.
 - **Changes:** an alert that would meet the mode banner starts under it, and the older ones follow. Where that takes one to the readout, it is left out as before (M3-H1).
 - **Tests:** **`HudTests`:** no two panels overlap, under the question's banner and under the asked shots', at 1280 × 720 and 1920 × 1080 at each UI scale. It fails without the change.
+
+### M3-H7 — The lock stays off the lab's readout
+- **Waits on:** nothing. The owner chose on 2026-11-03.
+- **Read first:** GameDesign.md, *M3's values*, item 5; M4-I6's order.
+- **Changes:** the readout's REPAIR row is layout A's alone, so the lab and M3's breach run keep the paper test's rows. The world's labels were layout A's already.
+- **Tests:** **`OverlaysTests`:** outside layout A a locked section's readout has no REPAIR row; M4-I6's test keeps it in layout A.
