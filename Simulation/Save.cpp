@@ -737,6 +737,11 @@ void WriteStructureView(Core::ByteWriter& _writer, const Protocol::StructureView
   _writer.WriteU8(_view.opened ? std::uint8_t{1} : std::uint8_t{0});
   _writer.WriteU8(_view.lastSeen ? std::uint8_t{1} : std::uint8_t{0});
   _writer.WriteU8(_view.standingPercent);
+  _writer.WriteU32(static_cast<std::uint32_t>(_view.gateVoxels.size()));
+  for (const Protocol::VoxelPosition& voxel : _view.gateVoxels)
+  {
+    WritePosition(_writer, voxel);
+  }
 }
 
 Protocol::StructureView ReadStructureView(Core::ByteReader& _reader)
@@ -759,6 +764,11 @@ Protocol::StructureView ReadStructureView(Core::ByteReader& _reader)
   view.opened = ReadBool(_reader);
   view.lastSeen = ReadBool(_reader);
   view.standingPercent = _reader.ReadU8();
+  const std::uint32_t gateVoxels = _reader.ReadU32();
+  for (std::uint32_t voxel = 0; voxel < gateVoxels; ++voxel)
+  {
+    view.gateVoxels.push_back(ReadPosition(_reader));
+  }
   return view;
 }
 

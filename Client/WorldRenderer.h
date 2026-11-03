@@ -57,6 +57,7 @@ public:
     Engine::UploadRing* ring;
     std::span<const Protocol::ChunkSnapshot> snapshots; // published since the last frame
     std::span<const ModelPlacement> placements;
+    std::span<const Protocol::VoxelPosition> hiddenVoxels; // left out of the world's batches, such as an open gate's
     std::span<const Engine::OrientedVoxel> debris;
     std::span<const OverlayLayer> overlays; // in order, after the scene and before the upscale
     DirectX::XMFLOAT4X4 viewProjection;

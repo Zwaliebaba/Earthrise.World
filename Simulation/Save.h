@@ -55,7 +55,7 @@ namespace Simulation
 //      column index as an i64, in rising order (M4-D6; ADR-029); and u32 the path searches still running, then each as the u32 tick it was
 //      asked for in, its u64 squad and the search as PathSearch::Write gives it, in that order;
 //   5. fog's (M4-E1; ADR-025): u32 the players with structures last seen, then each as its u8 id, u32 their count and
-//      each structure's view, in player then id order; then u32 the players sent chunks, then each as its u8 id, u32 their
+//      each structure's view, in player then id order, which ends with u32 its open gate's voxels and each voxel (M4-H1); then u32 the players sent chunks, then each as its u8 id, u32 their
 //      count and each chunk's u64 packed key and u64 version last sent, in key order. The state hash holds the first and
 //      not the second, which the client's calls to Publish set.
 // Navigation tiles, chunk hashes, visibility and anything else computed from the voxels and the entities are not saved: a
@@ -63,8 +63,8 @@ namespace Simulation
 
 /// 2 from M4-B4, which gave the save its match; 3 from M4-D6, which saves the columns trenches opened; 4 from M4-E1, which
 /// saves fog's last-seen structures and chunks sent; 5 from M4-F1, which saves the trial's progress; 6 from M4-F2, which
-/// saves the commanders.
-inline constexpr std::uint32_t SAVE_FORMAT_VERSION = 6;
+/// saves the commanders; 7 from M4-H1, which saves an open gate's voxels with each structure last seen.
+inline constexpr std::uint32_t SAVE_FORMAT_VERSION = 7;
 
 /// The type tag each kind of entity is saved under.
 enum class SaveEntityTag : std::uint16_t

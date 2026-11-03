@@ -44,6 +44,10 @@
     <ClCompile Include="WorldView.cpp" />
     <ClInclude Include="Debris.h" />
     <ClCompile Include="Debris.cpp" />
+    <ClInclude Include="Interpolation.h" />
+    <ClCompile Include="Interpolation.cpp" />
+    <ClInclude Include="WorldModels.h" />
+    <ClCompile Include="WorldModels.cpp" />
     <ClInclude Include="Look.h" />
     <ClInclude Include="TickClock.h" />
     <ClCompile Include="TickClock.cpp" />

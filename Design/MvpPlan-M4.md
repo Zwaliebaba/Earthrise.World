@@ -101,8 +101,11 @@ struct StructureView // + M3's id, owner, templateId, originVoxels, quarterTurns
   std::int32_t maxHitPoints;
   bool opened;                     // sections only: a foot route from the camp through its footprint to its inner side (ADR-026, decision 5)
   bool lastSeen;                   // not visible now: as it stood when last visible (ADR-025, decision 2)
+  std::uint8_t standingPercent;    // M4-F2: the share of its built voxels that stand
+  std::vector<VoxelPosition> gateVoxels; // M4-H1: while its gate is open, the gate's voxels, which the client leaves out (ADR-024, decision 6, amended)
 };
-struct EngineView { /* + M3's id, owner, kind, cellVoxels, quarterTurns, reloadTicks */ EntityId squad; EngineState state; std::uint32_t stateTicksLeft; FixedPosition position; std::int32_t hitPoints; std::int32_t maxHitPoints; };
+struct EngineView { /* + M3's id, owner, kind, cellVoxels, quarterTurns, reloadTicks */ EntityId squad; EngineState state; std::uint32_t stateTicksLeft; FixedPosition position; std::int32_t hitPoints; std::int32_t maxHitPoints;
+                    std::int32_t footprintVoxels; }; // M4-H1: the side of the machines' square of cells from cellVoxels
 struct SquadView { /* + M3's id, owner, units, hasGoal, goalVoxels, shortOfGoal */ UnitKind kind; SquadOrder order; std::uint8_t fullFigures; EntityId target; EntityId garrisonedIn; };
 struct UnitView { /* + M3's id, squad, owner, kind, position, cellVoxels */ std::int32_t hitPoints; std::int32_t maxHitPoints; };
 struct ShotView { /* + M3's id, engine, position */ ShotKind kind; std::uint8_t owner; };   // engine: the shooter's id, a squad's for an arrow

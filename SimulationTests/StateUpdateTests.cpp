@@ -258,6 +258,8 @@ public:
     Assert::AreEqual(std::uint8_t{2}, state.players.front().player);
     Assert::AreEqual(std::int32_t{20000}, state.players.front().stoneHundredthsCubicMeters);
     Assert::IsTrue(state.engines.front().state == Protocol::EngineState::Packed);
+    // The ram stands on machines' 3 x 3 cells from its cell, which the client draws it on (M4-H1).
+    Assert::AreEqual(std::int32_t{3}, state.engines.front().footprintVoxels);
     Assert::AreEqual(tower, state.squads.front().garrisonedIn);
     // The ram's body is the one unit the update holds: the garrison's are in no cell.
     Assert::AreEqual(std::size_t{1}, state.units.size());

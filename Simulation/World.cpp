@@ -351,7 +351,8 @@ Protocol::StructureView World::StructureViewFor(std::uint8_t _player, const Stru
           .maxHitPoints = Rule().MaxHitPoints(*this, _structure),
           .opened = m_trialProgress.openedSections.contains(_structure.id),
           .lastSeen = false,
-          .standingPercent = _structure.standingPercent};
+          .standingPercent = _structure.standingPercent,
+          .gateVoxels = _structure.gateOpen ? GateVoxels(_structure) : std::vector<Protocol::VoxelPosition>{}};
 }
 
 bool World::AnswerVisible(std::uint8_t _player, const Protocol::Query& _query) const
@@ -4873,7 +4874,8 @@ Protocol::StateUpdate World::StateFor(std::uint8_t _player) const
                              .stateTicksLeft = engine.stateTicksLeft,
                              .position = engine.position,
                              .hitPoints = bodyOf(engine) == nullptr ? 0 : bodyOf(engine)->hitPoints,
-                             .maxHitPoints = Data().Stats(engine.kind == EngineKind::Ram ? UnitKind::Ram : UnitKind::Trebuchet).hitPoints});
+                             .maxHitPoints = Data().Stats(engine.kind == EngineKind::Ram ? UnitKind::Ram : UnitKind::Trebuchet).hitPoints,
+                             .footprintVoxels = machineSide});
   }
   for (const auto& [id, squad] : m_squads)
   {

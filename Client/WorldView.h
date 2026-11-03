@@ -16,9 +16,11 @@
 #include "VoxelPass.h"
 #include "VoxelRecord.h"
 
+#include <array>
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <set>
 #include <span>
 #include <string_view>
 #include <utility>
@@ -41,6 +43,12 @@ public:
   /// voxel on the chunk's boundary touches. Records the uploads on _commandList.
   void TakeSnapshots(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring,
                      std::span<const Protocol::ChunkSnapshot> _snapshots);
+
+  /// Leaves _hidden's world voxels out of the world's batches from now on, drawn as air and read as air by their
+  /// neighbours' faces and shades and by the models' corner shades: an open gate's, which its open model is drawn over
+  /// (M4-H1; MvpAssets.md, *the open gates*). Rebuilds the chunks a voxel hidden or shown again reaches, as
+  /// TakeSnapshots does for a changed one, and returns whether there were any. Called each frame, before TakeSnapshots.
+  bool Hide(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, std::span<const Protocol::VoxelPosition> _hidden);
 
   /// Draws these placements this frame, each with records of its own: its model's voxels, their
   /// corner shades counting the world where it stands as solid as well as the model, so that it is
@@ -110,6 +118,8 @@ private:
   [[nodiscard]] bool WorldChangedUnder(const Placed& _placed) const;
   /// The palette index at a world voxel, from the snapshots taken so far; 0 where none holds it.
   [[nodiscard]] std::uint8_t IndexAt(Protocol::VoxelPosition _position) const;
+  /// Whether a world voxel is one Hide leaves out.
+  [[nodiscard]] bool Hidden(Protocol::VoxelPosition _position) const;
   [[nodiscard]] Batch Upload(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring,
                              std::span<const Engine::VoxelRecord> _records) const;
 
@@ -119,7 +129,8 @@ private:
   Engine::PaletteShading m_shading;
   std::map<std::uint64_t, Protocol::ChunkSnapshot> m_snapshots;
   std::map<std::uint64_t, Batch> m_chunks;
-  std::vector<std::uint64_t> m_rebuiltChunks; // since the last PlaceModels
+  std::vector<std::uint64_t> m_rebuiltChunks;     // since the last PlaceModels
+  std::set<std::array<std::int32_t, 3>> m_hidden; // x, y and z of each voxel Hide leaves out
   std::vector<Placed> m_placed;
   bool m_impostors = false;                                                               // units are drawn as impostors
   std::vector<std::unique_ptr<Engine::StaticBuffer>> m_replaced;                          // not yet stamped

@@ -258,6 +258,10 @@ void WorldRenderer::Draw(const Frame& _frame)
   {
     m_voxelPassMilliseconds = m_gpuTimer.ReadMilliseconds(slot)[VOXEL_PASS_SPAN];
   }
+  if (m_worldView.Hide(commandList, ring, _frame.hiddenVoxels))
+  {
+    m_worldChanged = true;
+  }
   if (!_frame.snapshots.empty())
   {
     m_worldView.TakeSnapshots(commandList, ring, _frame.snapshots);

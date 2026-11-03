@@ -8,6 +8,8 @@
 #include "Palette.h"
 #include "VoxelGridView.h"
 
+#include <iterator>
+
 namespace Client
 {
 
@@ -202,11 +204,57 @@ void WorldView::TakeSnapshots(ID3D12GraphicsCommandList* _commandList, Engine::U
   }
 }
 
+bool WorldView::Hide(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, std::span<const Protocol::VoxelPosition> _hidden)
+{
+  std::set<std::array<std::int32_t, 3>> hidden;
+  for (const Protocol::VoxelPosition& voxel : _hidden)
+  {
+    hidden.insert({voxel.xVoxels, voxel.yVoxels, voxel.zVoxels});
+  }
+  if (hidden == m_hidden)
+  {
+    return false;
+  }
+  // The voxels hidden or shown again, and the chunks each reaches.
+  std::vector<std::array<std::int32_t, 3>> changed;
+  std::ranges::set_symmetric_difference(hidden, m_hidden, std::back_inserter(changed));
+  m_hidden = std::move(hidden);
+  const std::int32_t yBand = std::int32_t{1} << m_jitterCellShift; // a world meter, for the ford rule
+  std::vector<std::uint64_t> stale;
+  for (const auto& [x, y, z] : changed)
+  {
+    const Protocol::VoxelPosition voxel{.xVoxels = x, .yVoxels = y, .zVoxels = z};
+    const Protocol::ChunkCoordinate chunk = Protocol::ChunkContaining(voxel);
+    if (Protocol::FitsChunkKey(chunk))
+    {
+      stale.push_back(Protocol::PackChunkKey(chunk));
+      AddReachedNeighbors(chunk, Protocol::PositionInChunk(voxel), yBand, stale);
+    }
+  }
+  std::ranges::sort(stale);
+  const auto [first, last] = std::ranges::unique(stale);
+  stale.erase(first, last);
+  for (const std::uint64_t key : stale)
+  {
+    if (m_snapshots.contains(key))
+    {
+      RebuildChunk(_commandList, _ring, key);
+    }
+  }
+  return true;
+}
+
+bool WorldView::Hidden(Protocol::VoxelPosition _position) const
+{
+  return !m_hidden.empty() && m_hidden.contains({_position.xVoxels, _position.yVoxels, _position.zVoxels});
+}
+
 void WorldView::Forget()
 {
   m_snapshots.clear();
   m_chunks.clear();
   m_rebuiltChunks.clear();
+  m_hidden.clear();
   m_placed.clear();
   m_impostors = false;
   m_replaced.clear();
@@ -237,13 +285,22 @@ void WorldView::RebuildChunk(ID3D12GraphicsCommandList* _commandList, Engine::Up
   const auto solidOutside = [this, &world](std::int32_t _x, std::int32_t _y, std::int32_t _z)
   {
     const Protocol::VoxelPosition position = world(_x, _y, _z);
-    return position.yVoxels < 0 || IndexAt(position) != Protocol::Chunk::EMPTY;
+    return position.yVoxels < 0 || (IndexAt(position) != Protocol::Chunk::EMPTY && !Hidden(position));
   };
 
   // What the chunk is drawn in: its voxels, with RendererLook.md §3's two colour rules applied. They
   // pick colours only; the simulation's voxels are untouched.
   const std::span<const std::uint8_t> voxels = snapshot.voxels->Voxels();
   std::vector<std::uint8_t> shown(voxels.begin(), voxels.end());
+  // What Hide leaves out is drawn as air.
+  for (const auto& [x, y, z] : m_hidden)
+  {
+    const std::array<std::int32_t, 3> inside = {x - origin[0], y - origin[1], z - origin[2]};
+    if (std::ranges::all_of(inside, [](std::int32_t _cell) { return _cell >= 0 && _cell < EDGE; }))
+    {
+      shown[CellIndex(inside[0], inside[1], inside[2])] = Protocol::Chunk::EMPTY;
+    }
+  }
   const std::int32_t fordVoxels = std::int32_t{1} << m_jitterCellShift; // one world meter of water
   const auto indexNear = [&](std::int32_t _x, std::int32_t _y, std::int32_t _z)
   {
@@ -425,6 +482,10 @@ void WorldView::BuildPlaced(Placed& _placed, bool _asImpostor) const
     if (voxel.yVoxels < 0)
     {
       return true; // below the world's floor (RendererLook.md §5)
+    }
+    if (Hidden(voxel))
+    {
+      return false;
     }
     const Protocol::ChunkCoordinate chunk = Protocol::ChunkContaining(voxel);
     if (!Protocol::FitsChunkKey(chunk))

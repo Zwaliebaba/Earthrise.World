@@ -57,6 +57,18 @@
     <ClCompile Include="Debris.cpp">
       <Filter>World</Filter>
     </ClCompile>
+    <ClInclude Include="Interpolation.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="Interpolation.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
+    <ClInclude Include="WorldModels.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="WorldModels.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
     <ClInclude Include="Look.h">
       <Filter>Look</Filter>
     </ClInclude>

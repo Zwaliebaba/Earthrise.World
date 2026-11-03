@@ -48,5 +48,11 @@
     <ClCompile Include="GlyphAtlasTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="InterpolationTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="WorldModelsTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
