@@ -27,7 +27,7 @@ Protocol::StateUpdate Seeing(std::span<const std::pair<std::int32_t, std::int32_
   state.visibleCells.assign(((WIDTH * DEPTH) + 63) / 64, std::uint64_t{0});
   for (const auto& [x, z] : _seen)
   {
-    const auto bit = static_cast<std::size_t>((z * WIDTH) + x);
+    const std::size_t bit = (static_cast<std::size_t>(z) * WIDTH) + static_cast<std::size_t>(x);
     state.visibleCells.at(bit / 64) |= std::uint64_t{1} << (bit % 64);
   }
   return state;
@@ -48,7 +48,8 @@ public:
       for (std::int32_t x = 0; x < WIDTH; ++x)
       {
         const bool visible = std::ranges::find(seen, std::pair{x, z}) != seen.end();
-        Assert::AreEqual(visible ? Client::SEEN_TEXEL : std::uint8_t{0}, mask.at(static_cast<std::size_t>((z * WIDTH) + x)));
+        Assert::AreEqual(visible ? Client::SEEN_TEXEL : std::uint8_t{0},
+                         mask.at((static_cast<std::size_t>(z) * WIDTH) + static_cast<std::size_t>(x)));
       }
     }
   }
