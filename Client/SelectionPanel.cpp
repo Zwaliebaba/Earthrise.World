@@ -49,15 +49,15 @@ struct StructureLook
   char32_t icon;
 };
 
-constexpr std::array<StructureLook, 9> STRUCTURE_LOOKS = {{{"T1", "HALL", U''},
-                                                           {"T2", "KEEP", U''},
-                                                           {"T3", "WALL", U''},
-                                                           {"T4", "TOWER", U''},
-                                                           {"T5", "GATEHOUSE", U''},
-                                                           {"T6", "PALISADE", U''},
-                                                           {"T7", "PALISADE GATE", U''},
-                                                           {"T8", "QUARRY YARD", U''},
-                                                           {"T9", "LUMBER CAMP", U''}}};
+constexpr std::array<StructureLook, 9> STRUCTURE_LOOKS = {{{"T1", "HALL", U'\uE018'},
+                                                           {"T2", "KEEP", U'\uE018'},
+                                                           {"T3", "WALL", U'\uE01C'},
+                                                           {"T4", "TOWER", U'\uE011'},
+                                                           {"T5", "GATEHOUSE", U'\uE012'},
+                                                           {"T6", "PALISADE", U'\uE013'},
+                                                           {"T7", "PALISADE GATE", U'\uE012'},
+                                                           {"T8", "QUARRY YARD", U'\uE014'},
+                                                           {"T9", "LUMBER CAMP", U'\uE015'}}};
 
 /// A code point as UTF-8; the icons are in the private use area, three bytes each.
 std::string Utf8(char32_t _codePoint)
@@ -101,7 +101,7 @@ HudPanel StructurePanel(const Protocol::StructureView& _structure, const Protoco
   panel.shows = HudPanel::Shows::One;
   const auto look = std::ranges::find(STRUCTURE_LOOKS, std::string_view(_structure.templateId), &StructureLook::templateId);
   panel.name = look == STRUCTURE_LOOKS.end() ? _structure.name : std::string(look->name);
-  panel.portrait.icon = Utf8(look == STRUCTURE_LOOKS.end() ? U'' : look->icon);
+  panel.portrait.icon = Utf8(look == STRUCTURE_LOOKS.end() ? U'\uE01C' : look->icon);
   panel.enemy = _structure.owner != _state.player;
   if (_structure.maxHitPoints > 0)
   {
