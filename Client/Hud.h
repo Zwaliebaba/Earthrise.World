@@ -32,7 +32,7 @@ struct PixelRect
 struct HudTarget
 {
   HudControl control;
-  std::size_t alert; // for Jump, the alert's index in HudModel::alerts; for CardSlot, the slot's, 0 to 11
+  std::size_t alert; // for Jump, the alert's index in HudModel::alerts; for CardSlot, the slot's, 0 to 11; for GroupSlot, 0 to 4
   PixelRect rect;
 };
 

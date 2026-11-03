@@ -640,7 +640,8 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
         m_targets.push_back({.control = HudControl::CardSlot, .alert = index, .rect = cell});
       }
     }
-    // The strip: each group's slot with its number in dim, then SET.
+    // The strip: each group's slot with its number in dim and what it holds, its first kind's label and its figures, or
+    // the figures alone where both do not fit; then SET, in accent while it is on. Each is a hit target.
     const std::int32_t slotHeight = paint.Pixels(GROUP_HEIGHT_LOGICAL_PIXELS);
     const std::int32_t slotTop = height - paint.Pixels(STRIP_BOTTOM_LOGICAL_PIXELS) - slotHeight;
     std::int32_t slotLeft = paint.Pixels(STRIP_LEFT_LOGICAL_PIXELS);
@@ -650,14 +651,32 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
       const PixelRect rect{slotLeft, slotTop, paint.Pixels(set ? SET_WIDTH_LOGICAL_PIXELS : GROUP_WIDTH_LOGICAL_PIXELS), slotHeight};
       if (set)
       {
-        paint.Button(rect, SET_GROUP);
+        const PixelRect inside =
+          paint.Box(rect, _model.settingGroup ? ACCENT_SRGB : LINE_SRGB, _model.settingGroup ? ACTIVE_BACKGROUND_SRGB : BUTTON_SRGB, 1.0F);
+        paint.Text(SET_GROUP, rect.xPixels + ((rect.widthPixels - paint.Width(SET_GROUP)) / 2),
+                   paint.CenteredCellTop(rect.yPixels, rect.heightPixels), _model.settingGroup ? ACCENT_SRGB : TEXT_SRGB, inside);
+        m_targets.push_back({.control = HudControl::SetGroup, .alert = 0, .rect = rect});
       }
       else
       {
         const PixelRect inside = paint.Box(rect, LINE_SRGB, PANEL_SRGB, PANEL_ALPHA);
         const std::string number = std::to_string(slot + 1);
-        paint.Text(number, inside.xPixels + paint.Pixels(KEY_GAP_LOGICAL_PIXELS), paint.CenteredCellTop(rect.yPixels, rect.heightPixels),
-                   DIM_SRGB, inside);
+        const std::int32_t textTop = paint.CenteredCellTop(rect.yPixels, rect.heightPixels);
+        const std::int32_t numberLeft = inside.xPixels + paint.Pixels(KEY_GAP_LOGICAL_PIXELS);
+        paint.Text(number, numberLeft, textTop, DIM_SRGB, inside);
+        const std::string& label = _model.groupLabels.at(slot);
+        if (!label.empty())
+        {
+          const std::int32_t labelLeft = numberLeft + paint.Width(number) + paint.Pixels(KEY_GAP_LOGICAL_PIXELS);
+          const std::int32_t labelRoom = inside.xPixels + inside.widthPixels - labelLeft;
+          const std::string_view figures = std::string_view(label).substr(label.rfind(' ') == std::string::npos ? 0 : label.rfind(' ') + 1);
+          const std::string_view shown = paint.Width(label) <= labelRoom ? std::string_view(label) : figures;
+          if (paint.Width(shown) <= labelRoom)
+          {
+            paint.Text(shown, labelLeft, textTop, TEXT_SRGB, inside);
+          }
+        }
+        m_targets.push_back({.control = HudControl::GroupSlot, .alert = slot, .rect = rect});
       }
       deck.groups.at(slot) = rect;
       slotLeft += rect.widthPixels;

@@ -61,6 +61,8 @@
     <ClCompile Include="CommandCard.cpp" />
     <ClInclude Include="Orders.h" />
     <ClCompile Include="Orders.cpp" />
+    <ClInclude Include="ControlGroups.h" />
+    <ClCompile Include="ControlGroups.cpp" />
     <ClInclude Include="Look.h" />
     <ClInclude Include="TickClock.h" />
     <ClCompile Include="TickClock.cpp" />

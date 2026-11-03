@@ -72,5 +72,8 @@
     <ClCompile Include="CommandCardTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="ControlGroupTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

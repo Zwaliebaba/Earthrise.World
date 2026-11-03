@@ -40,7 +40,9 @@ enum class HudControl : std::uint8_t
   Jump,       // an alert's JUMP
   AnswerOpen, // the lab's question's OPEN · O (M3-G1)
   AnswerShut, // and its SHUT · S
-  CardSlot    // a command card's cell, by its index (M4-I3)
+  CardSlot,   // a command card's cell, by its index (M4-I3)
+  GroupSlot,  // a control group's slot on the strip, by its index, 0 to 4 (M4-I4)
+  SetGroup    // the strip's SET: the next slot clicked takes the selection
 };
 
 /// A button that follows the mode banner's text.
@@ -181,6 +183,8 @@ struct HudModel
   HudPanel panel = {};                     // drawn in the deck's selection panel
   HudCommandCard commandCard = {};         // drawn in the deck's card (M4-I3)
   std::optional<std::string> tooltip = {}; // over the card, at right 8 and bottom 212: the hovered slot's (Hud.md §7)
+  std::array<std::string, 9> groupLabels = {}; // each control group's slot after its number, empty for an empty group (M4-I4)
+  bool settingGroup = false;                   // SET is on: the next slot clicked takes the selection
 };
 
 /// The top bar's resources in the breach lab (M3-E2): TIME m:ss of game time, at _tick, and SHOTS n.

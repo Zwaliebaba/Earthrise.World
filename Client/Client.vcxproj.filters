@@ -183,6 +183,12 @@
     <ClCompile Include="Selection.cpp">
       <Filter>Selection</Filter>
     </ClCompile>
+    <ClInclude Include="ControlGroups.h">
+      <Filter>Selection</Filter>
+    </ClInclude>
+    <ClCompile Include="ControlGroups.cpp">
+      <Filter>Selection</Filter>
+    </ClCompile>
     <ClInclude Include="FireTally.h">
       <Filter>Session</Filter>
     </ClInclude>

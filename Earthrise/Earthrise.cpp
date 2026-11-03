@@ -30,6 +30,7 @@
 #include "ServerData.h"
 #include "Session.h"
 #include "CommandCard.h"
+#include "ControlGroups.h"
 #include "Orders.h"
 #include "Selection.h"
 #include "SelectionPanel.h"
@@ -590,6 +591,8 @@ struct Play
   bool worldChanged = false;                                     // the last frame took a changed chunk
   Client::Selection selection;                                   // layout A's (M4-I2)
   Client::Orders orders;                                         // and its command card's (M4-I3)
+  Client::ControlGroups groups;                                  // and its control groups (M4-I4)
+  bool settingGroup = false;                                     // the strip's SET is on
   bool rightDown = false;                                        // the right button went down on the world
   std::optional<std::pair<std::int32_t, std::int32_t>> dragFrom; // where the left button went down on the world
   Protocol::EntityId lastClickSquad = Protocol::NO_ENTITY;       // for the double-click
@@ -757,7 +760,8 @@ int Run(const Options& _options)
       selectionAllowed ? client.presentation.EngineBoxes() : std::vector<Client::EngineBox>{};
     bool answerOpen = false;
     bool answerShut = false;
-    std::optional<std::size_t> cardClicked; // a command card's cell (M4-I3)
+    std::optional<std::size_t> cardClicked;  // a command card's cell (M4-I3)
+    std::optional<std::size_t> groupClicked; // a control group's slot on the strip (M4-I4)
     if (pointer.WasPressed(Engine::PointerInput::Button::Left))
     {
       const std::optional<Client::HudTarget> hit = hud.HitTest(pointer.XPixels(), pointer.YPixels());
@@ -803,6 +807,12 @@ int Run(const Options& _options)
           break;
         case Client::HudControl::CardSlot:
           cardClicked = hit->alert;
+          break;
+        case Client::HudControl::GroupSlot:
+          groupClicked = hit->alert;
+          break;
+        case Client::HudControl::SetGroup:
+          client.settingGroup = !client.settingGroup;
           break;
         case Client::HudControl::Jump:
           if (hit->alert < hudModel.alerts.size() && hudModel.alerts.at(hit->alert).location.has_value())
@@ -880,6 +890,46 @@ int Run(const Options& _options)
       {
         Client::Selector::CycleKind(client.selection, shown);
       }
+      // The control groups (Hud.md §3, §7 and §8; M4-I4): Ctrl + 1–9 assigns, 1–9 selects and twice centres the camera
+      // on the group in the uncovered area; on the strip, Ctrl-click or SET then a click assigns, and a click selects.
+      client.groups.Prune(shown);
+      const bool ctrl = keyboard.IsDown(VK_CONTROL);
+      const auto recall = [&](std::size_t _group)
+      {
+        if (client.groups.Recall(_group, client.selection, shown, seconds))
+        {
+          if (const std::optional<DirectX::XMFLOAT3> center = client.groups.Center(_group, shown); center.has_value())
+          {
+            camera.LookAt(*center);
+          }
+        }
+      };
+      for (std::size_t group = 0; group < Client::ControlGroups::GROUPS; ++group)
+      {
+        if (keyboard.WasPressed(static_cast<std::uint8_t>('1' + group)))
+        {
+          if (ctrl)
+          {
+            client.groups.Assign(group, client.selection);
+          }
+          else
+          {
+            recall(group);
+          }
+        }
+      }
+      if (groupClicked.has_value())
+      {
+        if (ctrl || client.settingGroup)
+        {
+          client.groups.Assign(*groupClicked, client.selection);
+        }
+        else
+        {
+          recall(*groupClicked);
+        }
+        client.settingGroup = false;
+      }
       Client::Selector::Prune(client.selection, shown);
       client.selected = Protocol::NO_ENTITY;
       if (client.selection.activeKind == Protocol::UnitKind::Trebuchet)
@@ -940,7 +990,7 @@ int Run(const Options& _options)
       std::optional<char> hotkey;
       for (const Client::HudCommandSlot& slot : card.slots)
       {
-        if (!hotkey.has_value() && !slot.hotkey.empty() && keyboard.WasPressed(slot.hotkey.front()))
+        if (!hotkey.has_value() && !slot.hotkey.empty() && keyboard.WasPressed(static_cast<std::uint8_t>(slot.hotkey.front())))
         {
           hotkey = slot.hotkey.front();
         }
@@ -1085,6 +1135,12 @@ int Run(const Options& _options)
     const Client::HudMode mode = client.fire.Active()                                ? client.fire.Mode()
                                  : client.orders.Mode() != Client::CardCommand::None ? client.orders.Banner()
                                                                                      : run->Mode().value_or(client.fire.Mode());
+    // What each control group's slot reads (M4-I4).
+    std::array<std::string, Client::ControlGroups::GROUPS> groupLabels{};
+    for (std::size_t group = 0; group < groupLabels.size(); ++group)
+    {
+      groupLabels.at(group) = client.groups.Label(group, client.session.State());
+    }
     // The tooltip of the card's slot under the pointer, as last laid out (Hud.md §7).
     std::optional<std::string> tooltip;
     if (const std::optional<Client::HudTarget> over = hud.HitTest(pointer.XPixels(), pointer.YPixels());
@@ -1104,7 +1160,9 @@ int Run(const Options& _options)
                 .deck = deck,
                 .panel = deck ? Client::BuildPanel(client.selection, client.session.State()) : Client::HudPanel{},
                 .commandCard = card,
-                .tooltip = tooltip};
+                .tooltip = tooltip,
+                .groupLabels = groupLabels,
+                .settingGroup = client.settingGroup};
     interfaceQuads.clear();
     if (run->ShowsFigures())
     {
