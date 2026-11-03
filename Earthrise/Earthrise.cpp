@@ -2,6 +2,7 @@
 
 #include "ArrowDraw.h"
 #include "BreachLab.h"
+#include "CameraPath.h"
 #include "BreachRun.h"
 #include "ByteWriter.h"
 #include "Camera.h"
@@ -31,6 +32,7 @@
 #include "Session.h"
 #include "ReplayRun.h"
 #include "Siege.h"
+#include "SiegeMeasure.h"
 #include "AlertWatch.h"
 #include "CommandCard.h"
 #include "CommandLog.h"
@@ -53,6 +55,7 @@
 #include "WorldRenderer.h"
 
 #include <cctype>
+#include <chrono>
 
 // Earthrise.World (ADR-020): the executable that joins the client and the simulation in one process. Each frame the
 // client's clock gives the ticks due; for each, the executable hands the simulation the session's command and query
@@ -68,7 +71,9 @@
 // --mirror SiegeMirror, whose weak section is on the west (M4-B6), and with --control the control version (ADR-028).
 // `--siege --watch` seats the scripted attacker (Simulation::SiegeAttacker, M4-F5) for the player, for the owner's checks,
 // and needs no participant. Pause or F10 pauses the trial. Each trial writes its log and its replay to Logs\ (M4-J2), and
-// `--replay <file>` plays a replay back on screen and says whether every state hash matched.
+// `--replay <file>` plays a replay back on screen and says whether every state hash matched. `--siege --watch --measure`
+// is the measured run (M4-J4, SiegeMeasure.h): ten minutes of game time with M1's camera path about the castle, its
+// passes' and ticks' times written to Measurements\ beside the executable.
 //
 // It starts borderless over the whole monitor (ADR-011, decision 1), and Alt+Enter switches between that and a window.
 // `--windowed` starts it in a window. `--speed 10` runs the clock at ten times. `--ui-scale 1.5` sets the UI scale over
@@ -91,6 +96,10 @@ constexpr float CELL_CENTER_METERS = 0.5F;
 // strip, which stands 212 above the bottom and is 44 tall (Hud.md §3).
 constexpr float FIGURES_MARGIN_LOGICAL_PIXELS = 8.0F;
 constexpr float FIGURES_ABOVE_DECK_LOGICAL_PIXELS = 212.0F + 44.0F + 8.0F;
+// The measured run's camera path (M4-J4): M1's, round a 48 m square, each side in 15 s at 60 frames a second, here about
+// the keep's foot, and flown again until the ten minutes have run.
+constexpr float MEASURE_PATH_SIDE_METERS = 48.0F;
+constexpr std::uint32_t MEASURE_PATH_LEG_FRAMES = 15 * 60;
 // A left press and release this far apart, in pixels along x and y together, is a drag, not a click; two clicks on one
 // squad this close together are a double-click (Hud.md §8).
 constexpr std::int32_t DRAG_PIXELS = 6;
@@ -110,6 +119,7 @@ struct Options
   bool mirror;                                 // --mirror, with --siege: the mirrored castle (M4-B6)
   bool watch;                                  // --watch, with --siege: the scripted attacker plays the player (M4-H1)
   std::optional<std::string> replay;           // --replay: a Siege trial's replay, played back (M4-J2)
+  bool measure;                                // --measure, with --siege --watch: the measured run (M4-J4)
 };
 
 /// Whether the command line holds _flag as a word of its own.
@@ -570,6 +580,19 @@ int Run(const Options& _options)
     run = std::make_unique<BreachScenario>(desc, _options.speed, _options.scripted);
   }
 
+  // The measured run's path, its frame along it, and what it measures (M4-J4).
+  const Protocol::VoxelPosition keepFoot = run->Goal();
+  const Engine::CameraPath measurePath({.centerMeters = {static_cast<float>(keepFoot.xVoxels) + CELL_CENTER_METERS,
+                                                         static_cast<float>(keepFoot.yVoxels), static_cast<float>(keepFoot.zVoxels)},
+                                        .sideMeters = MEASURE_PATH_SIDE_METERS,
+                                        .legFrames = MEASURE_PATH_LEG_FRAMES});
+  std::uint64_t measureFrame = 0;
+  std::optional<Earthrise::SiegeMeasure> measure;
+  if (_options.measure)
+  {
+    measure.emplace();
+  }
+
   Client::TickClock clock;
   std::unique_ptr<Play> play;                     // never null after the first frame's reset
   std::size_t generation = run->Generation() + 1; // so that the first frame builds the play
@@ -642,9 +665,14 @@ int Run(const Options& _options)
     const std::uint32_t ticks = clock.Advance(lapSeconds, run->Speed());
     for (std::uint32_t tick = 0; tick < ticks; ++tick)
     {
+      const auto tickStart = std::chrono::steady_clock::now();
       if (!run->Tick(client.session, seconds))
       {
         break;
+      }
+      if (measure.has_value())
+      {
+        measure->AddTick(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tickStart).count());
       }
       Simulation::World& world = run->World();
       // The chunks and the state the player sees (ADR-025): every change and everything, in a world without players.
@@ -1002,6 +1030,19 @@ int Run(const Options& _options)
       }
     }
 
+    // The measured run flies the path, a quarter turn clockwise as each leg after the first begins and one more as it
+    // starts again (M4-J4).
+    if (measure.has_value())
+    {
+      const auto along = static_cast<std::uint32_t>(measureFrame % measurePath.FrameCount());
+      const Engine::CameraPath::Pose pose = measurePath.At(along);
+      camera.LookAt(pose.targetMeters);
+      if (pose.turnStarts || (along == 0 && measureFrame != 0))
+      {
+        camera.Turn(1);
+      }
+      ++measureFrame;
+    }
     camera.Steer(keyboard, pointer, pointer.XPixels() - lastXPixels, pointer.YPixels() - lastYPixels, swapChain.HeightPixels(),
                  static_cast<float>(lapSeconds));
     lastXPixels = pointer.XPixels();
@@ -1283,6 +1324,25 @@ int Run(const Options& _options)
     ring.Retire(fenceValue);
     renderer.Retire(fenceValue);
     swapChain.Present(true);
+    if (measure.has_value())
+    {
+      measure->AddFrame(renderer.VoxelPassMilliseconds(), renderer.LinePassMilliseconds());
+      if (measure->Done())
+      {
+        const std::wstring results = measure->Write(
+          executable.parent_path() / L"Measurements",
+          std::format(L"SiegeMeasure-{:%Y%m%d-%H%M%S}", std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now())),
+          {.adapter = device.AdapterName(),
+           .driverVersion = device.DriverVersion(),
+           .widthPixels = swapChain.WidthPixels(),
+           .heightPixels = swapChain.HeightPixels(),
+           .path = std::format(L"round a {:.0f} m square about the keep's foot at the default view height, a quarter turn at each "
+                               L"corner, legs of {} frames, flown again until {} ticks had run",
+                               MEASURE_PATH_SIDE_METERS, MEASURE_PATH_LEG_FRAMES, Earthrise::SiegeMeasure::TICKS)});
+        MessageBoxW(window.Handle(), results.c_str(), TITLE, MB_ICONINFORMATION | MB_OK);
+        return 0;
+      }
+    }
 
     titleSeconds += lapSeconds;
     ++titleFrames;
@@ -1318,6 +1378,10 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
     {
       throw std::invalid_argument("--siege needs a participant, such as --siege P00, or --watch"); // before any window opens
     }
+    if (HasFlag(commandLine, L"--measure") && !(HasFlag(commandLine, L"--siege") && HasFlag(commandLine, L"--watch")))
+    {
+      throw std::invalid_argument("--measure runs with --siege --watch, the scripted attacker playing (M4-J4)");
+    }
     return Run({.windowed = HasFlag(commandLine, L"--windowed"),
                 .speed = SpeedFrom(commandLine),
                 .uiScale = uiScale ? std::optional<float>(Client::UiScaleFromOption(*uiScale)) : std::nullopt,
@@ -1329,7 +1393,8 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
                 .control = HasFlag(commandLine, L"--control"),
                 .mirror = HasFlag(commandLine, L"--mirror"),
                 .watch = HasFlag(commandLine, L"--watch"),
-                .replay = OptionValue(commandLine, L"--replay")});
+                .replay = OptionValue(commandLine, L"--replay"),
+                .measure = HasFlag(commandLine, L"--measure")});
   }
   catch (const winrt::hresult_error& error)
   {

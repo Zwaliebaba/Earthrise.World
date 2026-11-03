@@ -45,6 +45,12 @@
     <ClCompile Include="ReplayRun.cpp">
       <Filter>Siege</Filter>
     </ClCompile>
+    <ClInclude Include="SiegeMeasure.h">
+      <Filter>Siege</Filter>
+    </ClInclude>
+    <ClCompile Include="SiegeMeasure.cpp">
+      <Filter>Siege</Filter>
+    </ClCompile>
     <ClCompile Include="Lab.cpp">
       <Filter>Lab</Filter>
     </ClCompile>
