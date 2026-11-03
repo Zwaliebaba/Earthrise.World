@@ -300,6 +300,11 @@ bool Lab::ShowsFigures() const noexcept
   return false;
 }
 
+bool Lab::ShowsDeck() const noexcept
+{
+  return false;
+}
+
 std::vector<Client::OverlayBox> Lab::Marks(const Client::Session& _session) const
 {
   // The mark in accent at the aim voxel, and the voxel the arc strikes beside it in the text's colour.

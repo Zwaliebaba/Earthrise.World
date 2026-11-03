@@ -102,6 +102,7 @@ struct HudModel
   bool passabilityView = false;                            // F2
   std::optional<HudReadout> readout = std::nullopt;        // while F1 is on and the focused section has a reading
   std::optional<HudSelection> selection = std::nullopt;    // while an engine is selected
+  bool deck = false; // layout A's deck and the control groups' strip (Hud.md §3; M4-I1), which the M3 runs leave out
 };
 
 /// The top bar's resources in the breach lab (M3-E2): TIME m:ss of game time, at _tick, and SHOTS n.

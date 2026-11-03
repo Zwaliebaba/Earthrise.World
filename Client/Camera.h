@@ -39,8 +39,10 @@ public:
   [[nodiscard]] std::pair<std::int32_t, float> TakeMoves() noexcept;
 
   /// The view-projection for a target _aspect wide over high and _heightPixels high, whose top _topBarPixels the top bar
-  /// covers.
-  [[nodiscard]] DirectX::XMMATRIX ViewProjection(float _aspect, std::uint32_t _heightPixels, float _topBarPixels) const noexcept;
+  /// covers and whose bottom _deckPixels the deck does (Hud.md §3): the look-at point sits in the middle of the area
+  /// between them.
+  [[nodiscard]] DirectX::XMMATRIX ViewProjection(float _aspect, std::uint32_t _heightPixels, float _topBarPixels,
+                                                 float _deckPixels) const noexcept;
   [[nodiscard]] DirectX::XMVECTOR Forward() const noexcept;
   [[nodiscard]] float ViewHeightMeters() const noexcept;
   [[nodiscard]] float AzimuthRadians() const noexcept;

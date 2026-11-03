@@ -37,6 +37,9 @@ inline constexpr std::string_view CANCEL_ESC = "CANCEL · ESC";
 inline constexpr std::string_view JUMP = "JUMP";
 inline constexpr std::string_view FIRE_BANNER = "FIRE · RIGHT-CLICK A TARGET";
 
+// The control groups' strip above the deck (Hud.md §3; M4-I1): groups 1 to 5 by their numbers, then SET.
+inline constexpr std::string_view SET_GROUP = "SET";
+
 // The attack cursor's four readings (Hud.md §8; M3-E4), and what it shows while the first is on its way.
 inline constexpr std::string_view AIM_IN_RANGE = "IN RANGE · {} m";
 inline constexpr std::string_view AIM_BLOCKED = "BLOCKED · {} m";
@@ -126,6 +129,7 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      CANCEL_ESC,
                                                                      JUMP,
                                                                      FIRE_BANNER,
+                                                                     SET_GROUP,
                                                                      AIM_IN_RANGE,
                                                                      AIM_BLOCKED,
                                                                      AIM_TOO_CLOSE,

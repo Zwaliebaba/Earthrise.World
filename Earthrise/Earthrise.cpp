@@ -78,8 +78,10 @@ constexpr std::uint8_t PLAYER = Simulation::BreachRun::PLAYER; // the Siege cast
 constexpr std::string_view SIEGE_SCENARIO = "Siege";
 constexpr std::string_view SIEGE_MIRROR_SCENARIO = "SiegeMirror";
 constexpr float CELL_CENTER_METERS = 0.5F;
-// The frame's figures, in the bottom-left corner (M3-E1), in logical pixels.
+// The frame's figures, in the bottom-left corner (M3-E1), in logical pixels; with the deck, above the control groups'
+// strip, which stands 212 above the bottom and is 44 tall (Hud.md §3).
 constexpr float FIGURES_MARGIN_LOGICAL_PIXELS = 8.0F;
+constexpr float FIGURES_ABOVE_DECK_LOGICAL_PIXELS = 212.0F + 44.0F + 8.0F;
 
 struct Options
 {
@@ -412,6 +414,11 @@ public:
     return true;
   }
 
+  [[nodiscard]] bool ShowsDeck() const noexcept override
+  {
+    return false;
+  }
+
   [[nodiscard]] std::vector<Client::OverlayBox> Marks(const Client::Session& /* _session */) const override
   {
     return {};
@@ -539,6 +546,11 @@ public:
   }
 
   [[nodiscard]] bool ShowsFigures() const noexcept override
+  {
+    return true;
+  }
+
+  [[nodiscard]] bool ShowsDeck() const noexcept override
   {
     return true;
   }
@@ -875,11 +887,15 @@ int Run(const Options& _options)
     const std::uint32_t slot = frames.Slot();
     ID3D12GraphicsCommandList* commandList = frames.Begin();
     const float aspect = static_cast<float>(swapChain.WidthPixels()) / static_cast<float>(swapChain.HeightPixels());
-    // The UI scale: --ui-scale, or the display's band (Hud.md §2).
-    const float uiScale = _options.uiScale.value_or(Client::UiScaleForDpi(window.Dpi()));
+    // The UI scale: --ui-scale, or the display's band (Hud.md §2), capped where the deck needs the room (M4-I1). The
+    // camera frames the area between the top bar and the deck.
+    const bool deck = run->ShowsDeck();
+    const float bandScale = _options.uiScale.value_or(Client::UiScaleForDpi(window.Dpi()));
+    const float uiScale = deck ? Client::CappedUiScale(bandScale, swapChain.WidthPixels()) : bandScale;
     const float topBarPixels = Client::TOP_BAR_LOGICAL_PIXELS * uiScale;
+    const float deckPixels = deck ? Client::Hud::DECK_LOGICAL_PIXELS * uiScale : 0.0F;
     DirectX::XMFLOAT4X4 viewProjection{};
-    DirectX::XMStoreFloat4x4(&viewProjection, camera.ViewProjection(aspect, swapChain.HeightPixels(), topBarPixels));
+    DirectX::XMStoreFloat4x4(&viewProjection, camera.ViewProjection(aspect, swapChain.HeightPixels(), topBarPixels, deckPixels));
     // The fog's mask, made again from each tick's visibility (M4-H3); the renderer uploads it when it changed.
     if (client.fogTick != client.session.State().tick)
     {
@@ -921,20 +937,24 @@ int Run(const Options& _options)
                 .integrityView = integrityView,
                 .passabilityView = passabilityShown,
                 .readout = client.views.Readout(client.session, seconds, integrityView),
-                .selection = selection};
+                .selection = selection,
+                .deck = deck};
     interfaceQuads.clear();
     if (run->ShowsFigures())
     {
       const std::uint32_t figuresScale = Client::TextLayout::PixelsPerFontPixel(Client::TextSize::Label, uiScale);
       const std::int32_t margin = Client::ScaledPixels(FIGURES_MARGIN_LOGICAL_PIXELS, uiScale);
-      // In the bottom-right corner, since the readout is docked in the bottom-left (M3-H1).
+      // In the bottom-right corner, since the readout is docked in the bottom-left (M3-H1), or with the deck at the left
+      // above the control groups' strip, clear of the readout above the deck.
       const std::string figures = std::format(Client::FIGURES, renderer.VoxelPassMilliseconds(), client.session.State().tick, run->Speed());
-      Client::TextLayout::Lay(figures,
-                              static_cast<std::int32_t>(swapChain.WidthPixels()) - margin -
-                                static_cast<std::int32_t>(Client::TextLayout::Measure(figures, figuresScale)),
-                              static_cast<std::int32_t>(swapChain.HeightPixels()) - margin -
-                                static_cast<std::int32_t>(Client::TextLayout::CellPixels(figuresScale)),
-                              figuresScale, figuresColor, interfaceQuads);
+      const auto cell = static_cast<std::int32_t>(Client::TextLayout::CellPixels(figuresScale));
+      const auto widthPixels = static_cast<std::int32_t>(swapChain.WidthPixels());
+      const auto heightPixels = static_cast<std::int32_t>(swapChain.HeightPixels());
+      const std::int32_t figuresX =
+        deck ? margin : widthPixels - margin - static_cast<std::int32_t>(Client::TextLayout::Measure(figures, figuresScale));
+      const std::int32_t figuresY =
+        deck ? heightPixels - Client::ScaledPixels(FIGURES_ABOVE_DECK_LOGICAL_PIXELS, uiScale) - cell : heightPixels - margin - cell;
+      Client::TextLayout::Lay(figures, figuresX, figuresY, figuresScale, figuresColor, interfaceQuads);
     }
     hud.Build(hudModel, swapChain.WidthPixels(), swapChain.HeightPixels(), uiScale, interfaceQuads);
     const std::optional<Client::AttackCursor> cursor = client.fire.Cursor(client.session);

@@ -54,6 +54,28 @@ constexpr float READOUT_BAR_GAP_LOGICAL_PIXELS = 3.0F;
 constexpr float READOUT_BAR_HEIGHT_LOGICAL_PIXELS = 4.0F;
 // The UI scales the readout steps down through where it would be too tall (Hud.md §2's bands).
 constexpr std::array<float, 3> READOUT_SCALES = {2.0F, 1.5F, 1.0F};
+// Layout A (Hud.md §3; M4-I1): the deck's padding and the gap between its columns, the minimap's well, the selection at
+// its narrowest, the card's 4 x 3 cells, 100 to 112 wide and 60 high with gaps of 4, and the strip of groups 1 to 5 and
+// SET above it, at left 212 and bottom 212. With the deck, the readout stands at right 416 and bottom 212, as M6's
+// placement and dig readouts will, and above the strip where the two would meet, as they do at 1280 px.
+constexpr float DECK_PADDING_LOGICAL_PIXELS = 8.0F;
+constexpr float DECK_GAP_LOGICAL_PIXELS = 8.0F;
+constexpr float MINIMAP_LOGICAL_PIXELS = 188.0F;
+constexpr float SELECTION_MIN_LOGICAL_PIXELS = 340.0F;
+constexpr std::int32_t CARD_COLUMNS = 4;
+constexpr std::int32_t CARD_ROWS = 3;
+constexpr float CELL_MIN_WIDTH_LOGICAL_PIXELS = 100.0F;
+constexpr float CELL_MAX_WIDTH_LOGICAL_PIXELS = 112.0F;
+constexpr float CELL_HEIGHT_LOGICAL_PIXELS = 60.0F;
+constexpr float CELL_GAP_LOGICAL_PIXELS = 4.0F;
+constexpr float STRIP_LEFT_LOGICAL_PIXELS = 212.0F;
+constexpr float STRIP_BOTTOM_LOGICAL_PIXELS = 212.0F;
+constexpr float GROUP_WIDTH_LOGICAL_PIXELS = 120.0F;
+constexpr float GROUP_HEIGHT_LOGICAL_PIXELS = 44.0F;
+constexpr float SET_WIDTH_LOGICAL_PIXELS = 64.0F;
+constexpr float DECK_READOUT_RIGHT_LOGICAL_PIXELS = 416.0F;
+constexpr float DECK_READOUT_BOTTOM_LOGICAL_PIXELS = 212.0F;
+constexpr float ABOVE_STRIP_GAP_LOGICAL_PIXELS = 8.0F;
 
 // A cap stands on rows 1 to 7 of the font's cell (Hud.md §9), so text is centred on that band.
 constexpr std::int32_t CAP_TOP_ROW = 1;
@@ -223,6 +245,7 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
   m_targets.clear();
   m_texts.clear();
   m_readout.reset();
+  m_deck.reset();
   Painter paint(_uiScale, _quads, m_texts);
   const auto width = static_cast<std::int32_t>(_widthPixels);
   const auto height = static_cast<std::int32_t>(_heightPixels);
@@ -372,9 +395,76 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
     }
   }
 
-  // The integrity readout, docked in the bottom-left corner: the focused section's name, then its rows, each key in dim
-  // and its value in its colour, both in accent while the row flashes, and HOLE's and GAP's bars under them. It lays out
-  // at the UI scale, or at the largest band below it at which it is no taller than READOUT_HEIGHT_FRACTION of the screen.
+  // Layout A's deck along the bottom, full width, its border along its top: the minimap's well on the left, the command
+  // card's grid on the right, its cells as wide as the room lets them between 100 and 112, and the selection's panel
+  // taking the rest; and the strip of the control groups above it, 1 to 5 and SET.
+  std::optional<PixelRect> strip;
+  if (_model.deck)
+  {
+    const std::int32_t deckHeight = paint.Pixels(DECK_LOGICAL_PIXELS);
+    const std::int32_t padding = paint.Pixels(DECK_PADDING_LOGICAL_PIXELS);
+    const std::int32_t gap = paint.Pixels(DECK_GAP_LOGICAL_PIXELS);
+    const std::int32_t cellGap = paint.Pixels(CELL_GAP_LOGICAL_PIXELS);
+    HudDeck deck{};
+    deck.deck = {0, height - deckHeight, width, deckHeight};
+    paint.Fill({0, deck.deck.yPixels + border, width, deckHeight - border}, PANEL_SRGB, PANEL_ALPHA);
+    paint.Fill({0, deck.deck.yPixels, width, border}, LINE_SRGB);
+    m_panels.push_back(deck.deck);
+    const std::int32_t top = deck.deck.yPixels + padding;
+    const std::int32_t inner = deckHeight - (2 * padding);
+    const std::int32_t minimap = paint.Pixels(MINIMAP_LOGICAL_PIXELS);
+    deck.minimap = {padding, top, minimap, inner};
+    const std::int32_t cardRoom = width - (2 * padding) - minimap - paint.Pixels(SELECTION_MIN_LOGICAL_PIXELS) - (2 * gap);
+    const std::int32_t cellWidth = std::clamp((cardRoom - ((CARD_COLUMNS - 1) * cellGap)) / CARD_COLUMNS,
+                                              paint.Pixels(CELL_MIN_WIDTH_LOGICAL_PIXELS), paint.Pixels(CELL_MAX_WIDTH_LOGICAL_PIXELS));
+    const std::int32_t cellHeight = paint.Pixels(CELL_HEIGHT_LOGICAL_PIXELS);
+    const std::int32_t cardWidth = (CARD_COLUMNS * cellWidth) + ((CARD_COLUMNS - 1) * cellGap);
+    deck.card = {width - padding - cardWidth, top, cardWidth, (CARD_ROWS * cellHeight) + ((CARD_ROWS - 1) * cellGap)};
+    const std::int32_t selectionLeft = deck.minimap.xPixels + minimap + gap;
+    deck.selection = {selectionLeft, top, deck.card.xPixels - gap - selectionLeft, inner};
+    paint.Box(deck.minimap, LINE_SRGB, WELL_SRGB, 1.0F);
+    paint.Box(deck.selection, LINE_SRGB, WELL_SRGB, 1.0F);
+    for (std::int32_t row = 0; row < CARD_ROWS; ++row)
+    {
+      for (std::int32_t column = 0; column < CARD_COLUMNS; ++column)
+      {
+        const PixelRect cell{deck.card.xPixels + (column * (cellWidth + cellGap)), top + (row * (cellHeight + cellGap)), cellWidth,
+                             cellHeight};
+        paint.Box(cell, LINE_SRGB, BUTTON_SRGB, 1.0F);
+        deck.cells.at((static_cast<std::size_t>(row) * CARD_COLUMNS) + static_cast<std::size_t>(column)) = cell;
+      }
+    }
+    // The strip: each group's slot with its number in dim, then SET.
+    const std::int32_t slotHeight = paint.Pixels(GROUP_HEIGHT_LOGICAL_PIXELS);
+    const std::int32_t slotTop = height - paint.Pixels(STRIP_BOTTOM_LOGICAL_PIXELS) - slotHeight;
+    std::int32_t slotLeft = paint.Pixels(STRIP_LEFT_LOGICAL_PIXELS);
+    for (std::size_t slot = 0; slot < HudDeck::GROUP_SLOTS; ++slot)
+    {
+      const bool set = slot + 1 == HudDeck::GROUP_SLOTS;
+      const PixelRect rect{slotLeft, slotTop, paint.Pixels(set ? SET_WIDTH_LOGICAL_PIXELS : GROUP_WIDTH_LOGICAL_PIXELS), slotHeight};
+      if (set)
+      {
+        paint.Button(rect, SET_GROUP);
+      }
+      else
+      {
+        const PixelRect inside = paint.Box(rect, LINE_SRGB, PANEL_SRGB, PANEL_ALPHA);
+        const std::string number = std::to_string(slot + 1);
+        paint.Text(number, inside.xPixels + paint.Pixels(KEY_GAP_LOGICAL_PIXELS), paint.CenteredCellTop(rect.yPixels, rect.heightPixels),
+                   DIM_SRGB, inside);
+      }
+      deck.groups.at(slot) = rect;
+      slotLeft += rect.widthPixels;
+    }
+    strip = PixelRect{deck.groups.front().xPixels, slotTop, slotLeft - deck.groups.front().xPixels, slotHeight};
+    m_panels.push_back(*strip);
+    m_deck = deck;
+  }
+
+  // The integrity readout: the focused section's name, then its rows, each key in dim and its value in its colour, both
+  // in accent while the row flashes, and HOLE's and GAP's bars under them. It stands above the deck, or without one in
+  // the bottom-left corner, and lays out at the UI scale, or at the largest band below it at which it is no taller than
+  // READOUT_HEIGHT_FRACTION of the screen.
   if (_model.readout.has_value())
   {
     const HudReadout& readout = *_model.readout;
@@ -395,8 +485,17 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
     Painter readoutPaint(readoutScale, _quads, m_texts);
     const ReadoutSize size = MeasureReadout(readout, readoutPaint);
     const std::int32_t margin = paint.Pixels(READOUT_LEFT_LOGICAL_PIXELS);
-    const PixelRect box{margin, height - paint.Pixels(READOUT_BOTTOM_LOGICAL_PIXELS) - size.heightPixels,
-                        std::min(size.widthPixels, width - (2 * margin)), size.heightPixels};
+    const std::int32_t boxWidth = std::min(size.widthPixels, width - (2 * margin));
+    PixelRect box{margin, height - paint.Pixels(READOUT_BOTTOM_LOGICAL_PIXELS) - size.heightPixels, boxWidth, size.heightPixels};
+    if (_model.deck)
+    {
+      box.xPixels = std::max(margin, width - paint.Pixels(DECK_READOUT_RIGHT_LOGICAL_PIXELS) - boxWidth);
+      box.yPixels = height - paint.Pixels(DECK_READOUT_BOTTOM_LOGICAL_PIXELS) - size.heightPixels;
+      if (strip.has_value() && box.Overlaps(*strip))
+      {
+        box.yPixels = strip->yPixels - paint.Pixels(ABOVE_STRIP_GAP_LOGICAL_PIXELS) - size.heightPixels;
+      }
+    }
     const PixelRect inside = readoutPaint.Box(box, LINE_SRGB, PANEL_SRGB, PANEL_ALPHA);
     m_panels.push_back(box);
     m_readout = box;
@@ -454,7 +553,9 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
     const std::int32_t alertWidth =
       std::min((2 * border) + (2 * paddingX) + textWidth + jumpRoom, paint.Pixels(ALERT_MAX_WIDTH_LOGICAL_PIXELS));
     const PixelRect box{paint.Pixels(ALERTS_LEFT_LOGICAL_PIXELS), y, alertWidth, (2 * border) + (2 * paddingY) + content};
-    if (m_readout.has_value() && box.Overlaps(*m_readout))
+    const bool meets = (m_readout.has_value() && box.Overlaps(*m_readout)) || (strip.has_value() && box.Overlaps(*strip)) ||
+                       (m_deck.has_value() && box.Overlaps(m_deck->deck));
+    if (meets)
     {
       break;
     }
@@ -526,6 +627,16 @@ std::span<const HudText> Hud::Texts() const noexcept
 std::optional<PixelRect> Hud::Readout() const noexcept
 {
   return m_readout;
+}
+
+std::optional<HudDeck> Hud::Deck() const noexcept
+{
+  return m_deck;
+}
+
+std::span<const PixelRect> Hud::Panels() const noexcept
+{
+  return m_panels;
 }
 
 } // namespace Client

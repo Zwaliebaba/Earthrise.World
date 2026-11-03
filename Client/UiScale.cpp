@@ -37,6 +37,18 @@ float UiScaleFromOption(std::string_view _value)
   throw std::invalid_argument(std::format("--ui-scale takes 1, 1.5 or 2, and was given \"{}\".", _value));
 }
 
+float CappedUiScale(float _uiScale, std::uint32_t _widthPixels) noexcept
+{
+  for (const float step : {2.0F, 1.5F})
+  {
+    if (step <= _uiScale && static_cast<float>(_widthPixels) >= DECK_MIN_LOGICAL_PIXELS * step)
+    {
+      return step;
+    }
+  }
+  return 1.0F;
+}
+
 std::int32_t ScaledPixels(float _logicalPixels, float _uiScale) noexcept
 {
   return static_cast<std::int32_t>(std::lround(_logicalPixels * _uiScale));

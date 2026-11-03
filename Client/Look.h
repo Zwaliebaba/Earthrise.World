@@ -99,6 +99,7 @@ inline constexpr float TOP_BAR_LOGICAL_PIXELS = 44.0F;
 inline constexpr std::uint32_t PANEL_SRGB = 0x151310;
 inline constexpr float PANEL_ALPHA = 0.92F;
 inline constexpr std::uint32_t BUTTON_SRGB = 0x2a2621; // panel-deep, for buttons
+inline constexpr std::uint32_t WELL_SRGB = 0x1f1c18;   // panel-deep, for inner wells
 inline constexpr std::uint32_t LINE_SRGB = 0x3a342c;
 inline constexpr std::uint32_t TEXT_SRGB = 0xf3ede2;
 inline constexpr std::uint32_t DIM_SRGB = 0xa69c8a;
