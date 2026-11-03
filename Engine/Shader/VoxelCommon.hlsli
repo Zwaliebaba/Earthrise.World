@@ -44,10 +44,14 @@ ConstantBuffer<BatchConstants> g_batch : register(b2);
 
 struct OverlayConstants
 {
-  float alpha; // what the overlay pipeline draws its voxels at (ADR-021, decision 1)
+  float alpha;          // what the overlay and silhouette pipelines draw their voxels at (ADR-021, decisions 1 and 6)
+  float columnShade;    // what a voxel in a column not seen now is multiplied by (ADR-025, decision 8)
+  uint shadeWidthCells; // the column mask's width and depth in cells; 0: no shade
+  uint shadeDepthCells;
 };
 
 ConstantBuffer<OverlayConstants> g_overlay : register(b3);
+Texture2D<float> g_columnMask : register(t3); // R8_UNORM, one texel a cell: 0 where the column is not seen now
 Texture2D<float> g_staticShadow : register(t1);  // the world's, drawn when it changes
 Texture2D<float> g_dynamicShadow : register(t2); // the models', drawn each frame
 SamplerComparisonState g_shadowSampler : register(s0);

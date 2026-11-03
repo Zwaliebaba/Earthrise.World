@@ -48,6 +48,9 @@
     <ClCompile Include="InterfacePassTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="LinePassTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
     <ClCompile Include="VoxelPickTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>

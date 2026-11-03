@@ -24,12 +24,16 @@ enum RootParameter : UINT
   RootPalette, // b1, a root CBV
   RootBatch,   // b2, root constants
   RootRecords, // t0, a root SRV
-  RootShadows, // t1 and t2, the static and the dynamic shadow map, a descriptor table
-  RootOverlay, // b3, the overlay's alpha, one root constant
+  RootShadows, // t1 to t3, the static and the dynamic shadow map and the column mask, a descriptor table
+  RootPixel,   // b3, the overlay's or silhouette's alpha and the column shade, four root constants
   RootCount
 };
 
 constexpr std::uint32_t SHADOW_MAPS = 2;
+// The table's views: the shadow maps', then the column mask's (ADR-025, decision 8).
+constexpr std::uint32_t TABLE_VIEWS = SHADOW_MAPS + 1;
+// The alpha, the column shade, and the mask's width and depth in cells.
+constexpr UINT PIXEL_CONSTANT_COUNT = 4;
 
 // The origin and the voxel edge, the turn packed with the extent, and the swap's two indices.
 constexpr UINT BATCH_CONSTANT_COUNT = 7;
@@ -52,16 +56,16 @@ winrt::com_ptr<ID3D12RootSignature> MakeRootSignature(ID3D12Device* _device)
   parameters[RootRecords].Descriptor = {.ShaderRegister = 0, .RegisterSpace = 0};
   parameters[RootRecords].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
   const D3D12_DESCRIPTOR_RANGE shadowRange{.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
-                                           .NumDescriptors = SHADOW_MAPS,
+                                           .NumDescriptors = TABLE_VIEWS,
                                            .BaseShaderRegister = 1,
                                            .RegisterSpace = 0,
                                            .OffsetInDescriptorsFromTableStart = 0};
   parameters[RootShadows].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
   parameters[RootShadows].DescriptorTable = {.NumDescriptorRanges = 1, .pDescriptorRanges = &shadowRange};
   parameters[RootShadows].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-  parameters[RootOverlay].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-  parameters[RootOverlay].Constants = {.ShaderRegister = 3, .RegisterSpace = 0, .Num32BitValues = 1};
-  parameters[RootOverlay].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+  parameters[RootPixel].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+  parameters[RootPixel].Constants = {.ShaderRegister = 3, .RegisterSpace = 0, .Num32BitValues = PIXEL_CONSTANT_COUNT};
+  parameters[RootPixel].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
   // Percentage-closer filtering: each tap compares 2 x 2 texels and blends them. Under reversed Z a
   // hit is lit when it is at or nearer the sun than what the map holds, and beyond the map, where
@@ -105,7 +109,7 @@ winrt::com_ptr<ID3D12RootSignature> MakeRootSignature(ID3D12Device* _device)
 VoxelPass::VoxelPass(ID3D12Device* _device, const Desc& _desc)
   : m_device(_device),
     m_rootSignature(MakeRootSignature(_device)),
-    m_shadowViews(_device, {.type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, .capacityDescriptors = SHADOW_MAPS, .shaderVisible = true})
+    m_shadowViews(_device, {.type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, .capacityDescriptors = TABLE_VIEWS, .shaderVisible = true})
 {
   // Every enum is named, because several of D3D12's have no zero value (no d3dx12.h defaults, R14).
   constexpr D3D12_RENDER_TARGET_BLEND_DESC OPAQUE_TARGET{.BlendEnable = FALSE,
@@ -200,10 +204,17 @@ VoxelPass::VoxelPass(ID3D12Device* _device, const Desc& _desc)
   overlayDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
   winrt::check_hresult(_device->CreateGraphicsPipelineState(&overlayDesc, IID_PPV_ARGS(m_overlayPipelineState.put())));
 
-  // Until it is given shadow maps, the pass reads null views; FrameConstants::shadowParameters
-  // turns the lookup off, but the table is bound for every draw all the same.
-  m_shadowTable = m_shadowViews.Allocate(SHADOW_MAPS);
+  // The silhouette (ADR-021, decision 6, amended): the overlay where the depth test fails instead, behind what the depth
+  // buffer holds.
+  D3D12_GRAPHICS_PIPELINE_STATE_DESC silhouetteDesc = overlayDesc;
+  silhouetteDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+  winrt::check_hresult(_device->CreateGraphicsPipelineState(&silhouetteDesc, IID_PPV_ARGS(m_silhouettePipelineState.put())));
+
+  // Until it is given shadow maps and a mask, the pass reads null views; FrameConstants::shadowParameters turns the
+  // shadow lookup off and an empty mask the shade, but the table is bound for every draw all the same.
+  m_shadowTable = m_shadowViews.Allocate(TABLE_VIEWS);
   SetShadowMaps(nullptr, nullptr);
+  SetColumnShade(nullptr, 0, 0, 1.0F);
 }
 
 void VoxelPass::SetShadowMaps(ID3D12Resource* _static, ID3D12Resource* _dynamic)
@@ -218,6 +229,23 @@ void VoxelPass::SetShadowMaps(ID3D12Resource* _static, ID3D12Resource* _dynamic)
   view.Texture2D.ResourceMinLODClamp = 0.0F;
   m_device->CreateShaderResourceView(_static, &view, m_shadowViews.At(m_shadowTable.index).cpu);
   m_device->CreateShaderResourceView(_dynamic, &view, m_shadowViews.At(m_shadowTable.index + 1).cpu);
+}
+
+void VoxelPass::SetColumnShade(ID3D12Resource* _mask, std::int32_t _widthCells, std::int32_t _depthCells, float _shade)
+{
+  const bool on = _mask != nullptr && _widthCells > 0 && _depthCells > 0;
+  D3D12_SHADER_RESOURCE_VIEW_DESC view{};
+  view.Format = DXGI_FORMAT_R8_UNORM;
+  view.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+  view.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+  view.Texture2D.MostDetailedMip = 0;
+  view.Texture2D.MipLevels = 1;
+  view.Texture2D.PlaneSlice = 0;
+  view.Texture2D.ResourceMinLODClamp = 0.0F;
+  m_device->CreateShaderResourceView(on ? _mask : nullptr, &view, m_shadowViews.At(m_shadowTable.index + SHADOW_MAPS).cpu);
+  m_shadeWidthCells = on ? static_cast<std::uint32_t>(_widthCells) : 0U;
+  m_shadeDepthCells = on ? static_cast<std::uint32_t>(_depthCells) : 0U;
+  m_columnShade = _shade;
 }
 
 void VoxelPass::Begin(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _frameConstants,
@@ -248,7 +276,14 @@ void VoxelPass::BeginOverlay(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_
                              D3D12_GPU_VIRTUAL_ADDRESS _palette, float _alpha) const
 {
   Bind(_commandList, m_overlayPipelineState.get(), _frameConstants, _palette);
-  _commandList->SetGraphicsRoot32BitConstant(RootOverlay, std::bit_cast<std::uint32_t>(_alpha), 0);
+  _commandList->SetGraphicsRoot32BitConstant(RootPixel, std::bit_cast<std::uint32_t>(_alpha), 0);
+}
+
+void VoxelPass::BeginSilhouette(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _frameConstants,
+                                D3D12_GPU_VIRTUAL_ADDRESS _palette, float _alpha) const
+{
+  Bind(_commandList, m_silhouettePipelineState.get(), _frameConstants, _palette);
+  _commandList->SetGraphicsRoot32BitConstant(RootPixel, std::bit_cast<std::uint32_t>(_alpha), 0);
 }
 
 void VoxelPass::DrawOriented(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _voxels, std::uint32_t _voxelCount) const
@@ -275,8 +310,11 @@ void VoxelPass::Bind(ID3D12GraphicsCommandList* _commandList, ID3D12PipelineStat
   _commandList->SetGraphicsRootConstantBufferView(RootFrame, _frameConstants);
   _commandList->SetGraphicsRootConstantBufferView(RootPalette, _palette);
   _commandList->SetGraphicsRootDescriptorTable(RootShadows, m_shadowTable.gpu);
-  // Only the overlay reads its alpha, but every root parameter is set before a draw.
-  _commandList->SetGraphicsRoot32BitConstant(RootOverlay, 0, 0);
+  // Only the overlay and the silhouette read the alpha, and only Begin's pipeline the shade, but every root parameter is
+  // set before a draw.
+  const std::array<std::uint32_t, PIXEL_CONSTANT_COUNT> pixel{0U, std::bit_cast<std::uint32_t>(m_columnShade), m_shadeWidthCells,
+                                                              m_shadeDepthCells};
+  _commandList->SetGraphicsRoot32BitConstants(RootPixel, PIXEL_CONSTANT_COUNT, pixel.data(), 0);
 }
 
 void VoxelPass::Draw(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _records, std::uint32_t _recordCount,

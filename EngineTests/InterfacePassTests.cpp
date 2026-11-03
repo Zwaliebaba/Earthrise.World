@@ -26,6 +26,10 @@ constexpr int COLOR_TOLERANCE = 2;
 constexpr std::array<float, 4> CLEAR = {0.25F, 0.5F, 0.75F, 1.0F};
 // A 4 x 4 atlas with two texels set, (1, 0) and (2, 3), and the rest clear.
 constexpr std::array<std::uint8_t, 16> ATLAS = {0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 0};
+// The image atlas, 2 x 2 RGBA texels, row by row: red and green, then blue and white, each opaque.
+constexpr DXGI_FORMAT IMAGE_FORMAT = DXGI_FORMAT_R8G8B8A8_UNORM;
+constexpr std::uint32_t IMAGE_TEXELS = 2;
+constexpr std::array<std::uint8_t, 16> IMAGE = {255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255};
 
 using Rgba = std::array<std::uint8_t, 4>;
 
@@ -153,8 +157,9 @@ std::pair<D3D12_PLACED_SUBRESOURCE_FOOTPRINT, std::uint64_t> Footprint(ID3D12Dev
   return {footprint, totalBytes};
 }
 
-/// Draws _quads through the pass over the target cleared to CLEAR, with ATLAS as the atlas, and reads the target back.
-Image Draw(Engine::GpuDevice& _device, std::span<const Engine::InterfaceQuad> _quads)
+/// Draws _quads through the pass over the target cleared to CLEAR, with ATLAS as the atlas and, when _withImage, IMAGE as
+/// the image atlas, and reads the target back.
+Image Draw(Engine::GpuDevice& _device, std::span<const Engine::InterfaceQuad> _quads, bool _withImage = false)
 {
   ID3D12Device* device = _device.Device();
   const winrt::com_ptr<ID3D12Resource> atlas =
@@ -177,6 +182,19 @@ Image Draw(Engine::GpuDevice& _device, std::span<const Engine::InterfaceQuad> _q
                 &ATLAS.at(static_cast<std::size_t>(row) * ATLAS_TEXELS), ATLAS_TEXELS);
   }
   atlasUpload->Unmap(0, nullptr);
+  // The image atlas's texels likewise, four bytes a texel.
+  const winrt::com_ptr<ID3D12Resource> image =
+    MakeTexture(device, IMAGE_TEXELS, IMAGE_FORMAT, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
+  const auto [imageFootprint, imageBytes] = Footprint(device, image.get());
+  const winrt::com_ptr<ID3D12Resource> imageUpload =
+    MakeBuffer(device, imageBytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
+  winrt::check_hresult(imageUpload->Map(0, nullptr, &mapped));
+  for (std::uint32_t row = 0; row < IMAGE_TEXELS; ++row)
+  {
+    std::memcpy(static_cast<std::byte*>(mapped) + static_cast<std::size_t>(row) * imageFootprint.Footprint.RowPitch,
+                &IMAGE.at(static_cast<std::size_t>(row) * IMAGE_TEXELS * 4), std::size_t{IMAGE_TEXELS} * 4);
+  }
+  imageUpload->Unmap(0, nullptr);
   // The quads, in a buffer the vertex shader reads as a root shader-resource view.
   const winrt::com_ptr<ID3D12Resource> quads =
     MakeBuffer(device, std::max<std::uint64_t>(_quads.size_bytes(), sizeof(Engine::InterfaceQuad)), D3D12_HEAP_TYPE_UPLOAD,
@@ -189,12 +207,18 @@ Image Draw(Engine::GpuDevice& _device, std::span<const Engine::InterfaceQuad> _q
 
   Engine::InterfacePass pass(device, {.targetFormat = TARGET_FORMAT});
   pass.SetAtlas(atlas.get(), ATLAS_TEXELS, ATLAS_TEXELS);
+  if (_withImage)
+  {
+    pass.SetImageAtlas(image.get(), IMAGE_TEXELS, IMAGE_TEXELS);
+  }
   Engine::FrameRing frames(device, _device.DirectQueue());
   ID3D12GraphicsCommandList* commandList = frames.Begin();
   RecordCopy(commandList, atlas.get(), atlasUpload.get(), atlasFootprint, true);
-  const D3D12_RESOURCE_BARRIER toRead =
-    Engine::TransitionBarrier(atlas.get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-  commandList->ResourceBarrier(1, &toRead);
+  RecordCopy(commandList, image.get(), imageUpload.get(), imageFootprint, true);
+  const std::array<D3D12_RESOURCE_BARRIER, 2> toRead = {
+    Engine::TransitionBarrier(atlas.get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE),
+    Engine::TransitionBarrier(image.get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)};
+  commandList->ResourceBarrier(static_cast<UINT>(toRead.size()), toRead.data());
   commandList->OMSetRenderTargets(1, &targetView, FALSE, nullptr);
   commandList->ClearRenderTargetView(targetView, CLEAR.data(), 0, nullptr);
   const D3D12_VIEWPORT viewport{.TopLeftX = 0.0F,
@@ -329,6 +353,87 @@ public:
     Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
     const Image image = Draw(device, {});
     AssertPixels(image, [](std::uint32_t, std::uint32_t) { return ClearPixel(); });
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(SamplesAnImageQuadPointByPointAtScaleFourTimesItsColor)
+  {
+    // The 2 x 2 image atlas drawn 8 x 8 at (8, 8) in white and at (32, 8) in magenta: each texel covers 4 x 4 pixels, its
+    // own colour times the quad's (ADR-019, decision 3, amended), so red, green, blue and white in the first, and red,
+    // black, blue and magenta in the second.
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const auto imageQuad = [](float _x, DirectX::XMFLOAT4 _color)
+    {
+      return Engine::InterfaceQuad{.xPixels = _x,
+                                   .yPixels = 8.0F,
+                                   .widthPixels = 8.0F,
+                                   .heightPixels = 8.0F,
+                                   .u0 = 0.0F,
+                                   .v0 = 0.0F,
+                                   .u1 = 2.0F,
+                                   .v1 = 2.0F,
+                                   .color = _color,
+                                   .textured = 2,
+                                   .reserved = {}};
+    };
+    const std::array<Engine::InterfaceQuad, 2> quads = {imageQuad(8.0F, {1.0F, 1.0F, 1.0F, 1.0F}),
+                                                        imageQuad(32.0F, {1.0F, 0.0F, 1.0F, 1.0F})};
+    const Image image = Draw(device, quads, true);
+    AssertPixels(image,
+                 [](std::uint32_t _x, std::uint32_t _y)
+                 {
+                   const bool white = _x >= 8 && _x < 16;
+                   const bool magenta = _x >= 32 && _x < 40;
+                   if ((!white && !magenta) || _y < 8 || _y >= 16)
+                   {
+                     return ClearPixel();
+                   }
+                   const std::size_t texel = (((_y - 8) / 4) * IMAGE_TEXELS) + (((_x - (white ? 8 : 32)) / 4));
+                   const double red = IMAGE.at(texel * 4) / 255.0;
+                   const double green = magenta ? 0.0 : IMAGE.at((texel * 4) + 1) / 255.0;
+                   const double blue = IMAGE.at((texel * 4) + 2) / 255.0;
+                   return Encoded(red, green, blue);
+                 });
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(DrawsAGlyphQuadAndAnImageQuadInOneDraw)
+  {
+    // The glyph atlas at (8, 16) in red, as DrawsAGlyphAtScaleTwoOnItsSetTexelsAlone draws it, and the image atlas's first
+    // texel, red, stretched over 8 x 8 at (32, 32), in one draw: both are drawn.
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const std::array<Engine::InterfaceQuad, 2> quads = {{{.xPixels = 8.0F,
+                                                          .yPixels = 16.0F,
+                                                          .widthPixels = 8.0F,
+                                                          .heightPixels = 8.0F,
+                                                          .u0 = 0.0F,
+                                                          .v0 = 0.0F,
+                                                          .u1 = 4.0F,
+                                                          .v1 = 4.0F,
+                                                          .color = {1.0F, 0.0F, 0.0F, 1.0F},
+                                                          .textured = 1,
+                                                          .reserved = {}},
+                                                         {.xPixels = 32.0F,
+                                                          .yPixels = 32.0F,
+                                                          .widthPixels = 8.0F,
+                                                          .heightPixels = 8.0F,
+                                                          .u0 = 0.0F,
+                                                          .v0 = 0.0F,
+                                                          .u1 = 1.0F,
+                                                          .v1 = 1.0F,
+                                                          .color = {1.0F, 1.0F, 1.0F, 1.0F},
+                                                          .textured = 2,
+                                                          .reserved = {}}}};
+    const Image image = Draw(device, quads, true);
+    const Rgba red = Encoded(1.0, 0.0, 0.0);
+    AssertPixels(image,
+                 [&red](std::uint32_t _x, std::uint32_t _y)
+                 {
+                   const bool glyph =
+                     _x >= 8 && _x < 16 && _y >= 16 && _y < 24 && ATLAS.at(((_y - 16) / 2 * ATLAS_TEXELS) + ((_x - 8) / 2)) != 0;
+                   const bool picture = _x >= 32 && _x < 40 && _y >= 32 && _y < 40;
+                   return glyph || picture ? red : ClearPixel();
+                 });
     AssertNoDebugErrors(device);
   }
 

@@ -1,6 +1,13 @@
 # ADR-018 — Line models, and the instanced line pass that draws them
 
-**Status:** Proposed, 2026-11-01. It records the one decision the owner's MVP assets v3 package makes ([Reference/MvpAssetsV3/](../Reference/MvpAssetsV3/)): the arrow is not a voxel model. The owner gave it the go-ahead on 2026-11-01, as written, with M4's plan (MvpPlan.md, M4, input 1; GameDesign.md, *M4's values*, item 1); order M4-G1, the commit that first implements the pass, marks it Accepted (AGENTS.md §6). What is already in the tree ahead of it is content and tooling that nothing draws yet: the arrow's file, its check, its bake and `Content::LineModelView` (decisions 1 and 2). It amends [ADR-006](ADR-006-voxel-sizes.md), decision 2, with its one exception, and adds a pass to the renderer, which AGENTS.md R12 makes an ADR.
+**Status:** Accepted, 2026-11-03, by order M4-G1 ([MvpPlan-M4.md](../MvpPlan-M4.md)), which builds `Engine::LinePass`, its shaders and its tests on WARP. Proposed, 2026-11-01. It records the one decision the owner's MVP assets v3 package makes ([Reference/MvpAssetsV3/](../Reference/MvpAssetsV3/)): the arrow is not a voxel model. The owner gave it the go-ahead on 2026-11-01, as written, with M4's plan (MvpPlan.md, M4, input 1; GameDesign.md, *M4's values*, item 1); order M4-G1, the commit that first implements the pass, marks it Accepted (AGENTS.md §6). What is already in the tree ahead of it is content and tooling that nothing draws yet: the arrow's file, its check, its bake and `Content::LineModelView` (decisions 1 and 2). It amends [ADR-006](ADR-006-voxel-sizes.md), decision 2, with its one exception, and adds a pass to the renderer, which AGENTS.md R12 makes an ADR.
+
+What the code fixed that the decisions left unsaid, as amendments (2026-11-03, M4-G1):
+- **An instance's position is the middle of its drawn length** (*Left open*, where on the arrow the shot's position sits). The tail lies half the drawn length behind it along its direction, and the head half ahead.
+- **A model draws at most `LinePass::MAX_SEGMENTS`, 4, segments,** six vertices each as two triangles, in one triangle-list draw of 24 vertices an instance. The vertices of a segment a model lacks meet at one point and draw nothing. The arrow has three.
+- **The dot is a square of `dotWidthPixels`** on the screen's axes about the line's middle. It takes the colour of the model's longest segment, which is what decision 3 means by the shaft.
+- **A segment's quad lies across the line as the line lies on screen,** at the segment's stretch of it. A line seen end on, with no length on screen, is a dot by the dot rule.
+- **The pass reads the voxel pass's frame constants,** `VoxelPass::FrameConstants`, as far as its viewport. The model, segment and instance tables are root shader-resource views, `LineModelRecord`, `LineSegmentRecord` and `LineInstance`, of 32, 40 and 48 bytes, and the faction colour rides on the instance.
 
 ## Context
 
@@ -43,5 +50,4 @@
 - **Whether the pass writes depth.** It does here, so lines occlude each other; if that shows as sparkle where lines cross, it stops writing and sorts instead.
 - **The dot rule's values,** 6 px and 2 px, and the widths, 2 and 3 px, which come from the package's own renderings and which nobody has seen in the engine. They are settled when an arrow is on screen (RendererLook.md's acceptance checks).
 - **Anti-aliasing for 1 and 2 px lines.** ADR-011 has no MSAA; if lines crawl, a coverage falloff in the line pixel shader is the first thing to try.
-- **Where on the arrow the shot's position sits:** the tail, the head or the middle. The simulation gives a point; the package does not say which.
 - **The tracer** (decision 5).

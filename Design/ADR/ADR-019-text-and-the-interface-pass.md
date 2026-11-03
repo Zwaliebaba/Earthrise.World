@@ -2,6 +2,9 @@
 
 **Status:** Accepted, 2026-11-01, by order M3-D1, which adds the interface pass; decision 1's baked font landed with M3-B8 before it. Proposed the same day with the M3 plan ([MvpPlan.md](../MvpPlan.md), M3; [MvpPlan-M3.md](../MvpPlan-M3.md)). It is the text ADR that [ADR-005](ADR-005-content-formats.md), decision 1, [ADR-011](ADR-011-renderer-first-choices.md), *Consequences*, and [Hud.md](../Hud.md) §9 schedule for M3: the font's baked form, and how text and the HUD's panels reach the screen. The owner gave it the go-ahead on 2026-11-01, as written (MvpPlan.md, M3, input 1; GameDesign.md, *M3's values*, item 1), and order M3-D1 marked it Accepted (AGENTS.md §6). The pass samples the atlas by a load of the texel under each pixel's centre, which is point sampling with no sampler.
 
+Amended by order M4-G3 (2026-11-03), for the portraits (MvpPlan.md, M4, input 21):
+- **Decision 3: a quad may also be an image.** `InterfaceQuad::textured` is 0 for a solid colour, 1 for a glyph, and 2 for a rectangle of an image atlas, an RGBA8 texture the client gives through `InterfacePass::SetImageAtlas`. Its texels are point-sampled by a load and multiplied by the quad's colour, alpha included, and blended as any quad is. The glyph atlas and the image atlas are one descriptor table of two views. Until an image atlas is set, the pass reads a null view, so an image quad draws nothing. The client renders each kind's portrait into that atlas once at startup, through the voxel pass (order M4-I2).
+
 ## Context
 
 - **The font is Earthrise Mason** ([Hud.md](../Hud.md) §9), drawn for the project. Its source is `GameData/Client/Fonts/EarthriseMason-glyphs.json`: 127 glyphs, each as rows of text, in a 10-row cell with the baseline at row 7. Caps and digits are 5 × 7, the 25 command icons 9 × 9. A glyph advances by its width plus one.

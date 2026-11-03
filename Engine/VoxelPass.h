@@ -106,6 +106,21 @@ public:
   void BeginOverlay(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _frameConstants, D3D12_GPU_VIRTUAL_ADDRESS _palette,
                     float _alpha) const;
 
+  /// Binds the silhouette pipeline (ADR-021, decision 6, amended): records drawn flat in their palette colour at _alpha
+  /// where the depth test fails, LESS under reversed Z, so only where something nearer stands, blended and writing no
+  /// depth. Draw then draws batches as after Begin. It is drawn after the world and before the models it silhouettes, so
+  /// that they are tested against the world's depth alone: drawn after them, a model's far voxels would fail against its
+  /// near ones and tint it. The models drawn after it cover it wherever they are seen.
+  void BeginSilhouette(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _frameConstants,
+                       D3D12_GPU_VIRTUAL_ADDRESS _palette, float _alpha) const;
+
+  /// From now on the voxels Begin's pipeline draws are multiplied by _shade where _mask's texel for their column is 0
+  /// (ADR-025, decision 8): R8_UNORM, _widthCells by _depthCells, one texel a 1 m cell from the world's origin, x along
+  /// its width and z down its rows. A voxel's column is its box centre's; a column outside the mask is not shaded.
+  /// nullptr, or no cells, turns the shade off. The caller first makes sure the GPU no longer reads the previous mask,
+  /// because the view is rewritten in place, and that the mask is readable by a pixel shader.
+  void SetColumnShade(ID3D12Resource* _mask, std::int32_t _widthCells, std::int32_t _depthCells, float _shade);
+
   /// Draws _voxelCount OrientedVoxels at _voxels, in world space, through whichever oriented
   /// pipeline was last begun.
   void DrawOriented(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _voxels, std::uint32_t _voxelCount) const;
@@ -131,8 +146,13 @@ private:
   winrt::com_ptr<ID3D12PipelineState> m_orientedPipelineState;
   winrt::com_ptr<ID3D12PipelineState> m_orientedShadowPipelineState;
   winrt::com_ptr<ID3D12PipelineState> m_overlayPipelineState;
+  winrt::com_ptr<ID3D12PipelineState> m_silhouettePipelineState;
+  /// The shadow maps' views and the column mask's, one table.
   DescriptorHeap m_shadowViews;
   DescriptorHeap::Handle m_shadowTable{};
+  std::uint32_t m_shadeWidthCells = 0; // 0: no column shade
+  std::uint32_t m_shadeDepthCells = 0;
+  float m_columnShade = 1.0F;
 };
 
 } // namespace Engine
