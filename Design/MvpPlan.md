@@ -12,6 +12,8 @@
 
 **M4.1, added by the owner on 2026-11-02, is Proposed,** and is accepted when the owner merges its pull request. It covers its two work orders, in [MvpPlan-M4.1.md](MvpPlan-M4.1.md), and its two inputs, each answered as proposed on 2026-11-02 (GameDesign.md, *M4.1's values*).
 
+**M5's revision of 2026-11-03 is Proposed,** and is accepted when the owner merges its pull request. It covers M5's work orders and phases, in [MvpPlan-M5.md](MvpPlan-M5.md), and its eighteen owner inputs, each proposed by the implementer and not yet answered. It takes no new ADR, and amends ADR-026.
+
 M0 to M2 were closed by the owner on 2026-11-01 (GameDesign.md, *Closing M0 and M1* and *Closing M2*); nothing from M3 on is implemented. [GameDesign.md](GameDesign.md) defines the MVP and governs where this plan differs from it. [AGENTS.md](../AGENTS.md) governs how the code is written.
 
 **How the work is done.** Claude sessions write the code, tools and checkers and push them to branches. CI builds Debug|x64 and runs its tests; Debug|ARM64 is built by hand (ADR-007). The owner runs the builds on Windows, judges the look and the measurements, and approves each milestone.
@@ -148,6 +150,7 @@ The edges run one way:
 | The AI | M4 | [ADR-027](ADR/ADR-027-commanders.md), Accepted by M4-F2: commanders inside the simulation, one a player, reading only their player's view, run as step 13, saved, recomputed on replay |
 | The control | M4 | [ADR-028](ADR/ADR-028-the-control.md), Accepted by M4-F4: health-bar structures behind one seam, `StructureRule`, chosen by the scenario; hit points calibrated on the voxel version |
 | Trenches and undermining | M4 | [ADR-029](ADR/ADR-029-trenches-and-undermining.md), Accepted by M4-D6: sappers dig an open box from the top with a ramp at its near end; earth slumps from under a structure only towards what a trench opened; dug cells lock repair nearby |
+| The playtest's records | M5 | No new ADR. M5-B1 amends [ADR-026](ADR/ADR-026-scenarios-and-the-siege-trial.md), decision 5: stones, blows and digging that reach a structure become the trial's events, priced in the control's hit points in both versions. M5-C2 amends its decision 1: a scenario may hold no trial, for the practice ground |
 
 ### One simulation tick, in order
 
@@ -623,13 +626,123 @@ M4 is carried out as 43 work orders in ten phases, written out in [MvpPlan-M4.md
 
 ### M5 — Siege playtest: the verdict on H2
 
-**Run** the playtest that GameDesign.md proposes, on the Siege trial alone:
-- 8 to 10 RTS players, with half playing the voxel version first;
-- their reasons recorded before any rules are explained;
-- prediction items split evenly between open and shut;
-- preference passing at 7 of 8 or better.
+**When it starts.** M5's revision of 2026-11-03 is Proposed. It is accepted when the owner merges its pull request, and its 18 inputs below are the implementer's proposals, not yet answered. Phase A writes the answers down.
+- **Phases B to D are code.** They start once the revision is accepted, and need neither M3 nor M4 closed.
+- **The pilot and the session, phases E and F, wait for both to close** (input 1). M3-G3's six-person session validates the lab that M5 reuses, and settles whether the kill criterion's one round of legibility work is still unspent. M4-J5's playthroughs are the first evidence that a person can win the trial at all; the scripted attacker never has (GameDesign.md, *M4's phase F*, item 8, and *after M4's phase F*, item 3).
 
-**Done when** H2 passes, or its kill criterion fires.
+The revision was written before either report, and [MvpPlan-M5.md](MvpPlan-M5.md) is corrected against them in a commit of its own before phase E.
+
+**Run** the playtest that GameDesign.md proposes, on the Siege trial alone, as [MvpPlan-M5.md](MvpPlan-M5.md), *The session*, sets it out:
+- **The players.** Eight RTS players (input 3). Each plays both versions, on the two layouts, in one of four cells that cross version order with layout (input 4).
+- **Before the first game,** five minutes on a practice ground (input 7).
+- **Reasons** are asked when the player first commits each engine to a structure, before any rules are explained (input 8).
+- **After both games,** the preference question, and then M3's lab, unchanged (inputs 5, 10 and 11).
+- **Two novices** play the same session, and are reported apart.
+- **A pilot comes first,** and the build is frozen after it (inputs 14 and 15).
+
+**Build** what the instruments lack:
+- **Siege work as the trial's events** (M5-B1). Each stone that strikes a structure, each ram's blow, and each cubic metre a sapper digs beside a section is raised as an event and logged, priced in the control's hit points in both versions. This lets H2's clustering clause count where a player tried to breach, not only where a section opened (input 9).
+- **The playtest's scorer,** which checks the session's folder against its sheet and its frozen build and scores the three clauses (B2).
+- **Replays checked headless** (B3).
+- **`Earthrise --siege <id> --game <1|2>`,** which takes the version and the layout from the participant's id (C1).
+- **The practice ground** (C2).
+- **The reason prompt** (C3).
+- **If input 12 keeps them, the crater items** (D1, D2).
+
+### M5's phases (written 2026-11-03, before M3 and M4 close)
+
+M5 is carried out as 13 work orders in six phases, written out in [MvpPlan-M5.md](MvpPlan-M5.md). Each order is one commit.
+
+| Phase | Orders | What lands | Needs first |
+|---|---|---|---|
+| A | 1 | The owner's decisions, written down | Inputs 1–18 below |
+| B | 3 | Siege work as events and log rows; the playtest's scorer; replays checked headless | A |
+| C | 3 | `--siege --game`; the practice ground; the reason prompt | A; C3 also B1 |
+| D | 2 | The crater items, if input 12 keeps them | A |
+| E | 2 | The facilitator's guide and sheet; the pilot, its retune and the freeze | B, C, D; M3 and M4 closed |
+| F | 2 | The session; the report and the verdict | E |
+| | **13 orders, 4 pull requests** | | |
+
+- **B, C and D can run side by side.**
+- **The owner's runs** come after C1, C2, C3 and D2, then the pilot, the session, and B3's check of the session's replays.
+- **What sets M5's pace** is recruiting and running 12 people, after M3's six.
+
+**The owner's inputs.** Each is a design value no document gives, or a choice the documents leave to M5, and AGENTS.md requires it written down before the code that rests on it. The implementer proposes each below. None is answered yet.
+- **Input 2 changes a Decided item.**
+- **Input 17 settles a Proposed kill criterion before its data exist,** which is its point.
+
+| # | Input | For orders | Proposed, 2026-11-03 |
+|---|---|---|---|
+| 1 | **When M5 starts** | All | B to D once this revision merges and A1 records the answers. E and F after M3 and M4 close: M3-G3's session, because it validates the lab M5 reuses and settles whether the one round of legibility work is spent (input 17); M4-J5's playthroughs and report, because they are the first evidence a person can win either version. MvpPlan-M5.md is corrected against both reports before E1 |
+| 2 | **T3's redraw** (GameDesign.md, *M4's phases B and C*, item 2: after M3-G3, with the lab's new keys) | E2 | **Changes a Decided item.** T3 stays as converted through M5 and M7, and is redrawn after the MVP's verdict. Redrawn, it moved the lab's keys and broke its 8 and 8 split (MvpAssets.md, *Known issues*). All 22 of the castle's sections are T3, so the control's pools, calibrated on the voxel version, and the scripted trial's committed tables would move with it. M5's lab would then be a new instrument, not the one M3 validated and M4's input 24 chose for comparability, and M5 and M7 would test different walls. If the owner wants it redrawn first, it lands after M3-G3 and before E2, with the lab re-keyed and the control recalibrated, and M5's prediction reading is then not comparable with M3's |
+| 3 | **Who takes part** (GameDesign.md, *The playtest*: 8 to 10, and two or three who do not play RTS games) | B2, C1, F1 | **Eight RTS players exactly,** S01 to S08, two in each of input 4's cells. Not ten: the preference mark scaled to ten is 9 of 10, which passes less often than 7 of 8 whatever the true rate of preference (*What the marks can detect*, below), so two more people make the test harder, not surer. An RTS player has played a real-time strategy game regularly in the past two years, by their own account. **Two novices,** N01 and N02, who have not, reported apart and under no mark. **Two pilot players,** X01 and X02, whom nothing scores. Nobody who took M3's lab, has seen this repository or its plans, or was a pilot. With M3's six, the MVP's Siege half needs 18 different people |
+| 4 | **Assignment** (M4's input 28 left it to M5) | B2, C1 | MvpPlan-M5.md's four cells, from the id's number: version order crossed with layout. The voxel version is on Siege for half the players and on SiegeMirror for the other half, and the second game is always on the other layout, so that no game is played on a castle already learned. `--game` picks both from the id, so the facilitator never types a version where the participant can see it. The two games are called the first and the second, never by version |
+| 5 | **The session** (GameDesign.md, *M4's values*, item 24: the prediction items after the voxel trial) | E1, F1 | MvpPlan-M5.md, *The session*. The briefing, the practice ground, the two games with a break, preference, the lab, the crater items and the debrief, in one sitting at the benchmark machine: full screen at 1920 × 1080, UI scale 1.5, mouse and keyboard. **The lab comes after both games and the preference question,** for everyone. It is still after the voxel game, as item 24 has it. Preference is asked before an instrument only the voxel version has, and no one sees the lab between their two games. A session holds up to two 40-minute games and the lab; the pilot times it (input 14) |
+| 6 | **What the facilitator says** (*The playtest*: reasons recorded before anyone explains the rules) | E1 | **Explained:** the controls; the objective and the trial's rules for winning and losing (the keep stops working, then its foot is held for two minutes; 40 minutes; the army); the views, the readouts and the health bars, as what they show and their keys. **Never explained:** the support rule, spans, craters, repair, slump, undermining, what makes a section weak, or which version is which. As in BreachLab.md, a question about a reading is answered by reading the words on screen back, and one about what will happen with "that is what the game is for". The debrief may explain the rules, once everything is recorded |
+| 7 | **The practice ground** | C2 | Five minutes before the first game, on open ground with the attacker's army: every command, nothing to attack, no castle and no defender, the same in both versions. Without it the first game teaches the controls, and with two people a cell the counterbalance spreads that over both versions only on average. It shows how a trench is dug and how a stone's crater in earth slumps, which is what the units do, not what walls do |
+| 8 | **Reasons at the moment of choice** | C3, E1, F2 | **The game pauses** on the first of the player's stones to strike a structure, the ram's first blow on one, and the first cubic metre their sappers dig beside one, in both versions. It asks `WHY <name>? SAY IT ALOUD · SPACE GOES ON`, and the facilitator writes the reason against the `asked` row. There are at most three prompts a game. At each game's end the facilitator asks where the player broke in, or tried to, and why there. The prompt asks no prediction, so item 24's "the trial itself asks none" stands. **Reasons carry no mark.** H2's fail conditions do not name them, and the owner, who codes them, built the game. They are coded after the session by MvpPlan-M5.md, F2's scheme, and committed verbatim, so anyone can code them again |
+| 9 | **H2's clustering clause** ("cluster at the nearest point of the wall, or at the gate, whatever the wall and the ground are like") | B1, B2 | **Siege work** on a structure is counted at the control's prices, in both versions: 100 hit points for each stone that struck it, 100 for each ram's blow, or 25 on stone, and 4 for each cubic metre dug within 2 m (`RULE`; M4's input 19). Those prices are already calibrated against the voxel version, and they count a hit in the control, where a stone removes no voxel. **A game's main points** are the structures that took a quarter or more of its work. **It clusters** if every main point is the nearest section or GH, or if it did no siege work. **The clause fails** if more than half of the eight voxel games cluster, five or more. **Reported under no mark:** each game's breach point, the main point with the most work; the control's games; the weak section's share on each layout, which says whether choices follow the ground to the west in the mirror; and whether each main point opened. The alternative is a stricter mark, half or more (*What the marks can detect*) |
+| 10 | **Preference** (*The playtest*: 7 of 8 or better, scaled to the final number) | B2, E1 | Asked after both games: "If you could play only one of the two again, which would it be?" The answer is the first or the second, with no tie, and its reason is written down. **It passes at 7 of 8,** as written; with eight participants no scaling arises. The report sets each preference beside the participant's two outcomes, since a preference for the game they won is a preference about winning. The mark is the hardest of the three (*What the marks can detect*), and it stays as GameDesign.md proposes it |
+| 11 | **Prediction** (*Hypotheses*: a median accuracy of 0.65 on items split evenly) | B2 | M3's lab, unchanged: P0 and L01 to L16, scored by `ScoreBreachLab.py` over the eight RTS players' logs. It passes at a median of 0.65: the fourth- and fifth-best scores add up to 21 or more of 32. The novices are scored apart. The report sets M5's reading beside M3's: M5's participants answer after playing, and M3's before |
+| 12 | **Craters at 1 m** (GameDesign.md, *Open questions*; moved to M5 by M3's input 11) | B2, D1, D2 | **Asked in M5, as phase D:** eight items after the lab. Each shows W2 struck in its bottom metre by the ram or the trebuchet, four of each, with no engine on the site, and asks WHICH ENGINE MADE THE DAMAGE AT THE MARK? The answer is yes at a median of 6 of 8. On stone the two craters differ by one voxel, the ram's one against the stone's two along its descent, so the answer may well be no. A no takes the risk table's response into M6 and touches no part of H2's verdict. **The alternative is to defer it to M7.** In the Siege the player fires both engines and knows which made each hole, so the question arises in play only for a defender, who is Hold's player |
+| 13 | **The deck, before the verdict** (Hud.md §3: "If they do, the deck gets slimmer before the verdict") | B2, E2 | Read on the pilot's games and the owner's M4-J5 games, never on the session's, since a change made after the session would come after the verdict. **The deck slims** if more than a quarter of the openings and warnings that began under the deck or off screen went unframed for longer than a collapse's warning, 135 ticks or 6.75 s for an 8 m piece (M2's input 4). Otherwise it is the owner's call, with the figures |
+| 14 | **The pilot** | E2 | The owner, X01 and X02 run the whole session on the build to be frozen. It settles: whether the protocol, the guide and the tools run end to end; how long a session takes, for booking; the deck (input 13); and whether each version can be won by someone who did not build it. If no pilot game in a version is won, and the owner's M4-J5 win in it needed knowledge a participant cannot have, the owner retunes in `GameData/Server/` alone and the pilot runs again. Any other tuning waits for the session's report |
+| 15 | **The freeze** | B2, E2, F1 | After the pilot, one commit is frozen. Its build ids and server-data hash go into GameDesign.md and `Session.csv`, and the scorer refuses any log from another build. Nothing changes `GameData/Server/` or the code `Earthrise` runs until F2. A crash fixed during the session gets a new build id, listed in the sheet, and is allowed only if its server-data hash is the frozen one and the pilot's replays still match under B3's check. Values the session suggests retuning go to M6 and M7 as proposals |
+| 16 | **Records and consent** | E1, F1 | Everything goes under `Design/Review/SiegePlaytest/`, as MvpPlan-M5.md fixes the folder, with ids only and no names. Before the briefing, each participant agrees that their logs and the facilitator's notes of what they said will be committed to the repository |
+| 17 | **The verdict, and H2's kill criterion, decided before the session** (*Kill criteria*, Proposed) | B2, F2 | **H2 passes when all three clauses pass on the eight RTS players,** and fails when any one fails. The novices and the crater items bear on nothing in it. **The session runs once, and its result is the verdict,** except for the kill criterion's one round of legibility work, if M3 left it unspent. That round changes the views, the HUD and the words on screen, never the rules, the values or the castle. A second session of eight new people follows under this protocol, frozen afresh; its result is final, and it is never pooled with the first. **If M3 spent the round, a fail fires the kill criterion.** A fail traced to balance, the controls or the protocol buys no second session, since the pilot is where those are caught. **A participant whose session cannot finish,** from a crash, a mismatched hash or their own choice, is dropped, their logs kept under `Dropped/`, and is replaced in their cell |
+| 18 | **The pull requests** | All | Four: this revision with phase A; B to D in one draft pull request, confirmed by CI and by the owner's runs of C and D; E, with the guide, the pilot and the freeze; and F, with the session and the report |
+
+**What the marks can detect.** This is arithmetic, not measurement. Each participant is taken as independent of the others. The lab's row is from 200,000 simulated sessions, and the rest are exact binomials.
+
+| The lab: a participant's chance on each item | 0.50 | 0.60 | 0.70 | 0.75 |
+|---|---|---|---|---|
+| The median of 8 reaches 0.65 | 0.003 | 0.21 | 0.89 | 0.99 |
+| The median of 10 reaches 0.65 | 0.001 | 0.18 | 0.91 | 0.995 |
+
+| Preference: the share who truly prefer the voxel version | 0.5 | 0.7 | 0.8 | 0.9 |
+|---|---|---|---|---|
+| 7 of 8 is reached | 0.035 | 0.26 | 0.50 | 0.81 |
+| 9 of 10 is reached | 0.011 | 0.15 | 0.38 | 0.74 |
+
+| Clustering: the share of games that truly cluster | 0.3 | 0.5 | 0.7 |
+|---|---|---|---|
+| Passes when failing at more than half, 5 of 8 | 0.94 | 0.64 | 0.19 |
+| Passes when failing at half or more, 4 of 8 | 0.81 | 0.36 | 0.06 |
+
+What the tables say:
+- **The preference mark decides most.** If four players in five truly prefer the voxel version, 7 of 8 is reached about half the time. A fail on preference alone is therefore weak evidence against the pillar, and a pass is strong evidence for it.
+- **The prediction mark separates guessing from reading well.** It does not separate 0.60 from 0.65, and with 16 items a participant it cannot.
+- **The clustering mark as proposed is lenient.** It passes a population in which half the games cluster about two times in three.
+
+**Risks this plan sees** (judgments, beside the plan's risk table):
+- **Preference may measure winning.** The scripted attacker loses both versions, and in the control the keep never stopped (GameDesign.md, *after M4's phase F*, item 3). If one version is much easier for people, preference follows it, whatever the walls do. The pilot checks that each version can be won (input 14), and the report sets each preference beside its outcomes (input 10).
+- **Two people a cell.** Order and layout are balanced on average only, and eight people cannot separate their effects. The report gives each cell's figures and tests none of them.
+- **The session is long:** up to two 40-minute games, the lab and the rest. Fatigue falls on the second game, which the cells balance across the versions. The pilot times it. If the owner splits it into two sittings, preference is asked at the second, after the second game.
+- **The facilitator built the game,** and words and silences can cue. Input 6's script and the prompt's fixed wording keep the facilitator's part small, and the reasons are committed verbatim.
+- **The mirror is the same castle flipped,** and a participant may notice it in their second game. Only the voxel-first half can have learned the weak point in their first game, and their second game is the control, so recognising the castle tells nobody where to breach in their voxel game.
+- **The lab after play is not M3's lab before it.** M5's median is the reading H2 asks for. The two are reported side by side and never pooled.
+- **M3 may spend the one round.** Then a fail on any clause of M5 fires the kill criterion, with no second session (input 17).
+- **The main points are a rule written before the data,** and the quarter is a judgment. Writing the rule before the session is the point: a rule chosen after seeing the games would choose the verdict. The report gives every game's work by structure, so the owner can see what any other rule would have said.
+- **Twelve new people, after M3's six, none of them overlapping.** That is the owner's calendar, which the plan does not forecast.
+
+**Done when** all of the following hold:
+- **Headless, in CI:**
+  - B1's events are raised alike in both versions, and the scripted trial's committed tables are unchanged;
+  - the scorer, the assignment, the prompt and, where they are kept, the practice ground and the crater items pass their tests;
+  - every suite passes.
+- **On the benchmark machine:**
+  - the pilot has run the whole session, and the frozen build's ids and hash are recorded;
+  - the eight RTS players and the novices have played on that build;
+  - every replay matches under B3's check;
+  - the scorer reads the session's folder with no refusal.
+- **The verdict:** H2 passes on all three clauses, or its kill criterion fires under input 17.
+- **Throughout:** the AGENTS.md checklist passes, and every order that draws or takes input was run by the owner.
+
+**The record.** Each phase's pull request, its commits, one per order, and what CI found.
+
+| Phase | PR | Commits | Notes |
+|---|---|---|---|
+| Plan | this PR | 1 | This revision and its 13 work orders, with 18 inputs proposed and no new ADR. |
 
 ### M6 — Hold trial
 
@@ -656,7 +769,8 @@ M4 is carried out as 43 work orders in ten phases, written out in [MvpPlan-M4.md
 | Risk | Where it shows | Response |
 |---|---|---|
 | The renderer misses the pass mark | M1 | Kill criterion: revisit ADR-001 before any gameplay code |
-| 1 m craters do not show which weapon made them | M5 (moved from M3 by input 11: M3 has the trebuchet alone) | Tune each weapon's crater radius and depth for each material, the client's debris, and the integrity view |
+| 1 m craters do not show which weapon made them | M5 (moved from M3 by input 11: M3 has the trebuchet alone), or M7 if M5's input 12 defers it | Tune each weapon's crater radius and depth for each material, the client's debris, and the integrity view |
+| Players prefer the version they won, not the one whose walls they read | M5 | The pilot checks that each version can be won by someone who did not build it; the report sets each preference beside that participant's outcomes (M5, inputs 10 and 14) |
 | Players cannot read breaches | M3, M5 | The single round of legibility work, then the kill criterion |
 | The lab's items cannot be split evenly between open and shut | M3 | Prior damage and pillars give the shut side its items; B7 reports the set, and the owner changes input 2 if it falls short |
 | The Siege defender is too weak or too strong to test anything | M4 | Scripted behaviors and tuning; it plays one authored castle, not arbitrary ones |
