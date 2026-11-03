@@ -228,6 +228,9 @@
     <ClInclude Include="OverlayBox.h">
       <Filter>Rendering</Filter>
     </ClInclude>
+    <ClCompile Include="OverlayBox.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
     <ClInclude Include="FireMode.h">
       <Filter>Hud</Filter>
     </ClInclude>

@@ -64,7 +64,7 @@ struct VoxelInterpolants
   nointerpolation float3 boxCenter : BOX_CENTER;
   nointerpolation float boxRadius : BOX_RADIUS;
   nointerpolation float3 albedo : ALBEDO;              // linear, jittered
-  nointerpolation uint2 cornerLevels : CORNER_LEVELS; // the record's second word, and face 4's byte
+  nointerpolation uint2 cornerLevels : CORNER_LEVELS; // the record's second word, and face 4's byte and the joined faces
   nointerpolation uint shadeAndTurn : SHADE_AND_TURN; // the shade table in bit 0, the batch's quarter turns in bits 1-2
 };
 
@@ -90,6 +90,29 @@ uint RecordShadeTable(uint _word)
 float RecordLightnessOffset(uint _word)
 {
   return float(asint(_word << 16) >> 24) / 1024.0;
+}
+
+// An overlay record's joined faces: bits 16 to 21 of its third word, a bit a face in FaceBit's order, set where the face
+// touches another box of the same overlay draw (VoxelRecord.h's WithJoinedFaces).
+uint RecordJoinedFaces(uint _word)
+{
+  return (_word >> 16) & 63u;
+}
+
+// The joined bit of the face whose outward normal is _localNormal: VoxelRecord.h's VoxelFace order, -x, +x, +y, -z, +z,
+// then the bottom face, -y.
+uint FaceBit(float3 _localNormal)
+{
+  const float3 axis = abs(_localNormal);
+  if (axis.x >= axis.y && axis.x >= axis.z)
+  {
+    return _localNormal.x < 0.0 ? 1u : 2u;
+  }
+  if (axis.y >= axis.z)
+  {
+    return _localNormal.y < 0.0 ? 32u : 4u;
+  }
+  return _localNormal.z < 0.0 ? 8u : 16u;
 }
 
 // three.js r160's Color.getHSL and setHSL, which the prototype's offsetHSL uses, on linear RGB: its
