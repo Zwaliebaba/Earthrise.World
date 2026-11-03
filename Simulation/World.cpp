@@ -2297,10 +2297,13 @@ void World::WalkFigures()
 {
   // ADR-022: one figure a cell. In unit-id order each figure takes the step its squad's plan gives it when the cell is
   // free, two friendly figures that want each other's cells swap, and one that cannot waits, spending nothing; a
-  // figure that waits waitBeforeSearchTicks in a row has its squad search again.
+  // figure that waits waitBeforeSearchTicks in a row has its squad search again. A machine has right of way over its own
+  // side's figures: none of them steps into a cell its next step needs, and one standing there steps aside (decision 3,
+  // amended).
   Occupancy occupancy = BuildOccupancy();
   const Plans plans = PlanAll();
   std::map<Protocol::EntityId, PathSearch::CellIndex> wanted = Wanted(plans);
+  const std::set<std::pair<std::uint8_t, PathSearch::CellIndex>> rightOfWay = RightOfWay(wanted);
   std::set<Protocol::EntityId> walked;
   for (auto& [id, unit] : m_units)
   {
@@ -2327,11 +2330,13 @@ void World::WalkFigures()
         {
           break;
         }
-        if (Free(occupancy, unit, step->cell))
+        const bool yields = unit.navigationClass != NavigationClass::Machines && rightOfWay.contains({unit.owner, step->cell});
+        if (!yields && Free(occupancy, unit, step->cell))
         {
           StartStep(unit, squad, place->second, *step, occupancy);
         }
-        else if (const std::optional<Protocol::EntityId> partner = SwapPartner(unit, step->cell, occupancy, wanted); partner.has_value())
+        else if (const std::optional<Protocol::EntityId> partner = yields ? std::nullopt : SwapPartner(unit, step->cell, occupancy, wanted);
+                 partner.has_value())
         {
           // ADR-022, decision 3: both start the step together, each with this tick's effort.
           Unit& other = m_units.at(*partner);
@@ -2351,6 +2356,10 @@ void World::WalkFigures()
         }
         else
         {
+          if (unit.navigationClass == NavigationClass::Machines)
+          {
+            GiveWay(unit, step->cell, plans, occupancy, wanted, walked);
+          }
           waited = true;
           break;
         }
@@ -2379,11 +2388,115 @@ void World::WalkFigures()
   }
 }
 
+std::set<std::pair<std::uint8_t, PathSearch::CellIndex>>
+World::RightOfWay(const std::map<Protocol::EntityId, PathSearch::CellIndex>& _wanted) const
+{
+  std::set<std::pair<std::uint8_t, PathSearch::CellIndex>> cells;
+  for (const auto& [id, cell] : _wanted)
+  {
+    const Unit& unit = m_units.at(id);
+    if (unit.navigationClass == NavigationClass::Machines)
+    {
+      for (const PathSearch::CellIndex needed : Footprint(unit, cell))
+      {
+        cells.emplace(unit.owner, needed);
+      }
+    }
+  }
+  return cells;
+}
+
+void World::GiveWay(const Unit& _machine, PathSearch::CellIndex _cell, const Plans& _plans, Occupancy& _occupancy,
+                    std::map<Protocol::EntityId, PathSearch::CellIndex>& _wanted, const std::set<Protocol::EntityId>& _walked)
+{
+  // ADR-022, decision 3, amended: a machine never swaps, and a re-search does not see figures (decision 6), so a figure of
+  // its own side standing still in a cell its step needs, an idle squad's in its lane, would stop it for good. Such a
+  // figure, of a squad neither holding nor searching, steps to a free neighbouring cell its class may step into, outside
+  // the machine's cells and the cells of its next three steps when it can, outside its cells and its step's otherwise:
+  // the first such in link order. It then makes for its slot or its trail as any figure off it does.
+  const std::int32_t width = m_navigation.WidthCells();
+  std::set<PathSearch::CellIndex> machine;
+  for (const PathSearch::CellIndex cell : Footprint(_machine, CellOf(_machine.cellVoxels)))
+  {
+    machine.insert(cell);
+  }
+  for (const PathSearch::CellIndex cell : Footprint(_machine, _cell))
+  {
+    machine.insert(cell);
+  }
+  std::set<PathSearch::CellIndex> ahead = machine;
+  const Squad& machineSquad = m_squads.at(_machine.squad);
+  if (_machine.trailStep != OFF_TRAIL)
+  {
+    constexpr std::size_t AHEAD_STEPS = 3;
+    for (std::size_t step = std::size_t{_machine.trailStep} + 1;
+         step < machineSquad.trail.size() && step <= std::size_t{_machine.trailStep} + AHEAD_STEPS; ++step)
+    {
+      for (const PathSearch::CellIndex cell : Footprint(_machine, machineSquad.trail[step]))
+      {
+        ahead.insert(cell);
+      }
+    }
+  }
+  for (const PathSearch::CellIndex needed : Footprint(_machine, _cell))
+  {
+    const auto occupant = _occupancy.occupied.find(needed);
+    if (occupant == _occupancy.occupied.end() || occupant->second == _machine.id)
+    {
+      continue;
+    }
+    Unit& figure = m_units.at(occupant->second);
+    const auto place = _plans.places.find(figure.id);
+    if (figure.owner != _machine.owner || figure.navigationClass == NavigationClass::Machines || figure.reservedCell >= 0 ||
+        place == _plans.places.end() || Holding(figure.squad))
+    {
+      continue;
+    }
+    Squad& squad = m_squads.at(figure.squad);
+    if (squad.order == Protocol::SquadOrder::Hold)
+    {
+      continue;
+    }
+    const PathSearch::CellIndex from = CellOf(figure.cellVoxels);
+    const std::uint8_t links =
+      m_navigation.Links(static_cast<std::int32_t>(from % width), static_cast<std::int32_t>(from / width), figure.navigationClass);
+    std::optional<PathSearch::CellIndex> aside;
+    for (const std::set<PathSearch::CellIndex>* clear : {&ahead, &machine})
+    {
+      for (std::size_t direction = 0; direction < NavigationGrid::NEIGHBORS.size() && !aside.has_value(); ++direction)
+      {
+        const PathSearch::CellIndex next =
+          from + (std::int64_t{NavigationGrid::NEIGHBORS.at(direction)[1]} * width) + NavigationGrid::NEIGHBORS.at(direction)[0];
+        if ((links & (1U << direction)) != 0 && !clear->contains(next) && Free(_occupancy, figure, next))
+        {
+          aside = next;
+        }
+      }
+      if (aside.has_value())
+      {
+        break;
+      }
+    }
+    if (!aside.has_value())
+    {
+      continue;
+    }
+    StartStep(figure, squad, place->second, Step{.cell = *aside, .trailStep = OFF_TRAIL}, _occupancy);
+    _wanted.erase(figure.id);
+    if (_walked.contains(figure.id))
+    {
+      std::int64_t budget = SpeedOf(figure);
+      AdvanceStep(figure, squad, budget, _occupancy);
+    }
+  }
+}
+
 std::optional<Protocol::EntityId> World::SwapPartner(const Unit& _unit, PathSearch::CellIndex _cell, const Occupancy& _occupancy,
                                                      const std::map<Protocol::EntityId, PathSearch::CellIndex>& _wanted) const
 {
   // The figure standing still in _cell, of _unit's owner and a cell's width, that wants _unit's cell (ADR-022, decision
-  // 3); or, when _unit leads its squad, any of its squad standing there, which gives way to it.
+  // 3); or, when _unit leads its squad, any of its squad standing there, which gives way to it; or one standing idle
+  // there, which wants no cell (decision 3, amended).
   const auto occupant = _occupancy.occupied.find(_cell);
   if (occupant == _occupancy.occupied.end() || occupant->second == _unit.id || _unit.navigationClass == NavigationClass::Machines)
   {
@@ -2401,7 +2514,17 @@ std::optional<Protocol::EntityId> World::SwapPartner(const Unit& _unit, PathSear
   // never trade back. Between followers only the mutual swap: two that each gave way to the other would trade cells
   // for ever, and a ring of them each waiting on the next waits until the lead moves.
   const bool givesWay = other.squad == _unit.squad && m_squads.at(_unit.squad).units.front() == _unit.id;
-  return mutual || givesWay ? std::optional<Protocol::EntityId>(other.id) : std::nullopt;
+  // A figure of another squad that wants no cell, fights nothing and is at no work or hold, of a squad not searching,
+  // trades cells with one whose step needs its own: an arrived squad's rear left standing in a lane would otherwise stop
+  // the squads behind it for good, since it wants nothing to swap for and a squad's new search does not see it. Wanting
+  // nothing, it never trades back, and it stays idle in the cell it is given. Within a squad a follower at its stop waits
+  // for the lead, as before, so that none passes the one ahead.
+  const Protocol::SquadOrder order = m_squads.at(other.squad).order;
+  const bool walksOrIdles = order == Protocol::SquadOrder::Idle || order == Protocol::SquadOrder::Move ||
+                            order == Protocol::SquadOrder::Storm || order == Protocol::SquadOrder::Attack;
+  const bool idle =
+    other.squad != _unit.squad && wants == _wanted.end() && other.target == Protocol::NO_ENTITY && walksOrIdles && !Holding(other.squad);
+  return mutual || givesWay || idle ? std::optional<Protocol::EntityId>(other.id) : std::nullopt;
 }
 
 void World::TrimTrail(Squad& _squad)

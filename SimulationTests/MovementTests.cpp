@@ -69,6 +69,14 @@ Protocol::EntityId Order(Simulation::World& _world, std::span<const Protocol::Vo
   return squad;
 }
 
+/// Orders _squad to hold where it stands (ADR-023, decision 4).
+void Hold(Simulation::World& _world, Protocol::EntityId _squad)
+{
+  Core::ByteWriter writer;
+  Protocol::Encode(Protocol::HoldSquad{.squad = _squad}, writer);
+  _world.Submit(PLAYER, writer.Bytes());
+}
+
 const Simulation::Unit& Lead(const Simulation::World& _world, Protocol::EntityId _squad)
 {
   return _world.Units().at(_world.Squads().at(_squad).units.front());
@@ -288,14 +296,52 @@ public:
     Assert::IsTrue(StandsIn(world, westward, westEnd));
   }
 
+  TEST_METHOD(TradesCellsWithAnIdleFigureInAOneMeterCorridor)
+  {
+    // A figure of another squad of the same player stands idle in a 1 m corridor, wanting no cell. A
+    // squad of three walking through trades cells with it, each figure in turn, as two that want each
+    // other's cells do, and arrives; the idle figure, passed back one cell a figure, stands three cells
+    // west of where it stood, idle still (ADR-022, decision 3, amended). Before, the walkers stood
+    // behind it for good: their new searches found the same corridor.
+    Simulation::World world(FlatWorld::Desc());
+    Corridor(world, 5, 35, 30, true);
+    world.Tick();
+    const std::array<Protocol::VoxelPosition, 1> idle = {Cell(20, 30)};
+    const Protocol::EntityId standing = world.AddSquad(PLAYER, Simulation::UnitKind::Spearman, idle);
+    const std::array<Protocol::VoxelPosition, 3> cells = {Cell(12, 30), Cell(11, 30), Cell(10, 30)};
+    const Protocol::EntityId walking = Order(world, cells, Cell(30, 30));
+    Settle(world, 6 * PLAIN_TICKS);
+    const std::array<Protocol::VoxelPosition, 3> end = {Cell(30, 30), Cell(29, 30), Cell(28, 30)};
+    Assert::IsTrue(StandsIn(world, walking, end));
+    Assert::IsTrue(Lead(world, standing).cellVoxels == Cell(17, 30));
+    Assert::IsTrue(world.Squads().at(standing).order == Protocol::SquadOrder::Idle);
+  }
+
+  TEST_METHOD(AFigureInAMachinesWayStepsAsideForIt)
+  {
+    // A machine never trades cells, so a figure of its own side standing idle in its 3 m lane steps
+    // aside, out of the machine's cells, and the machine arrives (ADR-022, decision 3, amended). Before,
+    // the machine stood behind it for good.
+    Simulation::World world(FlatWorld::Desc());
+    const std::array<Protocol::VoxelPosition, 1> idle = {Cell(18, 21)};
+    const Protocol::EntityId standing = world.AddSquad(PLAYER, Simulation::UnitKind::Spearman, idle);
+    const std::array<Protocol::VoxelPosition, 1> cells = {Cell(10, 20)};
+    const Protocol::EntityId machine = Order(world, cells, Cell(24, 20), Simulation::NavigationClass::Machines);
+    Settle(world, 3 * 401);
+    Assert::IsTrue(Lead(world, machine).cellVoxels == Cell(24, 20));
+    const Protocol::VoxelPosition aside = Lead(world, standing).cellVoxels;
+    Assert::IsTrue(aside != Cell(18, 21));
+    Assert::IsTrue(aside.zVoxels < 20 || aside.zVoxels > 22);
+  }
+
   TEST_METHOD(SearchesAgainWhenBlockedForWaitTicksBeforeSearch)
   {
-    // A figure of another squad, with no order, stands on a squad of one's way. The walker waits
-    // behind it, and on the tick it has waited waitTicksBeforeSearch ticks in a row its squad
-    // searches again (ADR-022, decision 6), its count starting over.
+    // A figure of another squad, holding, stands on a squad of one's way, so it trades cells with
+    // nobody. The walker waits behind it, and on the tick it has waited waitTicksBeforeSearch ticks in
+    // a row its squad searches again (ADR-022, decision 6), its count starting over.
     Simulation::World world(FlatWorld::Desc());
     const std::array<Protocol::VoxelPosition, 1> blocker = {Cell(15, 30)};
-    world.AddSquad(PLAYER, Simulation::UnitKind::Spearman, blocker);
+    Hold(world, world.AddSquad(PLAYER, Simulation::UnitKind::Spearman, blocker));
     const std::array<Protocol::VoxelPosition, 1> cells = {Cell(10, 30)};
     const Protocol::EntityId squad = Order(world, cells, Cell(20, 30));
     const auto searching = [&world, squad]

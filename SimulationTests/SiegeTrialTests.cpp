@@ -26,16 +26,15 @@ namespace
 constexpr std::uint8_t ATTACKER = 1;
 constexpr std::uint8_t DEFENDER = 2;
 constexpr std::uint32_t VOXEL_RUN_TICKS = 20000;   // past the keep, at tick 19,685
-constexpr std::uint32_t MIRROR_RUN_TICKS = 21000;  // past the keep, at tick 19,795; W6 has not opened by tick 48,000
+constexpr std::uint32_t MIRROR_RUN_TICKS = 21000;  // past the keep, at tick 19,685; W6 has not opened by tick 48,000
 constexpr std::uint32_t CONTROL_RUN_TICKS = 20000; // the voxel run's, which has stopped the keep by then
 constexpr std::uint32_t REPLAY_TICKS = 2000;
 constexpr std::array<std::uint32_t, 2> SAVE_TICKS = {1000, 10000};
 constexpr std::uint32_t CONTINUE_TICKS = 1000;
 constexpr std::uint32_t NOT_YET = 0xffffffffU;
 constexpr std::uint32_t CLOCK_TICKS = 6000;
-constexpr std::int32_t FIRST_LANE_X = 312; // the army's lanes, across the south curtain from SW towards SE
-constexpr std::int32_t LANE_VOXELS = 4;
-constexpr std::int32_t DITCH_LIP_Z = 290;
+constexpr Protocol::VoxelPosition DITCH_LIP{.xVoxels = 356, .yVoxels = 9, .zVoxels = 290}; // 12 m south of the curtain, by ST
+constexpr std::uint32_t ORDER_AGAIN_TICKS = 1200;
 
 /// What one run reached and when, the tick counted from 0 as the loop plays it: the table a run is checked against.
 struct Milestones
@@ -152,7 +151,7 @@ void CheckTable(const Milestones& _run, const Milestones& _table, const std::str
 
 // The committed tables, by layout and version.
 constexpr Milestones VOXEL_TABLE{.towerStoppedTick = 9310, .keepStoppedTick = 19685, .sectionOpenedTick = NOT_YET, .stones = 33};
-constexpr Milestones MIRROR_TABLE{.towerStoppedTick = 9420, .keepStoppedTick = 19795, .sectionOpenedTick = NOT_YET, .stones = 36};
+constexpr Milestones MIRROR_TABLE{.towerStoppedTick = 9310, .keepStoppedTick = 19685, .sectionOpenedTick = NOT_YET, .stones = 36};
 constexpr Milestones CONTROL_TABLE{.towerStoppedTick = 9309, .keepStoppedTick = NOT_YET, .sectionOpenedTick = NOT_YET, .stones = 33};
 
 const Run& VoxelRun()
@@ -245,26 +244,34 @@ public:
 
   TEST_METHOD(SentIntoTheTowersReachUntilDeadTheAttackerLosesByItsArmy)
   {
-    // Every squad of the attacker's, the engines' bodies among them, sent to the near lip of the south ditch, 12 m from
-    // the curtain, each down a lane of its own 4 m from the next: inside the towers' reach and the defender's sally's.
-    // Sent down one lane, the trebuchet and the figures behind it stop each other where it stands, for good.
+    // Every squad of the attacker's, the engines' bodies among them, sent down one lane to the near lip of the south
+    // ditch by ST, inside the towers' reach and the defender's sally's, and sent again each minute, since a squad that
+    // fights turns idle where it stands. Down one lane the engines give way to nothing and the figures of one squad
+    // trade cells with another's standing idle (ADR-022, decision 3, amended); before, the trebuchet and the figures
+    // about it stood where they met for good.
     Simulation::World world(DescOf("Siege"));
     Simulation::LoadScenario(world, "Siege");
     world.Tick();
-    std::int32_t lane = 0;
-    for (const auto& [id, squad] : world.Squads())
+    const auto send = [&world]
     {
-      if (squad.owner == ATTACKER)
+      for (const auto& [id, squad] : world.Squads())
       {
-        const Protocol::VoxelPosition goal{.xVoxels = FIRST_LANE_X + LANE_VOXELS * lane++, .yVoxels = 9, .zVoxels = DITCH_LIP_Z};
-        Core::ByteWriter writer;
-        Protocol::Encode(Protocol::Command{Protocol::MoveSquad{.squad = id, .goalVoxels = goal}}, writer);
-        world.Submit(ATTACKER, writer.Bytes());
+        if (squad.owner == ATTACKER)
+        {
+          Core::ByteWriter writer;
+          Protocol::Encode(Protocol::Command{Protocol::MoveSquad{.squad = id, .goalVoxels = DITCH_LIP}}, writer);
+          world.Submit(ATTACKER, writer.Bytes());
+        }
       }
-    }
+    };
+    send();
     while (world.State(ATTACKER).trial.outcome == Protocol::TrialOutcome::Running)
     {
       world.Tick();
+      if (world.TickCount() % ORDER_AGAIN_TICKS == 0)
+      {
+        send();
+      }
     }
     Assert::IsTrue(world.State(ATTACKER).trial.outcome == Protocol::TrialOutcome::LostArmy);
     Logger::WriteMessage(("the attacker's army was lost at tick " + std::to_string(world.TickCount())).c_str());
