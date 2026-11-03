@@ -325,7 +325,7 @@ struct HudCommandSlot { std::string command; std::string hotkey; std::string lab
 struct HudCommandCard { std::string kind; std::uint8_t page; std::array<HudCommandSlot, 12> slots; };
 struct HudDot { DirectX::XMFLOAT2 positionPixels; std::uint8_t team; bool structure; bool selected; };
 struct HudPing { DirectX::XMFLOAT2 positionPixels; bool urgent; double expiresSeconds; };
-struct HudMinimap { bool baseDirty; std::vector<HudDot> dots; std::array<DirectX::XMFLOAT2, 4> viewQuad; std::vector<HudPing> pings; };
+struct HudMinimap { bool baseDirty; bool hasBase; std::vector<HudDot> dots; std::array<DirectX::XMFLOAT2, 4> viewQuad; std::vector<HudPing> pings; };
 // HudModel gains: Selection selection; std::array<std::vector<Protocol::EntityId>, 9> controlGroups; HudCommandCard commandCard;
 // HudMinimap minimap; std::optional<std::string> tooltip; HudObjective's progress (0 to 1, the storming clock); the trial's outcome.
 // selectedEngine (M3's) goes: an engine is selected through its squad.

@@ -31,6 +31,7 @@
 #include "Session.h"
 #include "CommandCard.h"
 #include "ControlGroups.h"
+#include "Minimap.h"
 #include "Orders.h"
 #include "Selection.h"
 #include "SelectionPanel.h"
@@ -592,6 +593,10 @@ struct Play
   Client::Selection selection;                                   // layout A's (M4-I2)
   Client::Orders orders;                                         // and its command card's (M4-I3)
   Client::ControlGroups groups;                                  // and its control groups (M4-I4)
+  Client::Minimap minimap;                                       // and its minimap (M4-I5)
+  bool minimapSized = false;                                     // reset to the map's size
+  std::uint32_t minimapSide = 0;                                 // the side its base was last built at, 0 for none
+  bool minimapDrag = false;                                      // a press on it is held
   bool settingGroup = false;                                     // the strip's SET is on
   bool rightDown = false;                                        // the right button went down on the world
   std::optional<std::pair<std::int32_t, std::int32_t>> dragFrom; // where the left button went down on the world
@@ -814,6 +819,9 @@ int Run(const Options& _options)
         case Client::HudControl::SetGroup:
           client.settingGroup = !client.settingGroup;
           break;
+        case Client::HudControl::Minimap:
+          client.minimapDrag = true; // the camera follows the pointer over it while the button is down (M4-I5)
+          break;
         case Client::HudControl::Jump:
           if (hit->alert < hudModel.alerts.size() && hudModel.alerts.at(hit->alert).location.has_value())
           {
@@ -1002,7 +1010,20 @@ int Run(const Options& _options)
                                                                                  swapChain.WidthPixels(), swapChain.HeightPixels()),
                                                  shown);
       }
-      const bool rightPressed = pointer.WasPressed(Engine::PointerInput::Button::Right) && !pointerOnHud;
+      // A right click on the minimap orders the selection to its point, as one on the ground there (Hud.md §6).
+      std::optional<Protocol::VoxelPosition> minimapPoint;
+      if (const std::optional<Client::HudTarget> over = hud.HitTest(pointer.XPixels(), pointer.YPixels());
+          over.has_value() && over->control == Client::HudControl::Minimap)
+      {
+        const DirectX::XMFLOAT2 point = Client::Minimap::ToMap(static_cast<float>(pointer.XPixels() - over->rect.xPixels),
+                                                               static_cast<float>(pointer.YPixels() - over->rect.yPixels), shown.widthCells,
+                                                               shown.depthCells, static_cast<std::uint32_t>(over->rect.widthPixels));
+        minimapPoint = Protocol::VoxelPosition{.xVoxels = static_cast<std::int32_t>(point.x),
+                                               .yVoxels = client.minimap.GroundAt(point.x, point.y),
+                                               .zVoxels = static_cast<std::int32_t>(point.y)};
+      }
+      const bool rightOnMinimap = minimapPoint.has_value() && pointer.WasPressed(Engine::PointerInput::Button::Right);
+      const bool rightPressed = (pointer.WasPressed(Engine::PointerInput::Button::Right) && !pointerOnHud) || rightOnMinimap;
       const bool rightReleased = client.rightDown && !pointer.IsDown(Engine::PointerInput::Button::Right);
       client.rightDown = rightPressed || (client.rightDown && pointer.IsDown(Engine::PointerInput::Button::Right));
       DirectX::XMFLOAT3 forward{};
@@ -1013,10 +1034,10 @@ int Run(const Options& _options)
                                                                   .rightPressed = rightPressed && !client.fire.Active(),
                                                                   .rightReleased = rightReleased && !client.fire.Active(),
                                                                   .shiftHeld = keyboard.IsDown(VK_SHIFT),
-                                                                  .pointedVoxels = underPointer,
-                                                                  .pointedSquad = pointedSquad,
-                                                                  .pointedEngine = hoveredEngine,
-                                                                  .pointedStructure = hovered,
+                                                                  .pointedVoxels = rightOnMinimap ? minimapPoint : underPointer,
+                                                                  .pointedSquad = rightOnMinimap ? std::nullopt : pointedSquad,
+                                                                  .pointedEngine = rightOnMinimap ? Protocol::NO_ENTITY : hoveredEngine,
+                                                                  .pointedStructure = rightOnMinimap ? Protocol::NO_ENTITY : hovered,
                                                                   .cameraForward = forward},
                                                                  client.selection, shown, card, client.session);
       cardFire = result.fire;
@@ -1109,6 +1130,39 @@ int Run(const Options& _options)
     // The chunks the frame takes: the world view's, the picker's, and the integrity view's asks (M3-F2).
     const std::vector<Protocol::ChunkSnapshot> snapshots = client.session.TakeSnapshots();
     client.picker.TakeSnapshots(snapshots);
+    // The minimap (Hud.md §6; M4-I5): its columns from the chunks that changed, its base built again at its drawn size
+    // when they changed it, and the camera moved to the point under the pointer while a press on it is held.
+    std::vector<std::uint32_t> minimapBase;
+    const std::uint32_t minimapSide = Client::Hud::MinimapSidePixels(uiScale);
+    if (deck)
+    {
+      const Protocol::StateUpdate& state = client.session.State();
+      if (!client.minimapSized && state.widthCells > 0)
+      {
+        client.minimap.Reset(state.widthCells, state.depthCells, desc.heightChunks);
+        client.minimapSized = true;
+        client.minimapSide = 0;
+      }
+      client.minimap.Take(snapshots, client.session);
+      if (client.minimap.BaseDirty() || client.minimapSide != minimapSide)
+      {
+        minimapBase = client.minimap.BuildBase(minimapSide);
+        client.minimapSide = minimapSide;
+      }
+      client.minimapDrag = client.minimapDrag && pointer.IsDown(Engine::PointerInput::Button::Left);
+      if (client.minimapDrag)
+      {
+        if (const auto well = std::ranges::find(hud.Targets(), Client::HudControl::Minimap, &Client::HudTarget::control);
+            well != hud.Targets().end())
+        {
+          const DirectX::XMFLOAT2 point =
+            Client::Minimap::ToMap(static_cast<float>(std::clamp(pointer.XPixels() - well->rect.xPixels, 0, well->rect.widthPixels)),
+                                   static_cast<float>(std::clamp(pointer.YPixels() - well->rect.yPixels, 0, well->rect.heightPixels)),
+                                   state.widthCells, state.depthCells, static_cast<std::uint32_t>(well->rect.widthPixels));
+          camera.LookAt({point.x, static_cast<float>(client.minimap.GroundAt(point.x, point.y)), point.y});
+        }
+      }
+    }
     client.worldChanged = !snapshots.empty();
     client.views.Ask(client.session, snapshots, integrityView);
     // The passability view's tiles, those the view shows on the lab's ground (M3-F3).
@@ -1141,6 +1195,46 @@ int Run(const Options& _options)
     {
       groupLabels.at(group) = client.groups.Label(group, client.session.State());
     }
+    // The minimap's overlay: the dots, the camera's view quad on the ground, and the alerts' pings (M4-I5).
+    Client::HudMinimap minimapModel;
+    if (deck && drawnViewProjection.has_value())
+    {
+      const Protocol::StateUpdate& state = client.session.State();
+      minimapModel.hasBase = client.minimapSide != 0;
+      minimapModel.baseDirty = !minimapBase.empty();
+      minimapModel.dots = Client::Minimap::Dots(state, client.selection, minimapSide);
+      const auto widthPixels = static_cast<std::int32_t>(swapChain.WidthPixels());
+      const auto heightPixels = static_cast<std::int32_t>(swapChain.HeightPixels());
+      const std::array<Engine::PickRay, 4> corners = {
+        Client::WorldPicker::RayThrough(*drawnViewProjection, 0, 0, swapChain.WidthPixels(), swapChain.HeightPixels()),
+        Client::WorldPicker::RayThrough(*drawnViewProjection, widthPixels, 0, swapChain.WidthPixels(), swapChain.HeightPixels()),
+        Client::WorldPicker::RayThrough(*drawnViewProjection, widthPixels, heightPixels, swapChain.WidthPixels(), swapChain.HeightPixels()),
+        Client::WorldPicker::RayThrough(*drawnViewProjection, 0, heightPixels, swapChain.WidthPixels(), swapChain.HeightPixels())};
+      // The ground the corners are projected to: the top of the land under the screen's middle, found in two steps from
+      // the lab's ground, so a castle on higher ground has its own.
+      const Engine::PickRay middle = Client::WorldPicker::RayThrough(*drawnViewProjection, widthPixels / 2, heightPixels / 2,
+                                                                     swapChain.WidthPixels(), swapChain.HeightPixels());
+      auto groundMeters = static_cast<float>(Simulation::BreachRun::GROUND_VOXELS);
+      for (std::int32_t step = 0; step < 2 && middle.direction.y != 0.0F; ++step)
+      {
+        const float along = (groundMeters - middle.originMeters.y) / middle.direction.y;
+        const std::int32_t top = client.minimap.GroundAt(middle.originMeters.x + (along * middle.direction.x),
+                                                         middle.originMeters.z + (along * middle.direction.z));
+        groundMeters = top > 0 ? static_cast<float>(top + 1) : groundMeters;
+      }
+      minimapModel.viewQuad = Client::Minimap::ViewQuad(corners, groundMeters, state.widthCells, state.depthCells, minimapSide);
+      for (const Client::HudAlert& alert : client.alerts.Shown())
+      {
+        if (alert.location.has_value())
+        {
+          minimapModel.pings.push_back({.positionPixels = Client::Minimap::ToMinimap(static_cast<float>(alert.location->xVoxels) + 0.5F,
+                                                                                     static_cast<float>(alert.location->zVoxels) + 0.5F,
+                                                                                     state.widthCells, state.depthCells, minimapSide),
+                                        .urgent = alert.urgent,
+                                        .expiresSeconds = alert.expiresSeconds});
+        }
+      }
+    }
     // The tooltip of the card's slot under the pointer, as last laid out (Hud.md §7).
     std::optional<std::string> tooltip;
     if (const std::optional<Client::HudTarget> over = hud.HitTest(pointer.XPixels(), pointer.YPixels());
@@ -1162,7 +1256,8 @@ int Run(const Options& _options)
                 .commandCard = card,
                 .tooltip = tooltip,
                 .groupLabels = groupLabels,
-                .settingGroup = client.settingGroup};
+                .settingGroup = client.settingGroup,
+                .minimap = minimapModel};
     interfaceQuads.clear();
     if (run->ShowsFigures())
     {
@@ -1239,6 +1334,8 @@ int Run(const Options& _options)
                                        .fogMask = client.fogMask,
                                        .fogWidthCells = client.session.State().widthCells,
                                        .fogDepthCells = client.session.State().depthCells,
+                                       .minimapBase = minimapBase,
+                                       .minimapSidePixels = minimapSide,
                                        .viewProjection = viewProjection,
                                        .forward = {},
                                        .viewHeightMeters = camera.ViewHeightMeters(),

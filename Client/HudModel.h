@@ -1,5 +1,7 @@
 #pragma once
 
+#include <DirectXMath.h>
+
 #include "ChunkCoordinate.h"
 #include "EntityId.h"
 
@@ -42,7 +44,8 @@ enum class HudControl : std::uint8_t
   AnswerShut, // and its SHUT · S
   CardSlot,   // a command card's cell, by its index (M4-I3)
   GroupSlot,  // a control group's slot on the strip, by its index, 0 to 4 (M4-I4)
-  SetGroup    // the strip's SET: the next slot clicked takes the selection
+  SetGroup,   // the strip's SET: the next slot clicked takes the selection
+  Minimap     // the minimap's well (M4-I5): a press or a drag moves the camera, and a right click orders the selection
 };
 
 /// A button that follows the mode banner's text.
@@ -144,6 +147,33 @@ struct HudCommandCard
   std::array<HudCommandSlot, 12> slots;
 };
 
+/// A dot on the minimap (Hud.md §6; M4-I5), in pixels from its well's top-left corner: a squad's 3 px, a structure's 7.
+struct HudDot
+{
+  DirectX::XMFLOAT2 positionPixels;
+  std::uint8_t team; // 0 the attacker's red, 1 the defender's blue
+  bool structure;
+  bool selected; // in #ffe2a8
+};
+
+/// An alert's ping on the minimap, a square in accent, or bad when urgent.
+struct HudPing
+{
+  DirectX::XMFLOAT2 positionPixels;
+  bool urgent;
+  double expiresSeconds;
+};
+
+/// The minimap's overlay over its base, which the image atlas holds (Portraits.h).
+struct HudMinimap
+{
+  bool baseDirty = false; // the base was built again this frame, and the renderer uploads it
+  bool hasBase = false;   // a base was built and the atlas holds it
+  std::vector<HudDot> dots;
+  std::array<DirectX::XMFLOAT2, 4> viewQuad{}; // the screen's corners on the ground, in pixels from the well's corner
+  std::vector<HudPing> pings;
+};
+
 /// The selection panel in the deck (Hud.md §5; M4-I2), built from the selection and the update each frame.
 struct HudPanel
 {
@@ -185,6 +215,7 @@ struct HudModel
   std::optional<std::string> tooltip = {}; // over the card, at right 8 and bottom 212: the hovered slot's (Hud.md §7)
   std::array<std::string, 9> groupLabels = {}; // each control group's slot after its number, empty for an empty group (M4-I4)
   bool settingGroup = false;                   // SET is on: the next slot clicked takes the selection
+  HudMinimap minimap = {};                     // in the deck's minimap well (M4-I5)
 };
 
 /// The top bar's resources in the breach lab (M3-E2): TIME m:ss of game time, at _tick, and SHOTS n.

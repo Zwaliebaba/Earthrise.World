@@ -215,6 +215,22 @@ public:
                        .image = true});
   }
 
+  /// The image atlas's rectangle (_u0, _v0) to (_u1, _v1), in texels, drawn over _rect.
+  void ImageRect(const PixelRect& _rect, float _u0, float _v0, float _u1, float _v1)
+  {
+    m_quads.push_back({.xPixels = static_cast<float>(_rect.xPixels),
+                       .yPixels = static_cast<float>(_rect.yPixels),
+                       .widthPixels = static_cast<float>(_rect.widthPixels),
+                       .heightPixels = static_cast<float>(_rect.heightPixels),
+                       .u0 = _u0,
+                       .v0 = _v0,
+                       .u1 = _u1,
+                       .v1 = _v1,
+                       .color = LinearColor(IMAGE_TINT_SRGB),
+                       .textured = false,
+                       .image = true});
+  }
+
   /// A bar _rect wide of the track, with _fraction of it filled in _srgb.
   void Bar(const PixelRect& _rect, float _fraction, std::uint32_t _srgb)
   {
@@ -404,6 +420,58 @@ void LayPanel(const HudPanel& _panel, const PixelRect& _well, Painter& _paint)
                 tileInside.yPixels + tileInside.heightPixels - tilePadding - _paint.Cell(), tile.active ? ACCENT_SRGB : TEXT_SRGB,
                 tileInside);
     x += tileWidth + tileGap;
+  }
+}
+
+/// The minimap in its well's _inside (Hud.md §6; M4-I5): the base, which the image atlas holds below the portraits;
+/// the structures' 7 px dots and the squads' 3 px ones, in their team's colour or #ffe2a8 when selected; the camera's view
+/// quad as a 2 px outline in the text colour; and the pings, 8 px squares in accent or bad. Nothing leaves the well.
+void LayMinimap(const HudMinimap& _minimap, const PixelRect& _inside, Painter& _paint)
+{
+  const auto side = static_cast<float>(_inside.widthPixels);
+  if (_minimap.hasBase)
+  {
+    _paint.ImageRect(_inside, 0.0F, static_cast<float>(MINIMAP_ATLAS_TOP_TEXELS), side,
+                     static_cast<float>(MINIMAP_ATLAS_TOP_TEXELS) + side);
+  }
+  // A square of _sizePixels centred on _at, in the well's pixels, cut to the well.
+  const auto square = [&_inside, &_paint](DirectX::XMFLOAT2 _at, std::int32_t _sizePixels, std::uint32_t _srgb)
+  {
+    const std::int32_t left =
+      std::max(_inside.xPixels, _inside.xPixels + static_cast<std::int32_t>(std::lround(_at.x)) - (_sizePixels / 2));
+    const std::int32_t top = std::max(_inside.yPixels, _inside.yPixels + static_cast<std::int32_t>(std::lround(_at.y)) - (_sizePixels / 2));
+    const std::int32_t right = std::min(_inside.xPixels + _inside.widthPixels, left + _sizePixels);
+    const std::int32_t bottom = std::min(_inside.yPixels + _inside.heightPixels, top + _sizePixels);
+    if (right > left && bottom > top)
+    {
+      _paint.Fill({left, top, right - left, bottom - top}, _srgb);
+    }
+  };
+  for (const HudDot& dot : _minimap.dots)
+  {
+    const std::uint32_t srgb = dot.selected ? SELECTED_DOT_SRGB : (dot.team == 0 ? TEAM_RED_SRGB : TEAM_BLUE_SRGB);
+    square(dot.positionPixels, dot.structure ? 7 : 3, srgb);
+  }
+  // The view quad's four edges, a 2 px square each pixel along them.
+  for (std::size_t corner = 0; corner < _minimap.viewQuad.size(); ++corner)
+  {
+    const DirectX::XMFLOAT2 from = _minimap.viewQuad.at(corner);
+    const DirectX::XMFLOAT2 to = _minimap.viewQuad.at((corner + 1) % _minimap.viewQuad.size());
+    const float length = std::max(std::abs(to.x - from.x), std::abs(to.y - from.y));
+    const auto steps = static_cast<std::int32_t>(std::min(length, 4.0F * side));
+    for (std::int32_t step = 0; step <= steps; ++step)
+    {
+      const float along = steps == 0 ? 0.0F : static_cast<float>(step) / static_cast<float>(steps);
+      const DirectX::XMFLOAT2 at{from.x + ((to.x - from.x) * along), from.y + ((to.y - from.y) * along)};
+      if (at.x >= 0.0F && at.y >= 0.0F && at.x <= side && at.y <= side)
+      {
+        square(at, 2, TEXT_SRGB);
+      }
+    }
+  }
+  for (const HudPing& ping : _minimap.pings)
+  {
+    square(ping.positionPixels, 8, ping.urgent ? BAD_SRGB : ACCENT_SRGB);
   }
 }
 
@@ -610,7 +678,9 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
     deck.card = {width - padding - cardWidth, top, cardWidth, (CARD_ROWS * cellHeight) + ((CARD_ROWS - 1) * cellGap)};
     const std::int32_t selectionLeft = deck.minimap.xPixels + minimap + gap;
     deck.selection = {selectionLeft, top, deck.card.xPixels - gap - selectionLeft, inner};
-    paint.Box(deck.minimap, LINE_SRGB, WELL_SRGB, 1.0F);
+    const PixelRect minimapInside = paint.Box(deck.minimap, LINE_SRGB, WELL_SRGB, 1.0F);
+    LayMinimap(_model.minimap, minimapInside, paint);
+    m_targets.push_back({.control = HudControl::Minimap, .alert = 0, .rect = minimapInside});
     paint.Box(deck.selection, LINE_SRGB, WELL_SRGB, 1.0F);
     for (std::int32_t row = 0; row < CARD_ROWS; ++row)
     {
@@ -880,6 +950,12 @@ std::span<const HudText> Hud::Texts() const noexcept
 std::optional<PixelRect> Hud::Readout() const noexcept
 {
   return m_readout;
+}
+
+std::uint32_t Hud::MinimapSidePixels(float _uiScale) noexcept
+{
+  return static_cast<std::uint32_t>(
+    std::max(1, ScaledPixels(MINIMAP_LOGICAL_PIXELS, _uiScale) - (2 * ScaledPixels(BORDER_LOGICAL_PIXELS, _uiScale))));
 }
 
 std::optional<HudDeck> Hud::Deck() const noexcept

@@ -75,5 +75,8 @@
     <ClCompile Include="ControlGroupTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="MinimapTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

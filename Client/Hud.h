@@ -86,6 +86,9 @@ public:
   /// Layout A's deck is this tall, fixed to the bottom (Hud.md §3): the camera frames the area above it.
   static constexpr float DECK_LOGICAL_PIXELS = 204.0F;
 
+  /// The side of the minimap's base at _uiScale, its well's inside, which the base is built at (Hud.md §6; M4-I5).
+  [[nodiscard]] static std::uint32_t MinimapSidePixels(float _uiScale) noexcept;
+
   /// Lays _model out over a target _widthPixels by _heightPixels at _uiScale and appends its quads, in drawing order. An
   /// alert that would meet the readout is left out, with those older than it.
   void Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_t _heightPixels, float _uiScale,

@@ -34,6 +34,9 @@
     <Filter Include="Selection">
       <UniqueIdentifier>{671756FE-7576-51DA-BB32-7CE6E4DD9E78}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Minimap">
+      <UniqueIdentifier>{5BF22C2F-FFEB-52CA-AAB8-57DDD225ECB2}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Lab">
       <UniqueIdentifier>{B850AB04-44FA-50ED-9854-EF658A3CBE04}</UniqueIdentifier>
     </Filter>
@@ -188,6 +191,12 @@
     </ClInclude>
     <ClCompile Include="ControlGroups.cpp">
       <Filter>Selection</Filter>
+    </ClCompile>
+    <ClInclude Include="Minimap.h">
+      <Filter>Minimap</Filter>
+    </ClInclude>
+    <ClCompile Include="Minimap.cpp">
+      <Filter>Minimap</Filter>
     </ClCompile>
     <ClInclude Include="FireTally.h">
       <Filter>Session</Filter>

@@ -104,6 +104,10 @@ inline constexpr float PANEL_ALPHA = 0.92F;
 inline constexpr std::uint32_t BUTTON_SRGB = 0x2a2621;     // panel-deep, for buttons
 inline constexpr std::uint32_t WELL_SRGB = 0x1f1c18;       // panel-deep, for inner wells
 inline constexpr std::uint32_t IMAGE_TINT_SRGB = 0xffffff; // an image quad's colour: its texels as they are
+// The minimap's dots (Hud.md §2 and §6): the teams' colours, and a selected thing's.
+inline constexpr std::uint32_t TEAM_RED_SRGB = 0xe0503f;
+inline constexpr std::uint32_t TEAM_BLUE_SRGB = 0x6aa0ff;
+inline constexpr std::uint32_t SELECTED_DOT_SRGB = 0xffe2a8;
 inline constexpr std::uint32_t LINE_SRGB = 0x3a342c;
 inline constexpr std::uint32_t TEXT_SRGB = 0xf3ede2;
 inline constexpr std::uint32_t DIM_SRGB = 0xa69c8a;

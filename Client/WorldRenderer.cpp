@@ -236,7 +236,7 @@ WorldRenderer::WorldRenderer(ID3D12Device* _device, ID3D12CommandQueue* _queue, 
   const D3D12_HEAP_PROPERTIES heapProperties{.Type = D3D12_HEAP_TYPE_DEFAULT};
   const D3D12_RESOURCE_DESC atlasDesc{.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
                                       .Width = PORTRAIT_ATLAS_WIDTH_TEXELS,
-                                      .Height = PORTRAIT_TEXELS,
+                                      .Height = IMAGE_ATLAS_HEIGHT_TEXELS,
                                       .DepthOrArraySize = 1,
                                       .MipLevels = 1,
                                       .Format = SCENE_FORMAT,
@@ -244,7 +244,7 @@ WorldRenderer::WorldRenderer(ID3D12Device* _device, ID3D12CommandQueue* _queue, 
                                       .Flags = D3D12_RESOURCE_FLAG_NONE};
   winrt::check_hresult(_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &atlasDesc, D3D12_RESOURCE_STATE_COPY_DEST,
                                                         nullptr, IID_PPV_ARGS(m_portraitAtlas.put())));
-  m_interface.SetImageAtlas(m_portraitAtlas.get(), PORTRAIT_ATLAS_WIDTH_TEXELS, PORTRAIT_TEXELS);
+  m_interface.SetImageAtlas(m_portraitAtlas.get(), PORTRAIT_ATLAS_WIDTH_TEXELS, IMAGE_ATLAS_HEIGHT_TEXELS);
   m_pass.SetShadowMaps(m_staticShadow.Texture(), m_dynamicShadow.Texture());
   m_upscale.SetSource(m_sceneColor.Texture());
   // Content's line models (ADR-018, decision 2), in linear colour, the faction segments left to each instance.
@@ -372,6 +372,48 @@ void WorldRenderer::DrawPortraits(ID3D12GraphicsCommandList* _commandList, Engin
       Engine::TransitionBarrier(m_portraitTarget.Texture(), D3D12_RESOURCE_STATE_COPY_SOURCE, Engine::ColorTarget::IDLE_STATE);
     _commandList->ResourceBarrier(1, &toIdle);
   }
+  const D3D12_RESOURCE_BARRIER toRead =
+    Engine::TransitionBarrier(m_portraitAtlas.get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+  _commandList->ResourceBarrier(1, &toRead);
+}
+
+void WorldRenderer::UploadMinimap(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, const Frame& _frame)
+{
+  const std::uint32_t side = std::min(_frame.minimapSidePixels, MINIMAP_MAX_TEXELS);
+  if (_frame.minimapBase.empty() || side == 0 ||
+      _frame.minimapBase.size() < static_cast<std::size_t>(_frame.minimapSidePixels) * _frame.minimapSidePixels)
+  {
+    return;
+  }
+  constexpr std::uint32_t TEXEL_BYTES = 4;
+  const std::uint32_t rowPitch =
+    ((side * TEXEL_BYTES) + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1) & ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1);
+  const std::optional<Engine::UploadRing::Allocation> allocation =
+    _ring.Allocate(static_cast<std::uint64_t>(rowPitch) * side, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
+  if (!allocation)
+  {
+    throw std::runtime_error("the upload ring has no room for the minimap");
+  }
+  for (std::uint32_t row = 0; row < side; ++row)
+  {
+    std::memcpy(allocation->bytes.data() + (static_cast<std::size_t>(row) * rowPitch),
+                _frame.minimapBase.data() + (static_cast<std::size_t>(row) * _frame.minimapSidePixels),
+                static_cast<std::size_t>(side) * TEXEL_BYTES);
+  }
+  // The copy locations' unions are filled by member: designators cannot name an anonymous union's.
+  D3D12_TEXTURE_COPY_LOCATION source{};
+  source.pResource = allocation->buffer;
+  source.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+  source.PlacedFootprint.Offset = allocation->offsetBytes;
+  source.PlacedFootprint.Footprint = {.Format = SCENE_FORMAT, .Width = side, .Height = side, .Depth = 1, .RowPitch = rowPitch};
+  D3D12_TEXTURE_COPY_LOCATION destination{};
+  destination.pResource = m_portraitAtlas.get();
+  destination.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+  destination.SubresourceIndex = 0;
+  const D3D12_RESOURCE_BARRIER toCopy =
+    Engine::TransitionBarrier(m_portraitAtlas.get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+  _commandList->ResourceBarrier(1, &toCopy);
+  _commandList->CopyTextureRegion(&destination, 0, MINIMAP_ATLAS_TOP_TEXELS, 0, &source, nullptr);
   const D3D12_RESOURCE_BARRIER toRead =
     Engine::TransitionBarrier(m_portraitAtlas.get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
   _commandList->ResourceBarrier(1, &toRead);
@@ -518,6 +560,7 @@ void WorldRenderer::Draw(const Frame& _frame)
     DrawPortraits(commandList, ring, paletteConstants);
     m_portraitsDrawn = true;
   }
+  UploadMinimap(commandList, ring, _frame);
 
   // The scene into its own target.
   const D3D12_RESOURCE_BARRIER toScene =

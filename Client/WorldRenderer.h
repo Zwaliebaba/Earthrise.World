@@ -66,6 +66,10 @@ public:
     std::span<const OverlayLayer> overlays; // in order, after the scene and before the upscale
     /// The fog's column mask (FogMask.h), fogWidthCells by fogDepthCells, uploaded when it changes; empty for no fog.
     std::span<const std::uint8_t> fogMask;
+    /// The minimap's base when it was built again, minimapSidePixels square, 0xAABBGGRR in sRGB (Minimap.h), copied
+    /// into the image atlas below the portraits; empty when it did not change.
+    std::span<const std::uint32_t> minimapBase;
+    std::uint32_t minimapSidePixels;
     std::int32_t fogWidthCells;
     std::int32_t fogDepthCells;
     DirectX::XMFLOAT4X4 viewProjection;
@@ -107,6 +111,9 @@ private:
   /// which the interface pass reads from then on (M4-I2; Hud.md §5). Each stands far outside the map, where the fog's
   /// mask shades nothing.
   void DrawPortraits(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, D3D12_GPU_VIRTUAL_ADDRESS _palette);
+
+  /// Copies the frame's minimap base into the image atlas, when it has one (M4-I5).
+  void UploadMinimap(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, const Frame& _frame);
 
   /// Uploads the frame's fog mask when it differs from the one drawn, into one texture for the world, which the voxel
   /// pass shades the columns not seen by (ADR-025, decision 8). The first mask makes the texture; the world's map keeps
