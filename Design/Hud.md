@@ -113,8 +113,8 @@ The package's touch-first layout puts the minimap and camera buttons top right, 
 | Ram | TARGET Gates, timber · ARMOR Arrows |
 | Trebuchet | STATE Deployed, Packing…, Packed or Deploying… · RANGE min–max m · SHOT n m³ |
 | Tower | GARRISON n / 6 · PLATFORM 100% (control: HEALTH hp / max) · REPAIR Ready, or Locked · n s |
-| Gatehouse | GARRISON n / 6 · GATE 100% · REPAIR Ready, or Locked · n s |
-| Keep | TOWER 100% · GARRISON n / 6 · TO WIN Hold foot 2:00 |
+| Gatehouse | GARRISON n / 6 · GATE 100% (control: HEALTH hp / max) · REPAIR Ready, or Locked · n s |
+| Keep | TOWER 100% (control: HEALTH hp / max) · GARRISON n / 6 · TO WIN Hold foot 2:00 |
 | Wall section | NAME W5 · OPEN yes, or WEAK HOLE 3/5 M · REPAIR Ready, or Locked · n s |
 
 - **While a squad moves,** its second row reads ORDER Moving.

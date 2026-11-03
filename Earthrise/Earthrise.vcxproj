@@ -46,6 +46,12 @@
     <ClCompile Include="Earthrise.cpp" />
     <ClInclude Include="Run.h" />
     <ClInclude Include="Lab.h" />
+    <ClInclude Include="Siege.h" />
+    <ClCompile Include="Siege.cpp" />
+    <ClInclude Include="ReplayRun.h" />
+    <ClCompile Include="ReplayRun.cpp" />
+    <ClInclude Include="SiegeMeasure.h" />
+    <ClCompile Include="SiegeMeasure.cpp" />
     <ClCompile Include="Lab.cpp" />
   </ItemGroup>
   <ItemGroup>

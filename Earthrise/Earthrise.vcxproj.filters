@@ -10,6 +10,9 @@
     <Filter Include="Lab">
       <UniqueIdentifier>{D937BF0B-4848-5397-9C8A-56BF703BD2F3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Siege">
+      <UniqueIdentifier>{55AC3A32-0920-5824-9FAF-FBD08B6B2585}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -30,6 +33,24 @@
     <ClInclude Include="Lab.h">
       <Filter>Lab</Filter>
     </ClInclude>
+    <ClInclude Include="Siege.h">
+      <Filter>Siege</Filter>
+    </ClInclude>
+    <ClCompile Include="Siege.cpp">
+      <Filter>Siege</Filter>
+    </ClCompile>
+    <ClInclude Include="ReplayRun.h">
+      <Filter>Siege</Filter>
+    </ClInclude>
+    <ClCompile Include="ReplayRun.cpp">
+      <Filter>Siege</Filter>
+    </ClCompile>
+    <ClInclude Include="SiegeMeasure.h">
+      <Filter>Siege</Filter>
+    </ClInclude>
+    <ClCompile Include="SiegeMeasure.cpp">
+      <Filter>Siege</Filter>
+    </ClCompile>
     <ClCompile Include="Lab.cpp">
       <Filter>Lab</Filter>
     </ClCompile>

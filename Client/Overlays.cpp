@@ -412,6 +412,30 @@ std::string Overlays::RepairValue(std::uint32_t _lockTicks)
                          : std::format(REPAIR_LOCKED, (_lockTicks + TickClock::TICKS_PER_SECOND - 1) / TickClock::TICKS_PER_SECOND);
 }
 
+std::vector<HudHealthBar> Overlays::HealthBars(const Session& _session, const DirectX::XMFLOAT4X4& _viewProjection,
+                                               std::uint32_t _widthPixels, std::uint32_t _heightPixels)
+{
+  std::vector<HudHealthBar> bars;
+  for (const Protocol::StructureView& structure : _session.State().structures)
+  {
+    if (structure.maxHitPoints <= 0 || structure.templateId != "T3")
+    {
+      continue;
+    }
+    const DirectX::XMFLOAT3 anchor{
+      static_cast<float>(structure.originVoxels.xVoxels) + (0.5F * static_cast<float>(structure.extentVoxels.xVoxels)),
+      static_cast<float>(structure.originVoxels.yVoxels + structure.extentVoxels.yVoxels) + 1.0F,
+      static_cast<float>(structure.originVoxels.zVoxels) + (0.5F * static_cast<float>(structure.extentVoxels.zVoxels))};
+    if (const std::optional<DirectX::XMFLOAT2> at = Selector::Project(_viewProjection, anchor, _widthPixels, _heightPixels); at.has_value())
+    {
+      bars.push_back(
+        {.anchorPixels = *at,
+         .fraction = std::clamp(static_cast<float>(structure.hitPoints) / static_cast<float>(structure.maxHitPoints), 0.0F, 1.0F)});
+    }
+  }
+  return bars;
+}
+
 std::vector<HudWorldLabel> Overlays::WorldLabels(const Session& _session, const DirectX::XMFLOAT4X4& _viewProjection,
                                                  std::uint32_t _widthPixels, std::uint32_t _heightPixels, float _viewHeightMeters,
                                                  Protocol::EntityId _selected, bool _integrityView)

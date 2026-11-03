@@ -23,6 +23,9 @@ constexpr float TOP_BAR_RIGHT_LOGICAL_PIXELS = 6.0F;
 constexpr float RESOURCE_GAP_LOGICAL_PIXELS = 20.0F; // between resources, and around the objective
 constexpr float KEY_GAP_LOGICAL_PIXELS = 8.0F;
 constexpr float OBJECTIVE_GAP_LOGICAL_PIXELS = 10.0F;
+// The storming clock's bar under the objective (M4-J1): its gap below the text and its thickness.
+constexpr float PROGRESS_GAP_LOGICAL_PIXELS = 3.0F;
+constexpr float PROGRESS_LOGICAL_PIXELS = 2.0F;
 constexpr float CONTROL_HEIGHT_LOGICAL_PIXELS = 44.0F; // CANCEL · ESC and JUMP
 constexpr float BANNER_TOP_LOGICAL_PIXELS = 56.0F;
 constexpr float BANNER_PADDING_Y_LOGICAL_PIXELS = 6.0F;
@@ -40,6 +43,10 @@ constexpr float ALERT_LINE_GAP_LOGICAL_PIXELS = 4.0F;
 constexpr float ALERT_MAX_WIDTH_LOGICAL_PIXELS = 440.0F;
 // A structure's line in the world: its box's padding around the text (M4-I6).
 constexpr float LABEL_PADDING_LOGICAL_PIXELS = 3.0F;
+// The control's health bar under a wall section's anchor (M4-J3): its size and its gap below the anchor.
+constexpr float HEALTH_BAR_WIDTH_LOGICAL_PIXELS = 40.0F;
+constexpr float HEALTH_BAR_HEIGHT_LOGICAL_PIXELS = 4.0F;
+constexpr float HEALTH_BAR_GAP_LOGICAL_PIXELS = 2.0F;
 constexpr float JUMP_PADDING_LOGICAL_PIXELS = 10.0F;
 constexpr float RING_LOGICAL_PIXELS = 24.0F;
 constexpr float CURSOR_LABEL_OFFSET_LOGICAL_PIXELS = 18.0F; // from the pointer to the label's panel
@@ -518,6 +525,24 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
   m_panels.push_back({0, 0, width, barHeight});
   const std::int32_t barTextTop = paint.CenteredCellTop(0, bar.heightPixels);
 
+  // The control's health bars over the wall sections (M4-J3), under every panel and every line: each centred under its
+  // anchor, in good over the line colour, and kept between the top bar and the deck.
+  {
+    const std::int32_t bandBottom = _model.deck ? height - paint.Pixels(DECK_LOGICAL_PIXELS) : height;
+    const std::int32_t healthWidth = paint.Pixels(HEALTH_BAR_WIDTH_LOGICAL_PIXELS);
+    const std::int32_t healthHeight = paint.Pixels(HEALTH_BAR_HEIGHT_LOGICAL_PIXELS);
+    for (const HudHealthBar& health : _model.healthBars)
+    {
+      const auto x = static_cast<std::int32_t>(std::lround(health.anchorPixels.x)) - (healthWidth / 2);
+      const auto y = static_cast<std::int32_t>(std::lround(health.anchorPixels.y)) + paint.Pixels(HEALTH_BAR_GAP_LOGICAL_PIXELS);
+      if (x < 0 || x + healthWidth > width || y < barHeight || y + healthHeight > bandBottom)
+      {
+        continue;
+      }
+      paint.Bar({x, y, healthWidth, healthHeight}, health.fraction, GOOD_SRGB);
+    }
+  }
+
   // The structures' lines in the world (M4-I6), under every panel: each centred above its anchor and kept between the
   // top bar and the deck, in the model's order; one that would cover a line already laid is laid as its name alone, and
   // left out where that would too. The selected one is always laid whole. A line whose anchor is off that band is not.
@@ -637,6 +662,13 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
     {
       paint.Text(_model.objective.detail, objectiveX + objectiveWidth - paint.Width(_model.objective.detail), barTextTop,
                  _model.objective.detailOff ? OFF_SRGB : SUB_SRGB, bar);
+    }
+    // The storming clock's progress, a bar as wide as the objective under it, in accent (M4-J1).
+    if (_model.objective.progress.has_value())
+    {
+      paint.Bar({objectiveX, barTextTop + paint.Cell() + paint.Pixels(PROGRESS_GAP_LOGICAL_PIXELS), objectiveWidth,
+                 paint.Pixels(PROGRESS_LOGICAL_PIXELS)},
+                *_model.objective.progress, ACCENT_SRGB);
     }
   }
 

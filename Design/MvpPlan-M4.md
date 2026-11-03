@@ -335,11 +335,18 @@ struct HudWorldLabel { std::string line; std::string name; DirectX::XMFLOAT2 anc
 // I7: every command the player issues, for J2's command rows (Client/CommandLog.h).
 struct CommandRecord { std::uint32_t tick; double seconds; std::string command; std::string source; }; // source: key or click
 // Client/Strings.h gains HOVER_TABLE: each HudReading, what hover shows of it, and the key or click that reaches it.
+// J1: the trial's top bar and banners from the update, and its pause (Client/SiegeModel.h); HudObjective gains
+// std::optional<float> progress, and Earthrise::Run gains CameraQuarterTurns() and Banner(), each defaulted.
+// J2: the trial's log as rows (Client/SiegeLog.h), where a structure is on screen (Client/DeckCoverage.h:
+// Coverage CoverageOf(viewProjection, width, height, topBarPixels, deckPixels, minMeters, maxMeters)), Run::Drew(DrawnFrame),
+// defaulted, and Simulation::ReplayPlayer, a replay a tick at a time, which Replay() runs on.
+// J3: struct HudHealthBar { DirectX::XMFLOAT2 anchorPixels; float fraction; }; HudModel gains std::vector<HudHealthBar>
+// healthBars, from Overlays::HealthBars(session, viewProjection, width, height).
 ```
 
 ### The trial's log (J2)
 
-One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<Siege|SiegeMirror>-<yyyymmdd-hhmmss>.csv` beside the executable, LF-terminated, UTF-8, and its replay beside it as `.errp` with the same name (ADR-026, decision 6). Comment lines first, each `# key: value`: participant, version, build id, server-data hash, scenario, the nearest and the weak sections' names, display size, UI scale, start time. Then a header row and rows of these kinds, in tick order, each led by its kind and its tick:
+One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<Siege|SiegeMirror>-<yyyymmdd-hhmmss>.csv` beside the executable, LF-terminated, UTF-8, and its replay beside it as `.errp` with the same name (ADR-026, decision 6). Comment lines first, each `# key: value`: participant, version, build id, server-data hash, scenario, the nearest and the weak sections' names and the gatehouse's, the third role the reader sorts breaches by, display size, UI scale, start time. Then a header row, `kind,tick,a,b,c,d,e`, and rows of these kinds, each seven fields wide, the rest empty where a kind has fewer, in tick order, each led by its kind and its tick:
 - `shot,<tick>,<player>,<engine>,<target x y z>,<strike x y z>,<structure name or ->`;
 - `opened,<tick>,<structure name>`: a section's first foot route from the camp (ADR-026, decision 5);
 - `passed,<minute>,<structure name>,<attacker|defender>,<figures>`: figures through an opened section in that game minute, written when the minute ends;
@@ -646,7 +653,7 @@ One CSV a run, `Logs\Siege-<participant>-<voxel|control>-<Siege|SiegeMirror>-<yy
 - **Waits on:** J1, and inputs 25 and 28.
 - **Read first:** ADR-026, decisions 5 and 6; *The trial's log*; MvpPlan-M3.md, M3-G2's scoring tool.
 - **Changes:** `Earthrise` writes the log from `LastTickEvents`, the client's command records and, for the `onscreen` and `framed` rows, the camera and the HUD's layout on the frame that draws each event, and the replay beside it; `Earthrise --replay <file>` plays one back on screen and reports whether every state hash matched; `Tools/SiegeTrial/ReadSiegeLog.py <folder>` prints each run's outcome, time, breach points by role (nearest, weak, gate or another, from the log's comment lines), shots, each side's stone, the figures a minute through each breach, and how many breaches and warnings began under the deck or off screen with the median seconds to frame them, `--json` the same; `Tools/TestReadSiegeLog.py` with a step in the workflow's Linux job.
-- **Tests:** `Tools/TestReadSiegeLog.py` over hand-written logs, one per layout, which name a breach at W3 in the mirror as the weak section; **`DeckCoverageTests`** (`ClientTests`): a section's centre projected below the deck's top reads `deck`, one above the top bar's bottom `topbar`, one outside the screen `off`, and the deck's share of a footprint half under it is 50 %; **`SiegeLogTests`** (`ClientTests`): a run's rows have every column; the replay of a short scripted run matches.
+- **Tests:** `Tools/TestReadSiegeLog.py` over hand-written logs, one per layout, which name a breach at W3 in the mirror as the weak section; **`DeckCoverageTests`** (`ClientTests`): a section's centre projected below the deck's top reads `deck`, one above the top bar's bottom `topbar`, one outside the screen `off`, and the deck's share of a footprint half under it is 50 %; **`SiegeLogTests`** (`ClientTests`): a run's rows have every column; the replay of a short scripted run matches. *Amended 2026-11-03, before J2's code:* the replay's half is **`SiegeReplayTests`** in `SimulationTests`, since `ClientTests` references no `Simulation` (ADR-010), and `ClientTests` keeps the rows.
 - **Owner runs:** `Earthrise --replay` on the log of the owner's own J1 run: the same trial on screen, every state hash matched.
 
 ### M4-J3 — The control's client

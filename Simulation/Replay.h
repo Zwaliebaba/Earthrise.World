@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ByteReader.h"
 #include "World.h"
 
 #include <cstddef>
@@ -47,6 +48,39 @@ struct ReplayResult
   /// commands; none when it matched.
   std::optional<std::uint32_t> firstDifferingTick;
   std::uint32_t ticksReplayed;
+};
+
+/// A replay played a tick at a time, as `Earthrise --replay` draws it (M4-J2): its start loaded, then each recorded
+/// tick run on demand and its hash compared. It holds its bytes and reads them in place, so it is neither copied nor
+/// moved.
+class ReplayPlayer
+{
+public:
+  /// Loads _replay's start against _desc. Throws std::runtime_error, naming the check, when the start is refused
+  /// (LoadSave), as a replay from another build or other server data is, or when it does not read.
+  ReplayPlayer(std::vector<std::byte> _replay, const World::Desc& _desc);
+  ReplayPlayer(const ReplayPlayer&) = delete;
+  ReplayPlayer& operator=(const ReplayPlayer&) = delete;
+  ReplayPlayer(ReplayPlayer&&) = delete;
+  ReplayPlayer& operator=(ReplayPlayer&&) = delete;
+  ~ReplayPlayer() = default;
+
+  /// The world as replayed so far.
+  [[nodiscard]] World& Played() noexcept;
+
+  /// Runs the next recorded tick and compares its hash. Returns false, and runs nothing, once every tick has run or one
+  /// has differed. Throws std::runtime_error when the last tick is cut short.
+  bool Step();
+
+  /// Whether every tick has run, or one has differed.
+  [[nodiscard]] bool Done() const noexcept;
+  [[nodiscard]] ReplayResult Result() const noexcept;
+
+private:
+  std::vector<std::byte> m_bytes;
+  Core::ByteReader m_reader;
+  World m_world;
+  ReplayResult m_result{.matched = true, .firstDifferingTick = std::nullopt, .ticksReplayed = 0};
 };
 
 /// Loads the replay's start against _desc and runs its ticks, comparing every recorded hash. Throws

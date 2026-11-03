@@ -90,6 +90,7 @@ inline constexpr float MODEL_VOXEL_METERS = 0.5F;
 // (east), so the south-west is -135 degrees. Keys pan the view by PAN_VIEWS_PER_SECOND view heights a second.
 inline constexpr float ELEVATION_DEGREES = 34.0F;
 inline constexpr float AZIMUTH_DEGREES = -135.0F;
+inline constexpr float QUARTER_TURN_DEGREES = 90.0F;
 inline constexpr float DEFAULT_VIEW_HEIGHT_METERS = 84.0F;
 inline constexpr float MIN_VIEW_HEIGHT_METERS = 12.0F;
 inline constexpr float MAX_VIEW_HEIGHT_METERS = 260.0F;

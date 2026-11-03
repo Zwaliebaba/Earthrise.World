@@ -87,5 +87,17 @@
     <ClCompile Include="CommandSourceTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="SiegeFlowTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="SiegeLogTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="DeckCoverageTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="ControlParityTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

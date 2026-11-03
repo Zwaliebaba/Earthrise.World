@@ -23,6 +23,22 @@ inline constexpr std::string_view SHOTS_VALUE = "{}";
 inline constexpr std::string_view BREACH_OBJECTIVE_TITLE = "BREACH W2";
 inline constexpr std::string_view BREACH_OBJECTIVE_DETAIL = "OPEN IT TO FOOT";
 inline constexpr std::string_view SIEGE_OBJECTIVE_TITLE = "TAKE THE KEEP"; // the Siege castle's (M4-B4; Hud.md §10)
+// While the storming clock runs (M4-J1; Hud.md §10): the clock and what it needs, each m:ss.
+inline constexpr std::string_view HOLD_OBJECTIVE_TITLE = "HOLD THE KEEP'S FOOT";
+inline constexpr std::string_view HOLD_OBJECTIVE_DETAIL = "{}:{:02} / {}:{:02}";
+// The Siege trial's resources (Hud.md §10): the stockpile in m³ to a tenth, the army's figures and engines, and the
+// time limit's m:ss left as TIME_KEY and TIME_VALUE.
+inline constexpr std::string_view STONE_KEY = "STONE";
+inline constexpr std::string_view STONE_VALUE = "{}.{} m³";
+inline constexpr std::string_view ARMY_KEY = "ARMY";
+// The end banners, with the game time the trial ended at, and the pause's (MvpPlan.md, M4, input 25).
+inline constexpr std::string_view KEEP_FALLEN_BANNER = "THE KEEP HAS FALLEN · {}:{:02}";
+inline constexpr std::string_view TIME_RUN_OUT_BANNER = "TIME HAS RUN OUT · {}:{:02}";
+inline constexpr std::string_view ARMY_GONE_BANNER = "YOUR ARMY IS GONE · {}:{:02}";
+inline constexpr std::string_view PAUSED_BANNER = "PAUSED · PAUSE OR F10 TO GO ON";
+// Earthrise --replay's end (M4-J2): every state hash matched over n ticks, or the first tick that differed.
+inline constexpr std::string_view REPLAY_MATCHED_BANNER = "REPLAY MATCHED · {} TICKS";
+inline constexpr std::string_view REPLAY_DIFFERS_BANNER = "REPLAY DIFFERS AT TICK {}";
 inline constexpr std::string_view TURN_LEFT = "↺";
 inline constexpr std::string_view TURN_RIGHT = "↻";
 inline constexpr std::string_view ZOOM_OUT = "-";
@@ -169,6 +185,7 @@ inline constexpr std::string_view GARRISON_KEY = "GARRISON";
 inline constexpr std::string_view PLATFORM_KEY = "PLATFORM";
 inline constexpr std::string_view GATE_KEY = "GATE";
 inline constexpr std::string_view TOWER_KEY = "TOWER";
+inline constexpr std::string_view HEALTH_KEY = "HEALTH"; // the control's, in place of the three above (ADR-028, decision 6)
 inline constexpr std::string_view REPAIR_KEY = "REPAIR";
 inline constexpr std::string_view TO_WIN_KEY = "TO WIN";
 inline constexpr std::string_view NAME_KEY = "NAME";
@@ -281,6 +298,17 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      BREACH_OBJECTIVE_TITLE,
                                                                      BREACH_OBJECTIVE_DETAIL,
                                                                      SIEGE_OBJECTIVE_TITLE,
+                                                                     HOLD_OBJECTIVE_TITLE,
+                                                                     HOLD_OBJECTIVE_DETAIL,
+                                                                     STONE_KEY,
+                                                                     STONE_VALUE,
+                                                                     ARMY_KEY,
+                                                                     KEEP_FALLEN_BANNER,
+                                                                     TIME_RUN_OUT_BANNER,
+                                                                     ARMY_GONE_BANNER,
+                                                                     PAUSED_BANNER,
+                                                                     REPLAY_MATCHED_BANNER,
+                                                                     REPLAY_DIFFERS_BANNER,
                                                                      TURN_LEFT,
                                                                      TURN_RIGHT,
                                                                      ZOOM_OUT,
@@ -384,6 +412,7 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      PLATFORM_KEY,
                                                                      GATE_KEY,
                                                                      TOWER_KEY,
+                                                                     HEALTH_KEY,
                                                                      REPAIR_KEY,
                                                                      TO_WIN_KEY,
                                                                      NAME_KEY,

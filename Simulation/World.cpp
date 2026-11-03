@@ -1452,6 +1452,13 @@ void World::Fire(std::uint8_t _player, const Protocol::FireEngine& _fire)
                            .shooter = Protocol::NO_ENTITY,
                            .target = Protocol::NO_ENTITY,
                            .damage = 0});
+  m_tickEvents.push_back({.kind = TrialEventKind::ShotFired,
+                          .tick = m_tick,
+                          .player = _player,
+                          .subject = engine->first,
+                          .other = id,
+                          .amount = 0,
+                          .voxel = _fire.targetVoxels});
   engine->second.reloadTicks = static_cast<std::uint32_t>(Data().Tuning().shotReloadTicks);
 }
 
@@ -2696,10 +2703,24 @@ void World::AdvanceShots()
       // Its crush (ADR-023, decision 7), then what it does to the structures and the terrain, by the trial's rule
       // (ADR-028, decision 1).
       Rule().ShotStrikes(*this, struck);
+      m_tickEvents.push_back({.kind = TrialEventKind::ShotLanded,
+                              .tick = m_tick,
+                              .player = shot.owner,
+                              .subject = shot.engine,
+                              .other = id,
+                              .amount = 1,
+                              .voxel = *hit});
       landed.push_back(id);
     }
     else if (step.left)
     {
+      m_tickEvents.push_back({.kind = TrialEventKind::ShotLanded,
+                              .tick = m_tick,
+                              .player = shot.owner,
+                              .subject = shot.engine,
+                              .other = id,
+                              .amount = 0,
+                              .voxel = {}});
       landed.push_back(id);
     }
   }

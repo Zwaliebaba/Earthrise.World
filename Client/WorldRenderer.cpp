@@ -121,19 +121,22 @@ std::array<DirectX::XMFLOAT4, Engine::VoxelPass::PALETTE_ENTRIES> LinearPalette(
   return colors;
 }
 
-DirectX::XMVECTOR SunTowards() noexcept
+/// Towards the sun, or towards it mirrored east to west, as the mirrored castle has it (MvpPlan.md, M4, input 28).
+DirectX::XMVECTOR SunTowards(bool _mirrored) noexcept
 {
-  return DirectX::XMVector3Normalize(DirectX::XMVectorSet(SUN_TOWARDS[0], SUN_TOWARDS[1], SUN_TOWARDS[2], 0.0F));
+  const float east = _mirrored ? -SUN_TOWARDS[0] : SUN_TOWARDS[0];
+  return DirectX::XMVector3Normalize(DirectX::XMVectorSet(east, SUN_TOWARDS[1], SUN_TOWARDS[2], 0.0F));
 }
 
 /// The sun's frame for a shadow map _edgeTexels across: its view-projection, the ray away from the sun, and the map as
 /// the viewport.
-Engine::VoxelPass::FrameConstants MakeSunFrame(const DirectX::XMFLOAT4X4& _sunViewProjection, std::uint32_t _edgeTexels) noexcept
+Engine::VoxelPass::FrameConstants MakeSunFrame(const DirectX::XMFLOAT4X4& _sunViewProjection, std::uint32_t _edgeTexels,
+                                               bool _sunMirrored) noexcept
 {
   Engine::VoxelPass::FrameConstants frame{};
   frame.viewProjection = _sunViewProjection;
   DirectX::XMStoreFloat4x4(&frame.inverseViewProjection, DirectX::XMMatrixInverse(nullptr, DirectX::XMLoadFloat4x4(&_sunViewProjection)));
-  DirectX::XMStoreFloat4(&frame.rayDirection, DirectX::XMVectorNegate(SunTowards()));
+  DirectX::XMStoreFloat4(&frame.rayDirection, DirectX::XMVectorNegate(SunTowards(_sunMirrored)));
   const auto edge = static_cast<float>(_edgeTexels);
   frame.viewportPixels = {edge, edge, 1.0F / edge, 1.0F / edge};
   return frame;
@@ -142,7 +145,7 @@ Engine::VoxelPass::FrameConstants MakeSunFrame(const DirectX::XMFLOAT4X4& _sunVi
 /// The frame's constants for a target _widthPixels by _heightPixels.
 Engine::VoxelPass::FrameConstants MakeFrame(const DirectX::XMFLOAT4X4& _viewProjection, const DirectX::XMFLOAT3& _forward,
                                             std::uint32_t _widthPixels, std::uint32_t _heightPixels,
-                                            const DirectX::XMFLOAT4X4& _sunViewProjection)
+                                            const DirectX::XMFLOAT4X4& _sunViewProjection, bool _sunMirrored)
 {
   const auto width = static_cast<float>(_widthPixels);
   const auto height = static_cast<float>(_heightPixels);
@@ -152,7 +155,7 @@ Engine::VoxelPass::FrameConstants MakeFrame(const DirectX::XMFLOAT4X4& _viewProj
   DirectX::XMStoreFloat4x4(&frame.inverseViewProjection, DirectX::XMMatrixInverse(nullptr, viewProjection));
   DirectX::XMStoreFloat4(&frame.rayDirection, DirectX::XMVectorSet(_forward.x, _forward.y, _forward.z, 0.0F));
   frame.viewportPixels = {width, height, 1.0F / width, 1.0F / height};
-  DirectX::XMStoreFloat4(&frame.lightDirection, SunTowards());
+  DirectX::XMStoreFloat4(&frame.lightDirection, SunTowards(_sunMirrored));
   frame.shadowViewProjection = _sunViewProjection;
   frame.shadowParameters = {SHADOW_NORMAL_OFFSET_METERS, SHADOW_DEPTH_BIAS, 1.0F / static_cast<float>(STATIC_SHADOW_TEXELS),
                             1.0F / static_cast<float>(DYNAMIC_SHADOW_TEXELS)};
@@ -279,9 +282,10 @@ WorldRenderer::WorldRenderer(ID3D12Device* _device, ID3D12CommandQueue* _queue, 
     throw std::runtime_error("Content has no line model X2, the arrow");
   }
   m_interface.SetAtlas(m_fontAtlas.Texture(), GlyphAtlas::WIDTH_TEXELS, GlyphAtlas::HEIGHT_TEXELS);
+  m_sunMirrored = _desc.sunMirrored;
   // The sun's view over the whole world, its height included, for both shadow maps.
   DirectX::XMStoreFloat4x4(&m_sunViewProjection,
-                           Engine::SunViewProjection(SunTowards(), DirectX::XMFLOAT3{0.0F, 0.0F, 0.0F},
+                           Engine::SunViewProjection(SunTowards(_desc.sunMirrored), DirectX::XMFLOAT3{0.0F, 0.0F, 0.0F},
                                                      DirectX::XMFLOAT3{_desc.widthMeters, _desc.heightMeters, _desc.depthMeters},
                                                      SHADOW_MARGIN_METERS));
 }
@@ -327,7 +331,8 @@ void WorldRenderer::DrawPortraits(ID3D12GraphicsCommandList* _commandList, Engin
     DirectX::XMStoreFloat4x4(&viewProjection, camera.ViewProjection(1.0F));
     DirectX::XMFLOAT3 forward{};
     DirectX::XMStoreFloat3(&forward, camera.Forward());
-    Engine::VoxelPass::FrameConstants frame = MakeFrame(viewProjection, forward, PORTRAIT_TEXELS, PORTRAIT_TEXELS, m_sunViewProjection);
+    Engine::VoxelPass::FrameConstants frame =
+      MakeFrame(viewProjection, forward, PORTRAIT_TEXELS, PORTRAIT_TEXELS, m_sunViewProjection, m_sunMirrored);
     frame.shadowParameters.w = 0.0F; // no shadow
     const std::vector<Engine::VoxelRecord> records = Engine::BuildVisibleRecords(
       {.paletteIndices = grid.indices, .xVoxels = grid.widthVoxels, .yVoxels = grid.heightVoxels, .zVoxels = grid.depthVoxels},
@@ -525,15 +530,17 @@ void WorldRenderer::Draw(const Frame& _frame)
   }
   const float modelVoxelPixels = MODEL_VOXEL_METERS * static_cast<float>(m_sceneColor.HeightPixels()) / _frame.viewHeightMeters;
   m_worldView.PlaceModels(ring, std::vector<ModelPlacement>(_frame.placements.begin(), _frame.placements.end()), modelVoxelPixels);
-  const D3D12_GPU_VIRTUAL_ADDRESS frameConstants = UploadConstants(
-    ring, MakeFrame(_frame.viewProjection, _frame.forward, m_sceneColor.WidthPixels(), m_sceneColor.HeightPixels(), m_sunViewProjection));
+  const D3D12_GPU_VIRTUAL_ADDRESS frameConstants =
+    UploadConstants(ring, MakeFrame(_frame.viewProjection, _frame.forward, m_sceneColor.WidthPixels(), m_sceneColor.HeightPixels(),
+                                    m_sunViewProjection, m_sunMirrored));
   const D3D12_GPU_VIRTUAL_ADDRESS paletteConstants = UploadConstants(ring, m_palette);
 
   // The sun's shadow maps: the world's when it changed, the models' every frame (ADR-011, decision 9).
   m_gpuTimer.Begin(commandList, slot, STATIC_SHADOW_SPAN);
   if (m_worldChanged || !m_staticShadow.Readable())
   {
-    const D3D12_GPU_VIRTUAL_ADDRESS staticSunFrame = UploadConstants(ring, MakeSunFrame(m_sunViewProjection, STATIC_SHADOW_TEXELS));
+    const D3D12_GPU_VIRTUAL_ADDRESS staticSunFrame =
+      UploadConstants(ring, MakeSunFrame(m_sunViewProjection, STATIC_SHADOW_TEXELS, m_sunMirrored));
     m_staticShadow.BeginDrawing(commandList);
     m_pass.BeginShadow(commandList, staticSunFrame, paletteConstants);
     m_worldView.DrawChunks(commandList, m_pass);
@@ -542,7 +549,8 @@ void WorldRenderer::Draw(const Frame& _frame)
   }
   m_gpuTimer.End(commandList, slot, STATIC_SHADOW_SPAN);
   m_gpuTimer.Begin(commandList, slot, DYNAMIC_SHADOW_SPAN);
-  const D3D12_GPU_VIRTUAL_ADDRESS dynamicSunFrame = UploadConstants(ring, MakeSunFrame(m_sunViewProjection, DYNAMIC_SHADOW_TEXELS));
+  const D3D12_GPU_VIRTUAL_ADDRESS dynamicSunFrame =
+    UploadConstants(ring, MakeSunFrame(m_sunViewProjection, DYNAMIC_SHADOW_TEXELS, m_sunMirrored));
   m_dynamicShadow.BeginDrawing(commandList);
   m_pass.BeginShadow(commandList, dynamicSunFrame, paletteConstants);
   m_worldView.DrawModels(commandList, m_pass);

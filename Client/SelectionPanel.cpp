@@ -100,32 +100,38 @@ HudPanel StructurePanel(const Protocol::StructureView& _structure, const Protoco
   panel.name = look == STRUCTURE_LOOKS.end() ? _structure.name : std::string(look->name);
   panel.portrait.icon = Utf8(look == STRUCTURE_LOOKS.end() ? U'\uE01C' : look->icon);
   panel.enemy = _structure.owner != _state.player;
-  if (_structure.maxHitPoints > 0)
-  {
-    // The control's pool (ADR-028).
-    panel.hit = static_cast<float>(_structure.hitPoints) / static_cast<float>(_structure.maxHitPoints);
-    panel.hitText = std::format(OUT_OF, _structure.hitPoints, _structure.maxHitPoints);
-  }
-  const std::string share = std::format(PERCENT_VALUE, _structure.criticalPercent);
   const auto row = [&panel](std::string_view _key, std::string _value)
   { panel.rows.push_back({.key = std::string(_key), .value = std::move(_value), .srgb = SUB_SRGB}); };
+  // The critical part's row, or in the control HEALTH hp / max in its place (ADR-028, decision 6; M4-J3): the control's
+  // structures carry hit points, and the voxel version's none.
+  const auto part = [&_structure, &row](std::string_view _key)
+  {
+    if (_structure.maxHitPoints > 0)
+    {
+      row(HEALTH_KEY, std::format(OUT_OF, _structure.hitPoints, _structure.maxHitPoints));
+    }
+    else
+    {
+      row(_key, std::format(PERCENT_VALUE, _structure.criticalPercent));
+    }
+  };
   const std::string_view id = _structure.templateId;
   if (id == "T4")
   {
     row(GARRISON_KEY, Garrison(_structure, panel.enemy));
-    row(PLATFORM_KEY, share);
+    part(PLATFORM_KEY);
     row(REPAIR_KEY, Overlays::RepairValue(_structure.repairLockTicks));
   }
   else if (id == "T5")
   {
     row(GARRISON_KEY, Garrison(_structure, panel.enemy));
-    row(GATE_KEY, share);
+    part(GATE_KEY);
     row(REPAIR_KEY, Overlays::RepairValue(_structure.repairLockTicks));
   }
   else if (id == "T2")
   {
     const std::uint32_t seconds = _state.trial.holdTicksNeeded / TICKS_PER_SECOND;
-    row(TOWER_KEY, share);
+    part(TOWER_KEY);
     row(GARRISON_KEY, Garrison(_structure, panel.enemy));
     row(TO_WIN_KEY, std::format(TO_WIN_VALUE, seconds / 60, seconds % 60));
   }
