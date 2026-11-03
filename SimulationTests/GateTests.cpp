@@ -111,6 +111,42 @@ public:
     Assert::IsFalse(Through(world, Simulation::NavigationClass::Foot, 31));
   }
 
+  TEST_METHOD(AnOpenGatesViewListsItsVoxelsAndAShutOnesNone)
+  {
+    // The client leaves an open gate's voxels out of the world it draws and draws G1 over them (M4-H1), so the update
+    // names them: T5's twelve, x 30 to 32 and four high at z 28, and none while it is shut.
+    Simulation::World world(FlatWorld::Desc());
+    const Protocol::EntityId gatehouse = Gatehouse(world);
+    const auto view = [&world, gatehouse]()
+    {
+      const std::vector<Protocol::StructureView>& structures = world.State(DEFENDER).structures;
+      return *std::ranges::find(structures, gatehouse, &Protocol::StructureView::id);
+    };
+    Assert::IsTrue(view().gateVoxels.empty());
+    Order(world, DEFENDER, Protocol::SetGate{.structure = gatehouse, .open = true});
+    world.Tick();
+    std::vector<Protocol::VoxelPosition> expected;
+    expected.reserve(12);
+    for (std::int32_t y = GROUND; y < GROUND + 4; ++y)
+    {
+      for (std::int32_t x = 30; x <= 32; ++x)
+      {
+        expected.push_back(At(x, y, 28));
+      }
+    }
+    std::vector<Protocol::VoxelPosition> listed = view().gateVoxels;
+    const auto order = [](const Protocol::VoxelPosition& _a, const Protocol::VoxelPosition& _b)
+    {
+      return _a.yVoxels != _b.yVoxels ? _a.yVoxels < _b.yVoxels
+                                      : (_a.zVoxels != _b.zVoxels ? _a.zVoxels < _b.zVoxels : _a.xVoxels < _b.xVoxels);
+    };
+    std::ranges::sort(listed, order);
+    Assert::IsTrue(listed == expected);
+    Order(world, DEFENDER, Protocol::SetGate{.structure = gatehouse, .open = false});
+    world.Tick();
+    Assert::IsTrue(view().gateVoxels.empty());
+  }
+
   TEST_METHOD(AShotAtAnOpenGateStrikesItsVoxels)
   {
     // A trebuchet in the courtyard, 28 m south of the gate's inner face, aims at it: the stone strikes the gate, open or

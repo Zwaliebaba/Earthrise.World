@@ -2,6 +2,7 @@
 
 #include "WorldRenderer.h"
 
+#include "Catalog.h"
 #include "GlyphAtlas.h"
 #include "Look.h"
 #include "Palette.h"
@@ -212,9 +213,11 @@ template <typename T> D3D12_GPU_VIRTUAL_ADDRESS UploadArray(Engine::UploadRing& 
 
 WorldRenderer::WorldRenderer(ID3D12Device* _device, ID3D12CommandQueue* _queue, const Desc& _desc, std::uint32_t _widthPixels,
                              std::uint32_t _heightPixels)
-  : m_sceneColor(_device, {.format = SCENE_FORMAT, .clearColor = CLEAR_COLOR}, _widthPixels, _heightPixels),
+  : m_device(_device),
+    m_sceneColor(_device, {.format = SCENE_FORMAT, .clearColor = CLEAR_COLOR}, _widthPixels, _heightPixels),
     m_depth(_device, _widthPixels, _heightPixels),
     m_pass(_device, {.colorFormat = SCENE_FORMAT, .depthFormat = Engine::DepthTarget::FORMAT}),
+    m_lines(_device, {.colorFormat = SCENE_FORMAT, .depthFormat = Engine::DepthTarget::FORMAT}),
     m_staticShadow(_device, STATIC_SHADOW_TEXELS),
     m_dynamicShadow(_device, DYNAMIC_SHADOW_TEXELS),
     m_upscale(_device, {.targetFormat = _desc.targetFormat}),
@@ -226,6 +229,37 @@ WorldRenderer::WorldRenderer(ID3D12Device* _device, ID3D12CommandQueue* _queue, 
 {
   m_pass.SetShadowMaps(m_staticShadow.Texture(), m_dynamicShadow.Texture());
   m_upscale.SetSource(m_sceneColor.Texture());
+  // Content's line models (ADR-018, decision 2), in linear colour, the faction segments left to each instance.
+  bool arrowFound = false;
+  for (const Content::LineModelView& model : Content::LineModels())
+  {
+    if (model.id == "X2")
+    {
+      m_arrowModel = static_cast<std::uint32_t>(m_lineModels.size());
+      arrowFound = true;
+    }
+    m_lineModels.push_back({.firstSegment = static_cast<std::uint32_t>(m_lineSegments.size()),
+                            .segmentCount = static_cast<std::uint32_t>(model.segments.size()),
+                            .drawnLengthMeters = static_cast<float>(model.drawnLengthMillimeters) / 1000.0F,
+                            .dotBelowPixels = static_cast<float>(model.dotBelowPixels),
+                            .dotWidthPixels = static_cast<float>(model.dotWidthPixels),
+                            .reserved = {}});
+    for (const Content::LineSegmentView& segment : model.segments)
+    {
+      const DirectX::XMFLOAT3 color = LinearOf(segment.colorSrgb);
+      m_lineSegments.push_back({.fromMeters = static_cast<float>(segment.fromMillimeters) / 1000.0F,
+                                .toMeters = static_cast<float>(segment.toMillimeters) / 1000.0F,
+                                .color = {color.x, color.y, color.z, 1.0F},
+                                .widthPixels = static_cast<float>(segment.widthPixels),
+                                .factionColor = segment.factionColor ? 1U : 0U,
+                                .tapers = segment.tapers ? 1U : 0U,
+                                .reserved = 0.0F});
+    }
+  }
+  if (!arrowFound)
+  {
+    throw std::runtime_error("Content has no line model X2, the arrow");
+  }
   m_interface.SetAtlas(m_fontAtlas.Texture(), GlyphAtlas::WIDTH_TEXELS, GlyphAtlas::HEIGHT_TEXELS);
   // The sun's view over the whole world, its height included, for both shadow maps.
   DirectX::XMStoreFloat4x4(&m_sunViewProjection,
@@ -238,6 +272,85 @@ void WorldRenderer::ResetWorld()
 {
   m_worldView.Forget();
   m_worldChanged = true;
+  m_pass.SetColumnShade(nullptr, 0, 0, 1.0F);
+  m_fogMask = nullptr;
+  m_fogTexels.clear();
+  m_fogWidthCells = 0;
+  m_fogDepthCells = 0;
+}
+
+void WorldRenderer::UpdateFog(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, const Frame& _frame)
+{
+  if (_frame.fogMask.empty())
+  {
+    return; // a world without fog; one with fog has it every tick, and only ResetWorld takes it away
+  }
+  const auto width = static_cast<std::size_t>(std::max(0, _frame.fogWidthCells));
+  const auto depth = static_cast<std::size_t>(std::max(0, _frame.fogDepthCells));
+  if (_frame.fogMask.size() != width * depth)
+  {
+    throw std::invalid_argument("the fog's mask does not hold its cells");
+  }
+  if (!m_fogMask)
+  {
+    const D3D12_HEAP_PROPERTIES heapProperties{.Type = D3D12_HEAP_TYPE_DEFAULT};
+    const D3D12_RESOURCE_DESC desc{.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+                                   .Width = width,
+                                   .Height = static_cast<UINT>(depth),
+                                   .DepthOrArraySize = 1,
+                                   .MipLevels = 1,
+                                   .Format = DXGI_FORMAT_R8_UNORM,
+                                   .SampleDesc = {.Count = 1},
+                                   .Flags = D3D12_RESOURCE_FLAG_NONE};
+    winrt::check_hresult(m_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_COPY_DEST,
+                                                           nullptr, IID_PPV_ARGS(m_fogMask.put())));
+    m_fogWidthCells = _frame.fogWidthCells;
+    m_fogDepthCells = _frame.fogDepthCells;
+    m_pass.SetColumnShade(m_fogMask.get(), m_fogWidthCells, m_fogDepthCells, FOG_SHADE);
+  }
+  else if (_frame.fogWidthCells != m_fogWidthCells || _frame.fogDepthCells != m_fogDepthCells)
+  {
+    throw std::logic_error("the fog's mask changed its size without ResetWorld");
+  }
+  else if (std::ranges::equal(_frame.fogMask, m_fogTexels))
+  {
+    return;
+  }
+  else
+  {
+    // Frames before this one on the queue read it; the barrier waits for them.
+    const D3D12_RESOURCE_BARRIER toCopy =
+      Engine::TransitionBarrier(m_fogMask.get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+    _commandList->ResourceBarrier(1, &toCopy);
+  }
+  const D3D12_RESOURCE_DESC desc = m_fogMask->GetDesc();
+  D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};
+  UINT64 totalBytes = 0;
+  m_device->GetCopyableFootprints(&desc, 0, 1, 0, &footprint, nullptr, nullptr, &totalBytes);
+  const std::optional<Engine::UploadRing::Allocation> allocation = _ring.Allocate(totalBytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
+  if (!allocation)
+  {
+    throw std::runtime_error("the upload ring has no room for the fog's mask");
+  }
+  for (std::size_t row = 0; row < depth; ++row)
+  {
+    std::memcpy(allocation->bytes.data() + (row * footprint.Footprint.RowPitch), _frame.fogMask.data() + (row * width), width);
+  }
+  footprint.Offset = allocation->offsetBytes;
+  // The copy locations' unions are filled by member: designators cannot name an anonymous union's.
+  D3D12_TEXTURE_COPY_LOCATION source{};
+  source.pResource = allocation->buffer;
+  source.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+  source.PlacedFootprint = footprint;
+  D3D12_TEXTURE_COPY_LOCATION destination{};
+  destination.pResource = m_fogMask.get();
+  destination.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+  destination.SubresourceIndex = 0;
+  _commandList->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
+  const D3D12_RESOURCE_BARRIER toRead =
+    Engine::TransitionBarrier(m_fogMask.get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+  _commandList->ResourceBarrier(1, &toRead);
+  m_fogTexels.assign(_frame.fogMask.begin(), _frame.fogMask.end());
 }
 
 void WorldRenderer::Resize(std::uint32_t _widthPixels, std::uint32_t _heightPixels)
@@ -252,11 +365,18 @@ void WorldRenderer::Draw(const Frame& _frame)
   ID3D12GraphicsCommandList* commandList = _frame.commandList;
   Engine::UploadRing& ring = *_frame.ring;
   m_fontAtlas.Upload(commandList, ring);
+  UpdateFog(commandList, ring, _frame);
   const std::uint32_t slot = _frame.slot;
   // FrameRing::Begin waited for this slot's last frame, so its timestamps are back.
   if (m_timed.at(slot))
   {
-    m_voxelPassMilliseconds = m_gpuTimer.ReadMilliseconds(slot)[VOXEL_PASS_SPAN];
+    const std::vector<double> spans = m_gpuTimer.ReadMilliseconds(slot);
+    m_voxelPassMilliseconds = spans[VOXEL_PASS_SPAN];
+    m_linePassMilliseconds = spans[LINE_PASS_SPAN];
+  }
+  if (m_worldView.Hide(commandList, ring, _frame.hiddenVoxels))
+  {
+    m_worldChanged = true;
   }
   if (!_frame.snapshots.empty())
   {
@@ -308,13 +428,43 @@ void WorldRenderer::Draw(const Frame& _frame)
   SetViewport(commandList, m_sceneColor.WidthPixels(), m_sceneColor.HeightPixels());
   m_gpuTimer.Begin(commandList, slot, VOXEL_PASS_SPAN);
   m_pass.Begin(commandList, frameConstants, paletteConstants);
-  m_worldView.Draw(commandList, m_pass);
+  m_worldView.DrawChunks(commandList, m_pass);
+  // The silhouettes after the world and before the models (ADR-021, decision 6, amended): tested against the world's
+  // depth alone, each shows only where the world stands in front of its model, which then covers it where it is seen.
+  if (m_worldView.HasSilhouettes())
+  {
+    m_pass.BeginSilhouette(commandList, frameConstants, paletteConstants, SILHOUETTE_ALPHA);
+    m_worldView.DrawSilhouettes(commandList, m_pass);
+    m_pass.Begin(commandList, frameConstants, paletteConstants);
+  }
+  m_worldView.DrawModels(commandList, m_pass);
   if (debrisCount != 0)
   {
     m_pass.BeginOriented(commandList, frameConstants, paletteConstants);
     m_pass.DrawOriented(commandList, debrisAddress, debrisCount);
   }
   m_gpuTimer.End(commandList, slot, VOXEL_PASS_SPAN);
+  // The arrows, after the voxel pass, into its target and against its depth (ADR-018, decision 3), each in its
+  // shooter's faction colour.
+  m_gpuTimer.Begin(commandList, slot, LINE_PASS_SPAN);
+  if (!_frame.arrows.empty())
+  {
+    std::vector<Engine::LineInstance> instances;
+    instances.reserve(_frame.arrows.size());
+    for (const ArrowDrawn& arrow : _frame.arrows)
+    {
+      instances.push_back({.positionMeters = arrow.middleMeters,
+                           .lineModel = m_arrowModel,
+                           .direction = arrow.direction,
+                           .reserved = 0.0F,
+                           .factionColor = m_palette.at(arrow.sideColorIndex)});
+    }
+    m_lines.Begin(commandList, frameConstants, UploadArray(ring, std::span<const Engine::LineModelRecord>(m_lineModels)),
+                  UploadArray(ring, std::span<const Engine::LineSegmentRecord>(m_lineSegments)));
+    m_lines.Draw(commandList, UploadArray(ring, std::span<const Engine::LineInstance>(instances)),
+                 static_cast<std::uint32_t>(instances.size()));
+  }
+  m_gpuTimer.End(commandList, slot, LINE_PASS_SPAN);
   DrawOverlays(commandList, ring, frameConstants, paletteConstants, _frame.overlays);
 
   // Then scaled to the back buffer, which the triangle covers whole, so it needs no clear.
@@ -399,6 +549,11 @@ void WorldRenderer::DrawOverlays(ID3D12GraphicsCommandList* _commandList, Engine
 double WorldRenderer::VoxelPassMilliseconds() const noexcept
 {
   return m_voxelPassMilliseconds;
+}
+
+double WorldRenderer::LinePassMilliseconds() const noexcept
+{
+  return m_linePassMilliseconds;
 }
 
 std::uint64_t WorldRenderer::RecordsDrawn() const noexcept

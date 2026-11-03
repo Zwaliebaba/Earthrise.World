@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string_view>
 
 namespace Client
 {
@@ -70,6 +71,13 @@ inline constexpr float SHADOW_MARGIN_METERS = 2.0F;
 inline constexpr float SHADOW_NORMAL_OFFSET_METERS = 0.1F;
 inline constexpr float SHADOW_DEPTH_BIAS = 0.0F;
 
+/// What the fog multiplies a world voxel by in a column the player does not see now (ADR-025, decision 8; MvpPlan.md,
+/// M4, input 14), to be judged on screen.
+inline constexpr float FOG_SHADE = 0.55F;
+/// The silhouettes' alpha, the player's units' and the visible enemies' in their faction colour (ADR-021, decision 6,
+/// amended; MvpPlan.md, M4, input 23).
+inline constexpr float SILHOUETTE_ALPHA = 0.5F;
+
 /// A model voxel's edge (RendererLook.md §1), for how large one is on screen: units are drawn as impostors once it is
 /// smaller than about 3 px (§7).
 inline constexpr float MODEL_VOXEL_METERS = 0.5F;
@@ -106,5 +114,30 @@ inline constexpr std::uint32_t OFF_SRGB = 0x6a6258;
 // the bake's trim and mirror; and S3, released, for RELEASED_POSE_TICKS after it fires.
 inline constexpr float COCKED_POSE_OFFSET_X_METERS = -5.0F;
 inline constexpr std::uint32_t RELEASED_POSE_TICKS = 20;
+/// S3p, packed, sits at S3's placement itself, its offset along the model's own x 0 (the same arithmetic). Its front, the
+/// draw pole, is the layer file's +x and so the baked grid's -x (ADR-017, decision 4), where every other model's is +z.
+inline constexpr float PACKED_POSE_OFFSET_X_METERS = 0.0F;
+
+/// Which way a model faces before its turn, as the quarter turns that take +z there: 0 for +z, 3 for -x. A unit is
+/// turned to face its last step from it (M4-H1).
+inline constexpr std::uint32_t FRONT_PLUS_Z = 0;
+inline constexpr std::uint32_t PACKED_TREBUCHET_FRONT = 3;
+
+/// An open gate's model and where it stands in its template's baked frame, from the minimum corner of the template's
+/// footprint before its turn, in meters (MvpAssets.md, *the open gates*): GameData/Manifest.json's attach entries, G1 at
+/// T5-local (3, 3.5, 0) m and G2 at T7-local (2, 0, 0) m in the layer files, which is (2, 0, -1) m from T7's trimmed grid,
+/// whose empty row the bake trims; both are symmetric in x, so the bake's mirror leaves them.
+struct OpenGateLook
+{
+  std::string_view templateId;
+  std::string_view modelId;
+  float xMeters;
+  float yMeters;
+  float zMeters;
+};
+
+inline constexpr std::array<OpenGateLook, 2> OPEN_GATES = {
+  {{.templateId = "T5", .modelId = "G1", .xMeters = 3.0F, .yMeters = 3.5F, .zMeters = 0.0F},
+   {.templateId = "T7", .modelId = "G2", .xMeters = 2.0F, .yMeters = 0.0F, .zMeters = -1.0F}}};
 
 } // namespace Client

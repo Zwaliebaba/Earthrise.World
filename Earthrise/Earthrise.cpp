@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include "ArrowDraw.h"
 #include "BreachLab.h"
 #include "BreachRun.h"
 #include "ByteWriter.h"
@@ -10,6 +11,7 @@
 #include "Debris.h"
 #include "FireMode.h"
 #include "FireTally.h"
+#include "FogMask.h"
 #include "FrameRing.h"
 #include "FrameTimer.h"
 #include "GpuDevice.h"
@@ -28,6 +30,7 @@
 #include "ServerData.h"
 #include "Session.h"
 #include "SharedHash.h"
+#include "SiegeAttacker.h"
 #include "Strings.h"
 #include "SwapChain.h"
 #include "TextLayout.h"
@@ -36,6 +39,7 @@
 #include "UploadRing.h"
 #include "Window.h"
 #include "World.h"
+#include "WorldModels.h"
 #include "WorldPicker.h"
 #include "WorldRenderer.h"
 
@@ -51,9 +55,11 @@
 // trebuchet, press F and right-click a target. `--script` plays the five scripted shots instead.
 //
 // `--lab <participant> [--seed n]` runs the breach lab (M3-G1, Lab.h) instead, and writes its log to Logs\ beside the
-// executable. `--siege` loads the Siege castle (M4-B4; ADR-026) instead and runs it with nothing ordered, so that the
-// castle, its earthworks, the camp and the armies can be seen; M4-J1 builds the trial on it. `--siege --mirror` loads the
-// mirrored castle, SiegeMirror, whose weak section is on the west (M4-B6).
+// executable. `--siege` loads the Siege castle (M4-B4; ADR-026) instead and runs it with the defender's commander and the
+// player's side unordered, so that the castle, its earthworks, the camp and the armies can be seen; M4-J1 builds the trial
+// on it. `--siege --mirror` loads the mirrored castle, SiegeMirror, whose weak section is on the west (M4-B6).
+// `--siege --watch` seats the scripted attacker (Simulation::SiegeAttacker, M4-F5) for the player, so that the owner can
+// watch a trial before the HUD can order one (M4-H1); J1 keeps the flag.
 //
 // It starts borderless over the whole monitor (ADR-011, decision 1), and Alt+Enter switches between that and a window.
 // `--windowed` starts it in a window. `--speed 10` runs the clock at ten times. `--ui-scale 1.5` sets the UI scale over
@@ -72,7 +78,6 @@ constexpr std::uint8_t PLAYER = Simulation::BreachRun::PLAYER; // the Siege cast
 constexpr std::string_view SIEGE_SCENARIO = "Siege";
 constexpr std::string_view SIEGE_MIRROR_SCENARIO = "SiegeMirror";
 constexpr float CELL_CENTER_METERS = 0.5F;
-constexpr std::uint32_t QUARTER_TURNS = 4;
 // The frame's figures, in the bottom-left corner (M3-E1), in logical pixels.
 constexpr float FIGURES_MARGIN_LOGICAL_PIXELS = 8.0F;
 
@@ -86,6 +91,7 @@ struct Options
   std::uint64_t seed;                     // --seed, the lab's item order; by default the participant's hash
   bool siege;                             // --siege: the Siege castle (M4-B4)
   bool mirror;                            // --mirror, with --siege: the mirrored castle (M4-B6)
+  bool watch;                             // --watch, with --siege: the scripted attacker plays the player (M4-H1)
 };
 
 /// Whether the command line holds _flag as a word of its own.
@@ -244,154 +250,10 @@ struct FlushOnExit
   }
 };
 
-float Meters(Core::Fixed _value) noexcept
-{
-  return static_cast<float>(_value.Raw()) / static_cast<float>(Core::Fixed::ONE_RAW);
-}
-
-const Content::ModelView& Model(std::string_view _id)
-{
-  const Content::ModelView* model = Content::FindModel(_id);
-  if (model == nullptr)
-  {
-    throw std::runtime_error(std::format("Content has no model {}", _id));
-  }
-  return *model;
-}
-
-/// A model's footprint along x and z in its own frame, in meters.
-std::pair<float, float> Footprint(const Content::ModelView& _model) noexcept
-{
-  return {Client::MODEL_VOXEL_METERS * static_cast<float>(_model.grid.widthVoxels),
-          Client::MODEL_VOXEL_METERS * static_cast<float>(_model.grid.depthVoxels)};
-}
-
-/// A model's height, in meters.
-float Height(const Content::ModelView& _model) noexcept
-{
-  return Client::MODEL_VOXEL_METERS * static_cast<float>(_model.grid.heightVoxels);
-}
-
-/// The minimum corner, after _turns quarter turns clockwise seen from above, of a footprint from _xMeters along x,
-/// _widthMeters wide and _depthMeters deep, in a model's own frame: a turn takes +z towards +x.
-std::pair<float, float> TurnedMinimum(float _xMeters, float _widthMeters, float _depthMeters, std::uint32_t _turns) noexcept
-{
-  const std::array<std::pair<float, float>, 4> corners = {
-    {{_xMeters, 0.0F}, {_xMeters + _widthMeters, 0.0F}, {_xMeters, _depthMeters}, {_xMeters + _widthMeters, _depthMeters}}};
-  std::pair<float, float> minimum{std::numeric_limits<float>::max(), std::numeric_limits<float>::max()};
-  for (const auto& [x, z] : corners)
-  {
-    // x' = x cos + z sin, z' = -x sin + z cos, at a whole quarter turn.
-    const std::array<std::pair<float, float>, QUARTER_TURNS> turned = {{{x, z}, {z, -x}, {-x, -z}, {-z, x}}};
-    const auto [turnedX, turnedZ] = turned.at(_turns % QUARTER_TURNS);
-    minimum = {std::min(minimum.first, turnedX), std::min(minimum.second, turnedZ)};
-  }
-  return minimum;
-}
-
-/// _id standing centred on the cell at _cellVoxels, turned _turns quarter turns.
-Client::ModelPlacement Centered(std::string_view _id, Protocol::VoxelPosition _cellVoxels, std::uint32_t _turns, std::uint8_t _side)
-{
-  const Content::ModelView& model = Model(_id);
-  const auto [width, depth] = Footprint(model);
-  const bool across = _turns % 2 == 1;
-  return {.modelId = model.id,
-          .xMeters = static_cast<float>(_cellVoxels.xVoxels) + CELL_CENTER_METERS - (0.5F * (across ? depth : width)),
-          .yMeters = static_cast<float>(_cellVoxels.yVoxels),
-          .zMeters = static_cast<float>(_cellVoxels.zVoxels) + CELL_CENTER_METERS - (0.5F * (across ? width : depth)),
-          .quarterTurns = _turns % QUARTER_TURNS,
-          .sideColorIndex = _side};
-}
-
-/// The trebuchet at its cell, facing as it does: S3, released, centred on the cell, or S3c, cocked, at S3's placement
-/// moved COCKED_POSE_OFFSET_X_METERS along the model's own x before its turn (Client/Look.h).
-Client::ModelPlacement Trebuchet(const Protocol::EngineView& _engine, bool _released)
-{
-  const Client::ModelPlacement released = Centered("S3", _engine.cellVoxels, _engine.quarterTurns, Client::ATTACKER_COLOR_INDEX);
-  if (_released)
-  {
-    return released;
-  }
-  const Content::ModelView& releasedModel = Model("S3");
-  const Content::ModelView& cocked = Model("S3c");
-  const auto [releasedWidth, releasedDepth] = Footprint(releasedModel);
-  const auto [cockedWidth, cockedDepth] = Footprint(cocked);
-  const std::pair<float, float> releasedMinimum = TurnedMinimum(0.0F, releasedWidth, releasedDepth, _engine.quarterTurns);
-  const std::pair<float, float> cockedMinimum =
-    TurnedMinimum(Client::COCKED_POSE_OFFSET_X_METERS, cockedWidth, cockedDepth, _engine.quarterTurns);
-  return {.modelId = cocked.id,
-          .xMeters = released.xMeters + (cockedMinimum.first - releasedMinimum.first),
-          .yMeters = released.yMeters,
-          .zMeters = released.zMeters + (cockedMinimum.second - releasedMinimum.second),
-          .quarterTurns = released.quarterTurns,
-          .sideColorIndex = released.sideColorIndex};
-}
-
-/// Whether _engine is drawn released at _tick: for RELEASED_POSE_TICKS after it fires.
-bool Released(const Protocol::EngineView& _engine, std::uint32_t _tick, const Client::FireTally& _tally) noexcept
-{
-  const std::optional<std::uint32_t> fired = _tally.LastFiredTick(_engine.id);
-  return fired.has_value() && _tick - *fired < Client::RELEASED_POSE_TICKS;
-}
-
-/// An engine as it is drawn: the trebuchet in its pose, or the ram, S1, centred on its cell, until M4-H1 draws engines.
-Client::ModelPlacement EnginePlacement(const Protocol::EngineView& _engine, std::uint32_t _tick, const Client::FireTally& _tally)
-{
-  if (_engine.kind == Protocol::EngineKind::Ram)
-  {
-    return Centered("S1", _engine.cellVoxels, _engine.quarterTurns, Client::ATTACKER_COLOR_INDEX);
-  }
-  return Trebuchet(_engine, Released(_engine, _tick, _tally));
-}
-
-/// Each engine's model's box, in the pose it is drawn in, where a click selects it (M3-E3; M3-H3).
-std::vector<Client::EngineBox> EngineBoxes(const Client::Session& _session, const Client::FireTally& _tally)
-{
-  std::vector<Client::EngineBox> boxes;
-  for (const Protocol::EngineView& engine : _session.State().engines)
-  {
-    const Client::ModelPlacement placement = EnginePlacement(engine, _session.State().tick, _tally);
-    const Content::ModelView& model = Model(placement.modelId);
-    const auto [width, depth] = Footprint(model);
-    const bool across = placement.quarterTurns % 2 == 1;
-    boxes.push_back({.engine = engine.id,
-                     .xMeters = placement.xMeters,
-                     .zMeters = placement.zMeters,
-                     .widthMeters = across ? depth : width,
-                     .depthMeters = across ? width : depth,
-                     .groundMeters = placement.yMeters,
-                     .heightMeters = Height(model)});
-  }
-  return boxes;
-}
-
-std::string_view UnitModel(Protocol::UnitKind _kind) noexcept
-{
-  switch (_kind)
-  {
-  case Protocol::UnitKind::Laborer:
-    return "U1";
-  case Protocol::UnitKind::Spearman:
-    return "U2";
-  case Protocol::UnitKind::Archer:
-    return "U3";
-  case Protocol::UnitKind::Outrider:
-    return "U4";
-  case Protocol::UnitKind::ManAtArms:
-    return "U5";
-  case Protocol::UnitKind::Sapper:
-    return "S2";
-  case Protocol::UnitKind::Ram: // the engines' bodies, which M4-H1 draws as their engines
-    return "S1";
-  case Protocol::UnitKind::Trebuchet:
-    return "S3p";
-  }
-  return "U2";
-}
-
 /// What the client draws from its session (ADR-020, decision 2): every structure is in the world's voxels, so the
-/// models are the engines in their poses, the units, and each shot between its last two positions; and each collapse's
-/// debris, scattered on the first tick of its fall and kept at rest for good.
+/// models are the units, the engines in their poses, the stones and the open gates, between their last two updates
+/// (Client::WorldModels, M4-H1); the arrows, as line models (Client::PlaceArrows, M4-H2); and each collapse's debris,
+/// scattered on the first tick of its fall and kept at rest for good.
 class Presentation
 {
 public:
@@ -408,57 +270,11 @@ public:
   }
 
   void Place(const Client::Session& _session, const Client::FireTally& _tally, double _tickFraction,
-             std::vector<Client::ModelPlacement>& _placements, std::vector<Engine::OrientedVoxel>& _debris, float _seconds) const
+             std::vector<Client::ModelPlacement>& _placements, std::vector<Protocol::VoxelPosition>& _hidden,
+             std::vector<Client::ArrowDrawn>& _arrows, std::vector<Engine::OrientedVoxel>& _debris, float _seconds)
   {
-    const Protocol::StateUpdate& state = _session.State();
-    _placements.clear();
-    for (const Protocol::EngineView& engine : state.engines)
-    {
-      _placements.push_back(EnginePlacement(engine, state.tick, _tally));
-    }
-    for (const Protocol::UnitView& unit : state.units)
-    {
-      if (unit.kind == Protocol::UnitKind::Ram || unit.kind == Protocol::UnitKind::Trebuchet)
-      {
-        continue; // an engine's body, which its engine draws (M4-C1)
-      }
-      // Facing north, into the courtyard, until units carry a facing; the player's in the attacker's colour, and the
-      // Siege castle's defenders in the defender's (M4-B4).
-      Client::ModelPlacement placement = Centered(UnitModel(unit.kind), unit.cellVoxels, 0,
-                                                  unit.owner == PLAYER ? Client::ATTACKER_COLOR_INDEX : Client::DEFENDER_COLOR_INDEX);
-      const auto [width, depth] = Footprint(Model(placement.modelId));
-      placement.xMeters = Meters(unit.position.xMeters) - (0.5F * width);
-      placement.yMeters = Meters(unit.position.yMeters);
-      placement.zMeters = Meters(unit.position.zMeters) - (0.5F * depth);
-      _placements.push_back(placement);
-    }
-    const Content::ModelView& shotModel = Model("X1");
-    const auto [shotWidth, shotDepth] = Footprint(shotModel);
-    const float shotHeight = Client::MODEL_VOXEL_METERS * static_cast<float>(shotModel.grid.heightVoxels);
-    for (const Protocol::ShotView& shot : state.shots)
-    {
-      // An arrow is a line model, which the line pass draws from M4-H2 (ADR-018); M3's client draws stones alone.
-      if (shot.kind == Protocol::ShotKind::Arrow)
-      {
-        continue;
-      }
-      // Between its positions in the last two updates, a tick behind (GameDesign.md, M3's values, item 17).
-      DirectX::XMFLOAT3 at{Meters(shot.position.xMeters), Meters(shot.position.yMeters), Meters(shot.position.zMeters)};
-      const auto before = std::ranges::find(_session.PreviousState().shots, shot.id, &Protocol::ShotView::id);
-      if (before != _session.PreviousState().shots.end())
-      {
-        const auto fraction = static_cast<float>(_tickFraction);
-        at = {Meters(before->position.xMeters) + ((at.x - Meters(before->position.xMeters)) * fraction),
-              Meters(before->position.yMeters) + ((at.y - Meters(before->position.yMeters)) * fraction),
-              Meters(before->position.zMeters) + ((at.z - Meters(before->position.zMeters)) * fraction)};
-      }
-      _placements.push_back({.modelId = shotModel.id,
-                             .xMeters = at.x - (0.5F * shotWidth),
-                             .yMeters = at.y - (0.5F * shotHeight),
-                             .zMeters = at.z - (0.5F * shotDepth),
-                             .quarterTurns = 0,
-                             .sideColorIndex = 0});
-    }
+    m_models.Place(_session.PreviousState(), _session.State(), _tally, _tickFraction, _placements, _hidden);
+    Client::PlaceArrows(_session.PreviousState(), _session.State(), _tickFraction, _arrows);
     _debris.clear();
     for (const auto& [id, debris] : m_debris)
     {
@@ -466,7 +282,14 @@ public:
     }
   }
 
+  /// Each engine's model's box as last drawn, where a click selects it (M3-E3; M3-H3).
+  [[nodiscard]] const std::vector<Client::EngineBox>& EngineBoxes() const noexcept
+  {
+    return m_models.EngineBoxes();
+  }
+
 private:
+  Client::WorldModels m_models;
   std::map<Protocol::EntityId, Client::Debris> m_debris;
 };
 
@@ -601,17 +424,21 @@ private:
   bool m_scripted;
 };
 
-/// The Siege castle (M4-B4; ADR-026), loaded in place of the lab's site and run with M3's client, nothing ordered, so
-/// that the owner sees the castle, its ditch, rampart and causeway, the camp and the armies standing. The player is the
-/// attacker; M4-J1 builds the trial on it.
+/// The Siege castle (M4-B4; ADR-026), loaded in place of the lab's site and run with M3's client, so that the owner sees
+/// the castle, its ditch, rampart and causeway, the camp and the armies. The player is the attacker, unordered, or with
+/// _watch played by the scripted attacker (M4-H1); M4-J1 builds the trial on it.
 class SiegeRun final : public Earthrise::Run
 {
 public:
-  SiegeRun(const Simulation::World::Desc& _desc, std::string_view _scenarioId, double _speed)
+  SiegeRun(const Simulation::World::Desc& _desc, std::string_view _scenarioId, double _speed, bool _watch)
     : m_world(_desc),
       m_speed(_speed)
   {
     Simulation::LoadScenario(m_world, _scenarioId);
+    if (_watch)
+    {
+      m_world.SetCommander(PLAYER, std::make_unique<Simulation::SiegeAttacker>(nullptr));
+    }
     const std::optional<Simulation::TrialRules>& trial = m_world.Trial();
     if (!trial.has_value())
     {
@@ -740,7 +567,9 @@ struct Play
   Client::FireMode fire;
   Client::HudAlerts alerts;
   Protocol::EntityId selected = Protocol::NO_ENTITY;
-  bool worldChanged = false; // the last frame took a changed chunk
+  bool worldChanged = false;                                         // the last frame took a changed chunk
+  std::vector<std::uint8_t> fogMask;                                 // the fog's column mask (ADR-025, decision 8)
+  std::uint32_t fogTick = std::numeric_limits<std::uint32_t>::max(); // the tick it was made from
 };
 
 /// Looking at the run's target, from the default azimuth and view height (GameDesign.md, M3's values, item 14).
@@ -778,7 +607,7 @@ int Run(const Options& _options)
   std::unique_ptr<Earthrise::Run> run;
   if (_options.siege)
   {
-    run = std::make_unique<SiegeRun>(desc, siegeScenario, _options.speed);
+    run = std::make_unique<SiegeRun>(desc, siegeScenario, _options.speed, _options.watch);
   }
   else if (_options.participant.has_value())
   {
@@ -805,6 +634,8 @@ int Run(const Options& _options)
   Engine::KeyboardInput keyboard;
   Engine::FrameTimer timer;
   std::vector<Client::ModelPlacement> placements;
+  std::vector<Protocol::VoxelPosition> hiddenVoxels; // an open gate's, which its open model is drawn over
+  std::vector<Client::ArrowDrawn> arrows;
   std::vector<Engine::OrientedVoxel> debris;
   std::vector<Client::ScreenQuad> interfaceQuads;
   Client::Hud hud;
@@ -896,7 +727,7 @@ int Run(const Options& _options)
     // deselects (M3-E3; M3-H3); one on a section gives it the integrity readout until the next click or Esc (M3-H1).
     const bool selectionAllowed = run->SelectionAllowed();
     const std::vector<Client::EngineBox> engineBoxes =
-      selectionAllowed ? EngineBoxes(client.session, client.tally) : std::vector<Client::EngineBox>{};
+      selectionAllowed ? client.presentation.EngineBoxes() : std::vector<Client::EngineBox>{};
     bool answerOpen = false;
     bool answerShut = false;
     if (pointer.WasPressed(Engine::PointerInput::Button::Left))
@@ -1035,7 +866,8 @@ int Run(const Options& _options)
                 .passabilityOn = passabilityShown,
                 .engineSelected = client.selected != Protocol::NO_ENTITY},
                client.session);
-    client.presentation.Place(client.session, client.tally, clock.TickFraction(), placements, debris, static_cast<float>(seconds));
+    client.presentation.Place(client.session, client.tally, clock.TickFraction(), placements, hiddenVoxels, arrows, debris,
+                              static_cast<float>(seconds));
 
     const std::uint64_t completed = device.DirectQueue().CompletedValue();
     ring.Reclaim(completed);
@@ -1048,6 +880,12 @@ int Run(const Options& _options)
     const float topBarPixels = Client::TOP_BAR_LOGICAL_PIXELS * uiScale;
     DirectX::XMFLOAT4X4 viewProjection{};
     DirectX::XMStoreFloat4x4(&viewProjection, camera.ViewProjection(aspect, swapChain.HeightPixels(), topBarPixels));
+    // The fog's mask, made again from each tick's visibility (M4-H3); the renderer uploads it when it changed.
+    if (client.fogTick != client.session.State().tick)
+    {
+      client.fogMask = Client::ColumnMask(client.session.State());
+      client.fogTick = client.session.State().tick;
+    }
     // The chunks the frame takes: the world view's, the picker's, and the integrity view's asks (M3-F2).
     const std::vector<Protocol::ChunkSnapshot> snapshots = client.session.TakeSnapshots();
     client.picker.TakeSnapshots(snapshots);
@@ -1124,8 +962,13 @@ int Run(const Options& _options)
                                        .ring = &ring,
                                        .snapshots = snapshots,
                                        .placements = placements,
+                                       .hiddenVoxels = hiddenVoxels,
                                        .debris = debris,
+                                       .arrows = arrows,
                                        .overlays = overlays,
+                                       .fogMask = client.fogMask,
+                                       .fogWidthCells = client.session.State().widthCells,
+                                       .fogDepthCells = client.session.State().depthCells,
                                        .viewProjection = viewProjection,
                                        .forward = {},
                                        .viewHeightMeters = camera.ViewHeightMeters(),
@@ -1146,10 +989,12 @@ int Run(const Options& _options)
     ++titleFrames;
     if (titleSeconds >= TITLE_REFRESH_SECONDS)
     {
-      const std::wstring title = std::format(
-        L"{} | {} | {:.2f} ms a frame, voxel pass {:.2f} ms on the GPU | tick {} at {}x | {} voxels | view {:.0f} m, azimuth {:.0f}", TITLE,
-        device.AdapterName(), 1000.0 * titleSeconds / titleFrames, renderer.VoxelPassMilliseconds(), client.session.State().tick,
-        run->Speed(), renderer.RecordsDrawn(), camera.ViewHeightMeters(), DirectX::XMConvertToDegrees(camera.AzimuthRadians()));
+      const std::wstring title =
+        std::format(L"{} | {} | {:.2f} ms a frame, voxel pass {:.2f} ms and line pass {:.2f} ms on the GPU | tick {} at {}x | {} voxels | "
+                    L"view {:.0f} m, azimuth {:.0f}",
+                    TITLE, device.AdapterName(), 1000.0 * titleSeconds / titleFrames, renderer.VoxelPassMilliseconds(),
+                    renderer.LinePassMilliseconds(), client.session.State().tick, run->Speed(), renderer.RecordsDrawn(),
+                    camera.ViewHeightMeters(), DirectX::XMConvertToDegrees(camera.AzimuthRadians()));
       SetWindowTextW(window.Handle(), title.c_str());
       titleSeconds = 0.0;
       titleFrames = 0;
@@ -1176,7 +1021,8 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
                 .participant = participant,
                 .seed = SeedFrom(commandLine, participant.value_or("")),
                 .siege = HasFlag(commandLine, L"--siege"),
-                .mirror = HasFlag(commandLine, L"--mirror")});
+                .mirror = HasFlag(commandLine, L"--mirror"),
+                .watch = HasFlag(commandLine, L"--watch")});
   }
   catch (const winrt::hresult_error& error)
   {

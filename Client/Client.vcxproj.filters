@@ -57,6 +57,18 @@
     <ClCompile Include="Debris.cpp">
       <Filter>World</Filter>
     </ClCompile>
+    <ClInclude Include="Interpolation.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="Interpolation.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
+    <ClInclude Include="WorldModels.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="WorldModels.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
     <ClInclude Include="Look.h">
       <Filter>Look</Filter>
     </ClInclude>
@@ -82,6 +94,12 @@
       <Filter>Rendering</Filter>
     </ClInclude>
     <ClCompile Include="WorldRenderer.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClInclude Include="ArrowDraw.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="ArrowDraw.cpp">
       <Filter>Rendering</Filter>
     </ClCompile>
     <ClInclude Include="ScreenQuad.h">
@@ -160,6 +178,12 @@
       <Filter>Views</Filter>
     </ClInclude>
     <ClCompile Include="Overlays.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClInclude Include="FogMask.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClCompile Include="FogMask.cpp">
       <Filter>Views</Filter>
     </ClCompile>
     <ClInclude Include="LabModel.h">

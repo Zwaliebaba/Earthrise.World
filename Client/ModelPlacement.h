@@ -17,6 +17,9 @@ struct ModelPlacement
   float zMeters;
   std::uint32_t quarterTurns;
   std::uint8_t sideColorIndex;
+  /// Drawn as a silhouette in its faction entry where the world stands in front of it: a unit's or an engine's (M4-H3;
+  /// ADR-021, decision 6, amended).
+  bool silhouette = false;
 };
 
 } // namespace Client

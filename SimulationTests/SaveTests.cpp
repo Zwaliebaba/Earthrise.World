@@ -216,9 +216,9 @@ public:
     Assert::IsTrue(Refusal(save, FlatWorld::Desc()).find("server data") != std::string::npos);
     save[16] ^= std::byte{1};
 
-    save[4] = std::byte{5}; // the format version, 6 from M4-F2
+    save[4] = std::byte{5}; // the format version, 7 from M4-H1
     Assert::IsTrue(Refusal(save, FlatWorld::Desc()).find("format version is 5") != std::string::npos);
-    save[4] = std::byte{6};
+    save[4] = std::byte{7};
 
     Assert::IsTrue(Refusal(save, FlatWorld::Desc()).empty());
     save.pop_back();

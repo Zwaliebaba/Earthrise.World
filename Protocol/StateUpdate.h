@@ -39,6 +39,10 @@ struct StructureView
   bool opened = false;                // sections only: a foot route from the camp through its footprint to its inner side (ADR-026)
   bool lastSeen = false;              // not visible now: as it stood when last visible (ADR-025, decision 2)
   std::uint8_t standingPercent = 100; // the share of its built voxels that stand, every part (M4-F2)
+  /// While its gate is open, the gate's voxels in the world, which the client leaves out of the world's batch and draws
+  /// the open gate's model over (MvpAssets.md, *the open gates*; M4-H1); empty while it is shut, and for a structure with
+  /// no gate. The parts stay on the server (ADR-008, decision 2), so the client learns them here.
+  std::vector<VoxelPosition> gateVoxels;
 
   friend bool operator==(const StructureView&, const StructureView&) = default;
 };
@@ -57,6 +61,9 @@ struct EngineView
   FixedPosition position{};
   std::int32_t hitPoints = 0; // its body's
   std::int32_t maxHitPoints = 0;
+  /// The side of the square of cells its body stands on from cellVoxels, the server's machinesWidthMeters (ADR-015), so
+  /// that the client draws its model on the square's middle (M4-H1).
+  std::int32_t footprintVoxels = 1;
 
   friend bool operator==(const EngineView&, const EngineView&) = default;
 };

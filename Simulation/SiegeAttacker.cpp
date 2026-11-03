@@ -78,6 +78,21 @@ std::int64_t DistanceSquared(Protocol::VoxelPosition _from, Protocol::VoxelPosit
   return (dx * dx) + (dz * dz);
 }
 
+/// The quarter turns that face a trebuchet deployed at _from towards _structure's middle, along the axis it lies further
+/// along. S3 and S3c throw along their model's +x (BreachRun.h), which one turn takes to -z, two to -x and three to +z;
+/// a shot's aim does not read the turn, so this is how it is drawn (M4-H1).
+std::uint32_t TurnsTowards(Protocol::VoxelPosition _from, const Protocol::StructureView& _structure)
+{
+  const auto [middleXTwice, middleZTwice] = MiddleTwice(_structure);
+  const std::int64_t dx = middleXTwice - (2 * std::int64_t{_from.xVoxels});
+  const std::int64_t dz = middleZTwice - (2 * std::int64_t{_from.zVoxels});
+  if (std::abs(dx) >= std::abs(dz))
+  {
+    return dx >= 0 ? 0U : 2U;
+  }
+  return dz >= 0 ? 3U : 1U;
+}
+
 } // namespace
 
 /// Its keep, the towers it stops, the section it opens, and which way the flank and the gatehouse lie.
@@ -306,7 +321,7 @@ void SiegeAttacker::Decide(CommanderView& _view, std::vector<Protocol::Command>&
     }
     else if (engine.state == Protocol::EngineState::Packed && arrived)
     {
-      _commands.emplace_back(Protocol::DeployEngine{.engine = engine.id, .quarterTurns = 0});
+      _commands.emplace_back(Protocol::DeployEngine{.engine = engine.id, .quarterTurns = TurnsTowards(engine.cellVoxels, *castle.keep)});
     }
     const bool deployedHere = engine.state == Protocol::EngineState::Deployed && arrived;
     allDeployed = allDeployed && deployedHere;
