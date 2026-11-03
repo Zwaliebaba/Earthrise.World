@@ -248,6 +248,7 @@ void WorldModels::Place(const Protocol::StateUpdate& _previous, const Protocol::
       const bool justFired = fired.has_value() && _last.tick - *fired < RELEASED_POSE_TICKS;
       placement = justFired ? released : PoseOf(released, "S3c", COCKED_POSE_OFFSET_X_METERS);
     }
+    placement.silhouette = true;
     _placements.push_back(placement);
     const Extent extent = ExtentOf(Model(placement.modelId));
     const bool across = placement.quarterTurns % 2 == 1;
@@ -276,8 +277,11 @@ void WorldModels::Place(const Protocol::StateUpdate& _previous, const Protocol::
     const Protocol::FixedPosition* previousPosition = before != nullptr ? &before->position : nullptr;
     // Facing north until its first step, as M3 drew every figure.
     const std::uint32_t heading = Heading(unit.id, previousPosition, unit.position, FRONT_PLUS_Z);
-    _placements.push_back(CenteredAt(UnitModel(unit.kind), DrawnPosition(previousPosition, unit.position, _tickFraction, UNIT_SNAP_METERS),
-                                     TurnsFacing(heading, FRONT_PLUS_Z), SideColor(_last, unit.owner)));
+    ModelPlacement placement =
+      CenteredAt(UnitModel(unit.kind), DrawnPosition(previousPosition, unit.position, _tickFraction, UNIT_SNAP_METERS),
+                 TurnsFacing(heading, FRONT_PLUS_Z), SideColor(_last, unit.owner));
+    placement.silhouette = true;
+    _placements.push_back(placement);
   }
   std::erase_if(m_headings, [&present](const auto& _heading) { return !present.contains(_heading.first); });
 

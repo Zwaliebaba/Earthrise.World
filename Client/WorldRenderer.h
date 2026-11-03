@@ -64,6 +64,10 @@ public:
     std::span<const Engine::OrientedVoxel> debris;
     std::span<const ArrowDrawn> arrows;     // the line pass's, after the voxel pass (ADR-018, decision 3)
     std::span<const OverlayLayer> overlays; // in order, after the scene and before the upscale
+    /// The fog's column mask (FogMask.h), fogWidthCells by fogDepthCells, uploaded when it changes; empty for no fog.
+    std::span<const std::uint8_t> fogMask;
+    std::int32_t fogWidthCells;
+    std::int32_t fogDepthCells;
     DirectX::XMFLOAT4X4 viewProjection;
     DirectX::XMFLOAT3 forward;  // the camera's, along its rays
     float viewHeightMeters;     // for how large a model voxel is on screen
@@ -78,8 +82,8 @@ public:
   WorldRenderer(ID3D12Device* _device, ID3D12CommandQueue* _queue, const Desc& _desc, std::uint32_t _widthPixels,
                 std::uint32_t _heightPixels);
 
-  /// Forgets the world drawn so far, for a fresh one such as the lab's next item. The caller first makes sure the GPU
-  /// no longer reads it (a flush).
+  /// Forgets the world drawn so far, its fog included, for a fresh one such as the lab's next item. The caller first
+  /// makes sure the GPU no longer reads it (a flush).
   void ResetWorld();
 
   /// Remakes the scene's targets at a new size. The caller first makes sure the GPU no longer uses them (a flush).
@@ -98,6 +102,11 @@ public:
   void Release(std::uint64_t _completedFenceValue);
 
 private:
+  /// Uploads the frame's fog mask when it differs from the one drawn, into one texture for the world, which the voxel
+  /// pass shades the columns not seen by (ADR-025, decision 8). The first mask makes the texture; the world's map keeps
+  /// its size, so a mask of another size before ResetWorld throws std::logic_error.
+  void UpdateFog(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, const Frame& _frame);
+
   /// The world overlays, layer by layer, through the voxel pass's overlay pipeline, into the scene's targets.
   void DrawOverlays(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, D3D12_GPU_VIRTUAL_ADDRESS _frameConstants,
                     D3D12_GPU_VIRTUAL_ADDRESS _palette, std::span<const OverlayLayer> _layers) const;
@@ -108,6 +117,7 @@ private:
   static constexpr std::uint32_t LINE_PASS_SPAN = 3;
   static constexpr std::uint32_t SPAN_COUNT = 4;
 
+  ID3D12Device* m_device;
   Engine::ColorTarget m_sceneColor;
   Engine::DepthTarget m_depth;
   Engine::VoxelPass m_pass;
@@ -128,6 +138,10 @@ private:
   std::array<bool, Engine::FrameRing::FRAMES_IN_FLIGHT> m_timed{};
   double m_voxelPassMilliseconds = 0.0;
   double m_linePassMilliseconds = 0.0;
+  winrt::com_ptr<ID3D12Resource> m_fogMask; // R8, one texel a cell, once the world has fog
+  std::vector<std::uint8_t> m_fogTexels;    // as last uploaded
+  std::int32_t m_fogWidthCells = 0;
+  std::int32_t m_fogDepthCells = 0;
   bool m_worldChanged = true;
 };
 

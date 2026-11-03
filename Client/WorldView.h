@@ -69,6 +69,11 @@ public:
   void DrawChunks(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const;
   /// The model placements alone, for the dynamic shadow map.
   void DrawModels(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const;
+  /// The silhouettes of the placements drawn as one, each its model's records in its faction entry, through the pass's
+  /// silhouette pipeline after the chunks and before the models (M4-H3; ADR-021, decision 6, amended).
+  void DrawSilhouettes(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const;
+  /// Whether this frame's placements hold a silhouette.
+  [[nodiscard]] bool HasSilhouettes() const noexcept;
 
   /// Forgets the world: every chunk, snapshot and placement, for a fresh world such as the lab's next item. The caller
   /// first makes sure the GPU no longer reads their buffers (a flush).
@@ -101,6 +106,8 @@ private:
     bool impostor; // drawn as its unit's impostor
     std::vector<Engine::VoxelRecord> records;
     D3D12_GPU_VIRTUAL_ADDRESS recordsAddress;
+    std::vector<Engine::VoxelRecord> silhouetteRecords; // its records flat in its faction entry, or none
+    D3D12_GPU_VIRTUAL_ADDRESS silhouetteAddress;
     // What is drawn: the model as placed, or its impostor, which stands where the model's footprint
     // is centred and is never turned.
     DirectX::XMFLOAT3 drawnOriginMeters;

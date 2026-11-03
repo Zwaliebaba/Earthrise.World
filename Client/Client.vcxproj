@@ -50,6 +50,8 @@
     <ClCompile Include="WorldModels.cpp" />
     <ClInclude Include="ArrowDraw.h" />
     <ClCompile Include="ArrowDraw.cpp" />
+    <ClInclude Include="FogMask.h" />
+    <ClCompile Include="FogMask.cpp" />
     <ClInclude Include="Look.h" />
     <ClInclude Include="TickClock.h" />
     <ClCompile Include="TickClock.cpp" />

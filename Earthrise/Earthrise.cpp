@@ -11,6 +11,7 @@
 #include "Debris.h"
 #include "FireMode.h"
 #include "FireTally.h"
+#include "FogMask.h"
 #include "FrameRing.h"
 #include "FrameTimer.h"
 #include "GpuDevice.h"
@@ -566,7 +567,9 @@ struct Play
   Client::FireMode fire;
   Client::HudAlerts alerts;
   Protocol::EntityId selected = Protocol::NO_ENTITY;
-  bool worldChanged = false; // the last frame took a changed chunk
+  bool worldChanged = false;                                         // the last frame took a changed chunk
+  std::vector<std::uint8_t> fogMask;                                 // the fog's column mask (ADR-025, decision 8)
+  std::uint32_t fogTick = std::numeric_limits<std::uint32_t>::max(); // the tick it was made from
 };
 
 /// Looking at the run's target, from the default azimuth and view height (GameDesign.md, M3's values, item 14).
@@ -877,6 +880,12 @@ int Run(const Options& _options)
     const float topBarPixels = Client::TOP_BAR_LOGICAL_PIXELS * uiScale;
     DirectX::XMFLOAT4X4 viewProjection{};
     DirectX::XMStoreFloat4x4(&viewProjection, camera.ViewProjection(aspect, swapChain.HeightPixels(), topBarPixels));
+    // The fog's mask, made again from each tick's visibility (M4-H3); the renderer uploads it when it changed.
+    if (client.fogTick != client.session.State().tick)
+    {
+      client.fogMask = Client::ColumnMask(client.session.State());
+      client.fogTick = client.session.State().tick;
+    }
     // The chunks the frame takes: the world view's, the picker's, and the integrity view's asks (M3-F2).
     const std::vector<Protocol::ChunkSnapshot> snapshots = client.session.TakeSnapshots();
     client.picker.TakeSnapshots(snapshots);
@@ -957,6 +966,9 @@ int Run(const Options& _options)
                                        .debris = debris,
                                        .arrows = arrows,
                                        .overlays = overlays,
+                                       .fogMask = client.fogMask,
+                                       .fogWidthCells = client.session.State().widthCells,
+                                       .fogDepthCells = client.session.State().depthCells,
                                        .viewProjection = viewProjection,
                                        .forward = {},
                                        .viewHeightMeters = camera.ViewHeightMeters(),

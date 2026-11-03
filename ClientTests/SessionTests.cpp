@@ -131,6 +131,30 @@ public:
     Assert::AreEqual(std::size_t{2}, session.TakeSnapshots().size());
     Assert::IsTrue(session.TakeSnapshots().empty());
   }
+
+  TEST_METHOD(AChunkNotSentKeepsItsLastSnapshot)
+  {
+    // A chunk is sent only while it is seen (ADR-025, decision 3), so the session keeps the newest it was sent: the
+    // land as last seen (decision 4).
+    Client::Session session;
+    const Protocol::ChunkCoordinate seen{.xChunks = 11, .yChunks = 0, .zChunks = 5};
+    const Protocol::ChunkCoordinate other{.xChunks = 2, .yChunks = 0, .zChunks = 2};
+    const auto snapshot = [](Protocol::ChunkCoordinate _coordinate, std::uint64_t _version) {
+      return Protocol::ChunkSnapshot{.coordinate = _coordinate, .version = _version, .voxels = std::make_shared<const Protocol::Chunk>()};
+    };
+    Assert::IsNull(session.Chunk(seen));
+    session.Receive(Update(1), std::array{snapshot(seen, 3), snapshot(other, 3)}, {});
+    session.Receive(Update(2), std::array{snapshot(other, 4)}, {});
+    session.Receive(Update(3), {}, {});
+    Assert::IsNotNull(session.Chunk(seen));
+    Assert::AreEqual(std::uint64_t{3}, session.Chunk(seen)->version);
+    Assert::AreEqual(std::uint64_t{4}, session.Chunk(other)->version);
+    // Taking the snapshots for the world view leaves them kept.
+    Assert::AreEqual(std::size_t{3}, session.TakeSnapshots().size());
+    Assert::AreEqual(std::uint64_t{3}, session.Chunk(seen)->version);
+    session.Receive(Update(4), std::array{snapshot(seen, 7)}, {});
+    Assert::AreEqual(std::uint64_t{7}, session.Chunk(seen)->version);
+  }
 };
 
 } // namespace ClientTests

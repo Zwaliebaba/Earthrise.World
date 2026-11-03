@@ -213,7 +213,8 @@ template <typename T> D3D12_GPU_VIRTUAL_ADDRESS UploadArray(Engine::UploadRing& 
 
 WorldRenderer::WorldRenderer(ID3D12Device* _device, ID3D12CommandQueue* _queue, const Desc& _desc, std::uint32_t _widthPixels,
                              std::uint32_t _heightPixels)
-  : m_sceneColor(_device, {.format = SCENE_FORMAT, .clearColor = CLEAR_COLOR}, _widthPixels, _heightPixels),
+  : m_device(_device),
+    m_sceneColor(_device, {.format = SCENE_FORMAT, .clearColor = CLEAR_COLOR}, _widthPixels, _heightPixels),
     m_depth(_device, _widthPixels, _heightPixels),
     m_pass(_device, {.colorFormat = SCENE_FORMAT, .depthFormat = Engine::DepthTarget::FORMAT}),
     m_lines(_device, {.colorFormat = SCENE_FORMAT, .depthFormat = Engine::DepthTarget::FORMAT}),
@@ -271,6 +272,85 @@ void WorldRenderer::ResetWorld()
 {
   m_worldView.Forget();
   m_worldChanged = true;
+  m_pass.SetColumnShade(nullptr, 0, 0, 1.0F);
+  m_fogMask = nullptr;
+  m_fogTexels.clear();
+  m_fogWidthCells = 0;
+  m_fogDepthCells = 0;
+}
+
+void WorldRenderer::UpdateFog(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, const Frame& _frame)
+{
+  if (_frame.fogMask.empty())
+  {
+    return; // a world without fog; one with fog has it every tick, and only ResetWorld takes it away
+  }
+  const auto width = static_cast<std::size_t>(std::max(0, _frame.fogWidthCells));
+  const auto depth = static_cast<std::size_t>(std::max(0, _frame.fogDepthCells));
+  if (_frame.fogMask.size() != width * depth)
+  {
+    throw std::invalid_argument("the fog's mask does not hold its cells");
+  }
+  if (!m_fogMask)
+  {
+    const D3D12_HEAP_PROPERTIES heapProperties{.Type = D3D12_HEAP_TYPE_DEFAULT};
+    const D3D12_RESOURCE_DESC desc{.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+                                   .Width = width,
+                                   .Height = static_cast<UINT>(depth),
+                                   .DepthOrArraySize = 1,
+                                   .MipLevels = 1,
+                                   .Format = DXGI_FORMAT_R8_UNORM,
+                                   .SampleDesc = {.Count = 1},
+                                   .Flags = D3D12_RESOURCE_FLAG_NONE};
+    winrt::check_hresult(m_device->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_COPY_DEST,
+                                                           nullptr, IID_PPV_ARGS(m_fogMask.put())));
+    m_fogWidthCells = _frame.fogWidthCells;
+    m_fogDepthCells = _frame.fogDepthCells;
+    m_pass.SetColumnShade(m_fogMask.get(), m_fogWidthCells, m_fogDepthCells, FOG_SHADE);
+  }
+  else if (_frame.fogWidthCells != m_fogWidthCells || _frame.fogDepthCells != m_fogDepthCells)
+  {
+    throw std::logic_error("the fog's mask changed its size without ResetWorld");
+  }
+  else if (std::ranges::equal(_frame.fogMask, m_fogTexels))
+  {
+    return;
+  }
+  else
+  {
+    // Frames before this one on the queue read it; the barrier waits for them.
+    const D3D12_RESOURCE_BARRIER toCopy =
+      Engine::TransitionBarrier(m_fogMask.get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+    _commandList->ResourceBarrier(1, &toCopy);
+  }
+  const D3D12_RESOURCE_DESC desc = m_fogMask->GetDesc();
+  D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};
+  UINT64 totalBytes = 0;
+  m_device->GetCopyableFootprints(&desc, 0, 1, 0, &footprint, nullptr, nullptr, &totalBytes);
+  const std::optional<Engine::UploadRing::Allocation> allocation = _ring.Allocate(totalBytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
+  if (!allocation)
+  {
+    throw std::runtime_error("the upload ring has no room for the fog's mask");
+  }
+  for (std::size_t row = 0; row < depth; ++row)
+  {
+    std::memcpy(allocation->bytes.data() + (row * footprint.Footprint.RowPitch), _frame.fogMask.data() + (row * width), width);
+  }
+  footprint.Offset = allocation->offsetBytes;
+  // The copy locations' unions are filled by member: designators cannot name an anonymous union's.
+  D3D12_TEXTURE_COPY_LOCATION source{};
+  source.pResource = allocation->buffer;
+  source.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+  source.PlacedFootprint = footprint;
+  D3D12_TEXTURE_COPY_LOCATION destination{};
+  destination.pResource = m_fogMask.get();
+  destination.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+  destination.SubresourceIndex = 0;
+  _commandList->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
+  const D3D12_RESOURCE_BARRIER toRead =
+    Engine::TransitionBarrier(m_fogMask.get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+  _commandList->ResourceBarrier(1, &toRead);
+  m_fogTexels.assign(_frame.fogMask.begin(), _frame.fogMask.end());
 }
 
 void WorldRenderer::Resize(std::uint32_t _widthPixels, std::uint32_t _heightPixels)
@@ -285,6 +365,7 @@ void WorldRenderer::Draw(const Frame& _frame)
   ID3D12GraphicsCommandList* commandList = _frame.commandList;
   Engine::UploadRing& ring = *_frame.ring;
   m_fontAtlas.Upload(commandList, ring);
+  UpdateFog(commandList, ring, _frame);
   const std::uint32_t slot = _frame.slot;
   // FrameRing::Begin waited for this slot's last frame, so its timestamps are back.
   if (m_timed.at(slot))
@@ -347,7 +428,16 @@ void WorldRenderer::Draw(const Frame& _frame)
   SetViewport(commandList, m_sceneColor.WidthPixels(), m_sceneColor.HeightPixels());
   m_gpuTimer.Begin(commandList, slot, VOXEL_PASS_SPAN);
   m_pass.Begin(commandList, frameConstants, paletteConstants);
-  m_worldView.Draw(commandList, m_pass);
+  m_worldView.DrawChunks(commandList, m_pass);
+  // The silhouettes after the world and before the models (ADR-021, decision 6, amended): tested against the world's
+  // depth alone, each shows only where the world stands in front of its model, which then covers it where it is seen.
+  if (m_worldView.HasSilhouettes())
+  {
+    m_pass.BeginSilhouette(commandList, frameConstants, paletteConstants, SILHOUETTE_ALPHA);
+    m_worldView.DrawSilhouettes(commandList, m_pass);
+    m_pass.Begin(commandList, frameConstants, paletteConstants);
+  }
+  m_worldView.DrawModels(commandList, m_pass);
   if (debrisCount != 0)
   {
     m_pass.BeginOriented(commandList, frameConstants, paletteConstants);

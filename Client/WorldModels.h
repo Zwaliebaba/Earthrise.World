@@ -23,6 +23,8 @@ namespace Client
 /// - and each open gate as its open model, G1 or G2, with the gate's own voxels named for the world view to leave out.
 /// Units, engines and stones are drawn between their last two positions a tick behind; a unit or an engine that moved
 /// more than UNIT_SNAP_METERS snaps, and a stone never does (MvpPlan.md, M4, input 20). Arrows are line models (M4-H2).
+/// Units and engines are drawn as silhouettes too, behind what hides them (M4-H3): the update holds only the player's
+/// own and the enemies they see, the ones input 23 silhouettes.
 class WorldModels
 {
 public:

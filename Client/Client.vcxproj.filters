@@ -180,6 +180,12 @@
     <ClCompile Include="Overlays.cpp">
       <Filter>Views</Filter>
     </ClCompile>
+    <ClInclude Include="FogMask.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClCompile Include="FogMask.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
     <ClInclude Include="LabModel.h">
       <Filter>Lab</Filter>
     </ClInclude>

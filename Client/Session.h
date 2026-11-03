@@ -36,6 +36,10 @@ public:
   /// The chunks received since the last call, oldest first, for the world view to take.
   [[nodiscard]] std::vector<Protocol::ChunkSnapshot> TakeSnapshots();
 
+  /// The newest snapshot received of the chunk at _coordinate, or nullptr when none has come (ADR-025, decision 4). A
+  /// chunk is sent only while it is seen, so one not sent since keeps the snapshot it was last seen in: last-seen land.
+  [[nodiscard]] const Protocol::ChunkSnapshot* Chunk(Protocol::ChunkCoordinate _coordinate) const noexcept;
+
   /// The commands and queries the client has queued since the last call, as bytes, for the executable to hand the
   /// simulation.
   [[nodiscard]] std::vector<std::vector<std::byte>> TakeCommands();
@@ -61,6 +65,7 @@ private:
   Protocol::StateUpdate m_state{};
   Protocol::StateUpdate m_previous{};
   std::vector<Protocol::ChunkSnapshot> m_snapshots;
+  std::map<std::uint64_t, Protocol::ChunkSnapshot> m_chunks; // the newest of each, by its packed key
   std::vector<std::vector<std::byte>> m_commands;
   std::vector<std::string> m_sources;
   std::vector<std::string> m_takenSources;

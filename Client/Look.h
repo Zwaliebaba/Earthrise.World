@@ -71,6 +71,13 @@ inline constexpr float SHADOW_MARGIN_METERS = 2.0F;
 inline constexpr float SHADOW_NORMAL_OFFSET_METERS = 0.1F;
 inline constexpr float SHADOW_DEPTH_BIAS = 0.0F;
 
+/// What the fog multiplies a world voxel by in a column the player does not see now (ADR-025, decision 8; MvpPlan.md,
+/// M4, input 14), to be judged on screen.
+inline constexpr float FOG_SHADE = 0.55F;
+/// The silhouettes' alpha, the player's units' and the visible enemies' in their faction colour (ADR-021, decision 6,
+/// amended; MvpPlan.md, M4, input 23).
+inline constexpr float SILHOUETTE_ALPHA = 0.5F;
+
 /// A model voxel's edge (RendererLook.md §1), for how large one is on screen: units are drawn as impostors once it is
 /// smaller than about 3 px (§7).
 inline constexpr float MODEL_VOXEL_METERS = 0.5F;

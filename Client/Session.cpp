@@ -13,6 +13,10 @@ void Session::Receive(const Protocol::StateUpdate& _state, std::span<const Proto
 {
   m_previous = std::exchange(m_state, _state);
   m_snapshots.insert(m_snapshots.end(), _snapshots.begin(), _snapshots.end());
+  for (const Protocol::ChunkSnapshot& snapshot : _snapshots)
+  {
+    m_chunks.insert_or_assign(Protocol::PackChunkKey(snapshot.coordinate), snapshot);
+  }
   for (const std::vector<std::byte>& bytes : _answers)
   {
     Core::ByteReader reader(bytes);
@@ -62,6 +66,16 @@ const Protocol::StateUpdate& Session::PreviousState() const noexcept
 std::vector<Protocol::ChunkSnapshot> Session::TakeSnapshots()
 {
   return std::exchange(m_snapshots, {});
+}
+
+const Protocol::ChunkSnapshot* Session::Chunk(Protocol::ChunkCoordinate _coordinate) const noexcept
+{
+  if (!Protocol::FitsChunkKey(_coordinate))
+  {
+    return nullptr;
+  }
+  const auto found = m_chunks.find(Protocol::PackChunkKey(_coordinate));
+  return found == m_chunks.end() ? nullptr : &found->second;
 }
 
 std::vector<std::vector<std::byte>> Session::TakeCommands()
