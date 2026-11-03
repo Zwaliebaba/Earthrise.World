@@ -90,6 +90,7 @@ std::vector<Client::HudPanel> EveryOne()
     state.structures.push_back(Structure(100 + state.structures.size(), templateId, FOE));
   }
   std::vector<Client::HudPanel> panels;
+  panels.reserve(state.squads.size() + state.structures.size());
   for (const Protocol::SquadView& squad : state.squads)
   {
     panels.push_back(Client::BuildPanel({.squads = {squad.id}, .structure = Protocol::NO_ENTITY, .activeKind = squad.kind}, state));
