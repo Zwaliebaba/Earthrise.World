@@ -630,13 +630,13 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
         }
         const PixelRect inside =
           paint.Box(cell, slot.active ? ACCENT_SRGB : LINE_SRGB, slot.active ? ACTIVE_BACKGROUND_SRGB : BUTTON_SRGB, 1.0F);
-        const std::int32_t inset = paint.Pixels(CELL_INSET_LOGICAL_PIXELS);
+        const std::int32_t cellInset = paint.Pixels(CELL_INSET_LOGICAL_PIXELS);
         const std::uint32_t textSrgb = slot.enabled ? TEXT_SRGB : OFF_SRGB;
-        paint.Text(slot.hotkey, inside.xPixels + inset, inside.yPixels + inset, slot.enabled ? ACCENT_SRGB : OFF_SRGB, inside);
+        paint.Text(slot.hotkey, inside.xPixels + cellInset, inside.yPixels + cellInset, slot.enabled ? ACCENT_SRGB : OFF_SRGB, inside);
         paint.NameText(slot.icon, inside.xPixels + ((inside.widthPixels - paint.NameWidth(slot.icon)) / 2),
-                       inside.yPixels + ((inside.heightPixels - paint.NameCell()) / 2) - inset, textSrgb, inside);
+                       inside.yPixels + ((inside.heightPixels - paint.NameCell()) / 2) - cellInset, textSrgb, inside);
         paint.Text(slot.label, inside.xPixels + ((inside.widthPixels - paint.Width(slot.label)) / 2),
-                   inside.yPixels + inside.heightPixels - inset - paint.Cell(), textSrgb, inside);
+                   inside.yPixels + inside.heightPixels - cellInset - paint.Cell(), textSrgb, inside);
         m_targets.push_back({.control = HudControl::CardSlot, .alert = index, .rect = cell});
       }
     }
