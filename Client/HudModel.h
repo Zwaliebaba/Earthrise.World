@@ -28,7 +28,9 @@ struct HudObjective
 {
   std::string title;
   std::string detail;
-  bool detailOff = false; // the detail in off text: FIRE while the trebuchet reloads (M3-E4)
+  bool detailOff = false; // the detail in off text: FIRE while the trebuchet reloads (M3-E4), the storming clock held
+  /// The storming clock's share of what it needs, 0 to 1, drawn as a bar under the objective (Hud.md §10; M4-J1).
+  std::optional<float> progress = std::nullopt;
 };
 
 /// What a click on the HUD does.

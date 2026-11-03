@@ -46,6 +46,8 @@
     <ClCompile Include="Earthrise.cpp" />
     <ClInclude Include="Run.h" />
     <ClInclude Include="Lab.h" />
+    <ClInclude Include="Siege.h" />
+    <ClCompile Include="Siege.cpp" />
     <ClCompile Include="Lab.cpp" />
   </ItemGroup>
   <ItemGroup>

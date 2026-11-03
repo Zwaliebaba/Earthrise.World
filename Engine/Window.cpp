@@ -198,6 +198,15 @@ LRESULT CALLBACK Window::Procedure(HWND _window, UINT _message, WPARAM _wParam, 
       return 0;
     }
     return DefWindowProcW(_window, _message, _wParam, _lParam);
+  case WM_SYSKEYDOWN:
+  case WM_SYSKEYUP:
+    // F10 pauses the Siege trial (MvpPlan.md, M4, input 25); left to Windows, it would open the window's menu and hold
+    // the keys that follow. The pump has given it to KeyboardInput already.
+    if (_wParam == VK_F10)
+    {
+      return 0;
+    }
+    return DefWindowProcW(_window, _message, _wParam, _lParam);
   case WM_DESTROY:
     PostQuitMessage(0);
     return 0;

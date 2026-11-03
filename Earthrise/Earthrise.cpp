@@ -29,6 +29,7 @@
 #include "Scenario.h"
 #include "ServerData.h"
 #include "Session.h"
+#include "Siege.h"
 #include "AlertWatch.h"
 #include "CommandCard.h"
 #include "CommandLog.h"
@@ -38,7 +39,6 @@
 #include "Selection.h"
 #include "SelectionPanel.h"
 #include "SharedHash.h"
-#include "SiegeAttacker.h"
 #include "Strings.h"
 #include "SwapChain.h"
 #include "TextLayout.h"
@@ -63,11 +63,10 @@
 // trebuchet, press F and right-click a target. `--script` plays the five scripted shots instead.
 //
 // `--lab <participant> [--seed n]` runs the breach lab (M3-G1, Lab.h) instead, and writes its log to Logs\ beside the
-// executable. `--siege` loads the Siege castle (M4-B4; ADR-026) instead and runs it with the defender's commander and the
-// player's side unordered, so that the castle, its earthworks, the camp and the armies can be seen; M4-J1 builds the trial
-// on it. `--siege --mirror` loads the mirrored castle, SiegeMirror, whose weak section is on the west (M4-B6).
-// `--siege --watch` seats the scripted attacker (Simulation::SiegeAttacker, M4-F5) for the player, so that the owner can
-// watch a trial before the HUD can order one (M4-H1); J1 keeps the flag.
+// executable. `--siege <participant> [--control] [--mirror]` runs the Siege trial (M4-J1, Siege.h): the castle, or with
+// --mirror SiegeMirror, whose weak section is on the west (M4-B6), and with --control the control version (ADR-028).
+// `--siege --watch` seats the scripted attacker (Simulation::SiegeAttacker, M4-F5) for the player, for the owner's checks,
+// and needs no participant. Pause or F10 pauses the trial.
 //
 // It starts borderless over the whole monitor (ADR-011, decision 1), and Alt+Enter switches between that and a window.
 // `--windowed` starts it in a window. `--speed 10` runs the clock at ten times. `--ui-scale 1.5` sets the UI scale over
@@ -99,13 +98,15 @@ struct Options
 {
   bool windowed;
   double speed;
-  std::optional<float> uiScale;           // --ui-scale, over the display's band
-  bool scripted;                          // --script: the M2 run's shots, as in M3-C3
-  std::optional<std::string> participant; // --lab: the breach lab, for this participant (M3-G1)
-  std::uint64_t seed;                     // --seed, the lab's item order; by default the participant's hash
-  bool siege;                             // --siege: the Siege castle (M4-B4)
-  bool mirror;                            // --mirror, with --siege: the mirrored castle (M4-B6)
-  bool watch;                             // --watch, with --siege: the scripted attacker plays the player (M4-H1)
+  std::optional<float> uiScale;                // --ui-scale, over the display's band
+  bool scripted;                               // --script: the M2 run's shots, as in M3-C3
+  std::optional<std::string> participant;      // --lab: the breach lab, for this participant (M3-G1)
+  std::uint64_t seed;                          // --seed, the lab's item order; by default the participant's hash
+  bool siege;                                  // --siege: the Siege trial (M4-J1)
+  std::optional<std::string> siegeParticipant; // the word after --siege, unless it is another option
+  bool control;                                // --control, with --siege: the control version (ADR-028)
+  bool mirror;                                 // --mirror, with --siege: the mirrored castle (M4-B6)
+  bool watch;                                  // --watch, with --siege: the scripted attacker plays the player (M4-H1)
 };
 
 /// Whether the command line holds _flag as a word of its own.
@@ -184,6 +185,23 @@ std::optional<std::string> ParticipantFrom(std::wstring_view _commandLine)
   if (!named || participant.starts_with('-'))
   {
     throw std::invalid_argument("--lab needs a participant, of letters, digits, - and _, such as --lab P03");
+  }
+  return participant;
+}
+
+/// The Siege trial's participant: the word after --siege, of letters, digits, - and _, or nothing when the word is
+/// another option or there is none. Throws std::invalid_argument for a word of other characters.
+std::optional<std::string> SiegeParticipantFrom(std::wstring_view _commandLine)
+{
+  std::string participant = OptionValue(_commandLine, L"--siege").value_or(""); // not const, so the return moves it
+  if (participant.empty() || participant.starts_with('-'))
+  {
+    return std::nullopt;
+  }
+  if (!std::ranges::all_of(participant, [](char _character)
+                           { return std::isalnum(static_cast<unsigned char>(_character)) != 0 || _character == '-' || _character == '_'; }))
+  {
+    throw std::invalid_argument("--siege needs a participant of letters, digits, - and _, such as --siege P00");
   }
   return participant;
 }
@@ -443,144 +461,6 @@ private:
   bool m_scripted;
 };
 
-/// The Siege castle (M4-B4; ADR-026), loaded in place of the lab's site and run with M3's client, so that the owner sees
-/// the castle, its ditch, rampart and causeway, the camp and the armies. The player is the attacker, unordered, or with
-/// _watch played by the scripted attacker (M4-H1); M4-J1 builds the trial on it.
-class SiegeRun final : public Earthrise::Run
-{
-public:
-  SiegeRun(const Simulation::World::Desc& _desc, std::string_view _scenarioId, double _speed, bool _watch)
-    : m_world(_desc),
-      m_speed(_speed)
-  {
-    Simulation::LoadScenario(m_world, _scenarioId);
-    if (_watch)
-    {
-      m_world.SetCommander(PLAYER, std::make_unique<Simulation::SiegeAttacker>(nullptr));
-    }
-    const std::optional<Simulation::TrialRules>& trial = m_world.Trial();
-    if (!trial.has_value())
-    {
-      throw std::runtime_error("the Siege scenario holds no trial");
-    }
-    const Simulation::Structure& keep = m_world.Structures().at(trial->keep);
-    const Simulation::ServerTemplate* shape = m_world.Data().FindTemplate(keep.templateId);
-    const bool across = keep.quarterTurns % 2 == 1;
-    const auto width = static_cast<std::int32_t>(across ? shape->depthVoxels : shape->widthVoxels);
-    const auto depth = static_cast<std::int32_t>(across ? shape->widthVoxels : shape->depthVoxels);
-    m_keepMiddle = {.xVoxels = keep.originVoxels.xVoxels + (width / 2),
-                    .yVoxels = keep.originVoxels.yVoxels,
-                    .zVoxels = keep.originVoxels.zVoxels + (depth / 2)};
-    // The keep's foot, south of its forebuilding, which the bailey's walls close until a breach.
-    m_goal = {.xVoxels = m_keepMiddle.xVoxels, .yVoxels = keep.originVoxels.yVoxels, .zVoxels = keep.originVoxels.zVoxels - 2};
-  }
-
-  [[nodiscard]] Simulation::World& World() override
-  {
-    return m_world;
-  }
-
-  [[nodiscard]] std::size_t Generation() const noexcept override
-  {
-    return 0;
-  }
-
-  [[nodiscard]] Protocol::VoxelPosition Goal() const noexcept override
-  {
-    return m_goal;
-  }
-
-  [[nodiscard]] Protocol::VoxelPosition CameraTarget() const noexcept override
-  {
-    return m_keepMiddle;
-  }
-
-  bool Tick(Client::Session& _session, double _seconds) override
-  {
-    // Each of the player's commands, recorded with its source and its time for the trial's log (M4-I7).
-    for (const std::vector<std::byte>& command : m_commands.Take(_session, m_world.TickCount(), _seconds))
-    {
-      m_world.Submit(PLAYER, command);
-    }
-    for (const std::vector<std::byte>& query : _session.TakeQueries())
-    {
-      m_world.Ask(PLAYER, query);
-    }
-    m_world.Tick();
-    return true;
-  }
-
-  void Frame(const Earthrise::RunInput& /* _input */, Client::Session& /* _session */) override {}
-
-  [[nodiscard]] double Speed() const noexcept override
-  {
-    return m_speed;
-  }
-
-  [[nodiscard]] bool Paused() const noexcept override
-  {
-    return false;
-  }
-
-  [[nodiscard]] bool FireAllowed() const noexcept override
-  {
-    return true;
-  }
-
-  [[nodiscard]] bool SelectionAllowed() const noexcept override
-  {
-    return true;
-  }
-
-  [[nodiscard]] bool PassabilityForced() const noexcept override
-  {
-    return false;
-  }
-
-  [[nodiscard]] bool TakesSpace() const noexcept override
-  {
-    return false;
-  }
-
-  [[nodiscard]] std::optional<Client::HudMode> Mode() const override
-  {
-    return std::nullopt;
-  }
-
-  [[nodiscard]] std::optional<Client::HudObjective> Objective() const override
-  {
-    return Client::HudObjective{.title = std::string(Client::SIEGE_OBJECTIVE_TITLE), .detail = {}, .detailOff = false};
-  }
-
-  /// The breach run's resources until M4-J1 gives the trial its own.
-  [[nodiscard]] std::vector<Client::HudResource> Resources(std::uint32_t _tick, std::uint32_t _shotsFired) const override
-  {
-    return Client::BreachResources(_tick, _shotsFired);
-  }
-
-  [[nodiscard]] bool ShowsFigures() const noexcept override
-  {
-    return true;
-  }
-
-  [[nodiscard]] bool ShowsDeck() const noexcept override
-  {
-    return true;
-  }
-
-  [[nodiscard]] std::vector<Client::OverlayBox> Marks(const Client::Session& /* _session */) const override
-  {
-    return {};
-  }
-
-private:
-  Simulation::World m_world;
-  double m_speed;
-  Protocol::VoxelPosition m_keepMiddle{};
-  Protocol::VoxelPosition m_goal{};
-  Client::CommandLog m_commands; // J2 writes them
-};
-
 /// The client's side of one world: what it was told, and what it draws and asks from it. The lab replaces it with
 /// each item's world. It is made afresh and never moved: under MSVC's checked library a std::map's move may throw.
 struct Play
@@ -612,10 +492,11 @@ struct Play
 };
 
 /// Looking at the run's target, from the default azimuth and view height (GameDesign.md, M3's values, item 14).
-Client::Camera DefaultCamera(const Protocol::VoxelPosition& _target)
+Client::Camera DefaultCamera(const Protocol::VoxelPosition& _target, std::int32_t _quarterTurns)
 {
   return Client::Camera(
-    {static_cast<float>(_target.xVoxels) + CELL_CENTER_METERS, static_cast<float>(_target.yVoxels), static_cast<float>(_target.zVoxels)});
+    {static_cast<float>(_target.xVoxels) + CELL_CENTER_METERS, static_cast<float>(_target.yVoxels), static_cast<float>(_target.zVoxels)},
+    _quarterTurns);
 }
 
 int Run(const Options& _options)
@@ -638,7 +519,8 @@ int Run(const Options& _options)
                                  {.widthMeters = edgeMeters(desc.widthChunks),
                                   .heightMeters = edgeMeters(desc.heightChunks),
                                   .depthMeters = edgeMeters(desc.depthChunks),
-                                  .targetFormat = Engine::SwapChain::VIEW_FORMAT},
+                                  .targetFormat = Engine::SwapChain::VIEW_FORMAT,
+                                  .sunMirrored = _options.siege && _options.mirror},
                                  swapChain.WidthPixels(), swapChain.HeightPixels());
   const FlushOnExit flushOnExit{device.DirectQueue()};
 
@@ -646,7 +528,11 @@ int Run(const Options& _options)
   std::unique_ptr<Earthrise::Run> run;
   if (_options.siege)
   {
-    run = std::make_unique<SiegeRun>(desc, siegeScenario, _options.speed, _options.watch);
+    run = std::make_unique<Earthrise::Siege>(desc, Earthrise::SiegeOptions{.participant = _options.siegeParticipant,
+                                                                           .control = _options.control,
+                                                                           .mirror = _options.mirror,
+                                                                           .watch = _options.watch,
+                                                                           .speed = _options.speed});
   }
   else if (_options.participant.has_value())
   {
@@ -668,7 +554,7 @@ int Run(const Options& _options)
   Client::TickClock clock;
   std::unique_ptr<Play> play;                     // never null after the first frame's reset
   std::size_t generation = run->Generation() + 1; // so that the first frame builds the play
-  Client::Camera camera = DefaultCamera(run->CameraTarget());
+  Client::Camera camera = DefaultCamera(run->CameraTarget(), run->CameraQuarterTurns());
   Engine::PointerInput pointer;
   Engine::KeyboardInput keyboard;
   Engine::FrameTimer timer;
@@ -1111,7 +997,8 @@ int Run(const Options& _options)
                 .zoomNotches = zoomNotches,
                 .integrityOn = integrityView,
                 .passabilityOn = passabilityShown,
-                .engineSelected = client.selected != Protocol::NO_ENTITY},
+                .engineSelected = client.selected != Protocol::NO_ENTITY,
+                .pausePressed = keyboard.WasPressed(VK_PAUSE) || keyboard.WasPressed(VK_F10)},
                client.session);
     client.presentation.Place(client.session, client.tally, clock.TickFraction(), placements, hiddenVoxels, arrows, debris,
                               static_cast<float>(seconds));
@@ -1194,8 +1081,11 @@ int Run(const Options& _options)
                                        .detail = std::string(ready ? Client::FIRE_READY_DETAIL : Client::RELOADING_DETAIL),
                                        .detailOff = !ready};
     }
-    // The banner: FIRE's while it is on, else the run's.
-    const Client::HudMode mode = client.fire.Active()                                ? client.fire.Mode()
+    // The banner: the run's over every mode's, such as the trial's end and its pause (M4-J1); else FIRE's while it is on,
+    // the card's mode's, or the run's own.
+    const std::optional<Client::HudMode> runBanner = run->Banner();
+    const Client::HudMode mode = runBanner.has_value()                               ? *runBanner
+                                 : client.fire.Active()                              ? client.fire.Mode()
                                  : client.orders.Mode() != Client::CardCommand::None ? client.orders.Banner()
                                                                                      : run->Mode().value_or(client.fire.Mode());
     // What each control group's slot reads (M4-I4).
@@ -1396,6 +1286,11 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
     const std::wstring_view commandLine = _commandLine != nullptr ? _commandLine : L"";
     const std::optional<std::string> uiScale = OptionValue(commandLine, L"--ui-scale");
     const std::optional<std::string> participant = ParticipantFrom(commandLine);
+    const std::optional<std::string> siegeParticipant = SiegeParticipantFrom(commandLine);
+    if (HasFlag(commandLine, L"--siege") && !siegeParticipant.has_value() && !HasFlag(commandLine, L"--watch"))
+    {
+      throw std::invalid_argument("--siege needs a participant, such as --siege P00, or --watch"); // before any window opens
+    }
     return Run({.windowed = HasFlag(commandLine, L"--windowed"),
                 .speed = SpeedFrom(commandLine),
                 .uiScale = uiScale ? std::optional<float>(Client::UiScaleFromOption(*uiScale)) : std::nullopt,
@@ -1403,6 +1298,8 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
                 .participant = participant,
                 .seed = SeedFrom(commandLine, participant.value_or("")),
                 .siege = HasFlag(commandLine, L"--siege"),
+                .siegeParticipant = siegeParticipant,
+                .control = HasFlag(commandLine, L"--control"),
                 .mirror = HasFlag(commandLine, L"--mirror"),
                 .watch = HasFlag(commandLine, L"--watch")});
   }

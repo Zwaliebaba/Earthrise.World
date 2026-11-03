@@ -40,6 +40,9 @@
     <Filter Include="Lab">
       <UniqueIdentifier>{B850AB04-44FA-50ED-9854-EF658A3CBE04}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Siege">
+      <UniqueIdentifier>{729830D4-2944-59FF-B2F1-F6BC3B2373D9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -246,6 +249,12 @@
     <ClInclude Include="LabModel.h">
       <Filter>Lab</Filter>
     </ClInclude>
+    <ClInclude Include="SiegeModel.h">
+      <Filter>Siege</Filter>
+    </ClInclude>
+    <ClCompile Include="SiegeModel.cpp">
+      <Filter>Siege</Filter>
+    </ClCompile>
     <ClCompile Include="LabModel.cpp">
       <Filter>Lab</Filter>
     </ClCompile>

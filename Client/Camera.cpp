@@ -7,9 +7,9 @@
 namespace Client
 {
 
-Camera::Camera(const DirectX::XMFLOAT3& _targetMeters)
+Camera::Camera(const DirectX::XMFLOAT3& _targetMeters, std::int32_t _quarterTurns)
   : m_camera({.elevationRadians = DirectX::XMConvertToRadians(ELEVATION_DEGREES),
-              .azimuthRadians = DirectX::XMConvertToRadians(AZIMUTH_DEGREES),
+              .azimuthRadians = DirectX::XMConvertToRadians(AZIMUTH_DEGREES + (QUARTER_TURN_DEGREES * static_cast<float>(_quarterTurns))),
               .viewHeightMeters = DEFAULT_VIEW_HEIGHT_METERS,
               .minViewHeightMeters = MIN_VIEW_HEIGHT_METERS,
               .maxViewHeightMeters = MAX_VIEW_HEIGHT_METERS,

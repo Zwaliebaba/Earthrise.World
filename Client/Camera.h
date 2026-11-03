@@ -18,8 +18,9 @@ namespace Client
 class Camera
 {
 public:
-  /// Looks at _targetMeters from the default azimuth and view height.
-  explicit Camera(const DirectX::XMFLOAT3& _targetMeters);
+  /// Looks at _targetMeters from the default azimuth, _quarterTurns clockwise of it, and the default view height. The
+  /// mirrored castle starts a turn back, from the south-east (M4-J1; MvpPlan.md, M4, input 28).
+  explicit Camera(const DirectX::XMFLOAT3& _targetMeters, std::int32_t _quarterTurns = 0);
 
   /// Hud.md's global keys: WASD and the arrows or a middle-drag pan, the wheel and + and - zoom, and [ ] or Page Up and
   /// Page Down turn a quarter. The drag is in pixels of a target _heightPixels high. Then eases the turn for _seconds.

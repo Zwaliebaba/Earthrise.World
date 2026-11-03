@@ -105,6 +105,8 @@
     <ClInclude Include="Overlays.h" />
     <ClCompile Include="Overlays.cpp" />
     <ClInclude Include="LabModel.h" />
+    <ClInclude Include="SiegeModel.h" />
+    <ClCompile Include="SiegeModel.cpp" />
     <ClCompile Include="LabModel.cpp" />
   </ItemGroup>
   <ItemGroup>

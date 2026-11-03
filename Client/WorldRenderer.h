@@ -50,6 +50,7 @@ public:
     float heightMeters;
     float depthMeters;
     DXGI_FORMAT targetFormat;
+    bool sunMirrored = false; // the sun's azimuth mirrored east to west, for the mirrored castle (M4-J1; input 28)
   };
 
   /// What a frame draws, and into what.
@@ -155,6 +156,7 @@ private:
   Engine::DepthTarget m_portraitDepth;
   winrt::com_ptr<ID3D12Resource> m_portraitAtlas; // the image atlas: the portraits side by side
   bool m_portraitsDrawn = false;
+  bool m_sunMirrored = false;
   winrt::com_ptr<ID3D12Resource> m_fogMask; // R8, one texel a cell, once the world has fog
   std::vector<std::uint8_t> m_fogTexels;    // as last uploaded
   std::int32_t m_fogWidthCells = 0;

@@ -335,6 +335,8 @@ struct HudWorldLabel { std::string line; std::string name; DirectX::XMFLOAT2 anc
 // I7: every command the player issues, for J2's command rows (Client/CommandLog.h).
 struct CommandRecord { std::uint32_t tick; double seconds; std::string command; std::string source; }; // source: key or click
 // Client/Strings.h gains HOVER_TABLE: each HudReading, what hover shows of it, and the key or click that reaches it.
+// J1: the trial's top bar and banners from the update, and its pause (Client/SiegeModel.h); HudObjective gains
+// std::optional<float> progress, and Earthrise::Run gains CameraQuarterTurns() and Banner(), each defaulted.
 ```
 
 ### The trial's log (J2)
