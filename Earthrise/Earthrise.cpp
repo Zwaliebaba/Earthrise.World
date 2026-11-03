@@ -1186,7 +1186,10 @@ int Run(const Options& _options)
       // The structures' lines in the world, in layout A alone: the lab keeps M3-H1's one readout (M4-I6).
       .worldLabels = deck ? Client::Overlays::WorldLabels(client.session, viewProjection, swapChain.WidthPixels(), swapChain.HeightPixels(),
                                                           camera.ViewHeightMeters(), client.selection.structure, integrityView)
-                          : std::vector<Client::HudWorldLabel>{}};
+                          : std::vector<Client::HudWorldLabel>{},
+      // The control's health bars over the wall sections, which only its structures' hit points give (M4-J3).
+      .healthBars = deck ? Client::Overlays::HealthBars(client.session, viewProjection, swapChain.WidthPixels(), swapChain.HeightPixels())
+                         : std::vector<Client::HudHealthBar>{}};
     interfaceQuads.clear();
     if (run->ShowsFigures())
     {

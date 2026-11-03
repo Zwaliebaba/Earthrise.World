@@ -185,6 +185,7 @@ inline constexpr std::string_view GARRISON_KEY = "GARRISON";
 inline constexpr std::string_view PLATFORM_KEY = "PLATFORM";
 inline constexpr std::string_view GATE_KEY = "GATE";
 inline constexpr std::string_view TOWER_KEY = "TOWER";
+inline constexpr std::string_view HEALTH_KEY = "HEALTH"; // the control's, in place of the three above (ADR-028, decision 6)
 inline constexpr std::string_view REPAIR_KEY = "REPAIR";
 inline constexpr std::string_view TO_WIN_KEY = "TO WIN";
 inline constexpr std::string_view NAME_KEY = "NAME";
@@ -411,6 +412,7 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      PLATFORM_KEY,
                                                                      GATE_KEY,
                                                                      TOWER_KEY,
+                                                                     HEALTH_KEY,
                                                                      REPAIR_KEY,
                                                                      TO_WIN_KEY,
                                                                      NAME_KEY,

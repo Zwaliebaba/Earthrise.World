@@ -117,6 +117,12 @@ public:
                                                               std::uint32_t _widthPixels, std::uint32_t _heightPixels,
                                                               float _viewHeightMeters, Protocol::EntityId _selected, bool _integrityView);
 
+  /// The control's health bars (ADR-028, decision 6; M4-J3): one over each wall section with hit points, its pool's
+  /// share, kept from 0 to 1, at the anchor its line in the world has. None in the voxel version, whose structures carry
+  /// no hit points.
+  [[nodiscard]] static std::vector<HudHealthBar> HealthBars(const Session& _session, const DirectX::XMFLOAT4X4& _viewProjection,
+                                                            std::uint32_t _widthPixels, std::uint32_t _heightPixels);
+
   /// A wall section's weak reading against its fall (input 22): HOLE w/f M or GAP r/f M, whichever is nearer its fall,
   /// HOLE on a tie, while it has a width and a fall width within the section; nothing otherwise.
   [[nodiscard]] static std::optional<std::string> WeakValue(const Protocol::IntegrityReading& _reading);

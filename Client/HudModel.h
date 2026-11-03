@@ -188,6 +188,14 @@ struct HudWorldLabel
   bool selected;      // laid first, and always whole
 };
 
+/// A wall section's health bar in the world, in the control alone (ADR-028, decision 6; M4-J3): its share of its pool,
+/// 0 to 1, anchored above its box's middle as projected this frame.
+struct HudHealthBar
+{
+  DirectX::XMFLOAT2 anchorPixels;
+  float fraction;
+};
+
 /// The selection panel in the deck (Hud.md §5; M4-I2), built from the selection and the update each frame.
 struct HudPanel
 {
@@ -231,6 +239,7 @@ struct HudModel
   bool settingGroup = false;                   // SET is on: the next slot clicked takes the selection
   HudMinimap minimap = {};                     // in the deck's minimap well (M4-I5)
   std::vector<HudWorldLabel> worldLabels = {}; // the structures' lines in the world, while F1 is on (M4-I6)
+  std::vector<HudHealthBar> healthBars = {};   // the wall sections' health bars, in the control (M4-J3)
 };
 
 /// The top bar's resources in the breach lab (M3-E2): TIME m:ss of game time, at _tick, and SHOTS n.

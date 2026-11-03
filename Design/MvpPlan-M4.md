@@ -340,6 +340,8 @@ struct CommandRecord { std::uint32_t tick; double seconds; std::string command; 
 // J2: the trial's log as rows (Client/SiegeLog.h), where a structure is on screen (Client/DeckCoverage.h:
 // Coverage CoverageOf(viewProjection, width, height, topBarPixels, deckPixels, minMeters, maxMeters)), Run::Drew(DrawnFrame),
 // defaulted, and Simulation::ReplayPlayer, a replay a tick at a time, which Replay() runs on.
+// J3: struct HudHealthBar { DirectX::XMFLOAT2 anchorPixels; float fraction; }; HudModel gains std::vector<HudHealthBar>
+// healthBars, from Overlays::HealthBars(session, viewProjection, width, height).
 ```
 
 ### The trial's log (J2)
