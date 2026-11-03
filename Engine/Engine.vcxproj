@@ -128,6 +128,15 @@
     <None Include="Shader\InterfaceCommon.hlsli" />
     <ClInclude Include="InterfacePass.h" />
     <ClCompile Include="InterfacePass.cpp" />
+    <FXCompile Include="Shader\LineVS.hlsl">
+      <ShaderType>Vertex</ShaderType>
+    </FXCompile>
+    <FXCompile Include="Shader\LinePS.hlsl">
+      <ShaderType>Pixel</ShaderType>
+    </FXCompile>
+    <None Include="Shader\LineCommon.hlsli" />
+    <ClInclude Include="LinePass.h" />
+    <ClCompile Include="LinePass.cpp" />
     <ClInclude Include="VoxelPick.h" />
     <ClCompile Include="VoxelPick.cpp" />
   </ItemGroup>

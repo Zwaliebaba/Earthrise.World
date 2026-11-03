@@ -228,6 +228,21 @@
     <ClCompile Include="InterfacePass.cpp">
       <Filter>Interface</Filter>
     </ClCompile>
+    <FXCompile Include="Shader\LineVS.hlsl">
+      <Filter>Shader</Filter>
+    </FXCompile>
+    <FXCompile Include="Shader\LinePS.hlsl">
+      <Filter>Shader</Filter>
+    </FXCompile>
+    <None Include="Shader\LineCommon.hlsli">
+      <Filter>Shader</Filter>
+    </None>
+    <ClInclude Include="LinePass.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClCompile Include="LinePass.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
     <ClInclude Include="VoxelPick.h">
       <Filter>Camera</Filter>
     </ClInclude>

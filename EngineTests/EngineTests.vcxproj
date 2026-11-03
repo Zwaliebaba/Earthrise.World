@@ -53,6 +53,7 @@
     <ClCompile Include="GpuTimerTests.cpp" />
     <ClCompile Include="CameraPathTests.cpp" />
     <ClCompile Include="InterfacePassTests.cpp" />
+    <ClCompile Include="LinePassTests.cpp" />
     <ClCompile Include="VoxelPickTests.cpp" />
   </ItemGroup>
   <ItemGroup>
