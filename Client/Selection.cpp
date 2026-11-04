@@ -5,6 +5,7 @@
 #include "Interpolation.h"
 
 #include <set>
+#include <tuple>
 
 namespace Client
 {
@@ -212,6 +213,49 @@ void Selector::CycleKind(Selection& _selection, const Protocol::StateUpdate& _st
   }
   const auto active = _selection.activeKind.has_value() ? std::ranges::find(kinds, *_selection.activeKind) : kinds.end();
   _selection.activeKind = active == kinds.end() || active + 1 == kinds.end() ? kinds.front() : *(active + 1);
+}
+
+std::vector<OverlayBox> Selector::Marks(const Selection& _selection, const Protocol::StateUpdate& _state, std::uint8_t _paletteIndex)
+{
+  std::vector<OverlayBox> marks;
+  std::set<std::tuple<std::int32_t, std::int32_t, std::int32_t>> marked;
+  for (const Protocol::EntityId id : _selection.squads)
+  {
+    const Protocol::SquadView* squad = FindSquad(_state, id);
+    if (squad == nullptr || squad->garrisonedIn != Protocol::NO_ENTITY || squad->kind == Protocol::UnitKind::Ram ||
+        squad->kind == Protocol::UnitKind::Trebuchet)
+    {
+      continue;
+    }
+    for (const Protocol::UnitView& unit : _state.units)
+    {
+      if (unit.squad != id)
+      {
+        continue;
+      }
+      // The figure's cell is the one above its ground, as a collapse's strip's is (Overlays.cpp).
+      const Protocol::VoxelPosition ground{
+        .xVoxels = unit.cellVoxels.xVoxels, .yVoxels = unit.cellVoxels.yVoxels - 1, .zVoxels = unit.cellVoxels.zVoxels};
+      if (marked.emplace(ground.xVoxels, ground.yVoxels, ground.zVoxels).second)
+      {
+        marks.push_back({.cellVoxels = ground, .paletteIndex = _paletteIndex});
+      }
+    }
+  }
+  return marks;
+}
+
+std::vector<Protocol::EntityId> Selector::Engines(const Selection& _selection, const Protocol::StateUpdate& _state)
+{
+  std::vector<Protocol::EntityId> engines;
+  for (const Protocol::EngineView& engine : _state.engines)
+  {
+    if (std::ranges::find(_selection.squads, engine.squad) != _selection.squads.end())
+    {
+      engines.push_back(engine.id);
+    }
+  }
+  return engines;
 }
 
 void Selector::Prune(Selection& _selection, const Protocol::StateUpdate& _state)

@@ -3,6 +3,7 @@
 #include "VoxelPass.h"
 
 #include "CompiledShader/OrientedShadowPS.h"
+#include "CompiledShader/OrientedSilhouettePS.h"
 #include "CompiledShader/OrientedVoxelPS.h"
 #include "CompiledShader/OrientedVoxelVS.h"
 #include "CompiledShader/VoxelOverlayPS.h"
@@ -209,6 +210,12 @@ VoxelPass::VoxelPass(ID3D12Device* _device, const Desc& _desc)
   D3D12_GRAPHICS_PIPELINE_STATE_DESC silhouetteDesc = overlayDesc;
   silhouetteDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
   winrt::check_hresult(_device->CreateGraphicsPipelineState(&silhouetteDesc, IID_PPV_ARGS(m_silhouettePipelineState.put())));
+  // And for oriented voxels, a turned model's (ADR-030, decision 4).
+  D3D12_GRAPHICS_PIPELINE_STATE_DESC orientedSilhouetteDesc = silhouetteDesc;
+  orientedSilhouetteDesc.VS = {.pShaderBytecode = g_OrientedVoxelVS, .BytecodeLength = sizeof(g_OrientedVoxelVS)};
+  orientedSilhouetteDesc.PS = {.pShaderBytecode = g_OrientedSilhouettePS, .BytecodeLength = sizeof(g_OrientedSilhouettePS)};
+  winrt::check_hresult(
+    _device->CreateGraphicsPipelineState(&orientedSilhouetteDesc, IID_PPV_ARGS(m_orientedSilhouettePipelineState.put())));
 
   // Until it is given shadow maps and a mask, the pass reads null views; FrameConstants::shadowParameters turns the
   // shadow lookup off and an empty mask the shade, but the table is bound for every draw all the same.
@@ -286,6 +293,13 @@ void VoxelPass::BeginSilhouette(ID3D12GraphicsCommandList* _commandList, D3D12_G
   _commandList->SetGraphicsRoot32BitConstant(RootPixel, std::bit_cast<std::uint32_t>(_alpha), 0);
 }
 
+void VoxelPass::BeginOrientedSilhouette(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _frameConstants,
+                                        D3D12_GPU_VIRTUAL_ADDRESS _palette, float _alpha) const
+{
+  Bind(_commandList, m_orientedSilhouettePipelineState.get(), _frameConstants, _palette);
+  _commandList->SetGraphicsRoot32BitConstant(RootPixel, std::bit_cast<std::uint32_t>(_alpha), 0);
+}
+
 void VoxelPass::DrawOriented(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _voxels, std::uint32_t _voxelCount) const
 {
   if (_voxelCount == 0)
@@ -310,8 +324,8 @@ void VoxelPass::Bind(ID3D12GraphicsCommandList* _commandList, ID3D12PipelineStat
   _commandList->SetGraphicsRootConstantBufferView(RootFrame, _frameConstants);
   _commandList->SetGraphicsRootConstantBufferView(RootPalette, _palette);
   _commandList->SetGraphicsRootDescriptorTable(RootShadows, m_shadowTable.gpu);
-  // Only the overlay and the silhouette read the alpha, and only Begin's pipeline the shade, but every root parameter is
-  // set before a draw.
+  // Only the overlay and the silhouettes read the alpha, and only Begin's and BeginOriented's pipelines the shade, but
+  // every root parameter is set before a draw.
   const std::array<std::uint32_t, PIXEL_CONSTANT_COUNT> pixel{0U, std::bit_cast<std::uint32_t>(m_columnShade), m_shadeWidthCells,
                                                               m_shadeDepthCells};
   _commandList->SetGraphicsRoot32BitConstants(RootPixel, PIXEL_CONSTANT_COUNT, pixel.data(), 0);

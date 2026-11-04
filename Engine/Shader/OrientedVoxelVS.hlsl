@@ -1,7 +1,7 @@
 // One oriented voxel becomes one screen-space quad, as an axis-aligned one does (ADR-001 decision
 // 2): the rectangle that bounds its eight corners, turned by its rotation, under the orthographic
-// camera. Collapse debris is drawn this way while it tumbles and where it comes to rest
-// (Engine/OrientedVoxel.h).
+// camera. Collapse debris is drawn this way while it tumbles and where it comes to rest, and unit
+// and engine models turned to any angle (Engine/OrientedVoxel.h; ADR-030).
 
 #include "VoxelCommon.hlsli"
 
@@ -31,5 +31,7 @@ OrientedInterpolants main(uint _vertexId : SV_VertexID, uint _instanceId : SV_In
   output.halfEdge = voxel.halfEdgeMeters;
   output.rotation = voxel.rotation;
   output.albedo = JitterLightness(g_palette.colors[voxel.paletteIndex & 255u].rgb, voxel.lightnessOffset);
+  output.cornerLevels = uint2(voxel.cornerLevels, voxel.lastFaceAndShade & 255u);
+  output.shade = (voxel.lastFaceAndShade >> 8) & 3u;
   return output;
 }

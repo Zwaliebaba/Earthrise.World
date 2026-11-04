@@ -56,6 +56,7 @@
     <ClCompile Include="GlyphAtlasTests.cpp" />
     <ClCompile Include="InterpolationTests.cpp" />
     <ClCompile Include="WorldModelsTests.cpp" />
+    <ClCompile Include="ModelTurnTests.cpp" />
     <ClCompile Include="ArrowDrawTests.cpp" />
     <ClCompile Include="FogDrawTests.cpp" />
     <ClCompile Include="HudLayoutTests.cpp" />

@@ -3,12 +3,14 @@
 #include "Catalog.h"
 #include "FireTally.h"
 #include "Look.h"
+#include "ModelTurn.h"
 #include "WorldModels.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 // The war as the client draws it in voxel models (M4-H1), with no GPU: which model each unit and engine is, where it stands
-// and which way it faces, and the open gates, whose own voxels the world view leaves out.
+// and which way it faces, turned to any angle (ADR-030; M5-G3), and the open gates, whose own voxels the world view leaves
+// out.
 
 namespace ClientTests
 {
@@ -19,6 +21,8 @@ namespace
 constexpr std::uint8_t ATTACKER = 1;
 constexpr std::uint8_t DEFENDER = 2;
 constexpr float CLOSE_METERS = 0.0001F;
+constexpr float CLOSE_RADIANS = 0.001F;
+constexpr float DEGREE = std::numbers::pi_v<float> / 180.0F;
 constexpr std::int32_t GROUND = 9;
 constexpr std::int32_t MACHINES_SIDE = 3; // the server's machinesWidthMeters
 
@@ -95,15 +99,50 @@ Placed PlaceOnce(const Protocol::StateUpdate& _last)
   return PlaceWith(models, Protocol::StateUpdate{}, _last, Client::FireTally{}, 0.0);
 }
 
-/// A model's footprint after its turn, in meters along x and z.
+/// The box that bounds a model's footprint after its turn, in meters along x and z.
 std::pair<float, float> TurnedFootprint(const Client::ModelPlacement& _placement)
 {
   const Content::ModelView* model = Content::FindModel(_placement.modelId);
   Assert::IsNotNull(model);
   const float edge = static_cast<float>(model->grid.voxelEdgeMillimeters) / 1000.0F;
-  const float width = edge * static_cast<float>(model->grid.widthVoxels);
-  const float depth = edge * static_cast<float>(model->grid.depthVoxels);
-  return _placement.quarterTurns % 2 == 1 ? std::pair{depth, width} : std::pair{width, depth};
+  return Client::TurnedExtent(edge * static_cast<float>(model->grid.widthVoxels), edge * static_cast<float>(model->grid.depthVoxels),
+                              _placement.yawRadians);
+}
+
+/// A run of updates a tick apart, each drawn at its own tick, so that a model turns by a tick's time from one to the next.
+class Run
+{
+public:
+  explicit Run(std::uint32_t _tick)
+    : m_last(Update(_tick))
+  {
+  }
+
+  /// The update to come, a tick after the last, with what _fill puts in it; then its frame's placements.
+  template <typename Fill> Placed Next(Fill&& _fill)
+  {
+    Protocol::StateUpdate next = Update(m_last.tick + 1);
+    std::forward<Fill>(_fill)(next);
+    const Protocol::StateUpdate previous = std::exchange(m_last, std::move(next));
+    m_tally.Observe(m_last);
+    return PlaceWith(m_models, previous, m_last, m_tally, 1.0);
+  }
+
+  [[nodiscard]] Client::WorldModels& Models() noexcept
+  {
+    return m_models;
+  }
+
+private:
+  Client::WorldModels m_models;
+  Client::FireTally m_tally;
+  Protocol::StateUpdate m_last;
+};
+
+/// How far _yaw is from _expected the shorter way, in radians.
+float Off(float _expected, float _yaw)
+{
+  return std::abs(Client::ShorterTurn(_expected, _yaw));
 }
 
 /// The middle of a placement's footprint, along x and z.
@@ -223,23 +262,84 @@ public:
     Assert::AreEqual(Client::DEFENDER_COLOR_INDEX, spearman.sideColorIndex);
   }
 
-  TEST_METHOD(AFigureFacesItsLastStepAndKeepsItStandingStill)
+  TEST_METHOD(AFigureTurnsToFaceItsTravelAtItsRateAndKeepsItStandingStill)
   {
-    Client::WorldModels models;
-    const auto facing = [&models](float _fromX, float _fromZ, float _toX, float _toZ)
+    // A figure turns at 360° a second, 18° a tick (Look.h).
+    Run run(10);
+    float x = 10.5F;
+    float z = 20.5F;
+    const auto step = [&run, &x, &z](float _dx, float _dz)
     {
-      Protocol::StateUpdate before = Update(10);
-      before.units.push_back(Figure(1, Protocol::UnitKind::Spearman, ATTACKER, _fromX, _fromZ));
-      Protocol::StateUpdate after = Update(11);
-      after.units.push_back(Figure(1, Protocol::UnitKind::Spearman, ATTACKER, _toX, _toZ));
-      return PlaceWith(models, before, after, Client::FireTally{}, 0.5).placements.front().quarterTurns;
+      x += _dx;
+      z += _dz;
+      return run
+        .Next([x, z](Protocol::StateUpdate& _state) { _state.units.push_back(Figure(1, Protocol::UnitKind::Spearman, ATTACKER, x, z)); })
+        .placements.front()
+        .yawRadians;
     };
-    Assert::AreEqual(0U, facing(10.5F, 20.5F, 10.5F, 20.5F));    // north until its first step
-    Assert::AreEqual(1U, facing(10.5F, 20.5F, 10.57F, 20.5F));   // east: its front, +z, turned once
-    Assert::AreEqual(1U, facing(10.57F, 20.5F, 10.57F, 20.5F));  // standing, it keeps it
-    Assert::AreEqual(2U, facing(10.57F, 20.5F, 10.57F, 20.43F)); // south
-    Assert::AreEqual(2U, facing(10.57F, 20.43F, 10.5F, 20.36F)); // a diagonal keeps a facing along one of its axes
-    Assert::AreEqual(3U, facing(10.5F, 20.36F, 10.43F, 20.36F)); // west
+    Assert::AreEqual(0.0F, step(0.0F, 0.0F), CLOSE_RADIANS);            // north until it first moves
+    Assert::AreEqual(18.0F * DEGREE, step(0.07F, 0.0F), CLOSE_RADIANS); // east: a tick turns it 18°
+    for (int tick = 0; tick < 3; ++tick)
+    {
+      step(0.07F, 0.0F);
+    }
+    Assert::AreEqual(90.0F * DEGREE, step(0.07F, 0.0F), CLOSE_RADIANS); // and four more, the whole way
+    for (int tick = 0; tick < 3; ++tick)
+    {
+      Assert::AreEqual(90.0F * DEGREE, step(0.0F, 0.0F), CLOSE_RADIANS); // standing, it keeps it
+    }
+    // Off at 350°, it turns back the shorter way, through 0.
+    const float northByWest = -10.0F * DEGREE;
+    float yaw = 0.0F;
+    for (int tick = 0; tick < 10; ++tick)
+    {
+      yaw = step(0.07F * std::sin(northByWest), 0.07F * std::cos(northByWest));
+    }
+    Assert::AreEqual(350.0F * DEGREE, yaw, CLOSE_RADIANS);
+    step(0.0F, 0.0F);
+    const float northByEast = 10.0F * DEGREE;
+    Assert::AreEqual(8.0F * DEGREE, step(0.07F * std::sin(northByEast), 0.07F * std::cos(northByEast)), CLOSE_RADIANS);
+  }
+
+  TEST_METHOD(AFiguresPathOfStraightAndDiagonalStepsKeepsANearlySteadyHeading)
+  {
+    // The worst path for a heading: a step north, then one north-east, cell after cell (ADR-015), walked at 7 cm a tick.
+    // Its bearing over the whole is atan(1/2), 26.6°. A figure facing each tick's step would swing 45° at every cell;
+    // the bearing of its last metre keeps it within 13° (ADR-030, decision 5).
+    std::vector<std::pair<float, float>> corners{{10.5F, 20.5F}};
+    for (int cell = 0; cell < 12; ++cell)
+    {
+      const auto [x, z] = corners.back();
+      corners.emplace_back(cell % 2 == 0 ? x : x + 1.0F, z + 1.0F);
+    }
+    Run run(10);
+    std::pair<float, float> at = corners.front();
+    std::size_t next = 1;
+    std::vector<float> yaws;
+    while (next < corners.size())
+    {
+      float left = 0.07F;
+      while (next < corners.size() && left > 0.0F)
+      {
+        const float dx = corners.at(next).first - at.first;
+        const float dz = corners.at(next).second - at.second;
+        const float distance = std::hypot(dx, dz);
+        const float taken = std::min(left, distance);
+        at = {at.first + (dx * taken / distance), at.second + (dz * taken / distance)};
+        left -= taken;
+        next += taken == distance ? 1 : 0;
+      }
+      yaws.push_back(run
+                       .Next([at](Protocol::StateUpdate& _state)
+                             { _state.units.push_back(Figure(1, Protocol::UnitKind::Spearman, ATTACKER, at.first, at.second)); })
+                       .placements.front()
+                       .yawRadians);
+    }
+    const float bearing = std::atan2(1.0F, 2.0F);
+    for (std::size_t tick = yaws.size() / 3; tick < yaws.size(); ++tick)
+    {
+      Assert::IsTrue(Off(bearing, yaws.at(tick)) <= 13.0F * DEGREE, std::format(L"tick {}: {}°", tick, yaws.at(tick) / DEGREE).c_str());
+    }
   }
 
   TEST_METHOD(AGarrisonedSquadsFiguresAreNotDrawn)
@@ -251,7 +351,7 @@ public:
     Assert::IsTrue(PlaceOnce(state).placements.empty());
   }
 
-  TEST_METHOD(TheRamIsS1OnItsFootprintsMiddleFacingItsLastStep)
+  TEST_METHOD(TheRamIsS1OnItsFootprintsMiddleTurningTowardsItsTravel)
   {
     // Its body's position is the middle of its first cell, and machines stand on 3 x 3 cells from there.
     Protocol::StateUpdate before = Update(10);
@@ -260,7 +360,7 @@ public:
     Placed placed = PlaceWith(models, Protocol::StateUpdate{}, before, Client::FireTally{}, 0.0);
     Assert::AreEqual(std::size_t{1}, placed.placements.size());
     Assert::AreEqual(std::string("S1"), std::string(placed.placements.front().modelId));
-    Assert::AreEqual(0U, placed.placements.front().quarterTurns);
+    Assert::AreEqual(0.0F, placed.placements.front().yawRadians);
     const auto [x, z] = MiddleOf(placed.placements.front());
     Assert::AreEqual(11.5F, x, CLOSE_METERS);
     Assert::AreEqual(21.5F, z, CLOSE_METERS);
@@ -269,12 +369,38 @@ public:
     const Client::EngineBox& box = models.EngineBoxes().front();
     Assert::AreEqual(placed.placements.front().xMeters, box.xMeters);
     Assert::AreEqual(TurnedFootprint(placed.placements.front()).second, box.depthMeters);
-    // Stepping east, it turns to face east, its front +z turned once.
+    // Stepping east, it turns towards east, its front +z, at 90° a second: 9° over the two ticks since it was drawn.
     Protocol::StateUpdate after = Update(11);
     after.engines.push_back(EngineAt(5, Protocol::EngineKind::Ram, Protocol::EngineState::Packed, 10.535F, 20.5F, 0));
     placed = PlaceWith(models, before, after, Client::FireTally{}, 1.0);
-    Assert::AreEqual(1U, placed.placements.front().quarterTurns);
+    Assert::AreEqual(9.0F * DEGREE, placed.placements.front().yawRadians, CLOSE_RADIANS);
     Assert::AreEqual(11.535F, MiddleOf(placed.placements.front()).first, CLOSE_METERS);
+  }
+
+  TEST_METHOD(TheRamDrivesTheDiagonalFacingAlongItAndItsBoxBoundsItTurned)
+  {
+    // Ordered up the screen from the default camera, it drives north-east (GameDesign.md, the first run of M5's games).
+    Run run(10);
+    float x = 10.5F;
+    float z = 20.5F;
+    Placed placed;
+    for (int tick = 0; tick < 40; ++tick)
+    {
+      placed = run.Next([x, z](Protocol::StateUpdate& _state)
+                        { _state.engines.push_back(EngineAt(5, Protocol::EngineKind::Ram, Protocol::EngineState::Packed, x, z, 0)); });
+      x += 0.025F;
+      z += 0.025F;
+    }
+    const Client::ModelPlacement& ram = placed.placements.front();
+    Assert::AreEqual(45.0F * DEGREE, ram.yawRadians, CLOSE_RADIANS);
+    // Its box, where a click selects it, bounds the model turned 45°, about the footprint's middle (ADR-030, decision 7).
+    const Client::EngineBox& box = run.Models().EngineBoxes().front();
+    const auto [width, depth] = TurnedFootprint(ram);
+    Assert::AreEqual(width, box.widthMeters, CLOSE_METERS);
+    Assert::AreEqual(depth, box.depthMeters, CLOSE_METERS);
+    Assert::AreEqual(ram.xMeters, box.xMeters);
+    Assert::AreEqual(ram.zMeters, box.zMeters);
+    Assert::AreEqual(x - 0.025F + 1.0F, MiddleOf(ram).first, 0.001F);
   }
 
   TEST_METHOD(TheTrebuchetIsTheWagonPackedCockedDeployedAndReleasedAfterAThrow)
@@ -299,7 +425,7 @@ public:
     Assert::AreEqual(std::string("S3c"), pose(Protocol::EngineState::Packing, 40, 150));
   }
 
-  TEST_METHOD(TheWagonSitsAtTheFramesPlacementAndFacesItsStep)
+  TEST_METHOD(TheWagonSitsAtTheFramesPlacementAndTurnsToItsTravel)
   {
     // Not stepped, the wagon stands as the frame would at the engine's turn; S3 and S3p share their footprint's
     // minimum corner at turn 0 (Look.h).
@@ -318,12 +444,54 @@ public:
     Assert::AreEqual(std::string("S3"), std::string(frame.modelId));
     Assert::AreEqual(frame.xMeters, wagon.xMeters, CLOSE_METERS);
     Assert::AreEqual(frame.zMeters, wagon.zMeters, CLOSE_METERS);
-    Assert::AreEqual(0U, wagon.quarterTurns);
-    // Moving north, its draw pole, the baked grid's -x, leads: one turn takes -x to +z.
-    Protocol::StateUpdate after = Update(11);
-    after.engines.push_back(EngineAt(5, Protocol::EngineKind::Trebuchet, Protocol::EngineState::Packed, 30.5F, 40.535F, 0));
-    Client::WorldModels moving;
-    Assert::AreEqual(1U, PlaceWith(moving, packed, after, Client::FireTally{}, 1.0).placements.front().quarterTurns);
+    Assert::AreEqual(0.0F, wagon.yawRadians);
+    // Moving north, its draw pole, the baked grid's -x, comes to lead: a quarter turn takes -x to +z, at 90° a second.
+    Run run(10);
+    float z = 40.5F;
+    float yaw = 0.0F;
+    for (int tick = 0; tick < 25; ++tick)
+    {
+      yaw = run
+              .Next([z](Protocol::StateUpdate& _state)
+                    { _state.engines.push_back(EngineAt(5, Protocol::EngineKind::Trebuchet, Protocol::EngineState::Packed, 30.5F, z, 0)); })
+              .placements.front()
+              .yawRadians;
+      z += 0.035F;
+    }
+    Assert::AreEqual(90.0F * DEGREE, yaw, CLOSE_RADIANS);
+  }
+
+  TEST_METHOD(ADeployedTrebuchetFacesItsDeployUntilItsFirstStoneAndThenItsLatestStone)
+  {
+    // S3 throws along its own +x (Orders::TurnsAlong), so facing a bearing it is turned that bearing less a quarter.
+    Run run(10);
+    std::vector<Protocol::ShotView> shots;
+    const auto yaw = [&run, &shots]()
+    {
+      return run
+        .Next(
+          [&shots](Protocol::StateUpdate& _state)
+          {
+            _state.engines.push_back(EngineAt(5, Protocol::EngineKind::Trebuchet, Protocol::EngineState::Deployed, 30.5F, 40.5F, 3));
+            _state.shots = shots;
+          })
+        .placements.front()
+        .yawRadians;
+    };
+    Assert::AreEqual(270.0F * DEGREE, yaw(), CLOSE_RADIANS); // its deploy's turn
+    // A stone first seen east of its cell: facing east, turned 0, at once.
+    shots.push_back(
+      {.id = 90, .engine = 5, .position = AtMeters(35.5F, 20.0F, 40.5F), .kind = Protocol::ShotKind::Stone, .owner = ATTACKER});
+    Assert::AreEqual(0.0F, yaw(), CLOSE_RADIANS);
+    // That stone flies on, and a second leaves north-east: the second is its aim.
+    shots.front().position = AtMeters(38.5F, 25.0F, 40.5F);
+    shots.push_back(
+      {.id = 91, .engine = 5, .position = AtMeters(32.5F, 15.0F, 42.5F), .kind = Protocol::ShotKind::Stone, .owner = ATTACKER});
+    Assert::AreEqual(315.0F * DEGREE, yaw(), CLOSE_RADIANS);
+    // An arrow, or a stone of another engine, is no aim of its.
+    shots = {{.id = 92, .engine = 5, .position = AtMeters(30.5F, 15.0F, 30.5F), .kind = Protocol::ShotKind::Arrow, .owner = ATTACKER},
+             {.id = 93, .engine = 6, .position = AtMeters(30.5F, 15.0F, 30.5F), .kind = Protocol::ShotKind::Stone, .owner = ATTACKER}};
+    Assert::AreEqual(315.0F * DEGREE, yaw(), CLOSE_RADIANS);
   }
 
   TEST_METHOD(AnOpenGatesInstanceHidesExactlyItsGateVoxels)
@@ -340,7 +508,7 @@ public:
       Assert::AreEqual(std::size_t{1}, placed.placements.size());
       const Client::ModelPlacement& raised = placed.placements.front();
       Assert::AreEqual(std::string("G1"), std::string(raised.modelId));
-      Assert::AreEqual(turns, raised.quarterTurns);
+      Assert::AreEqual(turns, Client::WholeQuarterTurns(raised.yawRadians).value_or(9));
       Assert::AreEqual(static_cast<float>(GROUND) + 3.5F, raised.yMeters, CLOSE_METERS);
       std::int32_t minX = std::numeric_limits<std::int32_t>::max();
       std::int32_t maxX = std::numeric_limits<std::int32_t>::min();

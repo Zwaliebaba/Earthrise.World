@@ -5,6 +5,7 @@
 #include "Catalog.h"
 #include "Generator.h"
 #include "Look.h"
+#include "ModelTurn.h"
 #include "SplitMix64.h"
 
 namespace RendererSpike
@@ -162,7 +163,7 @@ Client::ModelPlacement Stand(const Simulation::ChunkStore& _store, const Simulat
           .xMeters = x,
           .yMeters = GroundUnder(_store, x, z, width, depth),
           .zMeters = z,
-          .quarterTurns = Simulation::TestWorld::WorldQuarterTurns(_quarterTurns),
+          .yawRadians = static_cast<float>(Simulation::TestWorld::WorldQuarterTurns(_quarterTurns)) * Client::QUARTER_TURN_RADIANS,
           .sideColorIndex = _sideColorIndex};
 }
 
@@ -274,7 +275,7 @@ void PlaceWalkers(const Simulation::ChunkStore& _store, const TestScene& _scene,
                            .xMeters = x - 0.5F * width,
                            .yMeters = static_cast<float>(top + 1),
                            .zMeters = z - 0.5F * depth,
-                           .quarterTurns = quarterTurns,
+                           .yawRadians = static_cast<float>(quarterTurns) * Client::QUARTER_TURN_RADIANS,
                            .sideColorIndex = walker.sideColorIndex});
   }
 }

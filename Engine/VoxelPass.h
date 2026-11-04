@@ -91,8 +91,8 @@ public:
   void BeginShadow(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _sunFrameConstants,
                    D3D12_GPU_VIRTUAL_ADDRESS _palette) const;
 
-  /// Binds the pipeline for oriented voxels (OrientedVoxel.h), lit and shadowed as Begin's are,
-  /// with no corner shade; DrawOriented then draws them.
+  /// Binds the pipeline for oriented voxels (OrientedVoxel.h), lit, shadowed and shaded by column as Begin's are, and
+  /// shaded at their corners when they carry levels (ADR-030, decision 3); DrawOriented then draws them.
   void BeginOriented(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _frameConstants,
                      D3D12_GPU_VIRTUAL_ADDRESS _palette) const;
 
@@ -115,7 +115,12 @@ public:
   void BeginSilhouette(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _frameConstants,
                        D3D12_GPU_VIRTUAL_ADDRESS _palette, float _alpha) const;
 
-  /// From now on the voxels Begin's pipeline draws are multiplied by _shade where _mask's texel for their column is 0
+  /// Binds the silhouette pipeline for oriented voxels (ADR-030, decision 4): BeginSilhouette's, drawing a turned model's
+  /// voxels as DrawOriented gives them, each flat in its palette colour.
+  void BeginOrientedSilhouette(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _frameConstants,
+                               D3D12_GPU_VIRTUAL_ADDRESS _palette, float _alpha) const;
+
+  /// From now on the voxels Begin's and BeginOriented's pipelines draw are multiplied by _shade where _mask's texel for their column is 0
   /// (ADR-025, decision 8): R8_UNORM, _widthCells by _depthCells, one texel a 1 m cell from the world's origin, x along
   /// its width and z down its rows. A voxel's column is its box centre's; a column outside the mask is not shaded.
   /// nullptr, or no cells, turns the shade off. The caller first makes sure the GPU no longer reads the previous mask,
@@ -148,6 +153,7 @@ private:
   winrt::com_ptr<ID3D12PipelineState> m_orientedShadowPipelineState;
   winrt::com_ptr<ID3D12PipelineState> m_overlayPipelineState;
   winrt::com_ptr<ID3D12PipelineState> m_silhouettePipelineState;
+  winrt::com_ptr<ID3D12PipelineState> m_orientedSilhouettePipelineState;
   /// The shadow maps' views and the column mask's, one table.
   DescriptorHeap m_shadowViews;
   DescriptorHeap::Handle m_shadowTable{};

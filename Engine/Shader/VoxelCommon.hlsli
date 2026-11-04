@@ -385,7 +385,8 @@ void PixelRay(float4 _position, out float3 _origin, out float3 _direction)
   _direction = g_frame.rayDirection.xyz;
 }
 
-// One voxel at any orientation, collapse debris (Engine/OrientedVoxel.h), as its shaders read it.
+// One voxel at any orientation (Engine/OrientedVoxel.h), as its shaders read it: collapse debris, and unit and engine
+// models turned to any angle (ADR-030).
 struct OrientedVoxel
 {
   float3 centerMeters;
@@ -393,7 +394,8 @@ struct OrientedVoxel
   float4 rotation; // a unit quaternion from the voxel's own axes to the world's
   uint paletteIndex;
   float lightnessOffset;
-  uint2 reserved;
+  uint cornerLevels;     // faces 0 to 3, a byte each, as a record's second word
+  uint lastFaceAndShade; // face 4's byte, the shade table in bit 8, and in bit 9 whether it carries levels at all
 };
 
 struct OrientedInterpolants
@@ -403,11 +405,14 @@ struct OrientedInterpolants
   nointerpolation float halfEdge : BOX_RADIUS;
   nointerpolation float4 rotation : ROTATION;
   nointerpolation float3 albedo : ALBEDO;
+  nointerpolation uint2 cornerLevels : CORNER_LEVELS; // faces 0 to 3, then face 4's byte
+  nointerpolation uint shade : SHADE;                 // the shade table in bit 0; in bit 1, whether the corners shade
 };
 
-// The pixel's ray against an oriented voxel: turned into the voxel's own frame, met there as an
-// axis-aligned box, and the hit's normal turned back into the world.
-bool CastOrientedRay(OrientedInterpolants _input, out float3 _hit, out float3 _normal)
+// The pixel's ray against an oriented voxel: turned into the voxel's own frame, met there as an axis-aligned box, and
+// the hit's normal turned back into the world. The hit and its normal in the voxel's own frame, its centre the origin,
+// are where its corners' shades are read.
+bool CastOrientedRayLocal(OrientedInterpolants _input, out float3 _hit, out float3 _normal, out float3 _localHit, out float3 _localNormal)
 {
   float3 origin;
   float3 direction;
@@ -416,12 +421,35 @@ bool CastOrientedRay(OrientedInterpolants _input, out float3 _hit, out float3 _n
   const float3 localOrigin = Rotate(inverse, origin - _input.center);
   const float3 localDirection = Rotate(inverse, direction);
   float hitDistance;
-  float3 localNormal;
   const bool hits = IntersectBox(float3(0.0, 0.0, 0.0), float3(_input.halfEdge, _input.halfEdge, _input.halfEdge), localOrigin,
-                                 localDirection, 1.0 / localDirection, hitDistance, localNormal);
-  _normal = Rotate(_input.rotation, localNormal);
+                                 localDirection, 1.0 / localDirection, hitDistance, _localNormal);
+  _normal = Rotate(_input.rotation, _localNormal);
   _hit = origin + direction * hitDistance;
+  _localHit = localOrigin + localDirection * hitDistance;
   return hits;
+}
+
+bool CastOrientedRay(OrientedInterpolants _input, out float3 _hit, out float3 _normal)
+{
+  float3 localHit;
+  float3 localNormal;
+  return CastOrientedRayLocal(_input, _hit, _normal, localHit, localNormal);
+}
+
+// The column shade of the voxel about _boxCenter (ADR-025, decision 8): its column's, the 1 m cell its centre stands
+// over, when the mask has it and its texel is 0; 1 otherwise, and with no mask.
+float ColumnShade(float3 _boxCenter)
+{
+  if (g_overlay.shadeWidthCells == 0u)
+  {
+    return 1.0;
+  }
+  const int2 column = int2(floor(_boxCenter.xz));
+  if (column.x < 0 || column.y < 0 || column.x >= int(g_overlay.shadeWidthCells) || column.y >= int(g_overlay.shadeDepthCells))
+  {
+    return 1.0;
+  }
+  return g_columnMask.Load(int3(column, 0)) > 0.0 ? 1.0 : g_overlay.columnShade;
 }
 
 // The orthographic ray through this pixel, from the near plane along the frame's forward, against

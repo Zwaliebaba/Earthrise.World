@@ -5,22 +5,6 @@
 
 #include "VoxelCommon.hlsli"
 
-// The column shade of the voxel about _boxCenter: its column's, the 1 m cell its centre stands over, when the mask has
-// it and its texel is 0; 1 otherwise, and with no mask.
-float ColumnShade(float3 _boxCenter)
-{
-  if (g_overlay.shadeWidthCells == 0u)
-  {
-    return 1.0;
-  }
-  const int2 column = int2(floor(_boxCenter.xz));
-  if (column.x < 0 || column.y < 0 || column.x >= int(g_overlay.shadeWidthCells) || column.y >= int(g_overlay.shadeDepthCells))
-  {
-    return 1.0;
-  }
-  return g_columnMask.Load(int3(column, 0)) > 0.0 ? 1.0 : g_overlay.columnShade;
-}
-
 struct PixelOutput
 {
   float4 color : SV_Target0;

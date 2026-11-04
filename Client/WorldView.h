@@ -10,6 +10,7 @@
 
 #include "ChunkSnapshot.h"
 #include "ModelPlacement.h"
+#include "OrientedVoxel.h"
 #include "StaticBuffer.h"
 #include "UploadRing.h"
 #include "VoxelGridView.h"
@@ -58,8 +59,11 @@ public:
   /// copied into _ring, which this frame's draws read. Called each frame, after TakeSnapshots.
   ///
   /// Units are drawn as impostors once a model voxel is smaller than about 3 px on screen, which
-  /// _modelVoxelPixels says, and engines stay at full detail (RendererLook.md §7). Throws
-  /// std::runtime_error for an unknown model, or when the ring has no room.
+  /// _modelVoxelPixels says, and engines stay at full detail (RendererLook.md §7). A placement at a
+  /// whole quarter turn, and an impostor, is drawn as records through a turned batch; any other as
+  /// oriented voxels built from the same records, each turned about its footprint's middle, its
+  /// corner shades read against the world at its turned cells, which DrawTurned draws (ADR-030,
+  /// decisions 2 and 3). Throws std::runtime_error for an unknown model, or when the ring has no room.
   void PlaceModels(Engine::UploadRing& _ring, const std::vector<ModelPlacement>& _placements, float _modelVoxelPixels);
 
   /// Draws every chunk batch and every model placement, through whichever of the pass's pipelines
@@ -67,12 +71,21 @@ public:
   void Draw(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const;
   /// The world's chunks alone, for the static shadow map.
   void DrawChunks(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const;
-  /// The model placements alone, for the dynamic shadow map.
+  /// The model placements drawn as records alone, for the dynamic shadow map too.
   void DrawModels(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const;
+  /// The turned placements' oriented voxels, in one draw, through whichever of the pass's oriented pipelines was last
+  /// begun: the scene's, or the dynamic shadow map's (ADR-030, decision 2).
+  void DrawTurned(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const;
+  /// The turned placements' silhouettes, in one draw, through the pass's oriented silhouette pipeline, with
+  /// DrawSilhouettes (ADR-030, decision 4).
+  void DrawTurnedSilhouettes(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const;
+  /// Whether this frame's placements hold a turned model, and a turned silhouette.
+  [[nodiscard]] bool HasTurned() const noexcept;
+  [[nodiscard]] bool HasTurnedSilhouettes() const noexcept;
   /// The silhouettes of the placements drawn as one, each its model's records in its faction entry, through the pass's
   /// silhouette pipeline after the chunks and before the models (M4-H3; ADR-021, decision 6, amended).
   void DrawSilhouettes(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const;
-  /// Whether this frame's placements hold a silhouette.
+  /// Whether this frame's placements drawn as records hold a silhouette.
   [[nodiscard]] bool HasSilhouettes() const noexcept;
 
   /// Forgets the world: every chunk, snapshot and placement, for a fresh world such as the lab's next item. The caller
@@ -112,13 +125,19 @@ private:
     D3D12_GPU_VIRTUAL_ADDRESS recordsAddress;
     std::vector<Engine::VoxelRecord> silhouetteRecords; // its records flat in its faction entry, or none
     D3D12_GPU_VIRTUAL_ADDRESS silhouetteAddress;
+    // Turned to an angle other than a quarter turn: its records as oriented voxels instead, and its silhouette's, which
+    // DrawTurned and DrawTurnedSilhouettes draw with every other turned placement's.
+    std::vector<Engine::OrientedVoxel> turnedVoxels;
+    std::vector<Engine::OrientedVoxel> turnedSilhouette;
     // What is drawn: the model as placed, or its impostor, which stands where the model's footprint
     // is centred and is never turned.
-    DirectX::XMFLOAT3 drawnOriginMeters;
+    DirectX::XMFLOAT3 drawnOriginMeters; // the minimum corner of the box that bounds it
     std::uint32_t drawnQuarterTurns;
     float voxelEdgeMeters;
     std::uint32_t widthCells; // the drawn grid's extent along x and z, which turning it needs
     std::uint32_t depthCells;
+    float drawnWidthMeters; // the box that bounds it, along x and z
+    float drawnDepthMeters;
   };
 
   void RebuildChunk(ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring, std::uint64_t _key);
@@ -143,6 +162,11 @@ private:
   std::vector<std::uint64_t> m_rebuiltChunks;     // since the last PlaceModels
   std::set<std::array<std::int32_t, 3>> m_hidden; // x, y and z of each voxel Hide leaves out
   std::vector<Placed> m_placed;
+  // This frame's turned voxels and silhouettes, every turned placement's in one run each, and where their copies are.
+  std::vector<Engine::OrientedVoxel> m_turnedVoxels;
+  std::vector<Engine::OrientedVoxel> m_turnedSilhouettes;
+  D3D12_GPU_VIRTUAL_ADDRESS m_turnedAddress = 0;
+  D3D12_GPU_VIRTUAL_ADDRESS m_turnedSilhouettesAddress = 0;
   bool m_impostors = false;                                                               // units are drawn as impostors
   std::vector<std::unique_ptr<Engine::StaticBuffer>> m_replaced;                          // not yet stamped
   std::vector<std::pair<std::uint64_t, std::unique_ptr<Engine::StaticBuffer>>> m_retired; // fence, buffer
