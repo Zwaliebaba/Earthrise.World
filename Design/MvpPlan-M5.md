@@ -75,7 +75,8 @@ The seams more than one order builds on. M4's contracts stand, and these extend 
 // Simulation/World.h: TrialEventKind gains three kinds after Outcome, so that no kind already raised moves:
 //   StoneStruck - a stone that struck a voxel of a structure, in step 4;
 //   RamStruck   - a ram's blow on a structure, in step 4;
-//   SapperDug   - a cubic metre a sapper dug within 2 m of a section, in step 2.
+//   SapperDug   - a cubic metre a sapper dug within 2 m of a section, in step 2, once for each such section, as the
+//                 control charges each.
 // Each names the attacking player, the engine or the sappers' squad as subject, the structure as other, and the voxel
 // struck or dug. Its amount is what the control's rates in RULE price the hit at, in hit points: controlShotDamage for a
 // stone; controlRamDamage for a blow, or controlRamStonePercent of it when the voxel is stone; and
@@ -136,7 +137,7 @@ Design/Review/SiegePlaytest/
   - `SiegeLog` writes the `hit` rows. `ReadSiegeLog.py` sums each structure's work by kind, and gives each run's main points, its breach point and whether it clusters, each point with its role, as text and in `--json`.
   - ADR-026, decision 5, amended with the three kinds and the reason they are priced in the control's hit points in both versions. No state, save, state hash or state update changes.
 - **Tests:**
-  - **`SiegeWorkTests`** (`SimulationTests`), on the Siege castle in both versions:
+  - **`SiegeWorkTests`** (`SimulationTests`), on the Siege castle in both versions. *Amended by B1's code:* on a T3 and a T6 on flat ground, as `ControlTests` builds them, since loading the castle twice a test costs CI's Debug build minutes for nothing a flat site does not show; the timber blow is on T6, and a stone on bare ground raises nothing:
     - one scripted stone on S3 raises `StoneStruck` at `controlShotDamage`;
     - one blow on GH's gate raises `RamStruck` at `controlRamDamage`, and one on stone at its 25 %;
     - a sapper's cubic metre within 2 m of E3 raises `SapperDug` at `controlTrenchDamagePerCubicMeter`, and one 3 m out raises none;
@@ -173,7 +174,7 @@ Design/Review/SiegePlaytest/
     - which preferences went to the game the participant won;
     - the deck's figures under input 13;
     - the novices' figures, on their own.
-  - **The crater items' median,** if `Craters/` exists, under input 12.
+  - **The crater items' median,** if `Craters/` exists, under input 12. *Amended by B2's code:* D2 adds it, since D2 fixes the crater log's columns. B2 also takes `--pilot`, which reads the pilot's folder, pilot ids alone and no verdict, for E2.
 - **Tests:** `Tools/TestScoreSiegePlaytest.py`, with a step in the workflow's Linux job, over hand-written folders:
   - one that passes all three clauses;
   - one that fails each clause alone;
@@ -186,8 +187,8 @@ Design/Review/SiegePlaytest/
 ### M5-B3 — Replays checked headless
 - **Waits on:** A1.
 - **Read first:** ADR-014, decision 5; ADR-026, decision 6; `Simulation::ReplayPlayer`; `Earthrise/ReplayRun.cpp`; `SimulationBench/SimulationBench.cpp`'s modes.
-- **Changes:** `SimulationBench --check-replays <folder>` plays every `.errp` in a folder headless, from the scenario its log names, and prints for each whether every state hash matched, the ticks played and the outcome. It exits 1 if one did not match. The check itself is a function in `Simulation`, so a test can call it.
-- **Tests:** **`SiegeReplayTests`** gains: a short scripted run's replay passes the check, and the same replay with one command's tick moved fails it.
+- **Changes:** `SimulationBench --check-replays <folder>` plays every `.errp` in a folder headless, from the scenario its log names, and prints for each whether every state hash matched, the ticks played and the outcome. It exits 1 if one did not match. The check itself is a function in `Simulation`, so a test can call it. *Amended by B3's code:* the check is `Simulation::CheckScenarioReplay`. A build id is a hash of its executable, so the bench's never matches Earthrise's, and a save refuses another build's. The bench therefore takes the build id the log records, and refuses a log whose server-data hash is not its own. That is sound only when both executables were built from the frozen commit (input 15), which the owner's run after F1 is.
+- **Tests:** **`SiegeReplayTests`** gains: a short scripted run's replay passes the check, and the same replay with one command's tick moved fails it. *Amended by B3's code:* the failing replay has its last stored hash altered, and fails at that tick; moving a command's tick needs the replay's bytes re-spliced and tests the same comparison. The check also refuses the replay under another build id.
 - **Owner runs:** after F1, on the benchmark machine, Release x64, over `Design/Review/SiegePlaytest/Siege/`. Every replay matches.
 
 ## Phase C — The participant's run
@@ -201,6 +202,8 @@ Design/Review/SiegePlaytest/
   - Q01, S00 and S1 are refused;
   - over the eight S ids, four play the voxel version first, four play it on each layout, and four start on each layout;
   - the objective, the banner and the end screen read the same under `--game` as under a bare `--siege`.
+
+  *Amended by C1's code:* the table is `Client::PlaytestGameOf`, which `PlaytestTests` reads with no executable; `--watch` is refused beside `--game` as well. The last test is not written: `--game` sets only the version and the layout before the run is built, so the screen has no way to differ, and `SiegeFlowTests` covers it. In its place, a game's log names its game, cell and group before its header row.
 - **Owner runs:** `Earthrise --siege X01 --game 1 --windowed`, then `--game 2`: the voxel version on Siege, then the control on SiegeMirror, with the log's comment lines as above.
 
 ### M5-C2 — The practice ground
@@ -213,6 +216,12 @@ Design/Review/SiegePlaytest/
   - `Tools/TestCheckAssets.py`: a scenario with no `trial` passes check 16, and one whose site overlaps the Siege castle's fails it;
   - `Tools/TestBakeContent.py`: `Practice` bakes;
   - **`PracticeTests`** (`SimulationTests`): `Practice` loads twice to one state hash, and holds no structure.
+- *Amended by C2's code:*
+  - **The site** is the southern strip of the castle's own site, z 182 to 262, where its camp stands. A scenario loads into a world of its own, so neither the castle nor the ground its scenario authors is there, and the test of a site overlapping the castle's is not written.
+  - **SCEN is at version 2,** with a byte before each trial; the other sections stay at 1, each checked against its own version. Check 16 also refuses a mirror of a scenario with no trial.
+  - **The objective** reads `PRACTICE · NOTHING HERE COUNTS`, and **the facilitator closes the window to end it**, since Esc already cancels a mode and clears the selection. The resources are STONE and ARMY, the trial's without its TIME.
+  - **`--practice` is refused** beside `--siege`, `--lab` or `--replay`.
+  - **`PracticeTests` also holds** the Siege camp's army, one attacker's player, and a hundred ticks with no outcome.
 - **Owner runs:** `Earthrise --practice --windowed`. Every command a game uses can be tried: move, the squads' orders, control groups, deploy and pack, FIRE at the ground, TRENCH on open ground, pause.
 
 ### M5-C3 — The reason prompt
@@ -226,6 +235,12 @@ Design/Review/SiegePlaytest/
   - the clock is paused while the banner is up, and the next tick is the one after;
   - the banner fits at 1280 × 720 and 1920 × 1080 at each UI scale the width allows;
   - the voxel version and the control prompt alike for the same events (ADR-028, decision 6).
+- *Amended by C3's code:*
+  - **The model is `Client::ReasonPrompt`,** in `Client/ReasonPrompt.h` and `.cpp`, filter `Siege`, which `PromptTests` drives with no executable. The Siege run builds it enabled under `--game` alone.
+  - **It marks the voxel struck or dug,** in accent as the lab marks its aim, since the overlay draws a voxel at a time and not a structure's outline.
+  - **The run claims Space while a prompt is up,** which would otherwise jump the camera to the newest alert (Hud.md §7).
+  - **Two prompts raised in one tick wait one behind the other,** the second up from when the first goes.
+  - **The tests:** the clock's stop after the tick is the run's, whose `Tick` refuses while a prompt is up, so `PromptTests` tests that the prompt is up. "Alike in both versions" holds because the prompt reads B1's events, which `SiegeWorkTests` proves are raised alike. The test of the `asked` row's columns is added.
 - **Owner runs:** `Earthrise --siege X01 --game 1 --windowed`: the three prompts, each once, and the `asked` rows in the log.
 
 ## Phase D — The crater items
@@ -235,6 +250,12 @@ Design/Review/SiegePlaytest/
 - **Read first:** `Simulation/BreachLab.h` and `.cpp`; the ram's and the stone's crater code in `Simulation`; MvpPlan.md, M2, input 12, and M4, input 9; GameDesign.md, *M4's phase D*, item 3.
 - **Changes:** `CraterItems()` in `Simulation/CraterLab.h` and `.cpp`, filter `World`, beside `BreachLab`: eight items, C1 to C8, and a practice item, C0. Each is a fresh world at the lab's site with W2 struck at a mark within its bottom metre, where the ram's blows land, by k blows of the ram or k stones of the trebuchet. The hits are stamped by the same crater functions the engines call, from the direction each engine strikes, with no engine left on the site, so that only the damage can tell. Four items are by the ram and four by the trebuchet, with k from 1 to 3 and the marks spread along W2. The key is the engine, by construction. `CraterItemsHash()` names the set.
 - **Tests:** **`CraterLabTests`:** each item's world differs from the intact site in its crater's voxels alone; the set splits four and four; the hash is stable.
+- *Amended by D1's code:*
+  - **The hits go through two `World` methods,** `StrikeAsStone` and `StrikeAsRam`, which apply a stone's strike or a ram's blow by the world's structure rule between ticks, as step 4 does, and raise no event.
+  - **The site is `BuildLabEnclosure`,** the lab's levelled site and its ten sections with no engine and no squad. `BuildLabSite` now builds on it, unchanged.
+  - **The stone comes from the south,** as the lab's trebuchet throws, so its two voxels go through W2's 2 m base where the ram's one does not.
+  - **The ram's hits and the trebuchet's add up to eight each,** so the count of holes does not tell.
+  - **The tests also hold** that no engine or squad stands on an item's site, and that the widest item goes quiet with nothing more fallen.
 
 ### M5-D2 — `Earthrise --craters <id>`
 - **Waits on:** D1 and C1.
@@ -244,6 +265,14 @@ Design/Review/SiegePlaytest/
   - **The log:** one row an item with its answer, the key and `correct`.
   - **The scorer:** `ScoreSiegePlaytest.py` reads `Craters/`.
 - **Tests:** **`CraterRunTests`** (`ClientTests`): the order for one seed is a fixed permutation; an answer before the item is up is ignored; a row has every column.
+- *Amended by D2's code:*
+  - **The model is `Client::CraterModel`,** in `Client/CraterModel.h` and `.cpp`, filter `Lab`, and the run is `Earthrise/Craters.h` and `.cpp`, beside the lab's.
+  - **One enclosure, many copies.** The run builds the enclosure once and strikes a copy of it for each item through `Simulation::StrikeCraterItem`, as the lab copies its site. D1's `BuildCraterItem` now builds on that.
+  - **An item sets up live but briefly,** until its world is quiet or 200 ticks have run, under SETTING UP. The damage is there from the first frame, and nothing else on screen tells the engine.
+  - **The mark** is the ground voxel before the first hit, so that it does not hide the damage.
+  - **The answer keys:** R and T reach the run through `RunInput`, and the banner's two buttons reuse the lab question's two controls. The log is `kind,id,key,answer,correct,secondsToAnswer` under the lab's comment lines.
+  - **`--craters` is refused** beside `--lab`, `--siege`, `--practice` or `--replay`.
+  - **`ScoreSiegePlaytest.py` reads `Craters/`.** It refuses a missing or malformed log, and reports the RTS group's median over C1 to C8, yes at 6 of 8, bearing on nothing in H2.
 - **Owner runs:** `Earthrise --craters X01 --windowed`: nine items, and nothing on screen but the damage tells the engine.
 
 ## Phase E — The pilot

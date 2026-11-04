@@ -351,6 +351,9 @@ BROKEN = {
   "a mirrored section named for the wrong side": (lambda r: Change(r, SIEGE_MIRROR, lambda m: m["rename"].update(E1="E1", W1="W1")),
                                                   "its section E1 faces W, so its name's side letter is wrong"),
   "a mirror of nothing": (lambda r: Change(r, SIEGE_MIRROR, lambda m: m.update(mirrorOf="Hold")), "mirrors 'Hold'"),
+  "a mirror of the practice ground": (lambda r: Change(r, SIEGE_MIRROR, lambda m: m.update(mirrorOf="Practice")),
+                                      "mirrors Practice, which holds no trial to mirror"),
+  "a trial that is not an object": (lambda r: Change(r, SIEGE, lambda s: s.update(trial=5)), "its trial is not an object"),
   "a castle off its site's centre line": (
     lambda r: Change(r, SIEGE, lambda s: s["site"].update(min=[230, 182], max=[439, 381])) or
               Change(r, SIEGE, lambda s: [box["min"].__setitem__(0, 230) for box in s["ground"][:3]]),

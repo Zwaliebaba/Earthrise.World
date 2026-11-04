@@ -87,6 +87,26 @@ public:
     Assert::IsTrue(log.TakeRows().empty());
   }
 
+  TEST_METHOD(AHitRowHasEveryColumnAndNamesItsWork)
+  {
+    // M5-B1's siege work, priced in the control's hit points whichever version runs.
+    Client::SiegeLog log;
+    log.Hit(300, 1, Client::SiegeWork::Stone, "E3", 100);
+    log.Hit(320, 1, Client::SiegeWork::Blow, "GH", 25);
+    log.Hit(340, 1, Client::SiegeWork::Trench, "E3", 4);
+    const std::vector<std::string> rows = log.TakeRows();
+    const std::vector<std::vector<std::string>> expected = {{"hit", "300", "1", "stone", "E3", "100", ""},
+                                                            {"hit", "320", "1", "blow", "GH", "25", ""},
+                                                            {"hit", "340", "1", "trench", "E3", "4", ""}};
+    Assert::AreEqual(expected.size(), rows.size());
+    for (std::size_t index = 0; index < rows.size(); ++index)
+    {
+      const std::vector<std::string> fields = Fields(rows.at(index));
+      Assert::AreEqual(Client::SiegeLog::COLUMNS, fields.size());
+      Assert::IsTrue(expected.at(index) == fields, std::wstring(rows.at(index).begin(), rows.at(index).end()).c_str());
+    }
+  }
+
   TEST_METHOD(WritesTheFiguresThroughASectionWhenTheirMinuteEnds)
   {
     Client::SiegeLog log;

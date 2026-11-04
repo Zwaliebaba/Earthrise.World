@@ -81,9 +81,10 @@ The server's file (ADR-016) is a header and a body, little-endian and unpadded t
     u8 its kind (Protocol::UnitKind) and its owner, u32 the number of its cells and each cell; u32 the number of engines
     and each as u8 its kind (Protocol::EngineKind) and its owner, its cell, u8 its quarter turns and its state
     (Protocol::EngineState); u32 the number of garrisons and each as u8 its kind and its owner and its structure's name
-    as a text; then its trial: u8 its version (Protocol::TrialVersion), its attacker and its defender, the keep's name,
-    u32 its time limit and its hold in ticks, i32 its ring in cells, the camp's two corners, and the nearest and the
-    weak sections' names.
+    as a text; then u8 1 when it holds a trial, or 0 for one that holds none, as a practice ground does (M5-C2), and
+    the trial: u8 its version (Protocol::TrialVersion), its attacker and its defender, the keep's name, u32 its time
+    limit and its hold in ticks, i32 its ring in cells, the camp's two corners, and the nearest and the weak sections'
+    names. SCEN is at version 2 since that byte.
 Nothing under GameData/Client/ reaches it, which check 11 of the asset check proves. It is rewritten only when its
 bytes change.
 
@@ -486,7 +487,7 @@ def SharedHashHeader(_hash):
 SERVER_FILE = "ServerData.bin"
 SERVER_MAGIC = b"ERSD"
 SERVER_FORMAT_VERSION = 1
-SECTION_VERSIONS = {"MATL": 1, "TMPL": 1, "RULE": 1, "UNIT": 1, "STRC": 1, "SCEN": 1}  # in the file's order
+SECTION_VERSIONS = {"MATL": 1, "TMPL": 1, "RULE": 1, "UNIT": 1, "STRC": 1, "SCEN": 2}  # in the file's order
 # Simulation::Behavior, in its declared order, by Palette.json's behaviour names; 0 is none.
 BEHAVIORS = ("none", "earth", "commonRock", "buildingStone", "bedrock", "timber", "leaves", "water", "stoneRubble",
              "wasteRubble")
@@ -614,6 +615,9 @@ def ServerScenarios(_scenarios):
     for garrison in scenario["garrisons"]:
       out += struct.pack("<2B", garrison["kind"], garrison["owner"]) + LengthPrefixed(garrison["structure"])
     trial = scenario["trial"]
+    out += struct.pack("<B", 0 if trial is None else 1)
+    if trial is None:
+      continue
     out += struct.pack("<3B", trial["version"], trial["attacker"], trial["defender"]) + LengthPrefixed(trial["keep"])
     out += struct.pack("<2Ii", trial["timeLimitTicks"], trial["holdTicks"], trial["ringCells"])
     out += Position(trial["campMin"]) + Position(trial["campMax"]) + LengthPrefixed(trial["nearest"]) + LengthPrefixed(trial["weak"])

@@ -39,6 +39,12 @@
     <ClCompile Include="Siege.cpp">
       <Filter>Siege</Filter>
     </ClCompile>
+    <ClInclude Include="Practice.h">
+      <Filter>Siege</Filter>
+    </ClInclude>
+    <ClCompile Include="Practice.cpp">
+      <Filter>Siege</Filter>
+    </ClCompile>
     <ClInclude Include="ReplayRun.h">
       <Filter>Siege</Filter>
     </ClInclude>
@@ -52,6 +58,12 @@
       <Filter>Siege</Filter>
     </ClCompile>
     <ClCompile Include="Lab.cpp">
+      <Filter>Lab</Filter>
+    </ClCompile>
+    <ClInclude Include="Craters.h">
+      <Filter>Lab</Filter>
+    </ClInclude>
+    <ClCompile Include="Craters.cpp">
       <Filter>Lab</Filter>
     </ClCompile>
   </ItemGroup>

@@ -189,7 +189,16 @@ Scenario ReadScenario(Core::ByteReader& _reader)
     garrison.structure = ReadText(_reader);
     scenario.garrisons.push_back(std::move(garrison));
   }
-  ScenarioTrial& trial = scenario.trial;
+  const std::uint8_t holdsTrial = _reader.ReadU8();
+  if (holdsTrial > 1)
+  {
+    throw std::runtime_error("SCEN's scenario " + scenario.id + " neither holds a trial nor holds none");
+  }
+  if (holdsTrial == 0)
+  {
+    return scenario; // a practice ground's, with no trial (M5-C2)
+  }
+  ScenarioTrial& trial = scenario.trial.emplace();
   trial.version = ReadEnum(_reader, Protocol::TrialVersion::Control, "trial version");
   trial.attacker = _reader.ReadU8();
   trial.defender = _reader.ReadU8();
@@ -271,7 +280,11 @@ void LoadScenario(World& _world, std::string_view _scenarioId, const ScenarioOpt
       _world.PlaceInGarrison(squad, building);
     }
   }
-  const ScenarioTrial& trial = scenario.trial;
+  if (!scenario.trial.has_value())
+  {
+    return; // a practice ground: no trial's rules run (M5-C2)
+  }
+  const ScenarioTrial& trial = *scenario.trial;
   _world.SetTrial({.version = _options.version.value_or(trial.version),
                    .attacker = trial.attacker,
                    .defender = trial.defender,

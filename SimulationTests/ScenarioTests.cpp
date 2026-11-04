@@ -55,6 +55,16 @@ const Simulation::TrialRules& TrialOf(const Simulation::World& _world)
   return *trial;
 }
 
+/// _scenario's trial, which the Siege and its mirror hold, and the practice ground does not (M5-C2).
+const Simulation::ScenarioTrial& TrialOf(const Simulation::Scenario& _scenario)
+{
+  if (!_scenario.trial.has_value())
+  {
+    throw std::runtime_error("the scenario " + _scenario.id + " holds no trial");
+  }
+  return *_scenario.trial;
+}
+
 const Simulation::Structure& Named(const Simulation::World& _world, std::string_view _name)
 {
   const auto found = std::ranges::find_if(_world.Structures(), [_name](const auto& _entry) { return _entry.second.name == _name; });
@@ -288,14 +298,14 @@ public:
       Assert::AreEqual(COMMON_ROCK, At(mirror, eastMinX, ground - 2, z));
       Assert::AreEqual(Protocol::Chunk::EMPTY, At(mirror, eastMaxX + 8, ground - 1, z)); // the ditch, 4 to 8 m out
     }
-    Assert::AreEqual(std::string("W3"), Siege("SiegeMirror").trial.weak);
+    Assert::AreEqual(std::string("W3"), TrialOf(Siege("SiegeMirror")).weak);
   }
 
   TEST_METHOD(PutsTheMirrorsNearestSectionWhereS3sMirrorIsAsFarFromTheCamp)
   {
     const Simulation::World castle = Castle();
     const Simulation::World mirror = Castle("SiegeMirror");
-    const Simulation::Structure& nearest = Named(mirror, Siege("SiegeMirror").trial.nearest);
+    const Simulation::Structure& nearest = Named(mirror, TrialOf(Siege("SiegeMirror")).nearest);
     const auto [minX, minZ, maxX, maxZ] = Footprint(castle, Named(castle, "S3"));
     const auto [mirrorMinX, mirrorMinZ, mirrorMaxX, mirrorMaxZ] = Footprint(mirror, nearest);
     Assert::AreEqual(Mirrored(maxX), mirrorMinX);
@@ -329,10 +339,10 @@ public:
       Assert::AreEqual(castle.players.at(player).timberHundredthsCubicMeters, mirror.players.at(player).timberHundredthsCubicMeters);
       Assert::AreEqual(castle.players.at(player).commander, mirror.players.at(player).commander);
     }
-    Assert::AreEqual(castle.trial.timeLimitTicks, mirror.trial.timeLimitTicks);
-    Assert::AreEqual(castle.trial.holdTicks, mirror.trial.holdTicks);
-    Assert::AreEqual(castle.trial.ringCells, mirror.trial.ringCells);
-    Assert::AreEqual(castle.trial.keep, mirror.trial.keep);
+    Assert::AreEqual(TrialOf(castle).timeLimitTicks, TrialOf(mirror).timeLimitTicks);
+    Assert::AreEqual(TrialOf(castle).holdTicks, TrialOf(mirror).holdTicks);
+    Assert::AreEqual(TrialOf(castle).ringCells, TrialOf(mirror).ringCells);
+    Assert::AreEqual(TrialOf(castle).keep, TrialOf(mirror).keep);
   }
 
   TEST_METHOD(LoadsTheMirrorTwiceToOneStateHash)

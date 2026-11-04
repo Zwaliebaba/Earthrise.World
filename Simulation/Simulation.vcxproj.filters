@@ -165,6 +165,12 @@
     <ClCompile Include="BreachLab.cpp">
       <Filter>World</Filter>
     </ClCompile>
+    <ClInclude Include="CraterLab.h">
+      <Filter>World</Filter>
+    </ClInclude>
+    <ClCompile Include="CraterLab.cpp">
+      <Filter>World</Filter>
+    </ClCompile>
     <ClInclude Include="UnitStats.h">
       <Filter>Data</Filter>
     </ClInclude>

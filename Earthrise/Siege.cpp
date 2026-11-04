@@ -6,6 +6,7 @@
 #include "Scenario.h"
 #include "ServerData.h"
 #include "DeckCoverage.h"
+#include "Look.h"
 #include "SiegeAttacker.h"
 #include "Strings.h"
 
@@ -44,7 +45,8 @@ std::pair<Protocol::VoxelPosition, Protocol::VoxelPosition> BoxOf(const Simulati
 
 Siege::Siege(const Simulation::World::Desc& _desc, const SiegeOptions& _options)
   : m_world(_desc),
-    m_options(_options)
+    m_options(_options),
+    m_prompt(_options.playtest.has_value())
 {
   if (!_options.participant.has_value() && !_options.watch)
   {
@@ -59,7 +61,7 @@ Siege::Siege(const Simulation::World::Desc& _desc, const SiegeOptions& _options)
   }
   const std::optional<Simulation::TrialRules>& trial = m_world.Trial();
   const Simulation::Scenario* scenario = m_world.Data().FindScenario(scenarioId);
-  if (!trial.has_value() || scenario == nullptr)
+  if (!trial.has_value() || scenario == nullptr || !scenario->trial.has_value())
   {
     throw std::runtime_error("the Siege scenario holds no trial");
   }
@@ -74,8 +76,8 @@ Siege::Siege(const Simulation::World::Desc& _desc, const SiegeOptions& _options)
   // The keep's foot, south of its forebuilding, which the bailey's walls close until a breach.
   m_goal = {.xVoxels = m_keepMiddle.xVoxels, .yVoxels = keep.originVoxels.yVoxels, .zVoxels = keep.originVoxels.zVoxels - 2};
   // The camp's middle, where the camera starts.
-  const Protocol::VoxelPosition& low = scenario->trial.campMinVoxels;
-  const Protocol::VoxelPosition& high = scenario->trial.campMaxVoxels;
+  const Protocol::VoxelPosition& low = scenario->trial->campMinVoxels;
+  const Protocol::VoxelPosition& high = scenario->trial->campMaxVoxels;
   m_camp = {.xVoxels = (low.xVoxels + high.xVoxels) / 2, .yVoxels = low.yVoxels, .zVoxels = (low.zVoxels + high.zVoxels) / 2};
   m_objective = {.title = std::string(Client::SIEGE_OBJECTIVE_TITLE), .detail = {}, .detailOff = false, .progress = std::nullopt};
 
@@ -106,13 +108,14 @@ Siege::Siege(const Simulation::World::Desc& _desc, const SiegeOptions& _options)
                                                          .buildId = _options.buildId,
                                                          .serverDataHash = _options.serverDataHash,
                                                          .scenario = std::string(scenarioId),
-                                                         .nearest = scenario->trial.nearest,
-                                                         .weak = scenario->trial.weak,
+                                                         .nearest = scenario->trial->nearest,
+                                                         .weak = scenario->trial->weak,
                                                          .gate = gate,
                                                          .widthPixels = _options.widthPixels,
                                                          .heightPixels = _options.heightPixels,
                                                          .uiScale = _options.uiScale,
-                                                         .startTime = std::format("{:%Y-%m-%d %H:%M:%S} UTC", now)}))
+                                                         .startTime = std::format("{:%Y-%m-%d %H:%M:%S} UTC", now),
+                                                         .playtest = _options.playtest}))
   {
     m_logFile << line << '\n';
   }
@@ -158,9 +161,9 @@ std::int32_t Siege::CameraQuarterTurns() const noexcept
 
 bool Siege::Tick(Client::Session& _session, double _seconds)
 {
-  if (m_end.has_value())
+  if (m_end.has_value() || m_prompt.Up())
   {
-    return false; // the trial has ended, and the world stands as it ended
+    return false; // the trial has ended, and the world stands as it ended; or a reason prompt holds the clock (M5-C3)
   }
   // Each of the player's commands, recorded with its source and its time for the trial's log (M4-I7).
   for (const std::vector<std::byte>& command : m_commands.Take(_session, m_world.TickCount(), _seconds))
@@ -176,12 +179,12 @@ bool Siege::Tick(Client::Session& _session, double _seconds)
   {
     m_recorder->Record(m_world);
   }
-  LogTick();
+  LogTick(_seconds);
   WriteRows();
   return true;
 }
 
-void Siege::LogTick()
+void Siege::LogTick(double _seconds)
 {
   const std::uint32_t tick = m_world.TickCount() - 1; // the tick just run, as its events name it
   const std::uint8_t attacker = m_world.Trial().has_value() ? m_world.Trial()->attacker : PLAYER;
@@ -230,6 +233,20 @@ void Siege::LogTick()
     case Simulation::TrialEventKind::Outcome:
       outcome = static_cast<Protocol::TrialOutcome>(event.amount);
       break;
+    case Simulation::TrialEventKind::StoneStruck:
+    case Simulation::TrialEventKind::RamStruck:
+    case Simulation::TrialEventKind::SapperDug:
+    {
+      const Client::SiegeWork work = event.kind == Simulation::TrialEventKind::StoneStruck ? Client::SiegeWork::Stone
+                                     : event.kind == Simulation::TrialEventKind::RamStruck ? Client::SiegeWork::Blow
+                                                                                           : Client::SiegeWork::Trench;
+      m_log.Hit(event.tick, event.player, work, NameOf(event.other), event.amount);
+      if (event.player == PLAYER)
+      {
+        m_prompt.Raise(event.tick, work, NameOf(event.other), event.voxel, _seconds);
+      }
+      break;
+    }
     }
   }
   // A collapse that began its warning this tick, of a structure.
@@ -347,6 +364,15 @@ void Siege::Frame(const RunInput& _input, Client::Session& _session)
   {
     m_model.TogglePause();
   }
+  // Space takes a reason prompt down, and its row is written (M5-C3).
+  if (_input.nextPressed)
+  {
+    if (const std::optional<Client::ReasonAnswered> answered = m_prompt.GoOn(_input.nowSeconds); answered.has_value())
+    {
+      m_log.Asked(answered->ask.tick, answered->ask.structure, answered->ask.work, answered->secondsUp);
+      WriteRows();
+    }
+  }
   m_objective = Client::SiegeModel::Objective(state);
   m_resources = Client::SiegeModel::Resources(state);
 }
@@ -358,7 +384,7 @@ double Siege::Speed() const noexcept
 
 bool Siege::Paused() const noexcept
 {
-  return m_model.Paused() || m_end.has_value();
+  return m_model.Paused() || m_end.has_value() || m_prompt.Up();
 }
 
 bool Siege::FireAllowed() const noexcept
@@ -378,7 +404,7 @@ bool Siege::PassabilityForced() const noexcept
 
 bool Siege::TakesSpace() const noexcept
 {
-  return false;
+  return m_prompt.Up(); // Space takes a reason prompt down, rather than jumping to the newest alert (M5-C3)
 }
 
 std::optional<Client::HudMode> Siege::Mode() const
@@ -388,7 +414,12 @@ std::optional<Client::HudMode> Siege::Mode() const
 
 std::optional<Client::HudMode> Siege::Banner() const
 {
-  return m_end.has_value() ? m_end : m_model.PauseBanner();
+  if (m_end.has_value())
+  {
+    return m_end;
+  }
+  std::optional<Client::HudMode> prompt = m_prompt.Banner();
+  return prompt.has_value() ? prompt : m_model.PauseBanner();
 }
 
 std::optional<Client::HudObjective> Siege::Objective() const
@@ -413,7 +444,13 @@ bool Siege::ShowsDeck() const noexcept
 
 std::vector<Client::OverlayBox> Siege::Marks(const Client::Session& /* _session */) const
 {
-  return {};
+  // The voxel a reason prompt asks about, in accent, as the lab marks its aim (M5-C3).
+  const std::optional<Protocol::VoxelPosition> mark = m_prompt.Mark();
+  if (!mark.has_value())
+  {
+    return {};
+  }
+  return {{.cellVoxels = *mark, .paletteIndex = Client::OVERLAY_ACCENT_INDEX}};
 }
 
 const Client::CommandLog& Siege::Commands() const noexcept

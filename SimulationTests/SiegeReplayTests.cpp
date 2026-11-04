@@ -9,7 +9,8 @@
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 // The trial's log's simulation half (M4-J2; ADR-026, decisions 5 and 6): a stone's ShotFired and ShotLanded, and a
-// short run of the Siege with the player's own commands, replayed a tick at a time as Earthrise --replay plays one.
+// short run of the Siege with the player's own commands, replayed a tick at a time as Earthrise --replay plays one, and
+// checked headless as SimulationBench --check-replays checks one (M5-B3).
 
 namespace SimulationTests
 {
@@ -34,6 +35,36 @@ std::vector<Simulation::TrialEvent> EventsOf(const Simulation::World& _world, Si
   std::ranges::copy_if(_world.LastTickEvents(), std::back_inserter(events),
                        [_kind](const Simulation::TrialEvent& _event) { return _event.kind == _kind; });
   return events;
+}
+
+/// A short run of the Siege, SHORT_RUN_TICKS long, its squads each ordered north once, and its replay.
+std::vector<std::byte> RecordShortSiege()
+{
+  Simulation::World world(Simulation::ScenarioDesc(BakedServerData(), "Siege", FlatWorld::BUILD_ID));
+  Simulation::LoadScenario(world, "Siege");
+  Simulation::ReplayRecorder recorder(world);
+  std::vector<Protocol::EntityId> squads;
+  for (const auto& [id, squad] : world.Squads())
+  {
+    if (squad.owner == PLAYER)
+    {
+      squads.push_back(id);
+    }
+  }
+  for (std::uint32_t tick = 0; tick < SHORT_RUN_TICKS; ++tick)
+  {
+    if (tick < squads.size())
+    {
+      const Simulation::Unit& first = world.Units().at(world.Squads().at(squads.at(tick)).units.front());
+      world.Submit(PLAYER, Bytes(Protocol::MoveSquad{.squad = squads.at(tick),
+                                                     .goalVoxels = {.xVoxels = first.cellVoxels.xVoxels,
+                                                                    .yVoxels = first.cellVoxels.yVoxels,
+                                                                    .zVoxels = first.cellVoxels.zVoxels + 4}}));
+    }
+    world.Tick();
+    recorder.Record(world);
+  }
+  return {recorder.Bytes().begin(), recorder.Bytes().end()};
 }
 
 } // namespace
@@ -111,6 +142,33 @@ public:
     Assert::AreEqual(SHORT_RUN_TICKS, player.Result().ticksReplayed);
     Assert::AreEqual(Simulation::StateHash(world), Simulation::StateHash(player.Played()));
     Assert::IsFalse(player.Step()); // nothing past the end
+  }
+
+  TEST_METHOD(AShortRunsReplayPassesTheHeadlessCheckWithTheTrialStillRunning)
+  {
+    const Simulation::ReplayCheck check =
+      Simulation::CheckScenarioReplay(RecordShortSiege(), BakedServerData(), "Siege", FlatWorld::BUILD_ID);
+    Assert::IsTrue(check.result.matched);
+    Assert::AreEqual(SHORT_RUN_TICKS, check.result.ticksReplayed);
+    Assert::IsTrue(check.outcome == Protocol::TrialOutcome::Running);
+  }
+
+  TEST_METHOD(AReplayWhoseLastStoredHashIsAlteredFailsTheCheckAtItsTick)
+  {
+    // SHORT_RUN_TICKS is a multiple of REPLAY_HASH_TICKS, so the replay ends in its last tick's hash.
+    static_assert(SHORT_RUN_TICKS % Simulation::REPLAY_HASH_TICKS == 0);
+    std::vector<std::byte> replay = RecordShortSiege();
+    replay.back() ^= std::byte{0x01};
+    const Simulation::ReplayCheck check = Simulation::CheckScenarioReplay(replay, BakedServerData(), "Siege", FlatWorld::BUILD_ID);
+    Assert::IsFalse(check.result.matched);
+    Assert::IsTrue(check.result.firstDifferingTick.has_value());
+    Assert::AreEqual(SHORT_RUN_TICKS, check.result.firstDifferingTick.value_or(0U));
+  }
+
+  TEST_METHOD(AReplayCheckedUnderAnotherBuildIdIsRefused)
+  {
+    Assert::ExpectException<std::runtime_error>(
+      [] { static_cast<void>(Simulation::CheckScenarioReplay(RecordShortSiege(), BakedServerData(), "Siege", FlatWorld::BUILD_ID + 1)); });
   }
 };
 

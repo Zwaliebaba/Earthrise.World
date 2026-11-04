@@ -3,6 +3,7 @@
 #include "CommandLog.h"
 #include "DeckCoverage.h"
 #include "EntityKinds.h"
+#include "PlaytestGame.h"
 #include "ChunkCoordinate.h"
 
 #include <cstddef>
@@ -16,6 +17,15 @@
 
 namespace Client
 {
+
+/// The siege work a hit row records (M5-B1; MvpPlan-M5.md, *The trial's log*): a stone that struck a structure, a ram's
+/// blow on one, or a cubic metre a sapper dug beside a section.
+enum class SiegeWork : std::uint8_t
+{
+  Stone,
+  Blow,
+  Trench
+};
 
 /// The trial's log's comment lines (MvpPlan-M4.md, *The trial's log*), each `# key: value`.
 struct SiegeLogHeader
@@ -32,6 +42,8 @@ struct SiegeLogHeader
   std::uint32_t heightPixels;
   float uiScale;
   std::string startTime; // yyyy-mm-dd hh:mm:ss, local
+  /// Under --game, the playtest's game, written as the game, cell and group lines (M5-C1; MvpPlan-M5.md, *The trial's log*).
+  std::optional<PlaytestGame> playtest = std::nullopt;
 };
 
 /// The Siege trial's log (MvpPlan-M4.md, *The trial's log*; ADR-026, decisions 5 and 6; M4-J2), as rows: Earthrise hands
@@ -59,12 +71,17 @@ public:
   void Shot(std::uint32_t _tick, std::uint8_t _player, Protocol::EntityId _engine, const Protocol::VoxelPosition& _target,
             const std::optional<Protocol::VoxelPosition>& _strike, std::string_view _structure);
   void Opened(std::uint32_t _tick, std::string_view _structure);
+  /// _player's siege work on _structure, at the control's price in hit points in both versions (M5-B1).
+  void Hit(std::uint32_t _tick, std::uint8_t _player, SiegeWork _work, std::string_view _structure, std::int32_t _hitPoints);
   /// A figure through _structure, of the attacker or the defender, counted into _tick's minute.
   void Passed(std::uint32_t _tick, std::string_view _structure, bool _attacker);
   void Spent(std::uint32_t _tick, std::uint8_t _player, std::int32_t _hundredthsCubicMeters, bool _timber, bool _repair);
   void Stopped(std::uint32_t _tick, std::string_view _structure);
   void Works(std::uint32_t _tick, std::string_view _structure);
   void Died(std::uint32_t _tick, std::uint8_t _player, Protocol::UnitKind _kind);
+  /// A reason prompt about _work on _structure, raised at _tick and up for _secondsUp, written when the participant goes
+  /// on (M5-C3).
+  void Asked(std::uint32_t _tick, std::string_view _structure, SiegeWork _work, double _secondsUp);
   void Command(const CommandRecord& _record);
   /// Where _structure was on the frame that drew _tick, the tick it opened or a collapse of it began its warning; and,
   /// framed there or not, the wait for it to be framed.

@@ -78,6 +78,8 @@
     <ClCompile Include="Integrity.cpp" />
     <ClInclude Include="BreachLab.h" />
     <ClCompile Include="BreachLab.cpp" />
+    <ClInclude Include="CraterLab.h" />
+    <ClCompile Include="CraterLab.cpp" />
     <ClInclude Include="UnitStats.h" />
     <ClCompile Include="UnitStats.cpp" />
     <ClInclude Include="TemplateRules.h" />

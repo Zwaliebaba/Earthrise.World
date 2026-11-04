@@ -27,8 +27,10 @@ struct RunInput
   float zoomNotches;
   bool integrityOn; // the views as shown
   bool passabilityOn;
-  bool engineSelected; // an engine is selected at the frame's end (M3-H3)
-  bool pausePressed;   // Pause or F10 (MvpPlan.md, M4, input 25)
+  bool engineSelected;   // an engine is selected at the frame's end (M3-H3)
+  bool pausePressed;     // Pause or F10 (MvpPlan.md, M4, input 25)
+  bool ramPressed;       // R, or the crater question's RAM · R (M5-D2)
+  bool trebuchetPressed; // T, or its TREBUCHET · T
 };
 
 /// What a frame drew the world with, and the HUD's bands over it, after the frame's ticks (M4-J2).

@@ -7,7 +7,11 @@ Reads every log that `Earthrise --siege` wrote into a folder and prints, for eac
 - the shots each player threw, and the stone each spent on shots and on repair, in cubic metres;
 - the figures each game minute through each breach, the attacker's and the defender's;
 - how many breaches and collapse warnings began under the deck or off screen, out of how many, and the median game
-  seconds before the player framed them, with how many were never framed (MvpPlan.md, M4, input 25).
+  seconds before the player framed them, with how many were never framed (MvpPlan.md, M4, input 25);
+- the siege work on each structure from the hit rows (M5-B1), in the control's hit points whichever version ran; the
+  run's main points, every structure that took a quarter or more of it, each with its role; its breach point, the main
+  point with the most work, ties naming each; and whether it clusters, every main point the nearest section or the
+  gatehouse, or no siege work at all (GameDesign.md, *M5's values*, item 9).
 
 Usage:
   python3 Tools/SiegeTrial/ReadSiegeLog.py <folder>          print each run
@@ -27,6 +31,9 @@ COLUMNS = ("kind", "tick", "a", "b", "c", "d", "e")
 ROLES = ("nearest", "weak", "gate")
 HIDDEN = ("deck", "off")
 HUNDREDTHS = 100
+WORKS = ("stone", "blow", "trench")
+CLUSTERED = ("nearest", "gate")
+MAIN_SHARE_QUARTERS = 4  # a main point takes a quarter or more of the run's siege work
 
 
 class LogError(Exception):
@@ -78,6 +85,7 @@ def ReadLog(_path):
     "onscreen": {"opened": {"total": 0, "hidden": 0}, "warning": {"total": 0, "hidden": 0}},
     "framed": {"opened": [], "warning": []},
     "never": {"opened": 0, "warning": 0},
+    "work": {},
   }
   for number, row in enumerate(reader, start=2 + len(comments)):
     if len(row) != len(COLUMNS):
@@ -86,6 +94,12 @@ def ReadLog(_path):
     try:
       if kind == "opened":
         run["breaches"].append({"tick": int(tick), "structure": a, "role": RoleOf(a, comments)})
+      elif kind == "hit":
+        if b not in WORKS:
+          raise ValueError(f"no siege work named {b}")
+        work = run["work"].setdefault(c, {"stone": 0, "blow": 0, "trench": 0, "total": 0})
+        work[b] += int(d)
+        work["total"] += int(d)
       elif kind == "shot":
         run["shots"][a] = run["shots"].get(a, 0) + 1
       elif kind == "stone":
@@ -112,7 +126,21 @@ def ReadLog(_path):
   for reason in ("opened", "warning"):
     seconds = run["framed"][reason]
     run["framed"][reason] = statistics.median(seconds) if seconds else None
+  MainPoints(run, comments)
   return run
+
+
+def MainPoints(_run, _comments):
+  """Sets the run's main points, its breach point and whether it clusters, from its siege work (M5-B1)."""
+  total = sum(work["total"] for work in _run["work"].values())
+  points = [{"structure": structure, "role": RoleOf(structure, _comments), "hitPoints": work["total"],
+             "share": work["total"] / total}
+            for structure, work in _run["work"].items() if total > 0 and work["total"] * MAIN_SHARE_QUARTERS >= total]
+  points.sort(key=lambda _point: (-_point["hitPoints"], _point["structure"]))
+  most = points[0]["hitPoints"] if points else None
+  _run["mainPoints"] = points
+  _run["breachPoint"] = [point["structure"] for point in points if point["hitPoints"] == most]
+  _run["clusters"] = all(point["role"] in CLUSTERED for point in points)
 
 
 def Clock(_seconds):
@@ -135,6 +163,12 @@ def Print(_runs):
       each = ", ".join(f"{minute}: {figures['attacker']}/{figures['defender']}" for minute, figures in
                        sorted(minutes.items(), key=lambda _item: int(_item[0])))
       print(f"  through {structure}, attacker/defender a minute: {each}")
+    if run["mainPoints"]:
+      points = ", ".join(f"{point['structure']} ({point['role']}) {point['share']:.0%}" for point in run["mainPoints"])
+      print(f"  main points: {points}; breach point {' and '.join(run['breachPoint'])}; "
+            f"{'clusters' if run['clusters'] else 'does not cluster'}")
+    else:
+      print("  no siege work; clusters")
     for reason, word in (("opened", "breaches"), ("warning", "warnings")):
       counts = run["onscreen"][reason]
       median = run["framed"][reason]

@@ -1020,6 +1020,42 @@ void World::Loose()
   }
 }
 
+void World::StrikeAsStone(const ShotHit& _hit)
+{
+  Rule().ShotStrikes(*this, _hit);
+}
+
+void World::StrikeAsRam(Protocol::EntityId _structure, Protocol::VoxelPosition _voxel)
+{
+  Rule().RamStrikes(*this, _structure, _voxel);
+}
+
+std::int32_t World::ControlRamDamageAt(Protocol::VoxelPosition _voxel) const
+{
+  const Rules& rules = Data().Tuning();
+  const Behavior behavior = Data().Materials().at(m_voxels.At(_voxel)).behavior;
+  const bool stone = behavior == Behavior::BuildingStone || behavior == Behavior::CommonRock;
+  return stone ? (rules.controlRamDamage * rules.controlRamStonePercent) / 100 : rules.controlRamDamage;
+}
+
+std::vector<Protocol::EntityId> World::SectionsNearDig(Protocol::VoxelPosition _voxel) const
+{
+  const auto outside = [](std::int32_t _at, std::int32_t _low, std::int32_t _extent)
+  { return std::max({_low - _at, 0, _at - (_low + _extent - 1)}); };
+  std::vector<Protocol::EntityId> sections;
+  for (const auto& [id, structure] : m_structures)
+  {
+    const std::optional<Box> box = BoxOf(structure);
+    if (box.has_value() && IsSection(structure) &&
+        std::max(outside(_voxel.xVoxels, box->min.xVoxels, box->widthVoxels),
+                 outside(_voxel.zVoxels, box->min.zVoxels, box->depthVoxels)) <= Data().Tuning().repairLockReachVoxels)
+    {
+      sections.push_back(id);
+    }
+  }
+  return sections;
+}
+
 Protocol::EntityId World::StructureHolding(Protocol::VoxelPosition _voxel) const
 {
   for (const auto& [id, structure] : m_structures)
@@ -1768,6 +1804,14 @@ void World::RamBlows()
     {
       continue;
     }
+    // The blow at the control's price in both versions, for the trial's log (M5-B1), then by the trial's rule.
+    m_tickEvents.push_back({.kind = TrialEventKind::RamStruck,
+                            .tick = m_tick,
+                            .player = engine.owner,
+                            .subject = id,
+                            .other = structure->first,
+                            .amount = ControlRamDamageAt(blow->voxel),
+                            .voxel = blow->voxel});
     Rule().RamStrikes(*this, structure->first, blow->voxel);
     engine.reloadTicks = static_cast<std::uint32_t>(std::max(0, Data().Tuning().ramBlowTicks));
   }
@@ -2700,8 +2744,20 @@ void World::AdvanceShots()
       const auto sign = [](Core::Fixed _value) { return _value.Raw() > 0 ? 1 : (_value.Raw() < 0 ? -1 : 0); };
       const ShotHit& struck = m_tickHits.emplace_back(ShotHit{
         .shot = id, .voxel = *hit, .behindX = alongX ? sign(arc.acrossXMeters) : 0, .behindZ = alongX ? 0 : sign(arc.acrossZMeters)});
-      // Its crush (ADR-023, decision 7), then what it does to the structures and the terrain, by the trial's rule
-      // (ADR-028, decision 1).
+      // The structure it strikes, at the control's price in both versions and before the rule takes it, for the trial's
+      // log (M5-B1); then its crush (ADR-023, decision 7) and what it does to the structures and the terrain, by the
+      // trial's rule (ADR-028, decision 1).
+      const Protocol::EntityId struckStructure = StructureHolding(*hit);
+      if (struckStructure != Protocol::NO_ENTITY)
+      {
+        m_tickEvents.push_back({.kind = TrialEventKind::StoneStruck,
+                                .tick = m_tick,
+                                .player = shot.owner,
+                                .subject = shot.engine,
+                                .other = struckStructure,
+                                .amount = Data().Tuning().controlShotDamage,
+                                .voxel = *hit});
+      }
       Rule().ShotStrikes(*this, struck);
       m_tickEvents.push_back({.kind = TrialEventKind::ShotLanded,
                               .tick = m_tick,
@@ -4751,6 +4807,18 @@ void World::AdvanceTrenches()
     while (next.has_value() && squad.digProgress >= Core::Fixed::FromRaw(Core::Fixed::ONE_RAW))
     {
       squad.digProgress -= Core::Fixed::FromRaw(Core::Fixed::ONE_RAW);
+      // The cubic metre against each section it lies beside, at the control's price in both versions, for the trial's
+      // log (M5-B1), then by the trial's rule.
+      for (const Protocol::EntityId section : SectionsNearDig(*next))
+      {
+        m_tickEvents.push_back({.kind = TrialEventKind::SapperDug,
+                                .tick = m_tick,
+                                .player = squad.owner,
+                                .subject = id,
+                                .other = section,
+                                .amount = Data().Tuning().controlTrenchDamagePerCubicMeter,
+                                .voxel = *next});
+      }
       Rule().TrenchDug(*this, *next);
       next = NextDig(squad);
     }

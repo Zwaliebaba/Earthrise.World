@@ -48,11 +48,15 @@
     <ClInclude Include="Lab.h" />
     <ClInclude Include="Siege.h" />
     <ClCompile Include="Siege.cpp" />
+    <ClInclude Include="Practice.h" />
+    <ClCompile Include="Practice.cpp" />
     <ClInclude Include="ReplayRun.h" />
     <ClCompile Include="ReplayRun.cpp" />
     <ClInclude Include="SiegeMeasure.h" />
     <ClCompile Include="SiegeMeasure.cpp" />
     <ClCompile Include="Lab.cpp" />
+    <ClInclude Include="Craters.h" />
+    <ClCompile Include="Craters.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

@@ -96,6 +96,15 @@
     <ClCompile Include="SiegeLogTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="PlaytestTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="PromptTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
+    <ClCompile Include="CraterRunTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
     <ClCompile Include="DeckCoverageTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>

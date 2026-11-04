@@ -109,10 +109,16 @@
     <ClInclude Include="SiegeModel.h" />
     <ClInclude Include="SiegeLog.h" />
     <ClCompile Include="SiegeLog.cpp" />
+    <ClInclude Include="PlaytestGame.h" />
+    <ClCompile Include="PlaytestGame.cpp" />
+    <ClInclude Include="ReasonPrompt.h" />
+    <ClCompile Include="ReasonPrompt.cpp" />
     <ClInclude Include="DeckCoverage.h" />
     <ClCompile Include="DeckCoverage.cpp" />
     <ClCompile Include="SiegeModel.cpp" />
     <ClCompile Include="LabModel.cpp" />
+    <ClInclude Include="CraterModel.h" />
+    <ClCompile Include="CraterModel.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

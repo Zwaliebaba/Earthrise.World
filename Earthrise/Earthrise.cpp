@@ -26,6 +26,8 @@
 #include "ModelPlacement.h"
 #include "Overlays.h"
 #include "PointerInput.h"
+#include "Practice.h"
+#include "Craters.h"
 #include "Script.h"
 #include "Scenario.h"
 #include "ServerData.h"
@@ -73,7 +75,10 @@
 // and needs no participant. Pause or F10 pauses the trial. Each trial writes its log and its replay to Logs\ (M4-J2), and
 // `--replay <file>` plays a replay back on screen and says whether every state hash matched. `--siege --watch --measure`
 // is the measured run (M4-J4, SiegeMeasure.h): ten minutes of game time with M1's camera path about the castle, its
-// passes' and ticks' times written to Measurements\ beside the executable.
+// passes' and ticks' times written to Measurements\ beside the executable. `--siege <id> --game <1|2>` is a game of the
+// Siege playtest, its version and layout from the participant's id (M5-C1, Client/PlaytestGame.h), and `--practice [<id>]`
+// its practice ground (M5-C2, Practice.h), the attacker's army on open ground with nothing to attack, and
+// `--craters <participant> [--seed n]` its crater items (M5-D2, Craters.h), which engine made the damage at a mark.
 //
 // It starts borderless over the whole monitor (ADR-011, decision 1), and Alt+Enter switches between that and a window.
 // `--windowed` starts it in a window. `--speed 10` runs the clock at ten times. `--ui-scale 1.5` sets the UI scale over
@@ -91,6 +96,7 @@ constexpr double MAX_SPEED = 100.0;
 constexpr std::uint8_t PLAYER = Simulation::BreachRun::PLAYER; // the Siege castle's attacker too
 constexpr std::string_view SIEGE_SCENARIO = "Siege";
 constexpr std::string_view SIEGE_MIRROR_SCENARIO = "SiegeMirror";
+constexpr std::string_view PRACTICE_SCENARIO = "Practice"; // the playtest's practice ground (M5-C2)
 constexpr float CELL_CENTER_METERS = 0.5F;
 // The frame's figures, in the bottom-left corner (M3-E1), in logical pixels; with the deck, above the control groups'
 // strip, which stands 212 above the bottom and is 44 tall (Hud.md §3).
@@ -109,17 +115,20 @@ struct Options
 {
   bool windowed;
   double speed;
-  std::optional<float> uiScale;                // --ui-scale, over the display's band
-  bool scripted;                               // --script: the M2 run's shots, as in M3-C3
-  std::optional<std::string> participant;      // --lab: the breach lab, for this participant (M3-G1)
-  std::uint64_t seed;                          // --seed, the lab's item order; by default the participant's hash
-  bool siege;                                  // --siege: the Siege trial (M4-J1)
-  std::optional<std::string> siegeParticipant; // the word after --siege, unless it is another option
-  bool control;                                // --control, with --siege: the control version (ADR-028)
-  bool mirror;                                 // --mirror, with --siege: the mirrored castle (M4-B6)
-  bool watch;                                  // --watch, with --siege: the scripted attacker plays the player (M4-H1)
-  std::optional<std::string> replay;           // --replay: a Siege trial's replay, played back (M4-J2)
-  bool measure;                                // --measure, with --siege --watch: the measured run (M4-J4)
+  std::optional<float> uiScale;                 // --ui-scale, over the display's band
+  bool scripted;                                // --script: the M2 run's shots, as in M3-C3
+  std::optional<std::string> participant;       // --lab: the breach lab, for this participant (M3-G1)
+  std::uint64_t seed;                           // --seed, the lab's item order; by default the participant's hash
+  bool siege;                                   // --siege: the Siege trial (M4-J1)
+  std::optional<std::string> siegeParticipant;  // the word after --siege, unless it is another option
+  bool control;                                 // --control, with --siege: the control version (ADR-028)
+  bool mirror;                                  // --mirror, with --siege: the mirrored castle (M4-B6)
+  bool watch;                                   // --watch, with --siege: the scripted attacker plays the player (M4-H1)
+  std::optional<std::string> replay;            // --replay: a Siege trial's replay, played back (M4-J2)
+  bool measure;                                 // --measure, with --siege --watch: the measured run (M4-J4)
+  std::optional<Client::PlaytestGame> playtest; // --game, with --siege <id>: the playtest's game (M5-C1)
+  bool practice;                                // --practice: the playtest's practice ground (M5-C2)
+  std::optional<std::string> craters;           // --craters: the playtest's crater items, for this participant (M5-D2)
 };
 
 /// Whether the command line holds _flag as a word of its own.
@@ -202,6 +211,26 @@ std::optional<std::string> ParticipantFrom(std::wstring_view _commandLine)
   return participant;
 }
 
+/// The crater items' participant: the word after --craters, of letters, digits, - and _, or nothing without --craters.
+/// Throws std::invalid_argument when --craters has none, or one of other characters, since it names the log's file.
+std::optional<std::string> CratersParticipantFrom(std::wstring_view _commandLine)
+{
+  if (!HasFlag(_commandLine, L"--craters") && _commandLine.find(L"--craters=") == std::wstring_view::npos)
+  {
+    return std::nullopt;
+  }
+  std::string participant = OptionValue(_commandLine, L"--craters").value_or(""); // not const, so the return moves it
+  const bool named =
+    !participant.empty() &&
+    std::ranges::all_of(participant, [](char _character)
+                        { return std::isalnum(static_cast<unsigned char>(_character)) != 0 || _character == '-' || _character == '_'; });
+  if (!named || participant.starts_with('-'))
+  {
+    throw std::invalid_argument("--craters needs a participant, of letters, digits, - and _, such as --craters S03");
+  }
+  return participant;
+}
+
 /// The Siege trial's participant: the word after --siege, of letters, digits, - and _, or nothing when the word is
 /// another option or there is none. Throws std::invalid_argument for a word of other characters.
 std::optional<std::string> SiegeParticipantFrom(std::wstring_view _commandLine)
@@ -217,6 +246,31 @@ std::optional<std::string> SiegeParticipantFrom(std::wstring_view _commandLine)
     throw std::invalid_argument("--siege needs a participant of letters, digits, - and _, such as --siege P00");
   }
   return participant;
+}
+
+/// The playtest's game after --game, 1 or 2, of the participant after --siege (M5-C1), or nothing without --game. Throws
+/// std::invalid_argument for a game but 1 or 2, an id not of the playtest's form, or --control, --mirror or --watch beside
+/// it: --game picks the version and the layout from the id, and a participant plays it.
+std::optional<Client::PlaytestGame> PlaytestFrom(std::wstring_view _commandLine, const std::optional<std::string>& _participant)
+{
+  const std::optional<std::string> game = OptionValue(_commandLine, L"--game");
+  if (!game.has_value())
+  {
+    return std::nullopt;
+  }
+  if (HasFlag(_commandLine, L"--control") || HasFlag(_commandLine, L"--mirror") || HasFlag(_commandLine, L"--watch"))
+  {
+    throw std::invalid_argument("--game picks the version and the layout from the participant's id, so it takes no --control, "
+                                "--mirror or --watch");
+  }
+  const std::uint32_t number = *game == "1" ? 1 : (*game == "2" ? 2 : 0);
+  std::optional<Client::PlaytestGame> played = _participant.has_value() ? Client::PlaytestGameOf(*_participant, number) : std::nullopt;
+  if (!played.has_value())
+  {
+    throw std::invalid_argument("--game needs --siege with a participant of the form S01, N01 or X01, and a game of 1 or 2, such as "
+                                "--siege S03 --game 1");
+  }
+  return played;
 }
 
 /// The lab's item order's seed: the number after --seed, or else the participant's hash, so that each participant's
@@ -523,8 +577,10 @@ int Run(const Options& _options)
   const std::string siegeScenario = _options.replay.has_value() ? Earthrise::ReplayRun::ScenarioOf(*_options.replay)
                                     : _options.mirror           ? std::string(SIEGE_MIRROR_SCENARIO)
                                                                 : std::string(SIEGE_SCENARIO);
-  const Simulation::World::Desc desc =
-    siege ? Simulation::ScenarioDesc(serverData, siegeScenario, buildId) : Simulation::LabDesc(serverData, buildId);
+  const Simulation::World::Desc desc = _options.craters.has_value() ? Simulation::LabDesc(serverData, buildId)
+                                       : _options.practice          ? Simulation::ScenarioDesc(serverData, PRACTICE_SCENARIO, buildId)
+                                       : siege                      ? Simulation::ScenarioDesc(serverData, siegeScenario, buildId)
+                                                                    : Simulation::LabDesc(serverData, buildId);
 
   Engine::Window window({.title = TITLE, .clientWidthPixels = 1280, .clientHeightPixels = 720, .fullScreen = !_options.windowed});
   Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = false});
@@ -544,7 +600,19 @@ int Run(const Options& _options)
   // What runs: a replay with --replay (M4-J2), the Siege trial with --siege (M4-J1), the breach lab with --lab (M3-G1), or
   // the breach run live.
   std::unique_ptr<Earthrise::Run> run;
-  if (_options.replay.has_value())
+  if (_options.craters.has_value())
+  {
+    run = std::make_unique<Earthrise::Craters>(desc, Earthrise::CratersOptions{.participant = *_options.craters,
+                                                                               .seed = _options.seed,
+                                                                               .logFolder = executable.parent_path() / L"Logs",
+                                                                               .buildId = buildId,
+                                                                               .serverDataHash = serverData.Hash()});
+  }
+  else if (_options.practice)
+  {
+    run = std::make_unique<Earthrise::Practice>(desc, _options.speed);
+  }
+  else if (_options.replay.has_value())
   {
     run = std::make_unique<Earthrise::ReplayRun>(desc, *_options.replay, siegeScenario, _options.speed);
   }
@@ -555,6 +623,7 @@ int Run(const Options& _options)
                                     .control = _options.control,
                                     .mirror = _options.mirror,
                                     .watch = _options.watch,
+                                    .playtest = _options.playtest,
                                     .speed = _options.speed,
                                     .logFolder = executable.parent_path() / L"Logs",
                                     .buildId = buildId,
@@ -1058,7 +1127,9 @@ int Run(const Options& _options)
                 .integrityOn = integrityView,
                 .passabilityOn = passabilityShown,
                 .engineSelected = client.selected != Protocol::NO_ENTITY,
-                .pausePressed = keyboard.WasPressed(VK_PAUSE) || keyboard.WasPressed(VK_F10)},
+                .pausePressed = keyboard.WasPressed(VK_PAUSE) || keyboard.WasPressed(VK_F10),
+                .ramPressed = answerOpen || keyboard.WasPressed('R'),
+                .trebuchetPressed = answerShut || keyboard.WasPressed('T')},
                client.session);
     client.presentation.Place(client.session, client.tally, clock.TickFraction(), placements, hiddenVoxels, arrows, debris,
                               static_cast<float>(seconds));
@@ -1373,10 +1444,22 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
     const std::wstring_view commandLine = _commandLine != nullptr ? _commandLine : L"";
     const std::optional<std::string> uiScale = OptionValue(commandLine, L"--ui-scale");
     const std::optional<std::string> participant = ParticipantFrom(commandLine);
+    const std::optional<std::string> craters = CratersParticipantFrom(commandLine);
+    if (craters.has_value() && (participant.has_value() || HasFlag(commandLine, L"--siege") || HasFlag(commandLine, L"--practice") ||
+                                OptionValue(commandLine, L"--replay").has_value()))
+    {
+      throw std::invalid_argument("--craters is the crater items alone, with no --lab, --siege, --practice or --replay (M5-D2)");
+    }
     const std::optional<std::string> siegeParticipant = SiegeParticipantFrom(commandLine);
+    const std::optional<Client::PlaytestGame> playtest = PlaytestFrom(commandLine, siegeParticipant);
     if (HasFlag(commandLine, L"--siege") && !siegeParticipant.has_value() && !HasFlag(commandLine, L"--watch"))
     {
       throw std::invalid_argument("--siege needs a participant, such as --siege P00, or --watch"); // before any window opens
+    }
+    if (HasFlag(commandLine, L"--practice") &&
+        (HasFlag(commandLine, L"--siege") || participant.has_value() || OptionValue(commandLine, L"--replay").has_value()))
+    {
+      throw std::invalid_argument("--practice is the practice ground alone, with no --siege, --lab or --replay (M5-C2)");
     }
     if (HasFlag(commandLine, L"--measure") && !(HasFlag(commandLine, L"--siege") && HasFlag(commandLine, L"--watch")))
     {
@@ -1387,14 +1470,17 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
                 .uiScale = uiScale ? std::optional<float>(Client::UiScaleFromOption(*uiScale)) : std::nullopt,
                 .scripted = HasFlag(commandLine, L"--script"),
                 .participant = participant,
-                .seed = SeedFrom(commandLine, participant.value_or("")),
+                .seed = SeedFrom(commandLine, participant.value_or(craters.value_or(""))),
                 .siege = HasFlag(commandLine, L"--siege"),
                 .siegeParticipant = siegeParticipant,
-                .control = HasFlag(commandLine, L"--control"),
-                .mirror = HasFlag(commandLine, L"--mirror"),
+                .control = playtest.has_value() ? playtest->control : HasFlag(commandLine, L"--control"),
+                .mirror = playtest.has_value() ? playtest->mirror : HasFlag(commandLine, L"--mirror"),
                 .watch = HasFlag(commandLine, L"--watch"),
                 .replay = OptionValue(commandLine, L"--replay"),
-                .measure = HasFlag(commandLine, L"--measure")});
+                .measure = HasFlag(commandLine, L"--measure"),
+                .playtest = playtest,
+                .practice = HasFlag(commandLine, L"--practice"),
+                .craters = craters});
   }
   catch (const winrt::hresult_error& error)
   {

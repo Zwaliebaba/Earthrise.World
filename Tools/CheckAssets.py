@@ -79,7 +79,9 @@ What it checks, and how each rule is read against the files:
    of their own, a side and a commander ADR-027 names; every squad has its kind's figures, and every squad's cell and
    every machine's footprint is walkable on the levelled site, outside every structure, held by no other unit; every
    garrison names a structure it places with room for it (check 15's capacities); and its trial's keep is a T2, its
-   nearest and weak sections T3s, and its attacker and defender its players on those sides. Each value with a unit
+   nearest and weak sections T3s, and its attacker and defender its players on those sides. A scenario may hold no
+   trial, as the playtest's practice ground does (M5-C2; ADR-026, decision 1, amended), and is then no trial's, and no
+   mirror's to mirror. Each value with a unit
    converts as check 10's do. A scenario that gives mirrorOf (MvpPlan.md, M4, input 28) takes its seeds and players
    from its own source and the rest from the scenario it names, mirrored east to west about the site's centre line:
    the structures it mirrors must stand symmetric about that line, its rename table renames each structure once to a
@@ -1287,9 +1289,12 @@ class ScenarioReader:
     return True
 
   def ReadTrial(self, _scenario):
+    if "trial" not in self.data:
+      _scenario["trial"] = None  # a practice ground's: no trial (M5-C2)
+      return True
     trial = self.data.get("trial")
     if not isinstance(trial, dict):
-      self.Problem("has no trial (ADR-026, decision 4)")
+      self.Problem("its trial is not an object (ADR-026, decision 4)")
       return False
     byName = {structure["name"]: structure for structure in _scenario["structures"]}
     keep, nearest, weak = byName.get(trial.get("keep")), byName.get(trial.get("nearest")), byName.get(trial.get("weak"))
@@ -1336,6 +1341,9 @@ def ReadMirror(_report, _path, _data, _original, _machinesWidth):
   def Problem(_message):
     _report.Problem(_path, _message)
 
+  if _original["trial"] is None:
+    Problem(f"mirrors {_original['id']}, which holds no trial to mirror")
+    return None
   x0, z0, x1, z1, level = _original["site"]
   span = x0 + x1  # x maps to span - x
   rename = _data.get("rename")

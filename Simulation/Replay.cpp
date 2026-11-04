@@ -5,6 +5,7 @@
 #include "ByteReader.h"
 #include "ByteWriter.h"
 #include "Save.h"
+#include "Scenario.h"
 
 namespace Simulation
 {
@@ -162,6 +163,18 @@ ReplayResult Replay(std::span<const std::byte> _replay, const World::Desc& _desc
   {
   }
   return player.Result();
+}
+
+ReplayCheck CheckScenarioReplay(std::vector<std::byte> _replay, const ServerData& _data, std::string_view _scenarioId,
+                                std::uint64_t _buildId)
+{
+  ReplayPlayer player(std::move(_replay), ScenarioDesc(_data, _scenarioId, _buildId));
+  while (player.Step())
+  {
+  }
+  const std::optional<TrialRules>& trial = player.Played().Trial();
+  return {.result = player.Result(),
+          .outcome = trial.has_value() ? player.Played().State(trial->attacker).trial.outcome : Protocol::TrialOutcome::Running};
 }
 
 } // namespace Simulation

@@ -8,6 +8,7 @@
 #include "Integrity.h"
 #include "NavigationGrid.h"
 #include "PathSearch.h"
+#include "Replay.h"
 #include "Save.h"
 #include "Scenario.h"
 #include "FirePattern.h"
@@ -884,6 +885,116 @@ int Run(const std::filesystem::path& _executable)
   return 0;
 }
 
+/// A log's comment lines, `# key: value`, as a map: what a replay beside it was written from (M4-J2's head).
+std::map<std::string, std::string> LogHead(const std::filesystem::path& _log)
+{
+  std::map<std::string, std::string> head;
+  std::ifstream input(_log, std::ios::binary);
+  std::string line;
+  while (std::getline(input, line) && line.starts_with('#'))
+  {
+    if (!line.empty() && line.back() == '\r')
+    {
+      line.pop_back();
+    }
+    const std::size_t colon = line.find(':');
+    if (colon != std::string::npos && colon >= 2)
+    {
+      head.emplace(line.substr(2, colon - 2), colon + 2 <= line.size() ? line.substr(colon + 2) : std::string());
+    }
+  }
+  return head;
+}
+
+std::vector<std::byte> ReadBytes(const std::filesystem::path& _file)
+{
+  std::ifstream input(_file, std::ios::binary);
+  const std::vector<char> raw{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+  const std::span<const std::byte> bytes = std::as_bytes(std::span(raw));
+  return {bytes.begin(), bytes.end()};
+}
+
+std::string_view OutcomeName(Protocol::TrialOutcome _outcome) noexcept
+{
+  switch (_outcome)
+  {
+  case Protocol::TrialOutcome::Won:
+    return "won";
+  case Protocol::TrialOutcome::LostToClock:
+    return "lost to the clock";
+  case Protocol::TrialOutcome::LostArmy:
+    return "lost by the army";
+  case Protocol::TrialOutcome::Running:
+    break;
+  }
+  return "no outcome";
+}
+
+/// SimulationBench --check-replays <folder> (M5-B3; MvpPlan-M5.md): every replay in _folder played headless and every
+/// recorded hash compared, each from the scenario, the build id and the server-data hash the log beside it names. The bench
+/// is another executable, so its own build id never matches Earthrise's: it takes the log's, which is sound only when the
+/// two were built from one commit, the playtest's frozen one (GameDesign.md, M5's values, item 15). Exits 1 when a replay
+/// does not match, cannot be loaded, or was written with other server data, or when the folder holds none.
+int CheckReplays(const std::filesystem::path& _executable, const std::filesystem::path& _folder)
+{
+  const Simulation::ServerData data = Simulation::ServerData::Load(_executable.parent_path() / "ServerData" / "ServerData.bin");
+  const std::string dataHash = std::format("{:016x}", data.Hash());
+  std::vector<std::filesystem::path> replays;
+  for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(_folder))
+  {
+    if (entry.path().extension() == ".errp")
+    {
+      replays.push_back(entry.path());
+    }
+  }
+  std::ranges::sort(replays);
+  if (replays.empty())
+  {
+    std::println(stderr, "SimulationBench: no replay in {}", _folder.string());
+    return 1;
+  }
+  std::size_t matched = 0;
+  for (const std::filesystem::path& replay : replays)
+  {
+    std::filesystem::path log = replay;
+    log.replace_extension(".csv");
+    const std::map<std::string, std::string> head = LogHead(log);
+    const auto scenario = head.find("scenario");
+    const auto build = head.find("build id");
+    const auto hash = head.find("server-data hash");
+    if (scenario == head.end() || build == head.end() || hash == head.end())
+    {
+      std::println("{}: its log names no scenario, build id or server-data hash", replay.filename().string());
+      continue;
+    }
+    if (hash->second != dataHash)
+    {
+      std::println("{}: written with server data {}, not this bench's {}", replay.filename().string(), hash->second, dataHash);
+      continue;
+    }
+    try
+    {
+      const Simulation::ReplayCheck check =
+        Simulation::CheckScenarioReplay(ReadBytes(replay), data, scenario->second, std::stoull(build->second, nullptr, 16));
+      if (check.result.matched)
+      {
+        ++matched;
+        std::println("{}: matched, {} ticks, {}", replay.filename().string(), check.result.ticksReplayed, OutcomeName(check.outcome));
+      }
+      else
+      {
+        std::println("{}: differs at tick {}", replay.filename().string(), check.result.firstDifferingTick.value_or(0));
+      }
+    }
+    catch (const std::exception& error) // a start LoadSave refuses, or a log's build id that is not a number
+    {
+      std::println("{}: not replayed, {}", replay.filename().string(), error.what());
+    }
+  }
+  std::println("{} of {} replays matched", matched, replays.size());
+  return matched == replays.size() ? 0 : 1;
+}
+
 } // namespace
 
 int wmain(int _argumentCount, wchar_t** _arguments)
@@ -901,7 +1012,8 @@ int wmain(int _argumentCount, wchar_t** _arguments)
     // SimulationBench --breach-run [file.csv] times the breach run (M2-G2), --integrity the integrity
     // reading on it (M3-B5), --lab-items the breach lab's items (M3-B7), --siege [--control] plays the Siege trial out with
     // the scripted attacker and times it (M4-F5), and --calibrate-control <Structures.json> calibrates the control's hit
-    // points into that file (M4-F5); without any, the M1 measurements and the navigation's run.
+    // points into that file (M4-F5), and --check-replays <folder> replays every trial run in a folder headless (M5-B3); without
+    // any, the M1 measurements and the navigation's run.
     const std::span<wchar_t*> arguments(_arguments, static_cast<std::size_t>(_argumentCount));
     if (arguments.size() >= 2 && std::wstring_view(arguments[1]) == L"--breach-run")
     {
@@ -918,6 +1030,10 @@ int wmain(int _argumentCount, wchar_t** _arguments)
     if (arguments.size() >= 2 && std::wstring_view(arguments[1]) == L"--siege")
     {
       return RunSiegeTrial(executable, arguments.size() >= 3 && std::wstring_view(arguments[2]) == L"--control");
+    }
+    if (arguments.size() >= 3 && std::wstring_view(arguments[1]) == L"--check-replays")
+    {
+      return CheckReplays(executable, std::filesystem::path(arguments[2]));
     }
     if (arguments.size() >= 3 && std::wstring_view(arguments[1]) == L"--calibrate-control")
     {
