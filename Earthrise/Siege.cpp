@@ -112,7 +112,8 @@ Siege::Siege(const Simulation::World::Desc& _desc, const SiegeOptions& _options)
                                                          .widthPixels = _options.widthPixels,
                                                          .heightPixels = _options.heightPixels,
                                                          .uiScale = _options.uiScale,
-                                                         .startTime = std::format("{:%Y-%m-%d %H:%M:%S} UTC", now)}))
+                                                         .startTime = std::format("{:%Y-%m-%d %H:%M:%S} UTC", now),
+                                                         .playtest = _options.playtest}))
   {
     m_logFile << line << '\n';
   }

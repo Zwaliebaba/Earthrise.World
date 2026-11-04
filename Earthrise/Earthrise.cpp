@@ -109,17 +109,18 @@ struct Options
 {
   bool windowed;
   double speed;
-  std::optional<float> uiScale;                // --ui-scale, over the display's band
-  bool scripted;                               // --script: the M2 run's shots, as in M3-C3
-  std::optional<std::string> participant;      // --lab: the breach lab, for this participant (M3-G1)
-  std::uint64_t seed;                          // --seed, the lab's item order; by default the participant's hash
-  bool siege;                                  // --siege: the Siege trial (M4-J1)
-  std::optional<std::string> siegeParticipant; // the word after --siege, unless it is another option
-  bool control;                                // --control, with --siege: the control version (ADR-028)
-  bool mirror;                                 // --mirror, with --siege: the mirrored castle (M4-B6)
-  bool watch;                                  // --watch, with --siege: the scripted attacker plays the player (M4-H1)
-  std::optional<std::string> replay;           // --replay: a Siege trial's replay, played back (M4-J2)
-  bool measure;                                // --measure, with --siege --watch: the measured run (M4-J4)
+  std::optional<float> uiScale;                 // --ui-scale, over the display's band
+  bool scripted;                                // --script: the M2 run's shots, as in M3-C3
+  std::optional<std::string> participant;       // --lab: the breach lab, for this participant (M3-G1)
+  std::uint64_t seed;                           // --seed, the lab's item order; by default the participant's hash
+  bool siege;                                   // --siege: the Siege trial (M4-J1)
+  std::optional<std::string> siegeParticipant;  // the word after --siege, unless it is another option
+  bool control;                                 // --control, with --siege: the control version (ADR-028)
+  bool mirror;                                  // --mirror, with --siege: the mirrored castle (M4-B6)
+  bool watch;                                   // --watch, with --siege: the scripted attacker plays the player (M4-H1)
+  std::optional<std::string> replay;            // --replay: a Siege trial's replay, played back (M4-J2)
+  bool measure;                                 // --measure, with --siege --watch: the measured run (M4-J4)
+  std::optional<Client::PlaytestGame> playtest; // --game, with --siege <id>: the playtest's game (M5-C1)
 };
 
 /// Whether the command line holds _flag as a word of its own.
@@ -217,6 +218,31 @@ std::optional<std::string> SiegeParticipantFrom(std::wstring_view _commandLine)
     throw std::invalid_argument("--siege needs a participant of letters, digits, - and _, such as --siege P00");
   }
   return participant;
+}
+
+/// The playtest's game after --game, 1 or 2, of the participant after --siege (M5-C1), or nothing without --game. Throws
+/// std::invalid_argument for a game but 1 or 2, an id not of the playtest's form, or --control, --mirror or --watch beside
+/// it: --game picks the version and the layout from the id, and a participant plays it.
+std::optional<Client::PlaytestGame> PlaytestFrom(std::wstring_view _commandLine, const std::optional<std::string>& _participant)
+{
+  const std::optional<std::string> game = OptionValue(_commandLine, L"--game");
+  if (!game.has_value())
+  {
+    return std::nullopt;
+  }
+  if (HasFlag(_commandLine, L"--control") || HasFlag(_commandLine, L"--mirror") || HasFlag(_commandLine, L"--watch"))
+  {
+    throw std::invalid_argument("--game picks the version and the layout from the participant's id, so it takes no --control, "
+                                "--mirror or --watch");
+  }
+  const std::uint32_t number = *game == "1" ? 1 : (*game == "2" ? 2 : 0);
+  std::optional<Client::PlaytestGame> played = _participant.has_value() ? Client::PlaytestGameOf(*_participant, number) : std::nullopt;
+  if (!played.has_value())
+  {
+    throw std::invalid_argument("--game needs --siege with a participant of the form S01, N01 or X01, and a game of 1 or 2, such as "
+                                "--siege S03 --game 1");
+  }
+  return played;
 }
 
 /// The lab's item order's seed: the number after --seed, or else the participant's hash, so that each participant's
@@ -555,6 +581,7 @@ int Run(const Options& _options)
                                     .control = _options.control,
                                     .mirror = _options.mirror,
                                     .watch = _options.watch,
+                                    .playtest = _options.playtest,
                                     .speed = _options.speed,
                                     .logFolder = executable.parent_path() / L"Logs",
                                     .buildId = buildId,
@@ -1374,6 +1401,7 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
     const std::optional<std::string> uiScale = OptionValue(commandLine, L"--ui-scale");
     const std::optional<std::string> participant = ParticipantFrom(commandLine);
     const std::optional<std::string> siegeParticipant = SiegeParticipantFrom(commandLine);
+    const std::optional<Client::PlaytestGame> playtest = PlaytestFrom(commandLine, siegeParticipant);
     if (HasFlag(commandLine, L"--siege") && !siegeParticipant.has_value() && !HasFlag(commandLine, L"--watch"))
     {
       throw std::invalid_argument("--siege needs a participant, such as --siege P00, or --watch"); // before any window opens
@@ -1390,11 +1418,12 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
                 .seed = SeedFrom(commandLine, participant.value_or("")),
                 .siege = HasFlag(commandLine, L"--siege"),
                 .siegeParticipant = siegeParticipant,
-                .control = HasFlag(commandLine, L"--control"),
-                .mirror = HasFlag(commandLine, L"--mirror"),
+                .control = playtest.has_value() ? playtest->control : HasFlag(commandLine, L"--control"),
+                .mirror = playtest.has_value() ? playtest->mirror : HasFlag(commandLine, L"--mirror"),
                 .watch = HasFlag(commandLine, L"--watch"),
                 .replay = OptionValue(commandLine, L"--replay"),
-                .measure = HasFlag(commandLine, L"--measure")});
+                .measure = HasFlag(commandLine, L"--measure"),
+                .playtest = playtest});
   }
   catch (const winrt::hresult_error& error)
   {

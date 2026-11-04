@@ -57,18 +57,25 @@ std::string SiegeLog::FileStem(std::string_view _participant, bool _control, std
 
 std::vector<std::string> SiegeLog::Head(const SiegeLogHeader& _header)
 {
-  return {std::format("# participant: {}", _header.participant),
-          std::format("# version: {}", _header.control ? "control" : "voxel"),
-          std::format("# build id: {:016x}", _header.buildId),
-          std::format("# server-data hash: {:016x}", _header.serverDataHash),
-          std::format("# scenario: {}", _header.scenario),
-          std::format("# nearest: {}", _header.nearest),
-          std::format("# weak: {}", _header.weak),
-          std::format("# gate: {}", _header.gate),
-          std::format("# display: {} x {}", _header.widthPixels, _header.heightPixels),
-          std::format("# ui scale: {}", _header.uiScale),
-          std::format("# start time: {}", _header.startTime),
-          Row({"kind", "tick", "a", "b", "c", "d", "e"})};
+  std::vector<std::string> head = {std::format("# participant: {}", _header.participant),
+                                   std::format("# version: {}", _header.control ? "control" : "voxel"),
+                                   std::format("# build id: {:016x}", _header.buildId),
+                                   std::format("# server-data hash: {:016x}", _header.serverDataHash),
+                                   std::format("# scenario: {}", _header.scenario),
+                                   std::format("# nearest: {}", _header.nearest),
+                                   std::format("# weak: {}", _header.weak),
+                                   std::format("# gate: {}", _header.gate),
+                                   std::format("# display: {} x {}", _header.widthPixels, _header.heightPixels),
+                                   std::format("# ui scale: {}", _header.uiScale),
+                                   std::format("# start time: {}", _header.startTime)};
+  if (_header.playtest.has_value())
+  {
+    head.push_back(std::format("# game: {}", _header.playtest->game));
+    head.push_back(std::format("# cell: {}", _header.playtest->cell));
+    head.push_back(std::format("# group: {}", _header.playtest->group));
+  }
+  head.push_back(Row({"kind", "tick", "a", "b", "c", "d", "e"}));
+  return head;
 }
 
 std::string SiegeLog::Row(std::initializer_list<std::string_view> _fields)

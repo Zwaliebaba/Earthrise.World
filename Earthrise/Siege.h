@@ -25,6 +25,8 @@ struct SiegeOptions
   bool control;                           // --control: the control version (ADR-028)
   bool mirror;                            // --mirror: SiegeMirror, its weak section on the west (input 28)
   bool watch;                             // --watch: the scripted attacker plays the player, for the owner's checks and J4
+  /// --game: the playtest's game, whose version and layout control and mirror already hold (M5-C1).
+  std::optional<Client::PlaytestGame> playtest;
   double speed;
   // The trial's log and its replay (M4-J2), in this folder, and what its comment lines record.
   std::filesystem::path logFolder;

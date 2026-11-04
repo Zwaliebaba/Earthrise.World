@@ -3,6 +3,7 @@
 #include "CommandLog.h"
 #include "DeckCoverage.h"
 #include "EntityKinds.h"
+#include "PlaytestGame.h"
 #include "ChunkCoordinate.h"
 
 #include <cstddef>
@@ -41,6 +42,8 @@ struct SiegeLogHeader
   std::uint32_t heightPixels;
   float uiScale;
   std::string startTime; // yyyy-mm-dd hh:mm:ss, local
+  /// Under --game, the playtest's game, written as the game, cell and group lines (M5-C1; MvpPlan-M5.md, *The trial's log*).
+  std::optional<PlaytestGame> playtest = std::nullopt;
 };
 
 /// The Siege trial's log (MvpPlan-M4.md, *The trial's log*; ADR-026, decisions 5 and 6; M4-J2), as rows: Earthrise hands

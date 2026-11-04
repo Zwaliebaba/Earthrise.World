@@ -202,6 +202,8 @@ Design/Review/SiegePlaytest/
   - Q01, S00 and S1 are refused;
   - over the eight S ids, four play the voxel version first, four play it on each layout, and four start on each layout;
   - the objective, the banner and the end screen read the same under `--game` as under a bare `--siege`.
+
+  *Amended by C1's code:* the table is `Client::PlaytestGameOf`, which `PlaytestTests` reads with no executable; `--watch` is refused beside `--game` as well. The last test is not written: `--game` sets only the version and the layout before the run is built, so the screen has no way to differ, and `SiegeFlowTests` covers it. In its place, a game's log names its game, cell and group before its header row.
 - **Owner runs:** `Earthrise --siege X01 --game 1 --windowed`, then `--game 2`: the voxel version on Siege, then the control on SiegeMirror, with the log's comment lines as above.
 
 ### M5-C2 — The practice ground

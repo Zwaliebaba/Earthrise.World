@@ -264,6 +264,12 @@
     <ClCompile Include="SiegeLog.cpp">
       <Filter>Siege</Filter>
     </ClCompile>
+    <ClInclude Include="PlaytestGame.h">
+      <Filter>Siege</Filter>
+    </ClInclude>
+    <ClCompile Include="PlaytestGame.cpp">
+      <Filter>Siege</Filter>
+    </ClCompile>
     <ClInclude Include="DeckCoverage.h">
       <Filter>Siege</Filter>
     </ClInclude>
