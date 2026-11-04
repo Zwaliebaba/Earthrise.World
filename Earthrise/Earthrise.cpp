@@ -1351,16 +1351,30 @@ int Run(const Options& _options)
     {
       hud.LayCursor(*cursor, pointer.XPixels(), pointer.YPixels(), uiScale, interfaceQuads);
     }
-    // The world overlays (ADR-021): the views, the outline of the engine under the pointer and the selected one (M3-H3),
-    // then FIRE's strike mark and the run's marks.
+    // The world overlays (ADR-021): the views, the outline of the engine under the pointer and of each selected one
+    // (M3-H3; M5-G1) and the cell under each selected figure (M5-G1), then FIRE's strike mark and the run's marks.
     std::vector<Client::OverlayLayer> overlays = client.views.Layers(client.session, seconds, integrityView);
     overlays.push_back(client.views.PassabilityLayer(client.session, passabilityShown));
     Client::OverlayLayer outlines{.alpha = Client::OUTLINE_ALPHA, .boxes = {}};
+    const std::vector<Protocol::EntityId> selectedEngines =
+      selectionAllowed ? Client::Selector::Engines(client.selection, client.session.State()) : std::vector<Protocol::EntityId>{};
     for (const Client::EngineBox& box : engineBoxes)
     {
-      if (box.engine == hoveredEngine || box.engine == client.selected)
+      if (box.engine == hoveredEngine || box.engine == client.selected ||
+          std::ranges::find(selectedEngines, box.engine) != selectedEngines.end())
       {
         std::ranges::copy(Client::WorldPicker::Outline(box, Client::OVERLAY_ACCENT_INDEX), std::back_inserter(outlines.boxes));
+      }
+    }
+    if (selectionAllowed)
+    {
+      // A figure's cell can be in an engine's ring, and a box drawn twice in one layer would tint twice.
+      for (const Client::OverlayBox& mark : Client::Selector::Marks(client.selection, client.session.State(), Client::OVERLAY_ACCENT_INDEX))
+      {
+        if (std::ranges::find(outlines.boxes, mark.cellVoxels, &Client::OverlayBox::cellVoxels) == outlines.boxes.end())
+        {
+          outlines.boxes.push_back(mark);
+        }
       }
     }
     overlays.push_back(std::move(outlines));

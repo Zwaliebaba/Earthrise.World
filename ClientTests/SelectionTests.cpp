@@ -183,6 +183,71 @@ public:
     Assert::AreEqual(std::size_t{1}, selection.squads.size());
     Assert::IsTrue(selection.activeKind == Protocol::UnitKind::Archer);
   }
+
+  TEST_METHOD(ASelectedSquadIsMarkedByTheGroundUnderEachFigure)
+  {
+    constexpr std::uint8_t MARK_INDEX = 245;
+    Protocol::StateUpdate state = Field();
+    const std::array<std::pair<std::int32_t, std::int32_t>, 6> ranks = {{{60, 60}, {61, 60}, {62, 60}, {60, 61}, {61, 61}, {62, 61}}};
+    AddSquad(state, 5, Protocol::UnitKind::ManAtArms, ME, ranks);
+    Client::Selection selection;
+    const std::array<Protocol::EntityId, 1> picked = {5};
+    Client::Selector::Select(selection, state, picked, false);
+    const std::vector<Client::OverlayBox> marks = Client::Selector::Marks(selection, state, MARK_INDEX);
+    Assert::AreEqual(ranks.size(), marks.size());
+    for (const auto& [x, z] : ranks)
+    {
+      const Protocol::VoxelPosition ground{.xVoxels = x, .yVoxels = GROUND - 1, .zVoxels = z};
+      Assert::IsTrue(std::ranges::find(marks, ground, &Client::OverlayBox::cellVoxels) != marks.end());
+    }
+    Assert::IsTrue(std::ranges::all_of(marks, [](const Client::OverlayBox& _mark) { return _mark.paletteIndex == MARK_INDEX; }));
+    // Squads 1 to 4 are not selected, so nothing marks their figures.
+    Assert::IsTrue(std::ranges::none_of(marks, [](const Client::OverlayBox& _mark) { return _mark.cellVoxels.xVoxels < 60; }));
+  }
+
+  TEST_METHOD(AnEnginesBodyAndAGarrisonedSquadAreNotMarked)
+  {
+    Protocol::StateUpdate state = Field();
+    const std::array<std::pair<std::int32_t, std::int32_t>, 1> ram = {{{50, 50}}};
+    const std::array<std::pair<std::int32_t, std::int32_t>, 1> trebuchet = {{{55, 50}}};
+    AddSquad(state, 5, Protocol::UnitKind::Ram, ME, ram);
+    AddSquad(state, 6, Protocol::UnitKind::Trebuchet, ME, trebuchet);
+    // The archers in a tower, their figures left in the update, so that the test reads the garrison and not the figures.
+    Client::Selection selection;
+    selection.squads = {3, 5, 6};
+    state.squads.at(2).garrisonedIn = 70;
+    Assert::IsTrue(Client::Selector::Marks(selection, state, 245).empty());
+  }
+
+  TEST_METHOD(EverySelectedEngineIsOutlinedWhicheverKindIsActive)
+  {
+    Protocol::StateUpdate state = Field();
+    const std::array<std::pair<std::int32_t, std::int32_t>, 1> ram = {{{50, 50}}};
+    const std::array<std::pair<std::int32_t, std::int32_t>, 1> trebuchet = {{{55, 50}}};
+    const std::array<std::pair<std::int32_t, std::int32_t>, 1> other = {{{70, 50}}};
+    AddSquad(state, 5, Protocol::UnitKind::Ram, ME, ram);
+    AddSquad(state, 6, Protocol::UnitKind::Trebuchet, ME, trebuchet);
+    AddSquad(state, 7, Protocol::UnitKind::Ram, ME, other);
+    const auto engine = [](Protocol::EntityId _id, Protocol::EngineKind _kind, Protocol::EntityId _squad)
+    {
+      return Protocol::EngineView{
+        .id = _id, .owner = ME, .kind = _kind, .cellVoxels = {}, .quarterTurns = 0, .reloadTicks = 0, .state = {}, .squad = _squad};
+    };
+    state.engines.push_back(engine(50, Protocol::EngineKind::Ram, 5));
+    state.engines.push_back(engine(60, Protocol::EngineKind::Trebuchet, 6));
+    state.engines.push_back(engine(70, Protocol::EngineKind::Ram, 7));
+    Client::Selection selection;
+    const std::array<Protocol::EntityId, 3> picked = {1, 5, 6};
+    Client::Selector::Select(selection, state, picked, false);
+    for (const Protocol::UnitKind active : {Protocol::UnitKind::Trebuchet, Protocol::UnitKind::Ram, Protocol::UnitKind::Spearman})
+    {
+      selection.activeKind = active;
+      const std::vector<Protocol::EntityId> outlined = Client::Selector::Engines(selection, state);
+      Assert::AreEqual(std::size_t{2}, outlined.size());
+      Assert::IsTrue(std::ranges::find(outlined, Protocol::EntityId{50}) != outlined.end());
+      Assert::IsTrue(std::ranges::find(outlined, Protocol::EntityId{60}) != outlined.end());
+    }
+  }
 };
 
 } // namespace ClientTests

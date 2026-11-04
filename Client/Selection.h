@@ -4,6 +4,7 @@
 
 #include "EntityId.h"
 #include "EntityKinds.h"
+#include "OverlayBox.h"
 #include "StateUpdate.h"
 #include "VoxelPick.h"
 
@@ -71,6 +72,16 @@ public:
 
   /// The kinds the selection's squads are, in KIND_ORDER, each once.
   [[nodiscard]] static std::vector<Protocol::UnitKind> Kinds(const Selection& _selection, const Protocol::StateUpdate& _state);
+
+  /// The selection's marks in the world (GameDesign.md, *the first run of M5's games*, item 3; M5-G1): the ground voxel
+  /// under each figure of each selected squad, the one below its cell, in _paletteIndex, each cell once. An engine's
+  /// body is outlined instead (Engines), and a garrisoned squad's figures are in no cell.
+  [[nodiscard]] static std::vector<OverlayBox> Marks(const Selection& _selection, const Protocol::StateUpdate& _state,
+                                                     std::uint8_t _paletteIndex);
+
+  /// The engines whose bodies' squads the selection holds, the ram's as the trebuchet's, whichever kind is active, which
+  /// are outlined as the one under the pointer is (Hud.md §5; M5-G1).
+  [[nodiscard]] static std::vector<Protocol::EntityId> Engines(const Selection& _selection, const Protocol::StateUpdate& _state);
 
   /// Where _point lands on a target _widthPixels by _heightPixels drawn with _viewProjection, for row vectors, or nothing
   /// behind the camera.
