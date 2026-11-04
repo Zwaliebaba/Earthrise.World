@@ -86,7 +86,7 @@ struct ScenarioTrial
 };
 
 /// One scenario: its seeds, the site it owns and levels, its ground and earthworks, its structures, its players, its
-/// armies and its trial.
+/// armies and its trial, which a practice ground has none of (M5-C2; ADR-026, decision 1, amended).
 struct Scenario
 {
   std::string id;
@@ -105,7 +105,7 @@ struct Scenario
   std::vector<ScenarioSquad> squads;
   std::vector<ScenarioEngine> engines;
   std::vector<ScenarioGarrison> garrisons;
-  ScenarioTrial trial;
+  std::optional<ScenarioTrial> trial;
 };
 
 /// Reads one scenario in SCEN's layout (Tools/BakeContent.py). Throws std::out_of_range when the bytes end first and

@@ -154,9 +154,10 @@ class ServerBakeTests(unittest.TestCase):
     clientHash = int(re.search(r"SHARED_HASH = 0x([0-9a-f]{16})ULL", header).group(1), 16)
     self.assertEqual(clientHash, self.file.sharedHash)
 
-  def test_the_sections_come_in_order_at_version_one(self):
+  def test_the_sections_come_in_order_at_their_versions(self):
+    # Every section at version 1 but SCEN, at 2 since a scenario may hold no trial (M5-C2).
     self.assertEqual(["MATL", "TMPL", "RULE", "UNIT", "STRC", "SCEN"], list(self.file.sections))
-    self.assertEqual({"MATL": 1, "TMPL": 1, "RULE": 1, "UNIT": 1, "STRC": 1, "SCEN": 1}, self.file.versions)
+    self.assertEqual({"MATL": 1, "TMPL": 1, "RULE": 1, "UNIT": 1, "STRC": 1, "SCEN": 2}, self.file.versions)
     self.assertEqual(256 * 6, len(self.file.sections["MATL"]))
 
   def test_a_second_bake_leaves_the_file_untouched(self):
@@ -281,10 +282,10 @@ class ServerBakeTests(unittest.TestCase):
 
   # ── SCEN ────────────────────────────────────────────────────────────────────────────────────────
 
-  def test_the_siege_castle_bakes_as_the_scenarios(self):
+  def test_the_scenarios_bake_in_ascending_id(self):
     count, first = self.file.ScenarioIds()
-    self.assertEqual("Siege", first)
-    self.assertEqual(2, count)  # Siege and its mirror, which the bake writes whole (M4-B6)
+    self.assertEqual("Practice", first)  # the playtest's practice ground (M5-C2), then the castle and its mirror
+    self.assertEqual(3, count)  # Practice, Siege, and Siege's mirror, which the bake writes whole (M4-B6)
 
   def test_a_scenario_round_trips_through_its_encoding(self):
     report = CheckAssets.Report(ROOT)
@@ -295,17 +296,34 @@ class ServerBakeTests(unittest.TestCase):
     scenarios = CheckAssets.ReadScenarios(report, ROOT, palette, units, structures, rules)
     self.assertEqual([], report.problems)
     self.assertEqual(self.file.sections["SCEN"], BakeContent.ServerScenarios(scenarios))
-    siege = scenarios[0]
+    byId = {scenario["id"]: scenario for scenario in scenarios}
+    self.assertEqual(["Practice", "Siege", "SiegeMirror"], [scenario["id"] for scenario in scenarios])
+    siege = byId["Siege"]
     self.assertEqual((240, 182, 439, 381, 9), siege["site"])
     self.assertEqual(4, next(s for s in siege["structures"] if s["name"] == "E3")["foundationDepthVoxels"])
     self.assertEqual({"version": 0, "attacker": 1, "defender": 2, "keep": "KEEP", "timeLimitTicks": 48000, "holdTicks": 2400,
                       "ringCells": 3, "campMin": (325, 9, 192), "campMax": (355, 9, 212), "nearest": "S3", "weak": "E3"}, siege["trial"])
     self.assertEqual(12000, siege["players"][0]["stone"])
-    mirror = scenarios[1]
-    self.assertEqual("SiegeMirror", mirror["id"])
+    mirror = byId["SiegeMirror"]
     self.assertEqual(("S2", "W3"), (mirror["trial"]["nearest"], mirror["trial"]["weak"]))
     self.assertEqual(4, next(s for s in mirror["structures"] if s["name"] == "W3")["foundationDepthVoxels"])
     self.assertEqual(siege["seeds"], mirror["seeds"])
+    # The practice ground holds no trial and no structure, on the castle's map, with the Siege camp's army (M5-C2).
+    practice = byId["Practice"]
+    self.assertIsNone(practice["trial"])
+    self.assertEqual([], practice["structures"])
+    self.assertEqual(siege["seeds"], practice["seeds"])
+    self.assertEqual([squad for squad in siege["squads"] if squad["owner"] == 1], practice["squads"])
+    self.assertEqual([engine for engine in siege["engines"] if engine["owner"] == 1], practice["engines"])
+    self.assertEqual([1], [player["id"] for player in practice["players"]])
+
+  def test_a_scenario_with_no_trial_ends_in_a_zero_byte(self):
+    # SCEN at version 2: a byte before the trial, 0 when there is none (M5-C2).
+    practice = {"id": "P", "seeds": (1, 2, 3), "site": (0, 0, 9, 9, 9), "ground": [], "structures": [], "earthworks": [],
+                "players": [], "squads": [], "engines": [], "garrisons": [], "trial": None}
+    encoded = BakeContent.ServerScenarios([practice])
+    self.assertEqual(0, encoded[-1])
+    self.assertEqual(2, BakeContent.SECTION_VERSIONS["SCEN"])
 
   def test_a_span_that_is_not_a_whole_number_of_voxels_fails(self):
     with tempfile.TemporaryDirectory() as folder:

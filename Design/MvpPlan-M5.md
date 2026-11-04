@@ -216,6 +216,12 @@ Design/Review/SiegePlaytest/
   - `Tools/TestCheckAssets.py`: a scenario with no `trial` passes check 16, and one whose site overlaps the Siege castle's fails it;
   - `Tools/TestBakeContent.py`: `Practice` bakes;
   - **`PracticeTests`** (`SimulationTests`): `Practice` loads twice to one state hash, and holds no structure.
+- *Amended by C2's code:*
+  - **The site** is the southern strip of the castle's own site, z 182 to 262, where its camp stands. A scenario loads into a world of its own, so neither the castle nor the ground its scenario authors is there, and the test of a site overlapping the castle's is not written.
+  - **SCEN is at version 2,** with a byte before each trial; the other sections stay at 1, each checked against its own version. Check 16 also refuses a mirror of a scenario with no trial.
+  - **The objective** reads `PRACTICE · NOTHING HERE COUNTS`, and **the facilitator closes the window to end it**, since Esc already cancels a mode and clears the selection. The resources are STONE and ARMY, the trial's without its TIME.
+  - **`--practice` is refused** beside `--siege`, `--lab` or `--replay`.
+  - **`PracticeTests` also holds** the Siege camp's army, one attacker's player, and a hundred ticks with no outcome.
 - **Owner runs:** `Earthrise --practice --windowed`. Every command a game uses can be tried: move, the squads' orders, control groups, deploy and pack, FIRE at the ground, TRENCH on open ground, pause.
 
 ### M5-C3 — The reason prompt

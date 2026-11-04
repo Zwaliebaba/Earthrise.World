@@ -26,6 +26,9 @@ inline constexpr std::string_view SIEGE_OBJECTIVE_TITLE = "TAKE THE KEEP"; // th
 // While the storming clock runs (M4-J1; Hud.md §10): the clock and what it needs, each m:ss.
 inline constexpr std::string_view HOLD_OBJECTIVE_TITLE = "HOLD THE KEEP'S FOOT";
 inline constexpr std::string_view HOLD_OBJECTIVE_DETAIL = "{}:{:02} / {}:{:02}";
+// The playtest's practice ground (M5-C2): no trial runs, and nothing done there is recorded.
+inline constexpr std::string_view PRACTICE_OBJECTIVE_TITLE = "PRACTICE";
+inline constexpr std::string_view PRACTICE_OBJECTIVE_DETAIL = "NOTHING HERE COUNTS";
 // The Siege trial's resources (Hud.md §10): the stockpile in m³ to a tenth, the army's figures and engines, and the
 // time limit's m:ss left as TIME_KEY and TIME_VALUE.
 inline constexpr std::string_view STONE_KEY = "STONE";
@@ -300,6 +303,8 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      SIEGE_OBJECTIVE_TITLE,
                                                                      HOLD_OBJECTIVE_TITLE,
                                                                      HOLD_OBJECTIVE_DETAIL,
+                                                                     PRACTICE_OBJECTIVE_TITLE,
+                                                                     PRACTICE_OBJECTIVE_DETAIL,
                                                                      STONE_KEY,
                                                                      STONE_VALUE,
                                                                      ARMY_KEY,

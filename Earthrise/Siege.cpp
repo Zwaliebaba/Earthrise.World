@@ -59,7 +59,7 @@ Siege::Siege(const Simulation::World::Desc& _desc, const SiegeOptions& _options)
   }
   const std::optional<Simulation::TrialRules>& trial = m_world.Trial();
   const Simulation::Scenario* scenario = m_world.Data().FindScenario(scenarioId);
-  if (!trial.has_value() || scenario == nullptr)
+  if (!trial.has_value() || scenario == nullptr || !scenario->trial.has_value())
   {
     throw std::runtime_error("the Siege scenario holds no trial");
   }
@@ -74,8 +74,8 @@ Siege::Siege(const Simulation::World::Desc& _desc, const SiegeOptions& _options)
   // The keep's foot, south of its forebuilding, which the bailey's walls close until a breach.
   m_goal = {.xVoxels = m_keepMiddle.xVoxels, .yVoxels = keep.originVoxels.yVoxels, .zVoxels = keep.originVoxels.zVoxels - 2};
   // The camp's middle, where the camera starts.
-  const Protocol::VoxelPosition& low = scenario->trial.campMinVoxels;
-  const Protocol::VoxelPosition& high = scenario->trial.campMaxVoxels;
+  const Protocol::VoxelPosition& low = scenario->trial->campMinVoxels;
+  const Protocol::VoxelPosition& high = scenario->trial->campMaxVoxels;
   m_camp = {.xVoxels = (low.xVoxels + high.xVoxels) / 2, .yVoxels = low.yVoxels, .zVoxels = (low.zVoxels + high.zVoxels) / 2};
   m_objective = {.title = std::string(Client::SIEGE_OBJECTIVE_TITLE), .detail = {}, .detailOff = false, .progress = std::nullopt};
 
@@ -106,8 +106,8 @@ Siege::Siege(const Simulation::World::Desc& _desc, const SiegeOptions& _options)
                                                          .buildId = _options.buildId,
                                                          .serverDataHash = _options.serverDataHash,
                                                          .scenario = std::string(scenarioId),
-                                                         .nearest = scenario->trial.nearest,
-                                                         .weak = scenario->trial.weak,
+                                                         .nearest = scenario->trial->nearest,
+                                                         .weak = scenario->trial->weak,
                                                          .gate = gate,
                                                          .widthPixels = _options.widthPixels,
                                                          .heightPixels = _options.heightPixels,

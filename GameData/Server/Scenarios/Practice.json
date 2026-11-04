@@ -1,0 +1,212 @@
+{
+ "note": "The Siege playtest's practice ground (M5-C2; MvpPlan-M5.md, The session, step 3; GameDesign.md, M5's values, item 7): five minutes before a participant's first game, to learn every command with nothing to attack. It is the Siege castle's map at its seeds, and the southern strip of the castle's site, x 240 to 439 and z 182 to 262, levelled to 9 m as the castle's is, over the same bedrock, common rock and 1 m of soil. The attacker's army stands in it as it stands in the Siege camp, the same squads and engines on the same cells, with its 120 m3 of stone. It holds no structure, no earthwork and no defender, and no trial (ADR-026, decision 1, amended): the castle is not in its world, nor the deep earth under E3. It is the same in both versions, since nothing in it differs between them.",
+ "id": "Practice",
+ "seeds": {
+  "world": "1592598566",
+  "resource": "1592598567",
+  "match": "1592598568"
+ },
+ "site": {
+  "min": [240, 182],
+  "max": [439, 262],
+  "groundMeters": "9"
+ },
+ "ground": [
+  {
+   "material": 5,
+   "min": [240, 0, 182],
+   "max": [439, 0, 262]
+  },
+  {
+   "material": 3,
+   "min": [240, 1, 182],
+   "max": [439, 7, 262]
+  },
+  {
+   "material": 1,
+   "min": [240, 8, 182],
+   "max": [439, 8, 262]
+  }
+ ],
+ "structures": [],
+ "earthworks": [],
+ "players": [
+  {
+   "id": 1,
+   "side": "attacker",
+   "stoneCubicMeters": "120",
+   "timberCubicMeters": "0",
+   "commander": "human",
+   "revealed": true
+  }
+ ],
+ "squads": [
+  {
+   "kind": "manAtArms",
+   "owner": 1,
+   "cells": [
+    [327, 9, 200],
+    [326, 9, 200],
+    [328, 9, 200],
+    [327, 9, 199],
+    [326, 9, 199],
+    [328, 9, 199]
+   ]
+  },
+  {
+   "kind": "manAtArms",
+   "owner": 1,
+   "cells": [
+    [331, 9, 200],
+    [330, 9, 200],
+    [332, 9, 200],
+    [331, 9, 199],
+    [330, 9, 199],
+    [332, 9, 199]
+   ]
+  },
+  {
+   "kind": "manAtArms",
+   "owner": 1,
+   "cells": [
+    [335, 9, 200],
+    [334, 9, 200],
+    [336, 9, 200],
+    [335, 9, 199],
+    [334, 9, 199],
+    [336, 9, 199]
+   ]
+  },
+  {
+   "kind": "manAtArms",
+   "owner": 1,
+   "cells": [
+    [339, 9, 200],
+    [338, 9, 200],
+    [340, 9, 200],
+    [339, 9, 199],
+    [338, 9, 199],
+    [340, 9, 199]
+   ]
+  },
+  {
+   "kind": "spearman",
+   "owner": 1,
+   "cells": [
+    [343, 9, 200],
+    [342, 9, 200],
+    [344, 9, 200],
+    [343, 9, 199],
+    [342, 9, 199],
+    [344, 9, 199]
+   ]
+  },
+  {
+   "kind": "spearman",
+   "owner": 1,
+   "cells": [
+    [347, 9, 200],
+    [346, 9, 200],
+    [348, 9, 200],
+    [347, 9, 199],
+    [346, 9, 199],
+    [348, 9, 199]
+   ]
+  },
+  {
+   "kind": "spearman",
+   "owner": 1,
+   "cells": [
+    [351, 9, 200],
+    [350, 9, 200],
+    [352, 9, 200],
+    [351, 9, 199],
+    [350, 9, 199],
+    [352, 9, 199]
+   ]
+  },
+  {
+   "kind": "archer",
+   "owner": 1,
+   "cells": [
+    [327, 9, 196],
+    [326, 9, 196],
+    [328, 9, 196],
+    [327, 9, 195],
+    [326, 9, 195],
+    [328, 9, 195]
+   ]
+  },
+  {
+   "kind": "archer",
+   "owner": 1,
+   "cells": [
+    [331, 9, 196],
+    [330, 9, 196],
+    [332, 9, 196],
+    [331, 9, 195],
+    [330, 9, 195],
+    [332, 9, 195]
+   ]
+  },
+  {
+   "kind": "archer",
+   "owner": 1,
+   "cells": [
+    [335, 9, 196],
+    [334, 9, 196],
+    [336, 9, 196],
+    [335, 9, 195],
+    [334, 9, 195],
+    [336, 9, 195]
+   ]
+  },
+  {
+   "kind": "sapper",
+   "owner": 1,
+   "cells": [
+    [339, 9, 196],
+    [338, 9, 196],
+    [340, 9, 196],
+    [339, 9, 195],
+    [338, 9, 195],
+    [340, 9, 195]
+   ]
+  },
+  {
+   "kind": "outrider",
+   "owner": 1,
+   "cells": [
+    [343, 9, 196],
+    [342, 9, 196],
+    [344, 9, 196]
+   ]
+  },
+  {
+   "kind": "outrider",
+   "owner": 1,
+   "cells": [
+    [347, 9, 196],
+    [346, 9, 196],
+    [348, 9, 196]
+   ]
+  }
+ ],
+ "engines": [
+  {
+   "kind": "trebuchet",
+   "owner": 1,
+   "cell": [332, 9, 208],
+   "quarterTurns": 3,
+   "state": "packed"
+  },
+  {
+   "kind": "ram",
+   "owner": 1,
+   "cell": [344, 9, 208],
+   "quarterTurns": 0,
+   "state": "packed"
+  }
+ ],
+ "garrisons": []
+}

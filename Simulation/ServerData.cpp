@@ -15,6 +15,8 @@ namespace
 constexpr std::array<std::byte, 4> MAGIC = {std::byte{'E'}, std::byte{'R'}, std::byte{'S'}, std::byte{'D'}};
 constexpr std::size_t HEADER_BYTES = 16;
 constexpr std::uint32_t SECTION_VERSION = 1;
+/// SCEN's own version: 2 since a scenario may hold no trial (M5-C2), the byte before its trial.
+constexpr std::uint32_t SCENARIO_SECTION_VERSION = 2;
 constexpr std::size_t PALETTE_ENTRIES = 256;
 constexpr std::size_t MATERIAL_RECORD_BYTES = 6;
 constexpr std::uint8_t GROUND_FLAG = 1U << 0;
@@ -424,10 +426,11 @@ ServerData ServerData::Read(std::span<const std::byte> _file)
       const std::uint32_t sectionVersion = reader.ReadU32();
       const std::uint32_t offset = reader.ReadU32();
       const std::uint32_t length = reader.ReadU32();
-      if (sectionVersion != SECTION_VERSION)
+      const std::uint32_t expected = tag == "SCEN" ? SCENARIO_SECTION_VERSION : SECTION_VERSION;
+      if (sectionVersion != expected)
       {
         Refuse("section " + tag + " is at version " + std::to_string(sectionVersion) + ", and this build reads " +
-               std::to_string(SECTION_VERSION));
+               std::to_string(expected));
       }
       if (std::uint64_t{offset} + length > body.size())
       {

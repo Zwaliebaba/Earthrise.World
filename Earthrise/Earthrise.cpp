@@ -26,6 +26,7 @@
 #include "ModelPlacement.h"
 #include "Overlays.h"
 #include "PointerInput.h"
+#include "Practice.h"
 #include "Script.h"
 #include "Scenario.h"
 #include "ServerData.h"
@@ -73,7 +74,9 @@
 // and needs no participant. Pause or F10 pauses the trial. Each trial writes its log and its replay to Logs\ (M4-J2), and
 // `--replay <file>` plays a replay back on screen and says whether every state hash matched. `--siege --watch --measure`
 // is the measured run (M4-J4, SiegeMeasure.h): ten minutes of game time with M1's camera path about the castle, its
-// passes' and ticks' times written to Measurements\ beside the executable.
+// passes' and ticks' times written to Measurements\ beside the executable. `--siege <id> --game <1|2>` is a game of the
+// Siege playtest, its version and layout from the participant's id (M5-C1, Client/PlaytestGame.h), and `--practice [<id>]`
+// its practice ground (M5-C2, Practice.h), the attacker's army on open ground with nothing to attack.
 //
 // It starts borderless over the whole monitor (ADR-011, decision 1), and Alt+Enter switches between that and a window.
 // `--windowed` starts it in a window. `--speed 10` runs the clock at ten times. `--ui-scale 1.5` sets the UI scale over
@@ -91,6 +94,7 @@ constexpr double MAX_SPEED = 100.0;
 constexpr std::uint8_t PLAYER = Simulation::BreachRun::PLAYER; // the Siege castle's attacker too
 constexpr std::string_view SIEGE_SCENARIO = "Siege";
 constexpr std::string_view SIEGE_MIRROR_SCENARIO = "SiegeMirror";
+constexpr std::string_view PRACTICE_SCENARIO = "Practice"; // the playtest's practice ground (M5-C2)
 constexpr float CELL_CENTER_METERS = 0.5F;
 // The frame's figures, in the bottom-left corner (M3-E1), in logical pixels; with the deck, above the control groups'
 // strip, which stands 212 above the bottom and is 44 tall (Hud.md §3).
@@ -121,6 +125,7 @@ struct Options
   std::optional<std::string> replay;            // --replay: a Siege trial's replay, played back (M4-J2)
   bool measure;                                 // --measure, with --siege --watch: the measured run (M4-J4)
   std::optional<Client::PlaytestGame> playtest; // --game, with --siege <id>: the playtest's game (M5-C1)
+  bool practice;                                // --practice: the playtest's practice ground (M5-C2)
 };
 
 /// Whether the command line holds _flag as a word of its own.
@@ -549,8 +554,9 @@ int Run(const Options& _options)
   const std::string siegeScenario = _options.replay.has_value() ? Earthrise::ReplayRun::ScenarioOf(*_options.replay)
                                     : _options.mirror           ? std::string(SIEGE_MIRROR_SCENARIO)
                                                                 : std::string(SIEGE_SCENARIO);
-  const Simulation::World::Desc desc =
-    siege ? Simulation::ScenarioDesc(serverData, siegeScenario, buildId) : Simulation::LabDesc(serverData, buildId);
+  const Simulation::World::Desc desc = _options.practice ? Simulation::ScenarioDesc(serverData, PRACTICE_SCENARIO, buildId)
+                                       : siege           ? Simulation::ScenarioDesc(serverData, siegeScenario, buildId)
+                                                         : Simulation::LabDesc(serverData, buildId);
 
   Engine::Window window({.title = TITLE, .clientWidthPixels = 1280, .clientHeightPixels = 720, .fullScreen = !_options.windowed});
   Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = false});
@@ -570,7 +576,11 @@ int Run(const Options& _options)
   // What runs: a replay with --replay (M4-J2), the Siege trial with --siege (M4-J1), the breach lab with --lab (M3-G1), or
   // the breach run live.
   std::unique_ptr<Earthrise::Run> run;
-  if (_options.replay.has_value())
+  if (_options.practice)
+  {
+    run = std::make_unique<Earthrise::Practice>(desc, _options.speed);
+  }
+  else if (_options.replay.has_value())
   {
     run = std::make_unique<Earthrise::ReplayRun>(desc, *_options.replay, siegeScenario, _options.speed);
   }
@@ -1406,6 +1416,11 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
     {
       throw std::invalid_argument("--siege needs a participant, such as --siege P00, or --watch"); // before any window opens
     }
+    if (HasFlag(commandLine, L"--practice") &&
+        (HasFlag(commandLine, L"--siege") || participant.has_value() || OptionValue(commandLine, L"--replay").has_value()))
+    {
+      throw std::invalid_argument("--practice is the practice ground alone, with no --siege, --lab or --replay (M5-C2)");
+    }
     if (HasFlag(commandLine, L"--measure") && !(HasFlag(commandLine, L"--siege") && HasFlag(commandLine, L"--watch")))
     {
       throw std::invalid_argument("--measure runs with --siege --watch, the scripted attacker playing (M4-J4)");
@@ -1423,7 +1438,8 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
                 .watch = HasFlag(commandLine, L"--watch"),
                 .replay = OptionValue(commandLine, L"--replay"),
                 .measure = HasFlag(commandLine, L"--measure"),
-                .playtest = playtest});
+                .playtest = playtest,
+                .practice = HasFlag(commandLine, L"--practice")});
   }
   catch (const winrt::hresult_error& error)
   {

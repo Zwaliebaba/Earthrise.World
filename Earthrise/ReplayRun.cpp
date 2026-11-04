@@ -41,10 +41,11 @@ ReplayRun::ReplayRun(const Simulation::World::Desc& _desc, const std::filesystem
     m_speed(_speed),
     m_mirror(_scenarioId == SIEGE_MIRROR_SCENARIO)
 {
-  if (const Simulation::Scenario* scenario = m_player->Played().Data().FindScenario(_scenarioId); scenario != nullptr)
+  if (const Simulation::Scenario* scenario = m_player->Played().Data().FindScenario(_scenarioId);
+      scenario != nullptr && scenario->trial.has_value())
   {
-    const Protocol::VoxelPosition& low = scenario->trial.campMinVoxels;
-    const Protocol::VoxelPosition& high = scenario->trial.campMaxVoxels;
+    const Protocol::VoxelPosition& low = scenario->trial->campMinVoxels;
+    const Protocol::VoxelPosition& high = scenario->trial->campMaxVoxels;
     m_camp = {.xVoxels = (low.xVoxels + high.xVoxels) / 2, .yVoxels = low.yVoxels, .zVoxels = (low.zVoxels + high.zVoxels) / 2};
   }
   m_objective = {.title = std::string(Client::SIEGE_OBJECTIVE_TITLE), .detail = {}, .detailOff = false, .progress = std::nullopt};
