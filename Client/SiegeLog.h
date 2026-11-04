@@ -79,6 +79,9 @@ public:
   void Stopped(std::uint32_t _tick, std::string_view _structure);
   void Works(std::uint32_t _tick, std::string_view _structure);
   void Died(std::uint32_t _tick, std::uint8_t _player, Protocol::UnitKind _kind);
+  /// A reason prompt about _work on _structure, raised at _tick and up for _secondsUp, written when the participant goes
+  /// on (M5-C3).
+  void Asked(std::uint32_t _tick, std::string_view _structure, SiegeWork _work, double _secondsUp);
   void Command(const CommandRecord& _record);
   /// Where _structure was on the frame that drew _tick, the tick it opened or a collapse of it began its warning; and,
   /// framed there or not, the wait for it to be framed.

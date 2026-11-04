@@ -235,6 +235,12 @@ Design/Review/SiegePlaytest/
   - the clock is paused while the banner is up, and the next tick is the one after;
   - the banner fits at 1280 × 720 and 1920 × 1080 at each UI scale the width allows;
   - the voxel version and the control prompt alike for the same events (ADR-028, decision 6).
+- *Amended by C3's code:*
+  - **The model is `Client::ReasonPrompt`,** in `Client/ReasonPrompt.h` and `.cpp`, filter `Siege`, which `PromptTests` drives with no executable. The Siege run builds it enabled under `--game` alone.
+  - **It marks the voxel struck or dug,** in accent as the lab marks its aim, since the overlay draws a voxel at a time and not a structure's outline.
+  - **The run claims Space while a prompt is up,** which would otherwise jump the camera to the newest alert (Hud.md §7).
+  - **Two prompts raised in one tick wait one behind the other,** the second up from when the first goes.
+  - **The tests:** the clock's stop after the tick is the run's, whose `Tick` refuses while a prompt is up, so `PromptTests` tests that the prompt is up. "Alike in both versions" holds because the prompt reads B1's events, which `SiegeWorkTests` proves are raised alike. The test of the `asked` row's columns is added.
 - **Owner runs:** `Earthrise --siege X01 --game 1 --windowed`: the three prompts, each once, and the `asked` rows in the log.
 
 ## Phase D — The crater items

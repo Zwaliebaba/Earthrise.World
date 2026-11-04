@@ -153,6 +153,12 @@ void SiegeLog::Hit(std::uint32_t _tick, std::uint8_t _player, SiegeWork _work, s
     Row({"hit", Number(_tick), Number(_player), WORK_NAMES.at(static_cast<std::size_t>(_work)), _structure, Number(_hitPoints)}));
 }
 
+void SiegeLog::Asked(std::uint32_t _tick, std::string_view _structure, SiegeWork _work, double _secondsUp)
+{
+  m_rows.push_back(
+    Row({"asked", Number(_tick), _structure, WORK_NAMES.at(static_cast<std::size_t>(_work)), std::format("{:.2f}", _secondsUp)}));
+}
+
 void SiegeLog::Died(std::uint32_t _tick, std::uint8_t _player, Protocol::UnitKind _kind)
 {
   const auto index = static_cast<std::size_t>(_kind);

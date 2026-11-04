@@ -70,6 +70,7 @@
     <ClCompile Include="SiegeFlowTests.cpp" />
     <ClCompile Include="SiegeLogTests.cpp" />
     <ClCompile Include="PlaytestTests.cpp" />
+    <ClCompile Include="PromptTests.cpp" />
     <ClCompile Include="DeckCoverageTests.cpp" />
     <ClCompile Include="ControlParityTests.cpp" />
   </ItemGroup>

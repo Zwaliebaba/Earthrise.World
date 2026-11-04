@@ -2,6 +2,7 @@
 
 #include "CommandLog.h"
 #include "Replay.h"
+#include "ReasonPrompt.h"
 #include "Run.h"
 #include "SiegeLog.h"
 #include "SiegeModel.h"
@@ -25,7 +26,8 @@ struct SiegeOptions
   bool control;                           // --control: the control version (ADR-028)
   bool mirror;                            // --mirror: SiegeMirror, its weak section on the west (input 28)
   bool watch;                             // --watch: the scripted attacker plays the player, for the owner's checks and J4
-  /// --game: the playtest's game, whose version and layout control and mirror already hold (M5-C1).
+  /// --game: the playtest's game, whose version and layout control and mirror already hold (M5-C1), and with it the reason
+  /// prompt (M5-C3).
   std::optional<Client::PlaytestGame> playtest;
   double speed;
   // The trial's log and its replay (M4-J2), in this folder, and what its comment lines record.
@@ -106,8 +108,9 @@ private:
     std::uint32_t tick;
   };
 
-  /// The log's rows from the tick the world has just run: its events, its new collapses and the player's commands.
-  void LogTick();
+  /// The log's rows from the tick the world has just run at _seconds on the client's clock: its events, its new collapses
+  /// and the player's commands; and under --game, a reason prompt for siege work of a kind the game has not yet seen (M5-C3).
+  void LogTick(double _seconds);
   /// The name of the structure whose box holds _voxels, or empty.
   [[nodiscard]] std::string NameAt(const Protocol::VoxelPosition& _voxels) const;
   [[nodiscard]] std::string NameOf(Protocol::EntityId _structure) const;
@@ -123,6 +126,7 @@ private:
   Protocol::VoxelPosition m_camp{};
   Client::CommandLog m_commands;
   Client::SiegeModel m_model;
+  Client::ReasonPrompt m_prompt; // under --game alone (M5-C3)
   // What the top bar and the banner read, from the last frame's update.
   Client::HudObjective m_objective{};
   std::vector<Client::HudResource> m_resources;

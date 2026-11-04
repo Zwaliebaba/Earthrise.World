@@ -29,6 +29,8 @@ inline constexpr std::string_view HOLD_OBJECTIVE_DETAIL = "{}:{:02} / {}:{:02}";
 // The playtest's practice ground (M5-C2): no trial runs, and nothing done there is recorded.
 inline constexpr std::string_view PRACTICE_OBJECTIVE_TITLE = "PRACTICE";
 inline constexpr std::string_view PRACTICE_OBJECTIVE_DETAIL = "NOTHING HERE COUNTS";
+// The playtest's reason prompt (M5-C3): the structure the player's siege work first struck.
+inline constexpr std::string_view REASON_PROMPT_BANNER = "WHY {}? SAY IT ALOUD · SPACE GOES ON";
 // The Siege trial's resources (Hud.md §10): the stockpile in m³ to a tenth, the army's figures and engines, and the
 // time limit's m:ss left as TIME_KEY and TIME_VALUE.
 inline constexpr std::string_view STONE_KEY = "STONE";
@@ -305,6 +307,7 @@ inline constexpr auto ALL_STRINGS = std::to_array<std::string_view>({FIGURES,
                                                                      HOLD_OBJECTIVE_DETAIL,
                                                                      PRACTICE_OBJECTIVE_TITLE,
                                                                      PRACTICE_OBJECTIVE_DETAIL,
+                                                                     REASON_PROMPT_BANNER,
                                                                      STONE_KEY,
                                                                      STONE_VALUE,
                                                                      ARMY_KEY,

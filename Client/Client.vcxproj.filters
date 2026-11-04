@@ -270,6 +270,12 @@
     <ClCompile Include="PlaytestGame.cpp">
       <Filter>Siege</Filter>
     </ClCompile>
+    <ClInclude Include="ReasonPrompt.h">
+      <Filter>Siege</Filter>
+    </ClInclude>
+    <ClCompile Include="ReasonPrompt.cpp">
+      <Filter>Siege</Filter>
+    </ClCompile>
     <ClInclude Include="DeckCoverage.h">
       <Filter>Siege</Filter>
     </ClInclude>
