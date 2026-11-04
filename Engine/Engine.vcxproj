@@ -108,6 +108,9 @@
     <FXCompile Include="Shader\OrientedShadowPS.hlsl">
       <ShaderType>Pixel</ShaderType>
     </FXCompile>
+    <FXCompile Include="Shader\OrientedSilhouettePS.hlsl">
+      <ShaderType>Pixel</ShaderType>
+    </FXCompile>
     <None Include="Shader\VoxelCommon.hlsli" />
     <FXCompile Include="Shader\UpscaleVS.hlsl">
       <ShaderType>Vertex</ShaderType>

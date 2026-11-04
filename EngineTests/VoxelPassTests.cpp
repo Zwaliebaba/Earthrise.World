@@ -712,7 +712,8 @@ public:
                                                                    .rotation = {0.0F, 0.0F, 0.0F, 1.0F},
                                                                    .paletteIndex = ORANGE,
                                                                    .lightnessOffset = 0.0F,
-                                                                   .reserved = {}}}};
+                                                                   .cornerLevels = 0,
+                                                                   .lastFaceAndShade = 0}}};
     enum class Caster
     {
       StaticMap,
@@ -752,7 +753,8 @@ public:
                                                              .rotation = {0.0F, 0.0F, 0.0F, 1.0F},
                                                              .paletteIndex = ORANGE,
                                                              .lightnessOffset = 0.0F,
-                                                             .reserved = {}}}};
+                                                             .cornerLevels = 0,
+                                                             .lastFaceAndShade = 0}}};
     const Readback frame = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), {}, PLAIN_BATCH, nullptr, oriented);
     std::uint32_t covered = 0;
     for (std::uint32_t y = 0; y < TARGET_PIXELS; ++y)
@@ -787,7 +789,8 @@ public:
                                                              .rotation = {0.0F, std::sin(half), 0.0F, std::cos(half)},
                                                              .paletteIndex = ORANGE,
                                                              .lightnessOffset = 0.0F,
-                                                             .reserved = {}}}};
+                                                             .cornerLevels = 0,
+                                                             .lastFaceAndShade = 0}}};
     const Readback frame = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), {}, PLAIN_BATCH, nullptr, oriented);
     Assert::IsTrue(Near(frame.ColorAt(40, 24), 255, 128, 64), (L"the middle: " + Describe(frame.ColorAt(40, 24))).c_str());
     Assert::IsTrue(Near(frame.ColorAt(49, 24), 255, 128, 64), (L"the east tip: " + Describe(frame.ColorAt(49, 24))).c_str());
@@ -979,6 +982,122 @@ public:
                  });
     Assert::IsTrue(Near(unshaded.ColorAt(40, 24), 255, 128, 64), Describe(unshaded.ColorAt(40, 24)).c_str());
     Assert::IsTrue(Near(unshaded.ColorAt(56, 24), 255, 128, 64), Describe(unshaded.ColorAt(56, 24)).c_str());
+    AssertNoDebugErrors(device);
+  }
+  TEST_METHOD(GivesAnOrientedVoxelItsRecordsShading)
+  {
+    // OrientedVoxelOf carries a record's palette index, lightness, corner levels and table, and says it carries levels;
+    // a voxel built field by field, as debris is, carries none (ADR-030, decision 3).
+    Engine::VoxelShade shade = Engine::UNSHADED;
+    shade.cornerLevels[static_cast<std::size_t>(Engine::VoxelFace::NegativeX)] = {0, 1, 2, 3};
+    shade.cornerLevels[static_cast<std::size_t>(Engine::VoxelFace::PositiveZ)] = {3, 2, 1, 0};
+    shade.shadeTable = 1;
+    shade.lightnessOffset = -20.0F / 1024.0F;
+    const Engine::VoxelRecord record = Engine::MakeVoxelRecord(3, 4, 5, GREEN, shade);
+    const Engine::OrientedVoxel voxel = Engine::OrientedVoxelOf(record, {1.0F, 2.0F, 3.0F}, 0.25F, {0.0F, 0.0F, 0.0F, 1.0F});
+    Assert::AreEqual(std::uint32_t{GREEN}, voxel.paletteIndex);
+    Assert::AreEqual(Engine::LightnessOffset(record), voxel.lightnessOffset);
+    Assert::AreEqual(record.cornerLevels, voxel.cornerLevels);
+    Assert::AreEqual(record.lastFaceAndJitter & 0xffU, voxel.lastFaceAndShade & 0xffU);
+    Assert::IsTrue((voxel.lastFaceAndShade & Engine::ORIENTED_SHADE_TABLE) != 0);
+    Assert::IsTrue((voxel.lastFaceAndShade & Engine::ORIENTED_CARRIES_LEVELS) != 0);
+    Assert::AreEqual(0.25F, voxel.halfEdgeMeters);
+    Assert::AreEqual(2.0F, voxel.centerMeters.y);
+  }
+
+  TEST_METHOD(ShadesAnUnturnedOrientedVoxelsCornersAsItsRecord)
+  {
+    // The voxel of BlendsCornerShadesAcrossAFace, its top's south-west corner occluded, drawn once as a record and once
+    // as an oriented voxel with no turn built from it: every pixel the same, colour and depth, so a model turned to 0°
+    // draws as it does through the axis-aligned path (ADR-030, decision 8).
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const std::array<Engine::VoxelRecord, 1> records = {ShadedAtSouthWest(0, ORANGE, 0)};
+    const std::array<Engine::OrientedVoxel, 1> oriented = {
+      Engine::OrientedVoxelOf(records[0], {0.5F, 0.5F, 0.5F}, 0.5F, {0.0F, 0.0F, 0.0F, 1.0F})};
+    const Readback asRecord = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), records);
+    const Readback asOriented = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), {}, PLAIN_BATCH, nullptr, oriented);
+    for (std::uint32_t y = 0; y < TARGET_PIXELS; ++y)
+    {
+      for (std::uint32_t x = 0; x < TARGET_PIXELS; ++x)
+      {
+        const Rgba& expected = asRecord.ColorAt(x, y);
+        if (!Near(asOriented.ColorAt(x, y), expected[0], expected[1], expected[2]))
+        {
+          Assert::Fail(
+            std::format(L"pixel ({}, {}) is {} where the record's is {}", x, y, Describe(asOriented.ColorAt(x, y)), Describe(expected))
+              .c_str());
+        }
+        Assert::AreEqual(asRecord.DepthAt(x, y), asOriented.DepthAt(x, y), DEPTH_TOLERANCE);
+      }
+    }
+    Assert::IsTrue(Near(asOriented.ColorAt(32, 31), 140, 70, 35), (L"the shaded corner: " + Describe(asOriented.ColorAt(32, 31))).c_str());
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(TurnsAnOrientedVoxelsCornerShadesWithIt)
+  {
+    // The same voxel turned a quarter about y, +z towards +x as a batch's quarter turn: its own south-west corner, the
+    // occluded one, comes to the world's north-west corner of the cell, at pixel (32, 16), and the world's south-west
+    // pixel, (32, 31), is all but open. Read in the world's frame, the two would swap.
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const float half = 0.5F * DirectX::XM_PIDIV2;
+    const std::array<Engine::OrientedVoxel, 1> oriented = {
+      Engine::OrientedVoxelOf(ShadedAtSouthWest(0, ORANGE, 0), {0.5F, 0.5F, 0.5F}, 0.5F, {0.0F, std::sin(half), 0.0F, std::cos(half)})};
+    const Readback frame = Render(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS), {}, PLAIN_BATCH, nullptr, oriented);
+    Assert::IsTrue(Near(frame.ColorAt(32, 16), 140, 70, 35), (L"the turned corner: " + Describe(frame.ColorAt(32, 16))).c_str());
+    Assert::IsTrue(frame.ColorAt(32, 31)[0] >= 245, (L"the world's south-west: " + Describe(frame.ColorAt(32, 31))).c_str());
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(DrawsAnOrientedSilhouetteWhereTheWorldHidesItAndNowhereItIsSeen)
+  {
+    // DrawsAModelsSilhouetteWhereTheWorldHidesItAndNowhereItIsSeen, with the model's voxel an oriented one, unturned, as
+    // a turned model's are drawn (ADR-030, decision 4): under the roof its silhouette shows, green over orange; beyond
+    // it the model is drawn as itself; west of it the roof is as it was.
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const std::array<Engine::VoxelRecord, 1> roof = {Engine::MakeVoxelRecord(0, 1, 0, ORANGE)};
+    const std::array<Engine::OrientedVoxel, 1> model = {
+      Engine::OrientedVoxelOf(Engine::MakeVoxelRecord(0, 0, 0, GREEN), {1.0F, 0.5F, 0.5F}, 0.5F, {0.0F, 0.0F, 0.0F, 1.0F})};
+    const Readback frame = RenderWith(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS),
+                                      [&](Engine::VoxelPass& _pass, ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring,
+                                          D3D12_GPU_VIRTUAL_ADDRESS _frame, D3D12_GPU_VIRTUAL_ADDRESS _palette)
+                                      {
+                                        const D3D12_GPU_VIRTUAL_ADDRESS models = Held(_ring, std::span<const Engine::OrientedVoxel>(model));
+                                        _pass.Begin(_commandList, _frame, _palette);
+                                        _pass.Draw(_commandList, Held(_ring, std::span<const Engine::VoxelRecord>(roof)), 1, PLAIN_BATCH);
+                                        _pass.BeginOrientedSilhouette(_commandList, _frame, _palette, 0.5F);
+                                        _pass.DrawOriented(_commandList, models, 1);
+                                        _pass.BeginOriented(_commandList, _frame, _palette);
+                                        _pass.DrawOriented(_commandList, models, 1);
+                                      });
+    Assert::IsTrue(Near(frame.ColorAt(36, 24), 255, 128, 64), Describe(frame.ColorAt(36, 24)).c_str());
+    Assert::IsTrue(Near(frame.ColorAt(44, 24), 128, 191, 32), Describe(frame.ColorAt(44, 24)).c_str());
+    Assert::IsTrue(Near(frame.ColorAt(52, 24), 0, 255, 0), Describe(frame.ColorAt(52, 24)).c_str());
+    AssertNoDebugErrors(device);
+  }
+
+  TEST_METHOD(ShadesAnOrientedVoxelInAColumnNotSeenAndNoOther)
+  {
+    // ShadesAWorldVoxelInAColumnNotSeenAndNoOther for two oriented voxels: the first, over column 0, which is not seen, is
+    // halved; the second, over column 1, is as it was (ADR-030, decision 3).
+    Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = true});
+    const Engine::VoxelRecord record = Engine::MakeVoxelRecord(0, 0, 0, ORANGE);
+    const std::array<Engine::OrientedVoxel, 2> voxels = {
+      Engine::OrientedVoxelOf(record, {0.5F, 0.5F, 0.5F}, 0.5F, {0.0F, 0.0F, 0.0F, 1.0F}),
+      Engine::OrientedVoxelOf(record, {1.5F, 0.5F, 0.5F}, 0.5F, {0.0F, 0.0F, 0.0F, 1.0F})};
+    constexpr std::array<std::uint8_t, 2> TEXELS = {0, 255};
+    ColumnMask mask;
+    const Readback shaded = RenderWith(device, TopDownFrame(EYE_HEIGHT_METERS, NEAR_METERS),
+                                       [&](Engine::VoxelPass& _pass, ID3D12GraphicsCommandList* _commandList, Engine::UploadRing& _ring,
+                                           D3D12_GPU_VIRTUAL_ADDRESS _frame, D3D12_GPU_VIRTUAL_ADDRESS _palette)
+                                       {
+                                         mask = UploadColumnMask(device.Device(), _commandList, TEXELS);
+                                         _pass.SetColumnShade(mask.texture.get(), 2, 1, 0.5F);
+                                         _pass.BeginOriented(_commandList, _frame, _palette);
+                                         _pass.DrawOriented(_commandList, Held(_ring, std::span<const Engine::OrientedVoxel>(voxels)), 2);
+                                       });
+    Assert::IsTrue(Near(shaded.ColorAt(40, 24), 128, 64, 32), Describe(shaded.ColorAt(40, 24)).c_str());
+    Assert::IsTrue(Near(shaded.ColorAt(56, 24), 255, 128, 64), Describe(shaded.ColorAt(56, 24)).c_str());
     AssertNoDebugErrors(device);
   }
 };

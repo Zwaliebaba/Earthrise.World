@@ -373,6 +373,10 @@ The owner decided all three the same day (GameDesign.md, *the first run of M5's 
   - one without levels draws as before;
   - its silhouette draws where a nearer box hides it, and nothing where none does;
   - one whose column the mask hides is darkened by the column shade, and one whose column it shows is not.
+- *Amended by G2's code:*
+  - **The function is `Engine::OrientedVoxelOf`,** in `OrientedVoxel.h`, which builds the whole voxel from a record, its centre, half edge and rotation: the record's palette index and lightness as well as its levels and table. The bits are `ORIENTED_SHADE_TABLE` and `ORIENTED_CARRIES_LEVELS`.
+  - **The column shade moved** from `VoxelPS.hlsl` into `VoxelCommon.hlsli`, so that both pixel shaders read one function.
+  - **The tests:** the 45° coverage and the voxel without levels were already `TurnsAnOrientedVoxelAboutItsCenter` and `DrawsAnUnturnedOrientedVoxelAsAnAxisAlignedOne`, whose voxel carries none and is drawn at its full albedo. What G2 adds is that `OrientedVoxelOf` carries a record's shading, the unturned voxel's every pixel against its record's, a quarter turn carrying the occluded corner with it, the silhouette and the column shade.
 - **Owner runs:** none of its own; G3's.
 
 ### M5-G3 — Models turned to any angle

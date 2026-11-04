@@ -144,6 +144,9 @@
     <FXCompile Include="Shader\OrientedShadowPS.hlsl">
       <Filter>Shader</Filter>
     </FXCompile>
+    <FXCompile Include="Shader\OrientedSilhouettePS.hlsl">
+      <Filter>Shader</Filter>
+    </FXCompile>
     <None Include="Shader\VoxelCommon.hlsli">
       <Filter>Shader</Filter>
     </None>

@@ -200,7 +200,8 @@ void Debris::Pose(float _seconds, std::vector<Engine::OrientedVoxel>& _voxels) c
                          .rotation = stored,
                          .paletteIndex = voxel.paletteIndex,
                          .lightnessOffset = voxel.lightnessOffset,
-                         .reserved = {}});
+                         .cornerLevels = 0,
+                         .lastFaceAndShade = 0});
     }
   }
 }
