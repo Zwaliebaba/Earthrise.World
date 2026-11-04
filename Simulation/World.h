@@ -143,7 +143,8 @@ struct Player
 };
 
 /// What the simulation records happening in a tick for the trial's log and the tests, never the client (ADR-026,
-/// decision 5). M4-C1 raises UnitDied; the rest come with the orders that make them.
+/// decision 5). M4-C1 raises UnitDied; the rest come with the orders that make them. M5-B1 adds the siege work after
+/// Outcome, so that no kind already raised moves.
 enum class TrialEventKind : std::uint8_t
 {
   ShotFired,
@@ -155,14 +156,20 @@ enum class TrialEventKind : std::uint8_t
   StructureStopped,
   StructureWorks,
   UnitDied,
-  Outcome
+  Outcome,
+  StoneStruck, // a stone that struck a voxel in a structure's box, in step 4
+  RamStruck,   // a ram's blow on a structure, in step 4
+  SapperDug    // a cubic metre a sapper dug within repairLockReachVoxels of a section, in step 2, once for each section
 };
 
 /// One event: UnitDied names its player, the unit, its squad, its kind as the amount and its cell; StoneSpent and
 /// TimberSpent the player, what it was spent on, the engine that fired or the structure repaired, the hundredths of a
 /// cubic metre as the amount, and the engine's cell or the voxel put back. ShotFired names a stone's player, its engine,
 /// the shot and the aim point; ShotLanded the same player, engine and shot, 1 as the amount and the voxel it struck, or
-/// 0 and no voxel for a stone that left the world (M4-J2). Arrows raise neither.
+/// 0 and no voxel for a stone that left the world (M4-J2). Arrows raise neither. StoneStruck, RamStruck and SapperDug
+/// name the attacking player, the engine or the sappers' squad, the structure, what the control's rates price the hit at
+/// in hit points as the amount, and the voxel struck or dug; each is raised in both versions, before the trial's rule
+/// applies the hit, so that both versions count siege work in one currency (M5-B1; MvpPlan-M5.md, Contracts).
 struct TrialEvent
 {
   TrialEventKind kind;
@@ -589,6 +596,13 @@ private:
   [[nodiscard]] Protocol::CollapseView ViewOf(const Collapse& _collapse) const;
   /// The structure whose box holds _voxel, the lowest id where boxes overlap, or NO_ENTITY.
   [[nodiscard]] Protocol::EntityId StructureHolding(Protocol::VoxelPosition _voxel) const;
+  /// What the control prices a ram's blow at _voxel at, in hit points: controlRamDamage, or controlRamStonePercent of it
+  /// on stone (ADR-028, decision 2). The control takes it, and RamStruck carries it in both versions (M5-B1).
+  [[nodiscard]] std::int32_t ControlRamDamageAt(Protocol::VoxelPosition _voxel) const;
+  /// The sections within repairLockReachVoxels of a trench's cubic metre at _voxel, in id order: each takes
+  /// controlTrenchDamagePerCubicMeter in the control, and each is a SapperDug in both versions (ADR-028, decision 2;
+  /// M5-B1). One function, so that the control and the count cannot drift apart.
+  [[nodiscard]] std::vector<Protocol::EntityId> SectionsNearDig(Protocol::VoxelPosition _voxel) const;
   /// Whether _unit's squad is in a building.
   [[nodiscard]] bool Garrisoned(const Unit& _unit) const;
   /// Records a command refused for _player, which their next update names (ADR-023, decision 10).

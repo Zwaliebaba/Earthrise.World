@@ -75,7 +75,8 @@ The seams more than one order builds on. M4's contracts stand, and these extend 
 // Simulation/World.h: TrialEventKind gains three kinds after Outcome, so that no kind already raised moves:
 //   StoneStruck - a stone that struck a voxel of a structure, in step 4;
 //   RamStruck   - a ram's blow on a structure, in step 4;
-//   SapperDug   - a cubic metre a sapper dug within 2 m of a section, in step 2.
+//   SapperDug   - a cubic metre a sapper dug within 2 m of a section, in step 2, once for each such section, as the
+//                 control charges each.
 // Each names the attacking player, the engine or the sappers' squad as subject, the structure as other, and the voxel
 // struck or dug. Its amount is what the control's rates in RULE price the hit at, in hit points: controlShotDamage for a
 // stone; controlRamDamage for a blow, or controlRamStonePercent of it when the voxel is stone; and
@@ -136,7 +137,7 @@ Design/Review/SiegePlaytest/
   - `SiegeLog` writes the `hit` rows. `ReadSiegeLog.py` sums each structure's work by kind, and gives each run's main points, its breach point and whether it clusters, each point with its role, as text and in `--json`.
   - ADR-026, decision 5, amended with the three kinds and the reason they are priced in the control's hit points in both versions. No state, save, state hash or state update changes.
 - **Tests:**
-  - **`SiegeWorkTests`** (`SimulationTests`), on the Siege castle in both versions:
+  - **`SiegeWorkTests`** (`SimulationTests`), on the Siege castle in both versions. *Amended by B1's code:* on a T3 and a T6 on flat ground, as `ControlTests` builds them, since loading the castle twice a test costs CI's Debug build minutes for nothing a flat site does not show; the timber blow is on T6, and a stone on bare ground raises nothing:
     - one scripted stone on S3 raises `StoneStruck` at `controlShotDamage`;
     - one blow on GH's gate raises `RamStruck` at `controlRamDamage`, and one on stone at its 25 %;
     - a sapper's cubic metre within 2 m of E3 raises `SapperDug` at `controlTrenchDamagePerCubicMeter`, and one 3 m out raises none;

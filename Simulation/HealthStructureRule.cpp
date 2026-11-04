@@ -30,11 +30,7 @@ void HealthStructureRule::ShotStrikes(World& _world, const ShotHit& _hit) const
 void HealthStructureRule::RamStrikes(World& _world, Protocol::EntityId _structure, Protocol::VoxelPosition _voxel) const
 {
   // controlRamDamage a blow, controlRamStonePercent of it on stone (decision 2).
-  const Rules& rules = _world.Data().Tuning();
-  const Behavior behavior = _world.Data().Materials().at(_world.Voxels().At(_voxel)).behavior;
-  const bool stone = behavior == Behavior::BuildingStone || behavior == Behavior::CommonRock;
-  Damage(_world, _world.m_structures.at(_structure),
-         stone ? (rules.controlRamDamage * rules.controlRamStonePercent) / 100 : rules.controlRamDamage);
+  Damage(_world, _world.m_structures.at(_structure), _world.ControlRamDamageAt(_voxel));
 }
 
 void HealthStructureRule::TrenchDug(World& _world, Protocol::VoxelPosition _voxel) const
@@ -42,21 +38,9 @@ void HealthStructureRule::TrenchDug(World& _world, Protocol::VoxelPosition _voxe
   // The cubic metre is dug as in the voxel version, and each section within repairLockReachVoxels of it takes
   // controlTrenchDamagePerCubicMeter (decision 2).
   _world.DigVoxel(_voxel);
-  const Rules& rules = _world.Data().Tuning();
-  for (auto& [id, structure] : _world.m_structures)
+  for (const Protocol::EntityId section : _world.SectionsNearDig(_voxel))
   {
-    const std::optional<World::Box> box = _world.BoxOf(structure);
-    if (!box.has_value() || !_world.IsSection(structure))
-    {
-      continue;
-    }
-    const auto outside = [](std::int32_t _at, std::int32_t _low, std::int32_t _extent)
-    { return std::max({_low - _at, 0, _at - (_low + _extent - 1)}); };
-    if (std::max(outside(_voxel.xVoxels, box->min.xVoxels, box->widthVoxels),
-                 outside(_voxel.zVoxels, box->min.zVoxels, box->depthVoxels)) <= rules.repairLockReachVoxels)
-    {
-      Damage(_world, structure, rules.controlTrenchDamagePerCubicMeter);
-    }
+    Damage(_world, _world.m_structures.at(section), _world.Data().Tuning().controlTrenchDamagePerCubicMeter);
   }
 }
 

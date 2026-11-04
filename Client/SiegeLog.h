@@ -17,6 +17,15 @@
 namespace Client
 {
 
+/// The siege work a hit row records (M5-B1; MvpPlan-M5.md, *The trial's log*): a stone that struck a structure, a ram's
+/// blow on one, or a cubic metre a sapper dug beside a section.
+enum class SiegeWork : std::uint8_t
+{
+  Stone,
+  Blow,
+  Trench
+};
+
 /// The trial's log's comment lines (MvpPlan-M4.md, *The trial's log*), each `# key: value`.
 struct SiegeLogHeader
 {
@@ -59,6 +68,8 @@ public:
   void Shot(std::uint32_t _tick, std::uint8_t _player, Protocol::EntityId _engine, const Protocol::VoxelPosition& _target,
             const std::optional<Protocol::VoxelPosition>& _strike, std::string_view _structure);
   void Opened(std::uint32_t _tick, std::string_view _structure);
+  /// _player's siege work on _structure, at the control's price in hit points in both versions (M5-B1).
+  void Hit(std::uint32_t _tick, std::uint8_t _player, SiegeWork _work, std::string_view _structure, std::int32_t _hitPoints);
   /// A figure through _structure, of the attacker or the defender, counted into _tick's minute.
   void Passed(std::uint32_t _tick, std::string_view _structure, bool _attacker);
   void Spent(std::uint32_t _tick, std::uint8_t _player, std::int32_t _hundredthsCubicMeters, bool _timber, bool _repair);

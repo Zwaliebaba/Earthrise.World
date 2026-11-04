@@ -20,6 +20,9 @@ std::string Number(std::int64_t _value)
   return std::format("{}", _value);
 }
 
+/// The hit rows' words, by SiegeWork (MvpPlan-M5.md, *The trial's log*).
+constexpr std::array<std::string_view, 3> WORK_NAMES = {"stone", "blow", "trench"};
+
 /// Hud.md §5's names in the log's words, by UnitKind.
 constexpr std::array<std::string_view, 8> KIND_NAMES = {"laborer",     "spearman", "archer", "outrider",
                                                         "men-at-arms", "sapper",   "ram",    "trebuchet"};
@@ -135,6 +138,12 @@ void SiegeLog::Stopped(std::uint32_t _tick, std::string_view _structure)
 void SiegeLog::Works(std::uint32_t _tick, std::string_view _structure)
 {
   m_rows.push_back(Row({"works", Number(_tick), _structure}));
+}
+
+void SiegeLog::Hit(std::uint32_t _tick, std::uint8_t _player, SiegeWork _work, std::string_view _structure, std::int32_t _hitPoints)
+{
+  m_rows.push_back(
+    Row({"hit", Number(_tick), Number(_player), WORK_NAMES.at(static_cast<std::size_t>(_work)), _structure, Number(_hitPoints)}));
 }
 
 void SiegeLog::Died(std::uint32_t _tick, std::uint8_t _player, Protocol::UnitKind _kind)

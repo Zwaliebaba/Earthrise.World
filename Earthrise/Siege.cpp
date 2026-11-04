@@ -230,6 +230,15 @@ void Siege::LogTick()
     case Simulation::TrialEventKind::Outcome:
       outcome = static_cast<Protocol::TrialOutcome>(event.amount);
       break;
+    case Simulation::TrialEventKind::StoneStruck:
+      m_log.Hit(event.tick, event.player, Client::SiegeWork::Stone, NameOf(event.other), event.amount);
+      break;
+    case Simulation::TrialEventKind::RamStruck:
+      m_log.Hit(event.tick, event.player, Client::SiegeWork::Blow, NameOf(event.other), event.amount);
+      break;
+    case Simulation::TrialEventKind::SapperDug:
+      m_log.Hit(event.tick, event.player, Client::SiegeWork::Trench, NameOf(event.other), event.amount);
+      break;
     }
   }
   // A collapse that began its warning this tick, of a structure.

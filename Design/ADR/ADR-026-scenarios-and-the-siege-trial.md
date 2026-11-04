@@ -20,6 +20,15 @@ Decisions 4 and 5 landed with order M4-F1 (2026-11-02). What the code fixed that
 - **A figure passes** when it leaves a section's footprint on the other side of its centre line from the one it was first found in inside it; leaving the way it came counts nothing. `FigurePassed` names the figure, its owner and the section, its amount 1 inwards and -1 outwards; the log counts them per side and per game minute.
 - **The trial's progress is saved** after the match, at save format version 5: the outcome and its tick, the clock, the sections opened, and each figure in a section's footprint with the side it came in by.
 
+**Decision 5 gains siege work** (2026-11-04, order M5-B1; [MvpPlan-M5.md](../MvpPlan-M5.md), *Contracts*; GameDesign.md, *M5's values*, item 9). Three events are raised so that the playtest can count where a player tried to breach, not only where a section opened.
+- **The events:**
+  - `StoneStruck`, for a stone that strikes a voxel in a structure's box;
+  - `RamStruck`, for a ram's blow;
+  - `SapperDug`, for a cubic metre a sapper digs within `repairLockReachVoxels` of a section, once for each such section, as the control charges each.
+- **Their amount** is what the control's rates in `RULE` price the hit at, in hit points. They are raised in both versions, before the scenario's `StructureRule` applies the hit. In the voxel version a stone removes voxels, and in the control none, so a count of voxels would measure the two versions differently, while the control's prices are already calibrated against the voxel version (ADR-028, decision 5).
+- **One function finds the sections a cubic metre counts against, and one prices a blow.** The control's rule calls the same two, so the control and the count cannot drift apart.
+- **The log writes each as a `hit` row.** The events are not state: no save, state hash or state update changes.
+
 ## Context
 
 - **The trial** (GameDesign.md, *Stages*, 1): the player attacks a pre-built, garrisoned castle whose AI fights and repairs; they win by breaking the keep, which has stopped working while their soldiers hold its foot for two minutes without a repair; they lose when no attacking unit is left or a time limit runs out; the castle's nearest section is not its weakest.
@@ -46,7 +55,7 @@ Decisions 4 and 5 landed with order M4-F1 (2026-11-02). What the code fixed that
    - **Lost to the clock:** the time limit passes.
    - **Lost by the army:** the attacker has no unit left, engines included, as GameDesign.md, *Stages*, 1, decides; an attacker left with engines alone cannot win and plays out the clock.
    - The outcome stops the clock and is published in the state update; the world goes on ticking for the client's end screen and its replay.
-5. **The trial's events are the simulation's,** each tick, beside the shot hits: a section, a structure without a critical part, **opens** when a column of its footprint is first walkable for foot, reachable from the camp, and linked to a cell on the section's inner side, the side of its centre line nearer the keep, so a gatehouse's passage and an open gate never count; a figure **passes** a section when it steps from outside its footprint into it and on through, counted per side and per game minute; a shot is fired and lands; stone is spent, per player; a structure stops or starts working. `Earthrise`, which holds the world and the client (ADR-020, decision 2), writes them to the trial's log; the client never reads them.
+5. **The trial's events are the simulation's,** each tick, beside the shot hits: a section, a structure without a critical part, **opens** when a column of its footprint is first walkable for foot, reachable from the camp, and linked to a cell on the section's inner side, the side of its centre line nearer the keep, so a gatehouse's passage and an open gate never count; a figure **passes** a section when it steps from outside its footprint into it and on through, counted per side and per game minute; a shot is fired and lands; stone is spent, per player; a structure stops or starts working; and, since M5-B1, siege work reaches a structure (below). `Earthrise`, which holds the world and the client (ADR-020, decision 2), writes them to the trial's log; the client never reads them.
 6. **Every run writes its replay** beside its log, as ADR-014, decision 5, defines one, starting from the scenario and holding the transport's commands, with a header naming each seat's commander. The commanders' commands are recomputed when it replays, not recorded ([ADR-027](ADR-027-commanders.md), decision 6).
 
 ## Consequences for the code
