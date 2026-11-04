@@ -1,6 +1,6 @@
 # Earthrise.World — M5 work orders
 
-**Status:** Proposed, 2026-11-03, with [MvpPlan.md](MvpPlan.md)'s M5 revision, which is accepted when the owner merges its pull request. The owner answered its eighteen inputs on 2026-11-03, taking every proposal (order M5-A1; GameDesign.md, *M5's values*). No order from phase B on starts before that pull request merges. "Input N" means MvpPlan.md, M5, input N. These orders carry out M5 as MvpPlan.md, M5, defines it. **M5 takes no new ADR:** B1 amends [ADR-026](ADR/ADR-026-scenarios-and-the-siege-trial.md), decision 5, with three events, and C2 amends its decision 1 so that a scenario may hold no trial. The next ADR stays ADR-030.
+**Status:** Proposed, 2026-11-03, with [MvpPlan.md](MvpPlan.md)'s M5 revision, which is accepted when the owner merges its pull request. The owner answered its eighteen inputs on 2026-11-03, taking every proposal (order M5-A1; GameDesign.md, *M5's values*). No order from phase B on starts before that pull request merges. "Input N" means MvpPlan.md, M5, input N. These orders carry out M5 as MvpPlan.md, M5, defines it. **M5 was written to take no new ADR:** B1 amends [ADR-026](ADR/ADR-026-scenarios-and-the-siege-trial.md), decision 5, with three events, and C2 amends its decision 1 so that a scenario may hold no trial. *Amended on 2026-11-04 by phase G:* the owner's first run of the games added [ADR-030](ADR/ADR-030-models-turned-to-any-angle.md), models turned to any angle, Proposed with the owner's go-ahead, which G3 carries out. The next ADR is ADR-031.
 
 **This plan is written before M3 and M4 close.** M3's six-person session, order M3-G3, has not run, and M4's playthroughs and report, order M4-J5, are not in. Both bear on M5. M3's reading decides whether the kill criterion's one round of legibility work is still unspent (input 17), and M4's playthroughs are the first evidence that a person can win the trial at all. The scripted attacker cannot: it loses to the clock in both versions, and in the control the keep never stops (GameDesign.md, *M4's phase F*, item 8, and *after M4's phase F*, item 3). Phases B to D are code and need neither. **Before phase E, this file is corrected in a commit of its own** against the M3 and M4 reports, as M4's plan was corrected against M3's code.
 
@@ -10,9 +10,9 @@
 - **Nothing captures a reason at the moment of choice.**
 - **Nothing scores the three clauses together** against one frozen build.
 
-Phases B to D build those in eight orders. Phases E and F are the pilot and the session, run by the owner.
+Phases B to D build those in eight orders. Phases E and F are the pilot and the session, run by the owner. Phase G, added after the owner's first run of the games, fixes what that run found before the pilot.
 
-**An order is one commit.** There are 13 orders in six phases:
+**An order is one commit.** There are 16 orders in seven phases:
 
 | Phase | Orders | What lands | Waits on |
 |---|---|---|---|
@@ -20,10 +20,11 @@ Phases B to D build those in eight orders. Phases E and F are the pilot and the 
 | B | B1–B3 | The records: siege work as the trial's events and log rows; the playtest's scorer; replays checked headless | A |
 | C | C1–C3 | The participant's run: `--siege --game`, the practice ground, the reason prompt | A; C3 also B1 |
 | D | D1–D2 | The crater items | A |
-| E | E1–E2 | The facilitator's guide and sheet; the pilot, its retune and the freeze | B, C and D; M3 and M4 closed (input 1) |
+| E | E1–E2 | The facilitator's guide and sheet; the pilot, its retune and the freeze | B, C, D and G; M3 and M4 closed (input 1) |
 | F | F1–F2 | The session; the report and the verdict | E2 |
+| G | G1–G3 | The owner's first run of the games: a selection marked in the world; models turned to any angle, the trebuchet facing its aim | A; G3 also G2 |
 
-B, C and D can run side by side once A has merged. C3 needs B1's events. E waits for M3 and M4 to close. **Owner runs** fall after C1, C2, C3 and D2, then the pilot in E2, the session in F1, and B3's check of the session's replays on the benchmark machine. Most of M5 is the owner's time with participants, which is what sets its pace.
+B, C and D can run side by side once A has merged. C3 needs B1's events. E waits for M3 and M4 to close, and for G. **Owner runs** fall after C1, C2, C3 and D2, and G1 and G3, then the pilot in E2, the session in F1, and B3's check of the session's replays on the benchmark machine. Most of M5 is the owner's time with participants, which is what sets its pace.
 
 ## What M5 inherits
 
@@ -278,7 +279,7 @@ Design/Review/SiegePlaytest/
 ## Phase E — The pilot
 
 ### M5-E1 — The facilitator's guide and the session's sheet
-- **Waits on:** C1 to C3 and D2, and inputs 3 to 8, 10, 11, 16 and 17.
+- **Waits on:** C1 to C3, D2 and G3, and inputs 3 to 8, 10, 11, 16 and 17.
 - **Read first:** BreachLab.md, which E1's guide follows in shape; *The session*.
 - **Changes:**
   - **`Design/SiegePlaytest.md`:** the facilitator's guide, written to the inputs as decided:
@@ -335,3 +336,60 @@ Design/Review/SiegePlaytest/
   - **On a fail,** the report names the failed clauses and what the reasons say about each. If the kill criterion's round is unspent, it proposes the round's changes under input 17: views, the HUD and on-screen words, never the rules, the values or the castle. The owner decides.
   - **GameDesign.md** gains `### <date>: closing M5`, with the owner's verdict. **MvpPlan.md:** the M5 record is complete.
 - **Tests:** none. The checkers run, and every relative link resolves.
+
+## Phase G — The owner's first run of the games
+
+The owner ran `Earthrise --siege X01 --game 1 --windowed` on 2026-11-04, on the code of phases B to D. What they found, and why:
+
+- **A selection shows nowhere in the world.** Hud.md §5 outlines an engine under the pointer and a selected one, and says nothing of a selected squad of figures, so nothing marks one: only the panel and the minimap's dots change. And `Earthrise` outlines the selected engine only when it is the trebuchet that FIRE acts on, `client.selected`, which is set only while the active kind is the trebuchet's, so a selected ram is never outlined.
+- **The ram crabs along a diagonal.** Ordered up the screen from the default camera, which looks from the south-west, it drives north-east, along diagonal steps (ADR-015). Every model turns in 90° steps (RendererLook.md §1), and `WorldModels::Heading` keeps a diagonal's facing along either of its axes, so the ram drives with its length east or north and turns a whole quarter at once. A probe of the simulation shows it moves as ordered; the drawing is all that is wrong.
+- **The trebuchet fires sideways.** Deployed, it faces along the camera's view snapped to an axis (`Client::Orders::TurnsAlong`), east from the default camera, and nothing turns it as it fires at the castle to the north, since the simulation fires in any direction.
+
+The owner decided all three the same day (GameDesign.md, *the first run of M5's games*): models turned to any angle, by [ADR-030](ADR/ADR-030-models-turned-to-any-angle.md), Proposed with the owner's go-ahead and accepted by G3's commit; the trebuchet drawn facing its aim; and a cell under each selected figure. **No order in this phase changes state:** the save, the state hash, the state update, the scripted trial's tables and every replay are unchanged, and the phase's commits go in phases B to D's draft pull request, #63, before phase E.
+
+### M5-G1 — A selected squad is marked, and every selected engine outlined
+- **Waits on:** nothing. GameDesign.md, *the first run of M5's games*, item 3.
+- **Read first:** Hud.md §5; M3-H3's order; `Client/Selection.h`; `Client/WorldPicker.h`, `Outline`; `Earthrise/Earthrise.cpp`, the world overlays.
+- **Changes:**
+  - **The marks:** the ground voxel under each figure of each selected squad, one box a cell in accent, drawn with the engines' outlines at `OUTLINE_ALPHA`. A cell is the figure's in the state update, so the mark moves cell by cell while the figure walks between them. An engine's body is marked by its outline instead, and a garrisoned squad, whose figures are in no cell, is marked by nothing.
+  - **The outlines:** every engine whose body's squad is selected, the ram's as the trebuchet's, besides the one under the pointer. `client.selected`, the trebuchet FIRE acts on, is unchanged.
+  - **Where:** every run that selects, the Siege's, the practice ground and free play, and the lab's free fire; selection stays off in the lab's items.
+  - **Hud.md §5** is amended in the same commit.
+- **Tests:** **`SelectionTests`:** a selected squad of six figures gives six marks, each the voxel under a figure's cell; a squad not selected, an engine's body's and a garrisoned squad's give none; the engines outlined are each selected engine and the hovered one, a ram and a trebuchet selected together both outlined, whichever kind is active.
+- **Owner runs:** `Earthrise --practice --windowed`: a squad clicked, box-selected and added with Shift shows its cells; the ram selected is outlined; Esc clears them.
+
+### M5-G2 — Oriented voxels shade their corners and draw silhouettes
+- **Waits on:** nothing. ADR-030, decisions 3, 4 and 8.
+- **Read first:** ADR-030; ADR-011, decisions 2, 6 and 9; ADR-021, decision 6, amended; RendererLook.md §5; `Engine/OrientedVoxel.h`, `Engine/VoxelRecord.h`, `Engine/VoxelPass.h`; `Engine/Shader/VoxelCommon.hlsli`, `VoxelPS.hlsl` and `OrientedVoxelPS.hlsl`; `EngineTests`' render tests (ADR-012).
+- **Changes:**
+  - **`OrientedVoxel`'s reserved words are named:** the corner levels of faces 0 to 3, as `VoxelRecord::cornerLevels` holds them, and face 4's levels in bits 0 to 7 of the second, the corner-shade table in bit 8 and, in bit 9, that the voxel carries levels. It stays 48 bytes. A function gives an oriented voxel a record's levels and table, so that a client builds a turned model's voxels from the records it builds now.
+  - **The oriented pixel shader shades corners** in the voxel's own frame: the hit and its normal turned back by the voxel's rotation give the face and the point on it that `CornerShade` reads, as `VoxelPS` reads them unturned. A voxel without levels shades as open, as debris does now.
+  - **It shades a column not seen now** as `VoxelPS` does (ADR-025, decision 8), from the voxel's centre. Debris in such a column, which `BeginOriented` drew unshaded, is now shaded as the rubble it lies on.
+  - **`BeginOrientedSilhouette`:** the oriented vertex shader with the silhouette pipeline's flat colour at an alpha, drawn where the depth test fails and writing no depth, as `BeginSilhouette` draws records.
+  - **Nothing on screen changes** until G3 draws models through it, but for the debris' column shade.
+- **Tests:** **`EngineTests`**, on WARP:
+  - an oriented voxel at 0° with a record's levels, palette entry and lightness covers the pixels the record covers, at the same colour and depth;
+  - one turned 45° about the vertical covers the pixels its turned box projects to, and not the corners of the unturned box;
+  - one without levels draws as before;
+  - its silhouette draws where a nearer box hides it, and nothing where none does;
+  - one whose column the mask hides is darkened by the column shade, and one whose column it shows is not.
+- **Owner runs:** none of its own; G3's.
+
+### M5-G3 — Models turned to any angle
+- **Waits on:** G2. ADR-030, decisions 1, 2 and 5 to 8, and GameDesign.md, *the first run of M5's games*, items 1 and 2.
+- **Read first:** ADR-030; `Client/ModelPlacement.h`, `Client/WorldModels.h` and `.cpp`, `Client/WorldView.h` and `.cpp`, `Client/WorldPicker.h`; `Client/WorldRenderer.cpp`, the models' shadow and silhouette draws; `Client/Look.h`, the models' fronts.
+- **Changes:**
+  - **`ModelPlacement`** carries a yaw in radians, clockwise seen from above from +z, in place of its quarter turns. Gates, stones and debris are placed at whole quarter turns, as now.
+  - **`WorldModels`** keeps each unit's and engine's heading in radians:
+    - **its travel:** the bearing from where it stood when it last set its heading to where it stands, once it is a metre or so away, so that a path's straight and diagonal steps do not make it wobble;
+    - **its turn:** towards that heading the shorter way, at `FIGURE_TURN_DEGREES_PER_SECOND`, 360, or `MACHINE_TURN_DEGREES_PER_SECOND`, 90, in `Look.h`, Proposed (ADR-030, decision 5). `Place` takes the frame's seconds for it. A model first seen faces its default, as now, and one standing still keeps its heading;
+    - **a deployed trebuchet:** its deploy facing until its first stone, then the bearing of its latest stone from the engine's cell at the stone's first sighting, turned to at once. While it packs it keeps that heading, and so does the wagon until it moves;
+    - **the pose offsets** of S3p and S3c turn with the model, about its footprint's middle.
+  - **`WorldView`:** a placement at a whole quarter turn, and an impostor, keep the records and the axis-aligned path. Any other is built as oriented voxels from the same records, each voxel's centre turned about the model's footprint's middle, its corner levels with the world sampled at each turned cell, and its faction colour swapped on the CPU, since `OrientedVoxel` carries its palette index. They are drawn through `BeginOriented`, into the models' shadow map through `BeginOrientedShadow`, and as silhouettes through G2's `BeginOrientedSilhouette`. A model is rebuilt when it moves or turns, as now.
+  - **`WorldPicker`:** an engine's box is the axis-aligned box that bounds its turned model, which G1's outline rings.
+  - **ADR-030** is marked Accepted, with any amendment the code forced. RendererLook.md §1 and ADR-011, decision 6, already carry the change.
+- **Tests:**
+  - **`WorldModelsTests`:** a ram driving north-east faces 45° once it has turned; a figure's path of straight and diagonal steps keeps a heading within a few degrees of the path's bearing; from 350° to 10° the turn goes through 0°; a frame turns a model by at most its rate times the frame's seconds; one standing still keeps its heading; a deployed trebuchet faces its deploy facing before its first stone and its latest stone's bearing after; an engine's box bounds its model turned 45°. The tests that pinned quarter turns pin the yaw.
+  - **The turned voxels** are built by a function `ClientTests` drives with no device: at a yaw of 0 their centres are the records' boxes' centres; at a quarter turn they are the quarter-turned records'; their levels and palette entries are the records', the faction entry swapped.
+  - **Measured:** M4-J4's measured run on the benchmark machine keeps the voxel pass within 8 ms at the 95th percentile with every model turned (ADR-030, decision 8). CI cannot measure it, so it is an owner run.
+- **Owner runs:** `Earthrise --practice --windowed`: the ram, ordered up the screen, turns and drives along the diagonal; figures turn as they walk and face their way along a path; a trebuchet deployed and fired at a point to its side turns to face it as it throws. At the default zoom, edges at an angle do not shimmer as a model turns, and impostors do not pop (AGENTS.md §3). Then `Earthrise --siege X01 --game 1 --windowed`, and M4-J4's measured run.

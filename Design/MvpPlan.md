@@ -12,7 +12,7 @@
 
 **M4.1, added by the owner on 2026-11-02, is Proposed,** and is accepted when the owner merges its pull request. It covers its two work orders, in [MvpPlan-M4.1.md](MvpPlan-M4.1.md), and its two inputs, each answered as proposed on 2026-11-02 (GameDesign.md, *M4.1's values*).
 
-**M5's revision of 2026-11-03 is Proposed,** and is accepted when the owner merges its pull request. It covers M5's work orders and phases, in [MvpPlan-M5.md](MvpPlan-M5.md), and its eighteen owner inputs, each answered as proposed on 2026-11-03 (GameDesign.md, *M5's values*). It takes no new ADR, and amends ADR-026.
+**M5's revision of 2026-11-03 is Proposed,** and is accepted when the owner merges its pull request. It covers M5's work orders and phases, in [MvpPlan-M5.md](MvpPlan-M5.md), and its eighteen owner inputs, each answered as proposed on 2026-11-03 (GameDesign.md, *M5's values*). It took no new ADR, and amends ADR-026; phase G, added on 2026-11-04 after the owner's first run of the games, adds [ADR-030](ADR/ADR-030-models-turned-to-any-angle.md), Proposed with the owner's go-ahead (GameDesign.md, *the first run of M5's games*).
 
 M0 to M2 were closed by the owner on 2026-11-01 (GameDesign.md, *Closing M0 and M1* and *Closing M2*); nothing from M3 on is implemented. [GameDesign.md](GameDesign.md) defines the MVP and governs where this plan differs from it. [AGENTS.md](../AGENTS.md) governs how the code is written.
 
@@ -141,7 +141,7 @@ The edges run one way:
 | Text rendering | M3 | [ADR-019](ADR/ADR-019-text-and-the-interface-pass.md), Proposed: Earthrise Mason's bitmaps baked into `Content`, an atlas built at startup, one interface pass drawing quads into the back buffer at display resolution, text only at whole multiples of a font pixel |
 | The in-process client | M3 | [ADR-020](ADR/ADR-020-the-in-process-client.md), Proposed: `Client` and `Earthrise` join; two queues of bytes and one copy of the whole visible state a tick; a fixed-step clock with the lab's fast-forward and no interpolation; three queries budgeted in units of work in `RULE` |
 | The readability views | M3 | [ADR-021](ADR/ADR-021-world-overlays.md), Proposed: translucent voxel boxes through the voxel pass's overlay pipeline, depth-tested against the scene, with labels through the interface pass; every reading from the simulation |
-| How units are drawn | M1 | Units are 0.5 m models ([MvpAssets.md](MvpAssets.md)), axis-aligned and rotated in 90° steps. Engine poses are baked; debris is oriented voxels. Arrows are line models, turned freely along their velocity ([ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md), Proposed). |
+| How units are drawn | M1 | Units are 0.5 m models ([MvpAssets.md](MvpAssets.md)), axis-aligned and rotated in 90° steps. Engine poses are baked; debris is oriented voxels. Arrows are line models, turned freely along their velocity ([ADR-018](ADR/ADR-018-line-models-and-the-line-pass.md), Proposed). **Changed in M5:** unit and engine models are turned to any angle as oriented voxels, drawn only ([ADR-030](ADR/ADR-030-models-turned-to-any-angle.md), Proposed; M5-G2, M5-G3) |
 | Formations and separation | M4 | [ADR-022](ADR/ADR-022-formations-and-separation.md), Accepted by M4-C2: one figure a cell, steps reserved in unit-id order, friendly figures swapping head-on; ranks of three on open ground, single file through a gap |
 | Units and combat | M4 | [ADR-023](ADR/ADR-023-units-and-combat.md), Accepted by M4-C1: statistics in a `UNIT` section; one integer damage formula; melee to the eight neighbours, worked out together; arrows as straight physical shots that hit only their target; engines as squads of one body; shots cost stone |
 | Structures at work | M4 | [ADR-024](ADR/ADR-024-structures-at-work.md), Accepted by M4-D1: the built mask; working read from the critical part's standing share; repair by the owner's laborers at a fixed rate with its lock; garrisons firing from the outer face; the gate as a flag; per-template values in `STRC` |
@@ -651,7 +651,7 @@ The revision was written before either report, and [MvpPlan-M5.md](MvpPlan-M5.md
 
 ### M5's phases (written 2026-11-03, before M3 and M4 close)
 
-M5 is carried out as 13 work orders in six phases, written out in [MvpPlan-M5.md](MvpPlan-M5.md). Each order is one commit.
+M5 is carried out as 16 work orders in seven phases, written out in [MvpPlan-M5.md](MvpPlan-M5.md). Each order is one commit. Phase G was added on 2026-11-04, after the owner's first run of the games.
 
 | Phase | Orders | What lands | Needs first |
 |---|---|---|---|
@@ -659,12 +659,14 @@ M5 is carried out as 13 work orders in six phases, written out in [MvpPlan-M5.md
 | B | 3 | Siege work as events and log rows; the playtest's scorer; replays checked headless | A |
 | C | 3 | `--siege --game`; the practice ground; the reason prompt | A; C3 also B1 |
 | D | 2 | The crater items | A |
-| E | 2 | The facilitator's guide and sheet; the pilot, its retune and the freeze | B, C, D; M3 and M4 closed |
+| E | 2 | The facilitator's guide and sheet; the pilot, its retune and the freeze | B, C, D, G; M3 and M4 closed |
 | F | 2 | The session; the report and the verdict | E |
-| | **13 orders, 4 pull requests** | | |
+| G | 3 | A selection marked in the world; models turned to any angle, the trebuchet facing its aim, by ADR-030 | A; G3 also G2 |
+| | **16 orders, 4 pull requests** | | |
 
 - **B, C and D can run side by side.**
-- **The owner's runs** come after C1, C2, C3 and D2, then the pilot, the session, and B3's check of the session's replays.
+- **G goes in B to D's pull request,** before E.
+- **The owner's runs** come after C1, C2, C3, D2, G1 and G3, then the pilot, the session, and B3's check of the session's replays.
 - **What sets M5's pace** is recruiting and running 12 people, after M3's six.
 
 **The owner's inputs.** Each is a design value no document gives, or a choice the documents leave to M5, and AGENTS.md requires it written down before the code that rests on it. The implementer proposed each, and the owner took every proposal on 2026-11-03. GameDesign.md, *M5's values*, records them.
