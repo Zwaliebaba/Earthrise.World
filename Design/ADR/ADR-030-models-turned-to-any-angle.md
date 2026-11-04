@@ -1,6 +1,6 @@
 # ADR-030 — Models turned to any angle
 
-**Status:** Proposed, 2026-11-04, with the owner's go-ahead the same day (GameDesign.md, *2026-11-04: the first run of M5's games*, item 1). The orders that carry it out are [MvpPlan-M5.md](../MvpPlan-M5.md), M5-G2 and M5-G3. The commit that first implements it marks it Accepted, with any amendment the code forced (AGENTS.md §6).
+**Status:** Accepted, 2026-11-04, by M5-G3's commit, with the owner's go-ahead the same day (GameDesign.md, *2026-11-04: the first run of M5's games*, item 1). M5-G2 and M5-G3 carry it out ([MvpPlan-M5.md](../MvpPlan-M5.md)). The amendments the code forced are under *Amended by M5-G3's code*, below.
 
 ## Context
 
@@ -47,3 +47,11 @@
 - **The turn rates,** item 5's, judged on screen, and whether a deployed trebuchet's turn at once to a new aim reads as part of its throw or as a jump.
 - **Shimmer.** Edges at angles other than the axes may shimmer as a model turns, which RendererLook.md's acceptance checks look for on silhouettes. The owner judges it on screen; if it shows, the turn may hold each facing a little longer, or snap the last few degrees.
 - **Whether the trebuchet must turn in the simulation,** which the owner declined for M5 (item 2): it would change the balance and the scripted trial's pinned results.
+
+## Amended by M5-G3's code
+
+- **A placement's corner is its turned box's.** `ModelPlacement` keeps the minimum corner it held, now of the axis-aligned box that bounds the footprint as turned, and carries the yaw; the model turns about that box's middle. At a whole quarter turn the box is the footprint, so gates, stones, the spike's models and every test that read a corner read the same. `Client/ModelTurn.h` holds the arithmetic and builds a turned model's oriented voxels with no device, which `ModelTurnTests` checks against the records a batch draws.
+- **The heading's chord** is 1 m, and a model takes a heading once it is 3 cm from where it last stood still, a tick of a figure's walking, so that it turns as it starts and does not crab first. On the worst path, a straight and a diagonal step at every cell, the heading stays within 13° of the path's bearing, where a facing by each step would swing 45° (`WorldModelsTests`).
+- **A model turns over the game's time,** the ticks drawn, not the wall clock's: a paused game stops the turn, and a fast run speeds it with the motion.
+- **The trebuchet's poses turn about S3's footprint's middle,** the engine's, where they stood before at quarter turns, so the wagon turns about a point 1.75 m behind its own middle.
+- **Every turned model is drawn in one draw,** its voxels in one run for the frame, and its silhouette in another. A turned model is rebuilt each frame it moves or turns, as a moving one was.

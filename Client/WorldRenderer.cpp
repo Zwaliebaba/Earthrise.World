@@ -556,9 +556,12 @@ void WorldRenderer::Draw(const Frame& _frame)
   m_worldView.DrawModels(commandList, m_pass);
   const D3D12_GPU_VIRTUAL_ADDRESS debrisAddress = UploadArray(ring, _frame.debris);
   const auto debrisCount = static_cast<std::uint32_t>(_frame.debris.size());
-  if (debrisCount != 0)
+  // Turned models and debris are oriented voxels (ADR-030, decision 2).
+  const bool oriented = debrisCount != 0 || m_worldView.HasTurned();
+  if (oriented)
   {
     m_pass.BeginOrientedShadow(commandList, dynamicSunFrame, paletteConstants);
+    m_worldView.DrawTurned(commandList, m_pass);
     m_pass.DrawOriented(commandList, debrisAddress, debrisCount);
   }
   m_dynamicShadow.EndDrawing(commandList);
@@ -585,16 +588,22 @@ void WorldRenderer::Draw(const Frame& _frame)
   m_worldView.DrawChunks(commandList, m_pass);
   // The silhouettes after the world and before the models (ADR-021, decision 6, amended): tested against the world's
   // depth alone, each shows only where the world stands in front of its model, which then covers it where it is seen.
-  if (m_worldView.HasSilhouettes())
+  if (m_worldView.HasSilhouettes() || m_worldView.HasTurnedSilhouettes())
   {
     m_pass.BeginSilhouette(commandList, frameConstants, paletteConstants, SILHOUETTE_ALPHA);
     m_worldView.DrawSilhouettes(commandList, m_pass);
+    if (m_worldView.HasTurnedSilhouettes())
+    {
+      m_pass.BeginOrientedSilhouette(commandList, frameConstants, paletteConstants, SILHOUETTE_ALPHA);
+      m_worldView.DrawTurnedSilhouettes(commandList, m_pass);
+    }
     m_pass.Begin(commandList, frameConstants, paletteConstants);
   }
   m_worldView.DrawModels(commandList, m_pass);
-  if (debrisCount != 0)
+  if (oriented)
   {
     m_pass.BeginOriented(commandList, frameConstants, paletteConstants);
+    m_worldView.DrawTurned(commandList, m_pass);
     m_pass.DrawOriented(commandList, debrisAddress, debrisCount);
   }
   m_gpuTimer.End(commandList, slot, VOXEL_PASS_SPAN);

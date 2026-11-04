@@ -37,7 +37,7 @@
 6. **How quads are issued:**
    - **Records:** each chunk keeps a structured buffer of its visible voxels, those with at least one exposed face. Each record carries the voxel's coordinate in the chunk, its palette index, its baked corner shading and its jitter.
    - **Drawing:** one instanced draw per visible chunk, four vertices as a strip. The vertex shader fetches the record by `SV_InstanceID` and builds the screen-space rectangle that bounds the box's eight projected corners.
-   - **Models** use the same path, with 0.5 m records and an instance transform rotated in 90° steps. *Amended by [ADR-030](ADR-030-models-turned-to-any-angle.md), Proposed:* unit and engine models are drawn as oriented voxels turned to any angle, and gates and impostors keep this path.
+   - **Models** use the same path, with 0.5 m records and an instance transform rotated in 90° steps. *Amended by [ADR-030](ADR-030-models-turned-to-any-angle.md), accepted by M5-G3:* unit and engine models are drawn as oriented voxels turned to any angle, and gates and impostors keep this path.
    - **Culling:** in M1 chunks are culled on the CPU against the view.
    - **Alternatives:** mesh shaders (Shader Model 6.5) and indirect draws are measured only if this path is the bottleneck.
 7. **Shaders:**

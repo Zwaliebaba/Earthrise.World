@@ -5,6 +5,7 @@
 #include "Catalog.h"
 #include "ChunkCoordinate.h"
 #include "Look.h"
+#include "ModelTurn.h"
 #include "Palette.h"
 #include "VoxelGridView.h"
 
@@ -256,6 +257,8 @@ void WorldView::Forget()
   m_rebuiltChunks.clear();
   m_hidden.clear();
   m_placed.clear();
+  m_turnedVoxels.clear();
+  m_turnedSilhouettes.clear();
   m_impostors = false;
   m_replaced.clear();
   m_retired.clear();
@@ -383,9 +386,8 @@ void WorldView::PlaceModels(Engine::UploadRing& _ring, const std::vector<ModelPl
     const ModelPlacement& placement = _placements[index];
     const bool moved = placed.placement.modelId != placement.modelId || placed.placement.xMeters != placement.xMeters ||
                        placed.placement.yMeters != placement.yMeters || placed.placement.zMeters != placement.zMeters ||
-                       placed.placement.quarterTurns != placement.quarterTurns ||
-                       placed.placement.sideColorIndex != placement.sideColorIndex || placed.placement.silhouette != placement.silhouette ||
-                       placed.voxelEdgeMeters == 0.0F;
+                       placed.placement.yawRadians != placement.yawRadians || placed.placement.sideColorIndex != placement.sideColorIndex ||
+                       placed.placement.silhouette != placement.silhouette || placed.voxelEdgeMeters == 0.0F;
     const bool asImpostor = m_impostors && FindImpostor(placement.modelId) != nullptr;
     const bool rebuild = moved || placed.impostor != asImpostor || WorldChangedUnder(placed);
     placed.placement = placement;
@@ -396,6 +398,31 @@ void WorldView::PlaceModels(Engine::UploadRing& _ring, const std::vector<ModelPl
     totalRecords += placed.records.size() + placed.silhouetteRecords.size();
   }
   m_rebuiltChunks.clear();
+
+  // The turned placements' voxels, one run for all of them and one for their silhouettes, each drawn in one draw.
+  m_turnedVoxels.clear();
+  m_turnedSilhouettes.clear();
+  for (const Placed& placed : m_placed)
+  {
+    m_turnedVoxels.insert(m_turnedVoxels.end(), placed.turnedVoxels.begin(), placed.turnedVoxels.end());
+    m_turnedSilhouettes.insert(m_turnedSilhouettes.end(), placed.turnedSilhouette.begin(), placed.turnedSilhouette.end());
+  }
+  const auto upload = [&_ring](std::span<const Engine::OrientedVoxel> _voxels) -> D3D12_GPU_VIRTUAL_ADDRESS
+  {
+    if (_voxels.empty())
+    {
+      return 0;
+    }
+    const std::optional<Engine::UploadRing::Allocation> allocation = _ring.Allocate(_voxels.size_bytes(), 256);
+    if (!allocation)
+    {
+      throw std::runtime_error("the upload ring has no room for this frame's turned models");
+    }
+    std::ranges::copy(std::as_bytes(_voxels), allocation->bytes.begin());
+    return allocation->gpuAddress;
+  };
+  m_turnedAddress = upload(m_turnedVoxels);
+  m_turnedSilhouettesAddress = upload(m_turnedSilhouettes);
 
   // This frame's copies, one after another in the ring: a record is 12 bytes, so each placement's
   // run starts 4-byte aligned, as a root shader-resource view needs.
@@ -442,24 +469,37 @@ void WorldView::BuildPlaced(Placed& _placed, bool _asImpostor) const
                              .zVoxels = modelGrid.depthVoxels};
   float edge = modelEdge;
   DirectX::XMFLOAT3 origin = {placement.xMeters, placement.yMeters, placement.zMeters};
-  std::uint32_t quarterTurns = placement.quarterTurns;
+  // The box that bounds the model's footprint as turned, whose minimum corner the placement gives, and its middle,
+  // which the model turns about.
+  const auto [boundWidth, boundDepth] = TurnedExtent(static_cast<float>(modelGrid.widthVoxels) * modelEdge,
+                                                     static_cast<float>(modelGrid.depthVoxels) * modelEdge, placement.yawRadians);
+  const DirectX::XMFLOAT3 middle = {placement.xMeters + (0.5F * boundWidth), placement.yMeters, placement.zMeters + (0.5F * boundDepth)};
+  const std::optional<std::uint32_t> wholeTurns = WholeQuarterTurns(placement.yawRadians);
+  std::uint32_t quarterTurns = wholeTurns.value_or(0);
+  float drawnWidth = boundWidth;
+  float drawnDepth = boundDepth;
   if (impostor != nullptr)
   {
-    const bool across = placement.quarterTurns % 2 != 0;
-    const float footprintX = static_cast<float>(across ? modelGrid.depthVoxels : modelGrid.widthVoxels) * modelEdge;
-    const float footprintZ = static_cast<float>(across ? modelGrid.widthVoxels : modelGrid.depthVoxels) * modelEdge;
     grid = {.paletteIndices = impostorCells, .xVoxels = 1, .yVoxels = 2, .zVoxels = 1};
     edge = IMPOSTOR_VOXEL_METERS;
-    origin = {placement.xMeters + 0.5F * (footprintX - IMPOSTOR_VOXEL_METERS), placement.yMeters,
-              placement.zMeters + 0.5F * (footprintZ - IMPOSTOR_VOXEL_METERS)};
+    origin = {middle.x - (0.5F * IMPOSTOR_VOXEL_METERS), placement.yMeters, middle.z - (0.5F * IMPOSTOR_VOXEL_METERS)};
     quarterTurns = 0;
+    drawnWidth = IMPOSTOR_VOXEL_METERS;
+    drawnDepth = IMPOSTOR_VOXEL_METERS;
   }
+  // Turned to an angle other than a quarter turn, it is drawn as oriented voxels (ADR-030, decision 2).
+  const bool turned = impostor == nullptr && !wholeTurns.has_value();
+  const ModelTurn turn{.middleMeters = middle,
+                       .yawRadians = placement.yawRadians,
+                       .voxelEdgeMeters = edge,
+                       .widthCells = grid.xVoxels,
+                       .depthCells = grid.zVoxels};
   const std::int32_t lastX = static_cast<std::int32_t>(grid.xVoxels) - 1;
   const std::int32_t lastZ = static_cast<std::int32_t>(grid.zVoxels) - 1;
 
   // The world voxel holding a model cell's centre, the cell turned as the vertex shader turns it
-  // (VoxelPass.h, Batch). A model is small, so its lookups keep to a chunk or two, and the last
-  // chunk found is kept.
+  // (VoxelPass.h, Batch), or as its oriented voxel is turned (ModelTurn.h). A model is small, so its
+  // lookups keep to a chunk or two, and the last chunk found is kept.
   std::uint64_t cachedKey = ~std::uint64_t{0};
   const Protocol::Chunk* cachedChunk = nullptr;
   const Engine::SolidOutside worldSolid = [&](std::int32_t _x, std::int32_t _y, std::int32_t _z)
@@ -483,8 +523,12 @@ void WorldView::BuildPlaced(Placed& _placed, bool _asImpostor) const
     }
     const auto voxelOf = [this, edge](float _originMeters, std::int32_t _cell)
     { return static_cast<std::int32_t>(std::floor((_originMeters + (static_cast<float>(_cell) + 0.5F) * edge) / m_worldVoxelMeters)); };
-    const Protocol::VoxelPosition voxel{
-      .xVoxels = voxelOf(origin.x, turnedX), .yVoxels = voxelOf(origin.y, _y), .zVoxels = voxelOf(origin.z, turnedZ)};
+    const auto worldOf = [this](float _meters) { return static_cast<std::int32_t>(std::floor(_meters / m_worldVoxelMeters)); };
+    const DirectX::XMFLOAT3 center = turned ? TurnedCellCenter(turn, _x, _y, _z) : DirectX::XMFLOAT3{};
+    const Protocol::VoxelPosition voxel =
+      turned ? Protocol::VoxelPosition{.xVoxels = worldOf(center.x), .yVoxels = worldOf(center.y), .zVoxels = worldOf(center.z)}
+             : Protocol::VoxelPosition{
+                 .xVoxels = voxelOf(origin.x, turnedX), .yVoxels = voxelOf(origin.y, _y), .zVoxels = voxelOf(origin.z, turnedZ)};
     if (voxel.yVoxels < 0)
     {
       return true; // below the world's floor (RendererLook.md §5)
@@ -556,12 +600,28 @@ void WorldView::BuildPlaced(Placed& _placed, bool _asImpostor) const
                                                                   (cell >> (2 * CELL_BITS)) & CELL_MASK, placement.sideColorIndex));
     }
   }
+  // Turned, its records and silhouette are drawn as oriented voxels instead, its faction colour swapped here.
+  _placed.turnedVoxels.clear();
+  _placed.turnedSilhouette.clear();
+  if (turned)
+  {
+    TurnedVoxels(_placed.records, turn, placement.sideColorIndex != 0 ? FACTION_INDEX : std::uint8_t{0}, placement.sideColorIndex,
+                 _placed.turnedVoxels);
+    if (placement.silhouette)
+    {
+      TurnedSilhouette(_placed.records, turn, placement.sideColorIndex, _placed.turnedSilhouette);
+    }
+    _placed.records.clear();
+    _placed.silhouetteRecords.clear();
+  }
   _placed.impostor = impostor != nullptr;
   _placed.drawnOriginMeters = origin;
   _placed.drawnQuarterTurns = quarterTurns;
   _placed.voxelEdgeMeters = edge;
   _placed.widthCells = grid.xVoxels;
   _placed.depthCells = grid.zVoxels;
+  _placed.drawnWidthMeters = drawnWidth;
+  _placed.drawnDepthMeters = drawnDepth;
 }
 
 bool WorldView::WorldChangedUnder(const Placed& _placed) const
@@ -573,9 +633,8 @@ bool WorldView::WorldChangedUnder(const Placed& _placed) const
   // The world voxels the placement covers, turned or not, with one more on every side, which its
   // corner shades read.
   const DirectX::XMFLOAT3& origin = _placed.drawnOriginMeters;
-  const bool across = _placed.drawnQuarterTurns % 2 != 0;
-  const float extentX = static_cast<float>(across ? _placed.depthCells : _placed.widthCells) * _placed.voxelEdgeMeters;
-  const float extentZ = static_cast<float>(across ? _placed.widthCells : _placed.depthCells) * _placed.voxelEdgeMeters;
+  const float extentX = _placed.drawnWidthMeters;
+  const float extentZ = _placed.drawnDepthMeters;
   const float heightMeters = 64.0F * _placed.voxelEdgeMeters; // no model is taller than a record holds
   const auto chunkOf = [this](float _meters, float _offsetVoxels)
   {
@@ -681,6 +740,26 @@ bool WorldView::HasSilhouettes() const noexcept
   return std::ranges::any_of(m_placed, [](const Placed& _placed) { return !_placed.silhouetteRecords.empty(); });
 }
 
+void WorldView::DrawTurned(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const
+{
+  _pass.DrawOriented(_commandList, m_turnedAddress, static_cast<std::uint32_t>(m_turnedVoxels.size()));
+}
+
+void WorldView::DrawTurnedSilhouettes(ID3D12GraphicsCommandList* _commandList, const Engine::VoxelPass& _pass) const
+{
+  _pass.DrawOriented(_commandList, m_turnedSilhouettesAddress, static_cast<std::uint32_t>(m_turnedSilhouettes.size()));
+}
+
+bool WorldView::HasTurned() const noexcept
+{
+  return !m_turnedVoxels.empty();
+}
+
+bool WorldView::HasTurnedSilhouettes() const noexcept
+{
+  return !m_turnedSilhouettes.empty();
+}
+
 void WorldView::Retire(std::uint64_t _fenceValue)
 {
   for (std::unique_ptr<Engine::StaticBuffer>& buffer : m_replaced)
@@ -711,7 +790,7 @@ std::uint64_t WorldView::RecordsDrawn() const noexcept
   {
     total += placed.records.size();
   }
-  return total;
+  return total + m_turnedVoxels.size();
 }
 
 } // namespace Client

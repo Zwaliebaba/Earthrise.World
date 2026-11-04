@@ -7,6 +7,8 @@
 
 #include <cstdint>
 #include <map>
+#include <optional>
+#include <set>
 #include <string_view>
 #include <vector>
 
@@ -15,23 +17,28 @@ namespace Client
 
 /// What the client draws of the war as voxel models (M4-H1; MvpAssets.md, the models' table and *Poses, projectiles,
 /// gates and debris*), from its last two state updates:
-/// - each unit as its kind's figure in its side's faction entry, facing its last step, and none while garrisoned;
-/// - each engine on the middle of its footprint, the ram as S1 facing its last step, and the trebuchet as S3p, the
-///   wagon, while packed or deploying, facing its last step, and as S3c, cocked, while deployed or packing, at its
-///   deploy's turn, or S3, released, for RELEASED_POSE_TICKS after it fires;
+/// - each unit as its kind's figure in its side's faction entry, facing its travel, and none while garrisoned;
+/// - each engine on the middle of its footprint, the ram as S1 facing its travel, and the trebuchet as S3p, the wagon,
+///   while packed or deploying, facing its travel, and as S3c, cocked, while deployed or packing, facing its aim, or
+///   S3, released, for RELEASED_POSE_TICKS after it fires;
 /// - each stone in flight;
 /// - and each open gate as its open model, G1 or G2, with the gate's own voxels named for the world view to leave out.
 /// Units, engines and stones are drawn between their last two positions a tick behind; a unit or an engine that moved
 /// more than UNIT_SNAP_METERS snaps, and a stone never does (MvpPlan.md, M4, input 20). Arrows are line models (M4-H2).
+/// Units and engines turn to any angle (ADR-030, decision 5): each faces the bearing of about its last metre of travel,
+/// once it has moved a few centimetres from where it last stood, turning towards it the shorter way at its kind's rate
+/// in Look.h over the game's time, so that a pause stops the turn and a fast run speeds it; one standing still keeps its
+/// facing. A deployed trebuchet faces the bearing of its latest stone from its cell at the stone's first sighting, where
+/// the simulation's arc lies, turned to at once, or its deploy's turn until its first.
 /// Units and engines are drawn as silhouettes too, behind what hides them (M4-H3): the update holds only the player's
 /// own and the enemies they see, the ones input 23 silhouettes.
 class WorldModels
 {
 public:
   /// Replaces _placements with this frame's models and _hidden with the world voxels the world view leaves out: every
-  /// open gate's that has an open model. _previous is the update before _last, empty before the second. What each unit
-  /// and engine last stepped towards is kept from call to call, so that one standing still keeps its facing. Throws
-  /// std::runtime_error when Content lacks a model it draws.
+  /// open gate's that has an open model. _previous is the update before _last, empty before the second. Each unit's and
+  /// engine's facing, and each trebuchet's aim, is kept from call to call, and a model turns by the game time drawn
+  /// since the last call, _last's tick and _tickFraction. Throws std::runtime_error when Content lacks a model it draws.
   void Place(const Protocol::StateUpdate& _previous, const Protocol::StateUpdate& _last, const FireTally& _tally, double _tickFraction,
              std::vector<ModelPlacement>& _placements, std::vector<Protocol::VoxelPosition>& _hidden);
 
@@ -46,12 +53,27 @@ public:
   [[nodiscard]] static std::uint8_t SideColor(const Protocol::StateUpdate& _state, std::uint8_t _owner);
 
 private:
-  /// The direction _id last stepped in, as the quarter turns that take +z there, updated from _previous to _last; or
-  /// _otherwise when it has not stepped since it was first seen.
-  [[nodiscard]] std::uint32_t Heading(Protocol::EntityId _id, const Protocol::FixedPosition* _previous,
-                                      const Protocol::FixedPosition& _last, std::uint32_t _otherwise);
+  /// How a unit's or an engine's model is turned as drawn.
+  struct Facing
+  {
+    float yawRadians;    // the model's turn, as drawn
+    float targetRadians; // the turn it turns towards
+    float anchorXMeters; // where it stood when it last stood still, or a chord's length behind it since
+    float anchorZMeters;
+  };
 
-  std::map<Protocol::EntityId, std::uint32_t> m_headings; // units' and engines', as Heading gives them
+  /// _id's model's turn this frame, drawn at _drawn: towards the bearing of its travel, its front _front quarter turns
+  /// from +z, at _degreesPerSecond over _seconds; _defaultYawRadians when it is first seen. _moving says whether it moved
+  /// between its last two updates.
+  [[nodiscard]] float Turn(Protocol::EntityId _id, const DirectX::XMFLOAT3& _drawn, bool _moving, float _defaultYawRadians,
+                           std::uint32_t _front, float _degreesPerSecond, float _seconds);
+  /// Takes each stone first seen in _last that has left its engine's cell as its engine's aim.
+  void NoteAims(const Protocol::StateUpdate& _last);
+
+  std::map<Protocol::EntityId, Facing> m_facings; // units' and engines'
+  std::map<Protocol::EntityId, float> m_aims;     // a deployed trebuchet's latest stone's bearing, clockwise from +z
+  std::set<Protocol::EntityId> m_stonesSeen;      // stones in flight already taken as an aim
+  std::optional<double> m_drawnTicks;             // the game time last drawn, in ticks
   std::vector<EngineBox> m_engineBoxes;
 };
 

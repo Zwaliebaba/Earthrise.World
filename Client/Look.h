@@ -128,10 +128,16 @@ inline constexpr std::uint32_t RELEASED_POSE_TICKS = 20;
 /// draw pole, is the layer file's +x and so the baked grid's -x (ADR-017, decision 4), where every other model's is +z.
 inline constexpr float PACKED_POSE_OFFSET_X_METERS = 0.0F;
 
-/// Which way a model faces before its turn, as the quarter turns that take +z there: 0 for +z, 3 for -x. A unit is
-/// turned to face its last step from it (M4-H1).
+/// Which way a model faces before its turn, as the quarter turns that take +z there: 0 for +z, 3 for -x, and 1 for +x,
+/// the way S3 and S3c throw (Orders::TurnsAlong). A unit is turned to face its travel from it (M4-H1; ADR-030).
 inline constexpr std::uint32_t FRONT_PLUS_Z = 0;
 inline constexpr std::uint32_t PACKED_TREBUCHET_FRONT = 3;
+inline constexpr std::uint32_t DEPLOYED_TREBUCHET_FRONT = 1;
+
+/// How fast a model turns towards its heading, the shorter way (ADR-030, decision 5): Proposed, for the owner to judge
+/// on screen. A deployed trebuchet turns to its aim at once.
+inline constexpr float FIGURE_TURN_DEGREES_PER_SECOND = 360.0F;
+inline constexpr float MACHINE_TURN_DEGREES_PER_SECOND = 90.0F;
 
 /// An open gate's model and where it stands in its template's baked frame, from the minimum corner of the template's
 /// footprint before its turn, in meters (MvpAssets.md, *the open gates*): GameData/Manifest.json's attach entries, G1 at
