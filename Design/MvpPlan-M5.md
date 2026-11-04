@@ -174,7 +174,7 @@ Design/Review/SiegePlaytest/
     - which preferences went to the game the participant won;
     - the deck's figures under input 13;
     - the novices' figures, on their own.
-  - **The crater items' median,** if `Craters/` exists, under input 12.
+  - **The crater items' median,** if `Craters/` exists, under input 12. *Amended by B2's code:* D2 adds it, since D2 fixes the crater log's columns. B2 also takes `--pilot`, which reads the pilot's folder, pilot ids alone and no verdict, for E2.
 - **Tests:** `Tools/TestScoreSiegePlaytest.py`, with a step in the workflow's Linux job, over hand-written folders:
   - one that passes all three clauses;
   - one that fails each clause alone;
