@@ -160,19 +160,29 @@ bool Lab::Tick(Client::Session& _session, double _seconds)
   return true;
 }
 
-void Lab::Frame(const RunInput& _input, Client::Session& /* _session */)
+void Lab::Frame(const RunInput& _input, Client::Session& _session)
 {
   if (_input.engineSelected)
   {
     m_model.Selected();
   }
+  // Paused, no tick takes the views' queries to the world, so the frame does. An item with no prior shots reaches its
+  // question at tick 0, with nothing asked yet, and without this its readout never comes.
+  const auto answerBetweenTicks = [this, &_session]
+  {
+    for (const std::vector<std::byte>& query : _session.TakeQueries())
+    {
+      m_world->Ask(PLAYER, query);
+    }
+    m_world->AnswerBetweenTicks();
+  };
   switch (m_model.Phase())
   {
   case Client::LabPhase::Question:
   {
     // The question is up and the clock paused: the views' queries are answered between ticks (ADR-020, decision 6,
     // amended), the camera's moves counted, and the answer taken.
-    m_world->AnswerBetweenTicks();
+    answerBetweenTicks();
     m_model.NoteCamera(_input.quarterTurns, _input.zoomNotches);
     if (_input.openPressed || _input.shutPressed)
     {
@@ -188,7 +198,7 @@ void Lab::Frame(const RunInput& _input, Client::Session& /* _session */)
   }
   case Client::LabPhase::Result:
   {
-    m_world->AnswerBetweenTicks();
+    answerBetweenTicks();
     const Client::LabItemSpec* current = m_model.Current();
     if (_input.nextPressed && current != nullptr)
     {

@@ -684,3 +684,32 @@ Each order is one commit, in one pull request, before G3's session. The owner an
 - **Changes:** under `--lab`, the frame's figures are left off the screen and stay in the title bar. In an item, TIME gives way to `SHOTS AT THE MARK k OF N` while the asked shots run and at the result, and to nothing before. SHOTS goes with it: in an item it would count the shots that set the item up, beside the asked ones, and the banner names those (H2). The question's banner names the views' keys after its two buttons, `F1 F2 VIEWS`, since selection, the only other thing a click did, is off.
 - **Tests:** **`LabTests`:** the resources read as above in each phase; the question's banner fits at every size the owner runs.
 - **Owner runs:** `Earthrise --lab P00 --windowed` through free fire, the practice item and two items.
+
+## Phase H, continued — the pre-session run
+
+The implementer drove `Earthrise --lab` from outside its window on the benchmark machine on 2026-11-03, Release x64, before the owner's rehearsal: free fire, the practice item and all sixteen at 1280 × 720, at UI scale 1 and again at 2 with H5 and H6 below, and the first three items at 1.5. Every item's live hash matched its headless one and `SimulationBench --lab-items`'s. The hashes say nothing about the screen; the captures found:
+
+- **L01 and the practice item come up with no readout.** Neither has prior shots, so its question goes up at tick 0 with the clock paused and nothing asked yet. `Lab::Tick` alone took the views' queries to the world, and it returns at once while paused, so `Lab::Frame` answered a queue nothing had reached. Items with prior shots read as they should only because their readings were asked during the set-up's ticks. L01 is scored, so a participant would have answered it with the integrity view on and nothing to read.
+- **An alert can meet the mode banner.** The alerts start at a fixed 110 logical px and a banner runs below that, so any banner wide enough to reach the alerts' column overlaps them: by about 30 × 6 px at 1280 × 720 and a UI scale of 1.5, and further under the stacked question at 2. MvpPlan.md, M3, *Done when*, allows no overlap.
+- **The readout gained a REPAIR row.** M4-I6's lock shows in the lab, where nobody repairs and which the facilitator's guide does not mention. M4's input 24 has M5 reuse this lab unchanged, so its readout keeps the paper test's rows.
+
+Each order is one commit, straight to main by the owner's choice of 2026-11-03, before G3's session.
+
+### M3-H5 — The views' queries reach the world while the clock is paused
+- **Waits on:** nothing.
+- **Read first:** ADR-020, decision 6, as amended; `Earthrise/Lab.cpp`.
+- **Changes:** at the question and the result, `Lab::Frame` hands the session's queries to the world before `AnswerBetweenTicks`. Whatever a view first asks while paused is then answered too, F2's reach among them.
+- **Tests:** none: `Lab` lives in `Earthrise`, which no test project references. Checked on screen: L01's question at tick 0 shows its readout and takes F2, and all 17 hashes still match.
+- **Owner runs:** the rehearsal, `Earthrise --lab P00`: the practice item's question shows W2's readout.
+
+### M3-H6 — An alert goes under the mode banner
+- **Waits on:** nothing.
+- **Read first:** Hud.md §3; `Client/Hud.cpp`, the alerts.
+- **Changes:** an alert that would meet the mode banner starts under it, and the older ones follow. Where that takes one to the readout, it is left out as before (M3-H1).
+- **Tests:** **`HudTests`:** no two panels overlap, under the question's banner and under the asked shots', at 1280 × 720 and 1920 × 1080 at each UI scale. It fails without the change.
+
+### M3-H7 — The lock stays off the lab's readout
+- **Waits on:** nothing. The owner chose on 2026-11-03.
+- **Read first:** GameDesign.md, *M3's values*, item 5; M4-I6's order.
+- **Changes:** the readout's REPAIR row is layout A's alone, so the lab and M3's breach run keep the paper test's rows. The world's labels were layout A's already.
+- **Tests:** **`OverlaysTests`:** outside layout A a locked section's readout has no REPAIR row; M4-I6's test keeps it in layout A.

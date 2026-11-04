@@ -102,7 +102,8 @@ public:
 
   /// Binds the overlay pipeline (ADR-021, decision 1): records drawn flat in their palette colour at _alpha, blended
   /// over the scene, tested against its depth with GREATER_EQUAL and writing none. Draw then draws batches as after
-  /// Begin. A record's lightness offset still applies, so an overlay's records carry none.
+  /// Begin. A record's lightness offset still applies, so an overlay's records carry none. A hit entering a box through
+  /// one of its joined faces (WithJoinedFaces) is discarded, so boxes of one draw that touch tint a ray once.
   void BeginOverlay(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _frameConstants, D3D12_GPU_VIRTUAL_ADDRESS _palette,
                     float _alpha) const;
 

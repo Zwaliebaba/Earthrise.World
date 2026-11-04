@@ -674,6 +674,7 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
 
   // The mode banner, centred under the top bar: its text in accent, then its buttons and its hint in dim, after the
   // text or under it, centred, when one row would not fit the screen.
+  std::optional<PixelRect> modeBanner;
   if (!_model.mode.command.empty())
   {
     const std::int32_t control = paint.Pixels(CONTROL_HEIGHT_LOGICAL_PIXELS);
@@ -706,6 +707,7 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
                            (2 * border) + (2 * paddingY) + rowsHeight};
     const PixelRect inside = paint.Box(banner, ACCENT_SRGB, PANEL_SRGB, PANEL_ALPHA);
     m_panels.push_back(banner);
+    modeBanner = banner;
     const std::int32_t textTop = inside.yPixels + paddingY;
     const std::int32_t contentLeft = inside.xPixels + paddingLeft;
     paint.Text(_model.mode.banner, contentLeft + (stacked ? (contentWidth - textWidth) / 2 : 0), paint.CenteredCellTop(textTop, control),
@@ -949,7 +951,13 @@ void Hud::Build(const HudModel& _model, std::uint32_t _widthPixels, std::uint32_
     const std::int32_t textWidth = std::max(paint.Width(alert.text), hasSub ? paint.Width(alert.sub) : 0);
     const std::int32_t alertWidth =
       std::min((2 * border) + (2 * paddingX) + textWidth + jumpRoom, paint.Pixels(ALERT_MAX_WIDTH_LOGICAL_PIXELS));
-    const PixelRect box{paint.Pixels(ALERTS_LEFT_LOGICAL_PIXELS), y, alertWidth, (2 * border) + (2 * paddingY) + content};
+    PixelRect box{paint.Pixels(ALERTS_LEFT_LOGICAL_PIXELS), y, alertWidth, (2 * border) + (2 * paddingY) + content};
+    // One that would meet the mode banner goes under it, and the older ones with it.
+    if (modeBanner.has_value() && box.Overlaps(*modeBanner))
+    {
+      y = modeBanner->yPixels + modeBanner->heightPixels + paint.Pixels(ALERTS_GAP_LOGICAL_PIXELS);
+      box.yPixels = y;
+    }
     const bool meets = (m_readout.has_value() && box.Overlaps(*m_readout)) || (strip.has_value() && box.Overlaps(*strip)) ||
                        (m_deck.has_value() && box.Overlaps(m_deck->deck));
     if (meets)

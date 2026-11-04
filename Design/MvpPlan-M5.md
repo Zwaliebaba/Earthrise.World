@@ -30,7 +30,7 @@ B, C and D can run side by side once A has merged. C3 needs B1's events. E waits
 - **From M3:** `Earthrise --lab`, its 16 items split 8 open and 8 shut by the simulation's own key, its log, `Tools/BreachLab/ScoreBreachLab.py`, which scores any number of participants, and [BreachLab.md](BreachLab.md), the facilitator's guide. M4's input 24 decided that M5 asks its prediction items through this lab, unchanged. **Unvalidated until M3-G3 runs.**
 - **From M4:** `Earthrise --siege <participant> [--control] [--mirror]`, the trial's log and replay ([MvpPlan-M4.md](MvpPlan-M4.md), *The trial's log*), `Earthrise --replay`, and `Tools/SiegeTrial/ReadSiegeLog.py`. The reader reports breaches as nearest, weak, gate or another from the log's comment lines: S3, E3 and GH on Siege, and S2, W3 and GH on SiegeMirror. It also reports how many openings and warnings began under the deck or off screen, and how long the player took to frame them (M4's input 25).
 - **Not yet known:** whether a person can win either version inside 40 minutes, how long a game takes, and whether the two versions are near enough in difficulty that a preference between them is about the walls and not about winning.
-- **T3 as converted.** Its redraw waits for M3-G3, and lands with new lab keys (GameDesign.md, *M4's phases B and C*, item 2). Input 2 keeps it as it is until after the MVP's verdict.
+- **T3 as converted.** The owner keeps it as it is until after M5's verdict (input 2; GameDesign.md, *M4's phases B and C*, item 2).
 
 ## The session
 

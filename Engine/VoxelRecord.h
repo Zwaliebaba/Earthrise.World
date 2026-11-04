@@ -38,7 +38,7 @@ struct VoxelRecord
   /// The corner levels of faces 0 to 3, one byte each from the low byte.
   std::uint32_t cornerLevels;
   /// Face 4's corner levels in bits 0 to 7, then the HSL lightness offset in bits 8 to 15, signed,
-  /// in 1/1024ths (RendererLook.md §4).
+  /// in 1/1024ths (RendererLook.md §4), then an overlay's joined faces in bits 16 to 21 (WithJoinedFaces).
   std::uint32_t lastFaceAndJitter;
 };
 
@@ -107,6 +107,37 @@ inline constexpr VoxelShade UNSHADED{.cornerLevels = {{{OPEN_CORNER, OPEN_CORNER
 {
   const auto steps = static_cast<std::int8_t>(static_cast<std::uint8_t>((_record.lastFaceAndJitter >> 8) & 0xffU));
   return static_cast<float>(steps) / LIGHTNESS_STEPS;
+}
+
+/// An overlay record's joined faces (ADR-021, decision 1, amended): a bit a face, VoxelFace's five in their order and
+/// then the bottom face's, set where the face touches another box of the same overlay draw. The overlay's shader discards
+/// a hit that enters a box through a joined face, since the ray crossed the other box first, so a ray tints once each
+/// time it enters an overlay, however many of its boxes it then crosses. They are bits 16 to 21 of the record's third
+/// word, which MakeVoxelRecord leaves clear, so every other record, a silhouette's among them, joins nothing.
+inline constexpr std::uint32_t JOINED_FACES_SHIFT = 16;
+inline constexpr std::uint8_t JOINED_FACES_MASK = 0x3f;
+/// The bottom face's joined bit, after VoxelFace's five.
+inline constexpr auto JOINED_BOTTOM = static_cast<std::uint8_t>(1U << SHADED_FACES);
+
+/// A face's joined bit.
+[[nodiscard]] constexpr std::uint8_t JoinedBit(VoxelFace _face) noexcept
+{
+  return static_cast<std::uint8_t>(1U << static_cast<std::uint32_t>(_face));
+}
+
+/// _record with _joinedFaces as its joined faces, and nothing else changed.
+[[nodiscard]] constexpr VoxelRecord WithJoinedFaces(VoxelRecord _record, std::uint8_t _joinedFaces) noexcept
+{
+  const std::uint32_t field = static_cast<std::uint32_t>(JOINED_FACES_MASK) << JOINED_FACES_SHIFT;
+  _record.lastFaceAndJitter =
+    (_record.lastFaceAndJitter & ~field) | ((static_cast<std::uint32_t>(_joinedFaces) << JOINED_FACES_SHIFT) & field);
+  return _record;
+}
+
+/// A record's joined faces, as the overlay's shader reads them.
+[[nodiscard]] constexpr std::uint8_t JoinedFaces(const VoxelRecord& _record) noexcept
+{
+  return static_cast<std::uint8_t>((_record.lastFaceAndJitter >> JOINED_FACES_SHIFT) & JOINED_FACES_MASK);
 }
 
 /// RendererLook.md §4's hash of a jitter cell and a material, in [0, 1]: wrapping 32-bit integer

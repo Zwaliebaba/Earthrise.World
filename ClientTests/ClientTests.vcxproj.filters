@@ -39,6 +39,9 @@
     <ClCompile Include="FireModeTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>
+    <ClCompile Include="OverlayBoxTests.cpp">
+      <Filter>Suites</Filter>
+    </ClCompile>
     <ClCompile Include="OverlaysTests.cpp">
       <Filter>Suites</Filter>
     </ClCompile>

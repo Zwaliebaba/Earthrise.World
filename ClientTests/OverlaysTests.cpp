@@ -854,6 +854,21 @@ public:
     Assert::IsTrue(Client::Overlays::WorldLabels(session, Overhead(), 1280, 720, 60.0F, 115, false).empty());
   }
 
+  TEST_METHOD(LeavesTheLockOffTheReadoutOutsideLayoutA)
+  {
+    // The lab's readout keeps the paper test's rows: nobody repairs there, so the lock would only be noise.
+    const Protocol::StateUpdate state = ThirtySections();
+    Client::Session session;
+    Tell(session, state);
+    Client::Overlays overlays;
+    overlays.Ask(session, {}, true);
+    AnswerIntegrity(session, state, {Sound(115)});
+    overlays.Select(115);
+    const Client::HudReadout readout = overlays.Readout(session, 1.0, true).value_or(Client::HudReadout{});
+    Assert::IsFalse(readout.rows.empty());
+    Assert::IsTrue(std::ranges::none_of(readout.rows, [](const Client::HudReadoutRow& _row) { return _row.key == "REPAIR"; }));
+  }
+
   TEST_METHOD(ReadsTheLockOnTheReadoutWithoutFlashingAndFocusesTheSelectedFirstInLayoutA)
   {
     const Protocol::StateUpdate state = ThirtySections();

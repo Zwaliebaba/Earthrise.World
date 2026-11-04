@@ -3,6 +3,7 @@
 #include "ChunkCoordinate.h"
 
 #include <cstdint>
+#include <span>
 #include <vector>
 
 namespace Client
@@ -23,5 +24,10 @@ struct OverlayLayer
   float alpha;
   std::vector<OverlayBox> boxes;
 };
+
+/// Each of _boxes' joined faces, in _boxes' order, as Engine::WithJoinedFaces takes them: the faces that touch another of
+/// _boxes, so that a ray crossing boxes that touch is tinted once (ADR-021, decision 1, amended). Cells lie within 2^20
+/// voxels of the origin on each axis.
+[[nodiscard]] std::vector<std::uint8_t> JoinedFacesOf(std::span<const OverlayBox> _boxes);
 
 } // namespace Client

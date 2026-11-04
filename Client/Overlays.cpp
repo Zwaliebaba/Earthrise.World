@@ -376,8 +376,9 @@ std::optional<HudReadout> Overlays::Readout(const Session& _session, double _now
                                     : index == GAP_ROW ? Fill(reading->gapRunVoxels, reading->gapFallRunVoxels)
                                                        : std::nullopt});
   }
-  // The lock, live from the update rather than the reading, which is asked only when the voxels change.
-  if (structure->repairLockTicks > 0)
+  // The lock, live from the update rather than the reading, which is asked only when the voxels change. Layout A's alone:
+  // nobody repairs in the lab, whose readout keeps the paper test's rows (GameDesign.md, M3's values, item 5).
+  if (m_selectedFirst && structure->repairLockTicks > 0)
   {
     readout.rows.push_back({.key = std::string(REPAIR_KEY),
                             .value = RepairValue(structure->repairLockTicks),

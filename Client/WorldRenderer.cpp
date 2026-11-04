@@ -674,14 +674,20 @@ void WorldRenderer::DrawOverlays(ID3D12GraphicsCommandList* _commandList, Engine
     {
       continue;
     }
+    // Each box carries the faces it shares with another of the layer, so that a ray crossing boxes that touch, as the
+    // passability view's do over open ground, is tinted once and not once a box (ADR-021, decision 1, amended).
+    const std::vector<std::uint8_t> joined = JoinedFacesOf(layer.boxes);
     std::map<Block, std::vector<Engine::VoxelRecord>> blocks;
+    std::size_t index = 0;
     for (const OverlayBox& box : layer.boxes)
     {
       const Block block{blockOf(box.cellVoxels.xVoxels), blockOf(box.cellVoxels.yVoxels), blockOf(box.cellVoxels.zVoxels)};
-      blocks[block].push_back(Engine::MakeVoxelRecord(
-        static_cast<std::uint32_t>(box.cellVoxels.xVoxels - (std::get<0>(block) * BLOCK_VOXELS)),
-        static_cast<std::uint32_t>(box.cellVoxels.yVoxels - (std::get<1>(block) * BLOCK_VOXELS)),
-        static_cast<std::uint32_t>(box.cellVoxels.zVoxels - (std::get<2>(block) * BLOCK_VOXELS)), box.paletteIndex));
+      blocks[block].push_back(Engine::WithJoinedFaces(
+        Engine::MakeVoxelRecord(static_cast<std::uint32_t>(box.cellVoxels.xVoxels - (std::get<0>(block) * BLOCK_VOXELS)),
+                                static_cast<std::uint32_t>(box.cellVoxels.yVoxels - (std::get<1>(block) * BLOCK_VOXELS)),
+                                static_cast<std::uint32_t>(box.cellVoxels.zVoxels - (std::get<2>(block) * BLOCK_VOXELS)), box.paletteIndex),
+        joined.at(index)));
+      ++index;
     }
     m_pass.BeginOverlay(_commandList, _frameConstants, _palette, layer.alpha);
     for (const auto& [block, records] : blocks)
