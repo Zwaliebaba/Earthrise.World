@@ -41,7 +41,7 @@ struct ReasonAnswered
 class ReasonPrompt
 {
 public:
-  explicit ReasonPrompt(bool _enabled) noexcept;
+  explicit ReasonPrompt(bool _enabled); // not noexcept: the debug library's deque allocates as it is built
 
   /// _work on _structure at _tick: a prompt, the first time this kind of work is raised in the game.
   void Raise(std::uint32_t _tick, SiegeWork _work, std::string_view _structure, Protocol::VoxelPosition _voxel, double _seconds);

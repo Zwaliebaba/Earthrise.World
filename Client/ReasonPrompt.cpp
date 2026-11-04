@@ -7,7 +7,7 @@
 namespace Client
 {
 
-ReasonPrompt::ReasonPrompt(bool _enabled) noexcept
+ReasonPrompt::ReasonPrompt(bool _enabled)
   : m_enabled(_enabled)
 {
 }
