@@ -47,6 +47,30 @@ def LabLog(_participant, _right):
           "\n".join(rows) + "\n")
 
 
+CRATER_KEYS = ["trebuchet", "ram", "trebuchet", "trebuchet", "ram", "ram", "trebuchet", "ram", "trebuchet"]  # C0 to C8
+
+
+def CraterLog(_participant, _right, _skip=None):
+  """A crater log answering C0 to C8, the first _right of C1 to C8 right, and C0 right; _skip leaves one item out."""
+  rows = []
+  for index, key in enumerate(CRATER_KEYS):
+    itemId = f"C{index}"
+    if itemId == _skip:
+      continue
+    right = index == 0 or index <= _right
+    answer = key if right else ("ram" if key == "trebuchet" else "trebuchet")
+    rows.append(f"item,{itemId},{key},{answer},{1 if right else 0},2.000")
+  return (f"# participant: {_participant}\n# build id: {BUILD}\n# server-data hash: {SERVER_DATA}\n# item-set hash: 00000000000000c2\n"
+      "kind,id,key,answer,correct,secondsToAnswer\n" + "\n".join(rows) + "\n")
+
+
+def WriteCraters(_folder, _rights, _skip=None):
+  (_folder / "Craters").mkdir(exist_ok=True)
+  for participant, right in _rights.items():
+    (_folder / "Craters" / f"Craters-{participant}-20261104-120000.csv").write_text(
+      CraterLog(participant, right, _skip if participant == "S04" else None), encoding="utf-8", newline="\n")
+
+
 class Session:
   """A session's folder under construction: each participant's choices, then Write."""
 
@@ -257,6 +281,35 @@ class ScoreSiegePlaytestTests(unittest.TestCase):
             "onscreen,13000,W1,opened,uncovered,0,\nframed,13000,W1,opened,0.00,,\n")
     Eight(Session(self.folder), _rows=rows).Write()
     self.assertEqual({"hidden": 64, "lost": 16, "slims": False}, self.Json()["deck"])
+
+  def test_CraterItemsAtSixOfEightAnswerYesAndBearOnNothingInH2(self):
+    Eight(Session(self.folder), _preferring=6).Write()
+    WriteCraters(self.folder, {f"S{number:02}": 6 for number in range(1, 9)})
+    scores = self.Json()
+    self.assertEqual({"median": 0.75, "mark": 0.75, "items": 8, "answer": "yes"}, scores["craters"])
+    self.assertEqual(6, scores["participants"][0]["craterRight"])
+    self.assertEqual("FAIL", scores["clauses"]["h2"])  # preference fails alone, whatever the craters say
+
+  def test_CraterItemsAtFiveOfEightAnswerNo(self):
+    Eight(Session(self.folder)).Write()
+    WriteCraters(self.folder, {f"S{number:02}": 5 for number in range(1, 9)})
+    scores = self.Json()
+    self.assertEqual("no", scores["craters"]["answer"])
+    self.assertEqual("PASS", scores["clauses"]["h2"])
+
+  def test_RefusesAParticipantWithNoCraterLogOnceCratersIsThere(self):
+    Eight(Session(self.folder)).Write()
+    WriteCraters(self.folder, {f"S{number:02}": 6 for number in range(1, 8)})
+    self.assertIn("S08 has no crater log", self.Refusal())
+
+  def test_RefusesACraterLogMissingAnItem(self):
+    Eight(Session(self.folder)).Write()
+    WriteCraters(self.folder, {f"S{number:02}": 6 for number in range(1, 9)}, _skip="C4")
+    self.assertIn("not C0 to C8 once each", self.Refusal())
+
+  def test_NoCratersFolderNoCraterFigures(self):
+    Eight(Session(self.folder)).Write()
+    self.assertNotIn("craters", self.Json())
 
   def test_PrintsTheVerdictInWords(self):
     Eight(Session(self.folder)).Write()

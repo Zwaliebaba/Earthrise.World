@@ -117,6 +117,8 @@
     <ClCompile Include="DeckCoverage.cpp" />
     <ClCompile Include="SiegeModel.cpp" />
     <ClCompile Include="LabModel.cpp" />
+    <ClInclude Include="CraterModel.h" />
+    <ClCompile Include="CraterModel.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

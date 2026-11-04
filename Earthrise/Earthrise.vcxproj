@@ -55,6 +55,8 @@
     <ClInclude Include="SiegeMeasure.h" />
     <ClCompile Include="SiegeMeasure.cpp" />
     <ClCompile Include="Lab.cpp" />
+    <ClInclude Include="Craters.h" />
+    <ClCompile Include="Craters.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.vcxproj">

@@ -252,6 +252,12 @@
     <ClInclude Include="LabModel.h">
       <Filter>Lab</Filter>
     </ClInclude>
+    <ClInclude Include="CraterModel.h">
+      <Filter>Lab</Filter>
+    </ClInclude>
+    <ClCompile Include="CraterModel.cpp">
+      <Filter>Lab</Filter>
+    </ClCompile>
     <ClInclude Include="SiegeModel.h">
       <Filter>Siege</Filter>
     </ClInclude>

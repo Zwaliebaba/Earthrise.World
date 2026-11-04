@@ -60,5 +60,11 @@
     <ClCompile Include="Lab.cpp">
       <Filter>Lab</Filter>
     </ClCompile>
+    <ClInclude Include="Craters.h">
+      <Filter>Lab</Filter>
+    </ClInclude>
+    <ClCompile Include="Craters.cpp">
+      <Filter>Lab</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

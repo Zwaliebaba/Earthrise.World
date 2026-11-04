@@ -265,6 +265,14 @@ Design/Review/SiegePlaytest/
   - **The log:** one row an item with its answer, the key and `correct`.
   - **The scorer:** `ScoreSiegePlaytest.py` reads `Craters/`.
 - **Tests:** **`CraterRunTests`** (`ClientTests`): the order for one seed is a fixed permutation; an answer before the item is up is ignored; a row has every column.
+- *Amended by D2's code:*
+  - **The model is `Client::CraterModel`,** in `Client/CraterModel.h` and `.cpp`, filter `Lab`, and the run is `Earthrise/Craters.h` and `.cpp`, beside the lab's.
+  - **One enclosure, many copies.** The run builds the enclosure once and strikes a copy of it for each item through `Simulation::StrikeCraterItem`, as the lab copies its site. D1's `BuildCraterItem` now builds on that.
+  - **An item sets up live but briefly,** until its world is quiet or 200 ticks have run, under SETTING UP. The damage is there from the first frame, and nothing else on screen tells the engine.
+  - **The mark** is the ground voxel before the first hit, so that it does not hide the damage.
+  - **The answer keys:** R and T reach the run through `RunInput`, and the banner's two buttons reuse the lab question's two controls. The log is `kind,id,key,answer,correct,secondsToAnswer` under the lab's comment lines.
+  - **`--craters` is refused** beside `--lab`, `--siege`, `--practice` or `--replay`.
+  - **`ScoreSiegePlaytest.py` reads `Craters/`.** It refuses a missing or malformed log, and reports the RTS group's median over C1 to C8, yes at 6 of 8, bearing on nothing in H2.
 - **Owner runs:** `Earthrise --craters X01 --windowed`: nine items, and nothing on screen but the damage tells the engine.
 
 ## Phase E — The pilot

@@ -43,6 +43,10 @@ struct CraterSite
 /// Core::Fnv1a64 over every item's fields, in order: names the item set in the logs.
 [[nodiscard]] std::uint64_t CraterItemsHash();
 
+/// _item's hits on W2, _target, on a world that holds the lab's enclosure, between ticks (M5-D2: the crater run strikes
+/// copies of one enclosure, as the lab copies its site). Throws std::invalid_argument for an item whose hits leave W2.
+[[nodiscard]] CraterSite StrikeCraterItem(World& _world, Protocol::EntityId _target, const CraterItem& _item);
+
 /// _item on a world from LabDesc, not yet ticked: the lab's enclosure alone, and the item's hits on W2, between ticks.
 /// A stone strikes the outer face and goes on along a shot from the south, as the lab's trebuchet throws; a blow strikes
 /// the outer face. Throws std::invalid_argument for a world that has ticked, or an item whose hits leave W2.

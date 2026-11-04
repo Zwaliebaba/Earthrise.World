@@ -52,7 +52,12 @@ std::uint64_t CraterItemsHash()
 
 CraterSite BuildCraterItem(World& _world, const CraterItem& _item)
 {
-  const Protocol::EntityId target = BuildLabEnclosure(_world);
+  return StrikeCraterItem(_world, BuildLabEnclosure(_world), _item);
+}
+
+CraterSite StrikeCraterItem(World& _world, Protocol::EntityId _target, const CraterItem& _item)
+{
+  const Protocol::EntityId target = _target;
   const Structure& wall = _world.Structures().at(target);
   const ServerTemplate* shape = _world.Data().FindTemplate(wall.templateId);
   if (shape == nullptr)

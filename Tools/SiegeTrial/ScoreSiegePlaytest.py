@@ -11,7 +11,9 @@ checks the folder, and prints each participant's games and H2's three clauses ov
 - preference (item 10): how many of the eight preferred the game they played in the voxel version, against 7.
 H2 passes when all three pass (item 17). Reported beside them, under no mark: the control games' clustering, the voxel
 games' breach points on each layout, each version's wins, the preferences that went to the game the participant won,
-the deck's figures (item 13), and the novices', on their own.
+the deck's figures (item 13), and the novices', on their own. When the folder holds Craters/, one log a participant from
+`Earthrise --craters <id>` (M5-D2), the crater items' median over the RTS group's C1 to C8 answers the open question
+yes at 6 of 8 or better (item 12), and bears on nothing in H2.
 
 It refuses, naming the cause, and scores nothing when:
 - the sheet does not read, or names an id its group or cell disagrees with;
@@ -19,6 +21,8 @@ It refuses, naming the cause, and scores nothing when:
 - a trial log's version, layout or game disagrees with its id's cell;
 - a log's build id is not among the sheet's, or its server-data hash is not the sheet's;
 - ScoreBreachLab.py refuses the lab's folder;
+- Craters/ is there and a participant not dropped lacks a log in it, or a log answers C0 to C8 other than once each, or
+  its correct column disagrees with its key, or the logs name different item sets;
 - the RTS group, those not dropped, is not eight.
 
 With --pilot it reads the pilot's folder (item 14): pilot ids only, any number of them, and no verdict.
@@ -62,6 +66,10 @@ PREDICTION_MARK = ScoreBreachLab.PASS_MARK  # item 11
 DECK_LOST_TICKS = 135  # a collapse's warning for an 8 m piece, 6.75 s (item 13; M2's input 4)
 TICKS_PER_SECOND = 20
 DECK_SLIM_SHARE_QUARTERS = 4  # more than a quarter lost slims the deck (item 13)
+CRATER_ITEMS = tuple(f"C{index}" for index in range(9))  # C0 the practice item, then C1 to C8 (M5-D1)
+CRATER_SCORED = CRATER_ITEMS[1:]
+CRATER_MARK = 0.75  # 6 of 8 (item 12)
+CRATER_COLUMNS = ("kind", "id", "key", "answer", "correct", "secondsToAnswer")
 
 
 class ScoreError(Exception):
@@ -177,6 +185,43 @@ def ReadLab(_folder, _sheet):
   return accuracies
 
 
+def ReadCraters(_folder, _sheet):
+  """Each participant's right answers over C1 to C8, keyed by participant, or None when the folder holds no Craters/."""
+  craters = _folder / "Craters"
+  if not craters.is_dir():
+    return None
+  rights, itemSet = {}, None
+  for path in sorted(craters.glob("Craters-*.csv")):
+    lines = path.read_text(encoding="utf-8").splitlines()
+    comments = ReadSiegeLog.ReadComments(lines)
+    participant = comments.get("participant")
+    if participant not in _sheet["rows"] or _sheet["rows"][participant]["dropped"]:
+      raise ScoreError(f"{path.name}: {participant} is not on the sheet, or is dropped")
+    if participant in rights:
+      raise ScoreError(f"{path.name}: {participant}'s second crater log")
+    CheckBuild(path.name, comments, _sheet)
+    if itemSet is not None and comments.get("item-set hash") != itemSet:
+      raise ScoreError(f"{path.name}: item set {comments.get('item-set hash')}, where another log has {itemSet}")
+    itemSet = comments.get("item-set hash")
+    reader = csv.reader(line for line in lines if line and not line.startswith("#"))
+    if tuple(next(reader, ())) != CRATER_COLUMNS:
+      raise ScoreError(f"{path.name}: its header is not the crater items'")
+    answered = {}
+    for row in reader:
+      item = dict(zip(CRATER_COLUMNS, row))
+      if len(row) != len(CRATER_COLUMNS) or item["id"] in answered or item["key"] not in ("ram", "trebuchet") or \
+         item["correct"] != ("1" if item["key"] == item["answer"] else "0"):
+        raise ScoreError(f"{path.name}: the row for {item.get('id')} does not read, is twice, or its correct disagrees with its key")
+      answered[item["id"]] = item["correct"] == "1"
+    if sorted(answered) != sorted(CRATER_ITEMS):
+      raise ScoreError(f"{path.name}: answers {', '.join(sorted(answered))}, not C0 to C8 once each")
+    rights[participant] = sum(1 for itemId in CRATER_SCORED if answered[itemId])
+  for participant, entry in _sheet["rows"].items():
+    if not entry["dropped"] and participant not in rights:
+      raise ScoreError(f"{participant} has no crater log")
+  return rights
+
+
 def Summary(_participant, _entry, _games, _lab):
   """One participant's record: their games, the version they preferred, and their lab accuracy."""
   first, second = _games
@@ -271,6 +316,14 @@ def Score(_folder, _pilot=False):
   novices = [record for record in records if record["group"] == "novice"]
   scores = {"participants": records, "deck": Deck(games.values()), "dropped": sorted(
     participant for participant, entry in sheet["rows"].items() if entry["dropped"])}
+  craters = ReadCraters(folder, sheet)
+  if craters is not None:
+    for record in records:
+      record["craterRight"] = craters[record["participant"]]
+    group = [craters[record["participant"]] / len(CRATER_SCORED) for record in (records if _pilot else rts)]
+    median = statistics.median(group) if group else None
+    scores["craters"] = {"median": median, "mark": CRATER_MARK, "items": len(CRATER_SCORED),
+                         "answer": None if _pilot or median is None else ("yes" if median >= CRATER_MARK else "no")}
   if _pilot:
     scores["pilot"] = Unmarked(records) if records else {}
     return scores
@@ -298,6 +351,10 @@ def Print(_scores):
   deck = _scores["deck"]
   print(f"deck: {deck['lost']} of {deck['hidden']} openings and warnings that began under it or off screen went unframed "
         f"past {DECK_LOST_TICKS / TICKS_PER_SECOND:.2f} s; " + ("slim it" if deck["slims"] else "the owner's call"))
+  if "craters" in _scores and _scores["craters"]["median"] is not None:
+    craters = _scores["craters"]
+    answer = f": {craters['answer']}" if craters["answer"] else ""
+    print(f"craters: median {craters['median']:.4f} of C1 to C8 against {craters['mark']}{answer}, bearing on nothing in H2")
   if "clauses" not in _scores:
     return
   clauses = _scores["clauses"]

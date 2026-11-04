@@ -27,6 +27,7 @@
 #include "Overlays.h"
 #include "PointerInput.h"
 #include "Practice.h"
+#include "Craters.h"
 #include "Script.h"
 #include "Scenario.h"
 #include "ServerData.h"
@@ -76,7 +77,8 @@
 // is the measured run (M4-J4, SiegeMeasure.h): ten minutes of game time with M1's camera path about the castle, its
 // passes' and ticks' times written to Measurements\ beside the executable. `--siege <id> --game <1|2>` is a game of the
 // Siege playtest, its version and layout from the participant's id (M5-C1, Client/PlaytestGame.h), and `--practice [<id>]`
-// its practice ground (M5-C2, Practice.h), the attacker's army on open ground with nothing to attack.
+// its practice ground (M5-C2, Practice.h), the attacker's army on open ground with nothing to attack, and
+// `--craters <participant> [--seed n]` its crater items (M5-D2, Craters.h), which engine made the damage at a mark.
 //
 // It starts borderless over the whole monitor (ADR-011, decision 1), and Alt+Enter switches between that and a window.
 // `--windowed` starts it in a window. `--speed 10` runs the clock at ten times. `--ui-scale 1.5` sets the UI scale over
@@ -126,6 +128,7 @@ struct Options
   bool measure;                                 // --measure, with --siege --watch: the measured run (M4-J4)
   std::optional<Client::PlaytestGame> playtest; // --game, with --siege <id>: the playtest's game (M5-C1)
   bool practice;                                // --practice: the playtest's practice ground (M5-C2)
+  std::optional<std::string> craters;           // --craters: the playtest's crater items, for this participant (M5-D2)
 };
 
 /// Whether the command line holds _flag as a word of its own.
@@ -204,6 +207,26 @@ std::optional<std::string> ParticipantFrom(std::wstring_view _commandLine)
   if (!named || participant.starts_with('-'))
   {
     throw std::invalid_argument("--lab needs a participant, of letters, digits, - and _, such as --lab P03");
+  }
+  return participant;
+}
+
+/// The crater items' participant: the word after --craters, of letters, digits, - and _, or nothing without --craters.
+/// Throws std::invalid_argument when --craters has none, or one of other characters, since it names the log's file.
+std::optional<std::string> CratersParticipantFrom(std::wstring_view _commandLine)
+{
+  if (!HasFlag(_commandLine, L"--craters") && _commandLine.find(L"--craters=") == std::wstring_view::npos)
+  {
+    return std::nullopt;
+  }
+  std::string participant = OptionValue(_commandLine, L"--craters").value_or(""); // not const, so the return moves it
+  const bool named =
+    !participant.empty() &&
+    std::ranges::all_of(participant, [](char _character)
+                        { return std::isalnum(static_cast<unsigned char>(_character)) != 0 || _character == '-' || _character == '_'; });
+  if (!named || participant.starts_with('-'))
+  {
+    throw std::invalid_argument("--craters needs a participant, of letters, digits, - and _, such as --craters S03");
   }
   return participant;
 }
@@ -554,9 +577,10 @@ int Run(const Options& _options)
   const std::string siegeScenario = _options.replay.has_value() ? Earthrise::ReplayRun::ScenarioOf(*_options.replay)
                                     : _options.mirror           ? std::string(SIEGE_MIRROR_SCENARIO)
                                                                 : std::string(SIEGE_SCENARIO);
-  const Simulation::World::Desc desc = _options.practice ? Simulation::ScenarioDesc(serverData, PRACTICE_SCENARIO, buildId)
-                                       : siege           ? Simulation::ScenarioDesc(serverData, siegeScenario, buildId)
-                                                         : Simulation::LabDesc(serverData, buildId);
+  const Simulation::World::Desc desc = _options.craters.has_value() ? Simulation::LabDesc(serverData, buildId)
+                                       : _options.practice          ? Simulation::ScenarioDesc(serverData, PRACTICE_SCENARIO, buildId)
+                                       : siege                      ? Simulation::ScenarioDesc(serverData, siegeScenario, buildId)
+                                                                    : Simulation::LabDesc(serverData, buildId);
 
   Engine::Window window({.title = TITLE, .clientWidthPixels = 1280, .clientHeightPixels = 720, .fullScreen = !_options.windowed});
   Engine::GpuDevice device({.enableDebugLayer = Engine::DEBUG_BUILD, .useWarp = false});
@@ -576,7 +600,15 @@ int Run(const Options& _options)
   // What runs: a replay with --replay (M4-J2), the Siege trial with --siege (M4-J1), the breach lab with --lab (M3-G1), or
   // the breach run live.
   std::unique_ptr<Earthrise::Run> run;
-  if (_options.practice)
+  if (_options.craters.has_value())
+  {
+    run = std::make_unique<Earthrise::Craters>(desc, Earthrise::CratersOptions{.participant = *_options.craters,
+                                                                               .seed = _options.seed,
+                                                                               .logFolder = executable.parent_path() / L"Logs",
+                                                                               .buildId = buildId,
+                                                                               .serverDataHash = serverData.Hash()});
+  }
+  else if (_options.practice)
   {
     run = std::make_unique<Earthrise::Practice>(desc, _options.speed);
   }
@@ -1095,7 +1127,9 @@ int Run(const Options& _options)
                 .integrityOn = integrityView,
                 .passabilityOn = passabilityShown,
                 .engineSelected = client.selected != Protocol::NO_ENTITY,
-                .pausePressed = keyboard.WasPressed(VK_PAUSE) || keyboard.WasPressed(VK_F10)},
+                .pausePressed = keyboard.WasPressed(VK_PAUSE) || keyboard.WasPressed(VK_F10),
+                .ramPressed = answerOpen || keyboard.WasPressed('R'),
+                .trebuchetPressed = answerShut || keyboard.WasPressed('T')},
                client.session);
     client.presentation.Place(client.session, client.tally, clock.TickFraction(), placements, hiddenVoxels, arrows, debris,
                               static_cast<float>(seconds));
@@ -1410,6 +1444,12 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
     const std::wstring_view commandLine = _commandLine != nullptr ? _commandLine : L"";
     const std::optional<std::string> uiScale = OptionValue(commandLine, L"--ui-scale");
     const std::optional<std::string> participant = ParticipantFrom(commandLine);
+    const std::optional<std::string> craters = CratersParticipantFrom(commandLine);
+    if (craters.has_value() && (participant.has_value() || HasFlag(commandLine, L"--siege") || HasFlag(commandLine, L"--practice") ||
+                                OptionValue(commandLine, L"--replay").has_value()))
+    {
+      throw std::invalid_argument("--craters is the crater items alone, with no --lab, --siege, --practice or --replay (M5-D2)");
+    }
     const std::optional<std::string> siegeParticipant = SiegeParticipantFrom(commandLine);
     const std::optional<Client::PlaytestGame> playtest = PlaytestFrom(commandLine, siegeParticipant);
     if (HasFlag(commandLine, L"--siege") && !siegeParticipant.has_value() && !HasFlag(commandLine, L"--watch"))
@@ -1430,7 +1470,7 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
                 .uiScale = uiScale ? std::optional<float>(Client::UiScaleFromOption(*uiScale)) : std::nullopt,
                 .scripted = HasFlag(commandLine, L"--script"),
                 .participant = participant,
-                .seed = SeedFrom(commandLine, participant.value_or("")),
+                .seed = SeedFrom(commandLine, participant.value_or(craters.value_or(""))),
                 .siege = HasFlag(commandLine, L"--siege"),
                 .siegeParticipant = siegeParticipant,
                 .control = playtest.has_value() ? playtest->control : HasFlag(commandLine, L"--control"),
@@ -1439,7 +1479,8 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ PWSTR _commandLine,
                 .replay = OptionValue(commandLine, L"--replay"),
                 .measure = HasFlag(commandLine, L"--measure"),
                 .playtest = playtest,
-                .practice = HasFlag(commandLine, L"--practice")});
+                .practice = HasFlag(commandLine, L"--practice"),
+                .craters = craters});
   }
   catch (const winrt::hresult_error& error)
   {
