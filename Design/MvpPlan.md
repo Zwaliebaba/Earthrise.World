@@ -662,10 +662,10 @@ M5 is carried out as 16 work orders in seven phases, written out in [MvpPlan-M5.
 | E | 2 | The facilitator's guide and sheet; the pilot, its retune and the freeze | B, C, D, G; M3 and M4 closed |
 | F | 2 | The session; the report and the verdict | E |
 | G | 3 | A selection marked in the world; models turned to any angle, the trebuchet facing its aim, by ADR-030 | A; G3 also G2 |
-| | **16 orders, 4 pull requests** | | |
+| | **16 orders, 5 pull requests** | | |
 
 - **B, C and D can run side by side.**
-- **G goes in B to D's pull request,** before E.
+- **G goes in a pull request of its own,** before E: B to D's merged before G's first commit, so the four of input 18 become five.
 - **The owner's runs** come after C1, C2, C3, D2, G1 and G3, then the pilot, the session, and B3's check of the session's replays.
 - **What sets M5's pace** is recruiting and running 12 people, after M3's six.
 
