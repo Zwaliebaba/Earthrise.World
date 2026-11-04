@@ -187,8 +187,8 @@ Design/Review/SiegePlaytest/
 ### M5-B3 — Replays checked headless
 - **Waits on:** A1.
 - **Read first:** ADR-014, decision 5; ADR-026, decision 6; `Simulation::ReplayPlayer`; `Earthrise/ReplayRun.cpp`; `SimulationBench/SimulationBench.cpp`'s modes.
-- **Changes:** `SimulationBench --check-replays <folder>` plays every `.errp` in a folder headless, from the scenario its log names, and prints for each whether every state hash matched, the ticks played and the outcome. It exits 1 if one did not match. The check itself is a function in `Simulation`, so a test can call it.
-- **Tests:** **`SiegeReplayTests`** gains: a short scripted run's replay passes the check, and the same replay with one command's tick moved fails it.
+- **Changes:** `SimulationBench --check-replays <folder>` plays every `.errp` in a folder headless, from the scenario its log names, and prints for each whether every state hash matched, the ticks played and the outcome. It exits 1 if one did not match. The check itself is a function in `Simulation`, so a test can call it. *Amended by B3's code:* the check is `Simulation::CheckScenarioReplay`. A build id is a hash of its executable, so the bench's never matches Earthrise's, and a save refuses another build's. The bench therefore takes the build id the log records, and refuses a log whose server-data hash is not its own. That is sound only when both executables were built from the frozen commit (input 15), which the owner's run after F1 is.
+- **Tests:** **`SiegeReplayTests`** gains: a short scripted run's replay passes the check, and the same replay with one command's tick moved fails it. *Amended by B3's code:* the failing replay has its last stored hash altered, and fails at that tick; moving a command's tick needs the replay's bytes re-spliced and tests the same comparison. The check also refuses the replay under another build id.
 - **Owner runs:** after F1, on the benchmark machine, Release x64, over `Design/Review/SiegePlaytest/Siege/`. Every replay matches.
 
 ## Phase C — The participant's run

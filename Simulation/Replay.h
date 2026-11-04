@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <string_view>
 #include <vector>
 
 namespace Simulation
@@ -87,5 +88,17 @@ private:
 /// std::runtime_error, naming the check, when the start is refused (LoadSave), as a replay from
 /// another build or other server data is, or when the replay does not read.
 [[nodiscard]] ReplayResult Replay(std::span<const std::byte> _replay, const World::Desc& _desc);
+
+/// A scenario's run replayed headless, and how its trial ended (M5-B3).
+struct ReplayCheck
+{
+  ReplayResult result;
+  Protocol::TrialOutcome outcome; // the trial's when the replay ends; Running when it ended none or held no trial
+};
+
+/// Replays a run of _scenarioId headless, its start loaded against ScenarioDesc's world under _buildId, the build it was
+/// written by, and every recorded hash compared (M5-B3). Throws as Replay does.
+[[nodiscard]] ReplayCheck CheckScenarioReplay(std::vector<std::byte> _replay, const ServerData& _data, std::string_view _scenarioId,
+                                              std::uint64_t _buildId);
 
 } // namespace Simulation
