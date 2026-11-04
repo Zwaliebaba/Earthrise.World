@@ -1020,6 +1020,16 @@ void World::Loose()
   }
 }
 
+void World::StrikeAsStone(const ShotHit& _hit)
+{
+  Rule().ShotStrikes(*this, _hit);
+}
+
+void World::StrikeAsRam(Protocol::EntityId _structure, Protocol::VoxelPosition _voxel)
+{
+  Rule().RamStrikes(*this, _structure, _voxel);
+}
+
 std::int32_t World::ControlRamDamageAt(Protocol::VoxelPosition _voxel) const
 {
   const Rules& rules = Data().Tuning();

@@ -408,6 +408,12 @@ public:
   /// decision 5).
   [[nodiscard]] std::span<const TrialEvent> LastTickEvents() const noexcept;
 
+  /// The crater items' hits (M5-D1; MvpPlan-M5.md, D1): a stone striking _hit's voxel, or a ram's blow on _structure at
+  /// _voxel, applied between ticks by the world's structure rule as step 4 applies an engine's, so that an item holds the
+  /// engines' own damage with no engine on its site. They raise no trial events. Nothing but the crater items calls them.
+  void StrikeAsStone(const ShotHit& _hit);
+  void StrikeAsRam(Protocol::EntityId _structure, Protocol::VoxelPosition _voxel);
+
   [[nodiscard]] const Desc& Description() const noexcept;
   [[nodiscard]] const ServerData& Data() const noexcept;
 

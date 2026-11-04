@@ -202,14 +202,19 @@ World::Desc LabDesc(const ServerData& _data, std::uint64_t _buildId)
   return BreachRunDesc(_data, _buildId);
 }
 
-LabSetup BuildLabSite(World& _world)
+Protocol::EntityId BuildLabEnclosure(World& _world)
 {
   if (_world.TickCount() != 0)
   {
     throw std::invalid_argument("the breach lab's site is built on a world that has not ticked");
   }
   Level(_world);
-  const Protocol::EntityId target = RaiseEnclosure(_world);
+  return RaiseEnclosure(_world);
+}
+
+LabSetup BuildLabSite(World& _world)
+{
+  const Protocol::EntityId target = BuildLabEnclosure(_world);
 
   const std::int32_t middleX = (BreachRun::WALL_WEST_VOXELS + BreachRun::WALL_EAST_VOXELS + 1) / 2;
   const std::int32_t engineZ = BreachRun::WALL_SOUTH_VOXELS - TREBUCHET_STANDOFF_VOXELS;

@@ -67,6 +67,11 @@ inline constexpr std::uint32_t LAB_ORDER_TICK = 1;
 /// the wall, which LabShots orders into the courtyard on LAB_ORDER_TICK. All by edits, between ticks.
 [[nodiscard]] LabSetup BuildLabSite(World& _world);
 
+/// The breach run's site alone, as BuildLabSite builds it but with no engine and no squad: the footprint levelled and
+/// the enclosure W1 to W10, all by edits between ticks, on a world not yet ticked. Returns W2. The crater items stand on
+/// it (M5-D1).
+[[nodiscard]] Protocol::EntityId BuildLabEnclosure(World& _world);
+
 /// Fires shots from the site's trebuchet, one on the first tick it is loaded, then waits for the
 /// world to go quiet with the trebuchet loaded. Driven a tick at a time, so that Earthrise draws
 /// between ticks and the headless run reaches the same ticks. Whichever LabShots ticks the world

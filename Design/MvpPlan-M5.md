@@ -250,6 +250,12 @@ Design/Review/SiegePlaytest/
 - **Read first:** `Simulation/BreachLab.h` and `.cpp`; the ram's and the stone's crater code in `Simulation`; MvpPlan.md, M2, input 12, and M4, input 9; GameDesign.md, *M4's phase D*, item 3.
 - **Changes:** `CraterItems()` in `Simulation/CraterLab.h` and `.cpp`, filter `World`, beside `BreachLab`: eight items, C1 to C8, and a practice item, C0. Each is a fresh world at the lab's site with W2 struck at a mark within its bottom metre, where the ram's blows land, by k blows of the ram or k stones of the trebuchet. The hits are stamped by the same crater functions the engines call, from the direction each engine strikes, with no engine left on the site, so that only the damage can tell. Four items are by the ram and four by the trebuchet, with k from 1 to 3 and the marks spread along W2. The key is the engine, by construction. `CraterItemsHash()` names the set.
 - **Tests:** **`CraterLabTests`:** each item's world differs from the intact site in its crater's voxels alone; the set splits four and four; the hash is stable.
+- *Amended by D1's code:*
+  - **The hits go through two `World` methods,** `StrikeAsStone` and `StrikeAsRam`, which apply a stone's strike or a ram's blow by the world's structure rule between ticks, as step 4 does, and raise no event.
+  - **The site is `BuildLabEnclosure`,** the lab's levelled site and its ten sections with no engine and no squad. `BuildLabSite` now builds on it, unchanged.
+  - **The stone comes from the south,** as the lab's trebuchet throws, so its two voxels go through W2's 2 m base where the ram's one does not.
+  - **The ram's hits and the trebuchet's add up to eight each,** so the count of holes does not tell.
+  - **The tests also hold** that no engine or squad stands on an item's site, and that the widest item goes quiet with nothing more fallen.
 
 ### M5-D2 — `Earthrise --craters <id>`
 - **Waits on:** D1 and C1.

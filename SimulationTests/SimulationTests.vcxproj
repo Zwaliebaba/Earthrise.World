@@ -96,6 +96,7 @@
     <ClCompile Include="ControlTests.cpp" />
     <ClCompile Include="SiegeWorkTests.cpp" />
     <ClCompile Include="PracticeTests.cpp" />
+    <ClCompile Include="CraterLabTests.cpp" />
     <ClCompile Include="SiegeTrialTests.cpp" />
     <ClCompile Include="SiegeReplayTests.cpp" />
   </ItemGroup>
