@@ -1,6 +1,6 @@
 # Earthrise.World — M5 work orders
 
-**Status:** Proposed, 2026-11-03, with [MvpPlan.md](MvpPlan.md)'s M5 revision, which is accepted when the owner merges its pull request. Its eighteen inputs are the implementer's proposals and are not yet answered. No order from phase B on starts before that pull request merges and order M5-A1 has written the answers down. "Input N" means MvpPlan.md, M5, input N. These orders carry out M5 as MvpPlan.md, M5, defines it. **M5 takes no new ADR:** B1 amends [ADR-026](ADR/ADR-026-scenarios-and-the-siege-trial.md), decision 5, with three events, and C2 amends its decision 1 so that a scenario may hold no trial. The next ADR stays ADR-030.
+**Status:** Proposed, 2026-11-03, with [MvpPlan.md](MvpPlan.md)'s M5 revision, which is accepted when the owner merges its pull request. The owner answered its eighteen inputs on 2026-11-03, taking every proposal (order M5-A1; GameDesign.md, *M5's values*). No order from phase B on starts before that pull request merges. "Input N" means MvpPlan.md, M5, input N. These orders carry out M5 as MvpPlan.md, M5, defines it. **M5 takes no new ADR:** B1 amends [ADR-026](ADR/ADR-026-scenarios-and-the-siege-trial.md), decision 5, with three events, and C2 amends its decision 1 so that a scenario may hold no trial. The next ADR stays ADR-030.
 
 **This plan is written before M3 and M4 close.** M3's six-person session, order M3-G3, has not run, and M4's playthroughs and report, order M4-J5, are not in. Both bear on M5. M3's reading decides whether the kill criterion's one round of legibility work is still unspent (input 17), and M4's playthroughs are the first evidence that a person can win the trial at all. The scripted attacker cannot: it loses to the clock in both versions, and in the control the keep never stops (GameDesign.md, *M4's phase F*, item 8, and *after M4's phase F*, item 3). Phases B to D are code and need neither. **Before phase E, this file is corrected in a commit of its own** against the M3 and M4 reports, as M4's plan was corrected against M3's code.
 
@@ -19,7 +19,7 @@ Phases B to D build those in eight orders. Phases E and F are the pilot and the 
 | A | A1 | The owner's decisions, written down | The owner's answers to inputs 1–18 |
 | B | B1–B3 | The records: siege work as the trial's events and log rows; the playtest's scorer; replays checked headless | A |
 | C | C1–C3 | The participant's run: `--siege --game`, the practice ground, the reason prompt | A; C3 also B1 |
-| D | D1–D2 | The crater items, only if input 12 keeps them | A |
+| D | D1–D2 | The crater items | A |
 | E | E1–E2 | The facilitator's guide and sheet; the pilot, its retune and the freeze | B, C and D; M3 and M4 closed (input 1) |
 | F | F1–F2 | The session; the report and the verdict | E2 |
 
@@ -34,7 +34,7 @@ B, C and D can run side by side once A has merged. C3 needs B1's events. E waits
 
 ## The session
 
-What one participant does, as the inputs propose it. This is the protocol the orders build to. E1 writes it out for the facilitator as `Design/SiegePlaytest.md`, as M3-G2 wrote [BreachLab.md](BreachLab.md).
+What one participant does, as the inputs decide it. This is the protocol the orders build to. E1 writes it out for the facilitator as `Design/SiegePlaytest.md`, as M3-G2 wrote [BreachLab.md](BreachLab.md).
 
 1. **The machine.** The benchmark machine, full screen at 1920 × 1080, UI scale 1.5 (the cap, M4's input 21), mouse and keyboard; one participant at a time (input 5).
 2. **The briefing.** The facilitator explains the controls, the objective, the win and loss rules, and what the views and readouts are, and nothing about how walls, ground or craters behave (input 6).
@@ -44,7 +44,7 @@ What one participant does, as the inputs propose it. This is the protocol the or
 6. **The second game:** `--game 2`, the same.
 7. **Preference:** *if you could play only one of the two again, which would it be?* The answer is the first or the second, and the reason is written down (input 10).
 8. **The lab:** `Earthrise --lab <id>`, P0 and L01 to L16, with reasons taken before each answer, as BreachLab.md says (input 11).
-9. **The crater items,** if input 12 keeps them: `Earthrise --craters <id>`.
+9. **The crater items:** `Earthrise --craters <id>` (input 12).
 10. **The debrief.** Only now may the facilitator explain the rules. Nothing said from here on is recorded.
 
 **Assignment** (input 4). A participant's cell is (number − 1) mod 4, where the number is the two digits of their id. `--game` reads the cell from the id, so the facilitator never types a version or a layout:
@@ -110,7 +110,7 @@ Design/Review/SiegePlaytest/
   Reasons.md    what each participant said, under their id, against each prompt and question, in their words
   Siege/        the trial's logs and replays, two of each a participant
   BreachLab/    the lab's logs, one a participant
-  Craters/      the crater items' logs, if input 12 keeps them
+  Craters/      the crater items' logs
   Pilot/        the pilot's logs, replays and sheet, which nothing scores
   Dropped/      the logs of a participant who did not finish
 ```
@@ -177,7 +177,7 @@ Design/Review/SiegePlaytest/
 - **Tests:** `Tools/TestScoreSiegePlaytest.py`, with a step in the workflow's Linux job, over hand-written folders:
   - one that passes all three clauses;
   - one that fails each clause alone;
-  - five clustering voxel games of eight, which fails clustering under input 9's proposal, and four, which passes;
+  - five clustering voxel games of eight, which fails clustering under input 9, and four, which passes;
   - a log from a build the sheet does not list, which is refused by name;
   - a game 1 log in the wrong version for its cell, which is refused;
   - a dropped participant, who is left out.
@@ -203,7 +203,7 @@ Design/Review/SiegePlaytest/
   - the objective, the banner and the end screen read the same under `--game` as under a bare `--siege`.
 - **Owner runs:** `Earthrise --siege X01 --game 1 --windowed`, then `--game 2`: the voxel version on Siege, then the control on SiegeMirror, with the log's comment lines as above.
 
-### M5-C2 — The practice ground (only if input 7 keeps it)
+### M5-C2 — The practice ground
 - **Waits on:** A1, and input 7.
 - **Read first:** ADR-026, decisions 1 to 3; `GameData/Server/Scenarios/Siege.json`, its camp; `Tools/CheckAssets.py`, check 16; `Earthrise/Run.h`.
 - **Changes:**
@@ -228,7 +228,7 @@ Design/Review/SiegePlaytest/
   - the voxel version and the control prompt alike for the same events (ADR-028, decision 6).
 - **Owner runs:** `Earthrise --siege X01 --game 1 --windowed`: the three prompts, each once, and the `asked` rows in the log.
 
-## Phase D — The crater items (only if input 12 keeps them)
+## Phase D — The crater items
 
 ### M5-D1 — The crater items
 - **Waits on:** A1, and input 12.
@@ -249,7 +249,7 @@ Design/Review/SiegePlaytest/
 ## Phase E — The pilot
 
 ### M5-E1 — The facilitator's guide and the session's sheet
-- **Waits on:** C1 to C3, and D2 if input 12 keeps phase D; inputs 3 to 8, 10, 11, 16 and 17.
+- **Waits on:** C1 to C3 and D2, and inputs 3 to 8, 10, 11, 16 and 17.
 - **Read first:** BreachLab.md, which E1's guide follows in shape; *The session*.
 - **Changes:**
   - **`Design/SiegePlaytest.md`:** the facilitator's guide, written to the inputs as decided:
